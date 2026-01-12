@@ -185,6 +185,7 @@ class AuthAPIHandler(BaseAPIHandler):
                 "name": user.name,
                 "username": user.username,
                 "role": user.role.value,
+                "preferences": user.preferences,
             }
         )
 

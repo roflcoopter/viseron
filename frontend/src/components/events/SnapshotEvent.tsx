@@ -37,10 +37,14 @@ import { ImageWithFallback } from "components/images/ImageWithFallback";
 import { useFirstRender } from "hooks/UseFirstRender";
 import { useExportEvent } from "lib/commands";
 import { BLANK_IMAGE, isTouchDevice, toTitleCase } from "lib/helpers";
+import {
+  getDayjsFromDateTimeString,
+  getTimeStringFromDayjs,
+} from "lib/helpers/dates";
 import * as types from "lib/types";
 
 const getText = (event: types.CameraEvent) => {
-  const date = new Date(getEventTime(event));
+  const date = getDayjsFromDateTimeString(getEventTime(event));
   switch (event.type) {
     case "object":
       return (
@@ -51,7 +55,7 @@ const getText = (event: types.CameraEvent) => {
 
           <Box>{`Label: ${event.label}`}</Box>
           <Box>{`Confidence: ${convertToPercentage(event.confidence)}%`}</Box>
-          <Box>{`Time: ${date.toLocaleTimeString()}`}</Box>
+          <Box>{`Time: ${getTimeStringFromDayjs(date)}`}</Box>
         </Box>
       );
 
@@ -65,7 +69,7 @@ const getText = (event: types.CameraEvent) => {
           <Box>{`Confidence: ${convertToPercentage(
             event.data.confidence,
           )}%`}</Box>
-          <Box>{`Time: ${date.toLocaleTimeString()}`}</Box>
+          <Box>{`Time: ${getTimeStringFromDayjs(date)}`}</Box>
         </Box>
       );
 
@@ -80,7 +84,7 @@ const getText = (event: types.CameraEvent) => {
             event.data.confidence,
           )}%`}</Box>
           <Box>{`Known: ${event.data.known}`}</Box>
-          <Box>{`Time: ${date.toLocaleTimeString()}`}</Box>
+          <Box>{`Time: ${getTimeStringFromDayjs(date)}`}</Box>
         </Box>
       );
 
@@ -93,7 +97,7 @@ const getText = (event: types.CameraEvent) => {
           {event.duration ? (
             <Box>{`Duration: ${Math.round(event.duration)}s`}</Box>
           ) : null}
-          <Box>{`Time: ${date.toLocaleTimeString()}`}</Box>
+          <Box>{`Time: ${getTimeStringFromDayjs(date)}`}</Box>
         </Box>
       );
 
@@ -109,7 +113,7 @@ const getText = (event: types.CameraEvent) => {
           {event.duration ? (
             <Box>{`Duration: ${Math.round(event.duration)}s`}</Box>
           ) : null}
-          <Box>{`Time: ${date.toLocaleTimeString()}`}</Box>
+          <Box>{`Time: ${getTimeStringFromDayjs(date)}`}</Box>
         </Box>
       );
 

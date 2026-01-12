@@ -8,6 +8,9 @@ const tsEslintPlugin = require("@typescript-eslint/eslint-plugin");
 const globals = require("globals");
 const reactHooks = require("eslint-plugin-react-hooks");
 
+// Custom rules
+const noDayjsImport = require("./eslint-rules/no-direct-dayjs-import.cjs");
+
 module.exports = defineConfig([
   ...configs.react.legacy,
   ...configs.react.base,
@@ -21,6 +24,11 @@ module.exports = defineConfig([
       prettier,
       "@typescript-eslint": tsEslintPlugin,
       "react-hooks": reactHooks,
+      "viseron-custom": {
+        rules: {
+          "no-direct-dayjs-import": noDayjsImport,
+        },
+      },
     },
 
     languageOptions: {
@@ -39,6 +47,9 @@ module.exports = defineConfig([
 
     rules: {
       ...reactHooks.configs.recommended.rules,
+
+      // Custom Viseron rules
+      "viseron-custom/no-direct-dayjs-import": "error",
 
       "@typescript-eslint/no-non-null-assertion": "off",
       "@typescript-eslint/no-explicit-any": "off",
@@ -119,6 +130,14 @@ module.exports = defineConfig([
   },
 
   eslintConfigPrettier,
+
+  // Exception for dates.ts - it needs to import dayjs directly
+  {
+    files: ["src/lib/helpers/dates.ts"],
+    rules: {
+      "viseron-custom/no-direct-dayjs-import": "off",
+    },
+  },
 
   globalIgnores([
     "**/eslint.config.cjs",

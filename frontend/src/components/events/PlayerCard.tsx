@@ -2,8 +2,6 @@ import Image from "@jy95/material-ui-image";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import { useTheme } from "@mui/material/styles";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
 import { useCallback, useEffect, useRef, useState } from "react";
 import screenfull from "screenfull";
 import { useShallow } from "zustand/react/shallow";
@@ -24,8 +22,6 @@ import { HlsPlayer } from "components/player/hlsplayer/HlsPlayer";
 import { useCamerasAll } from "lib/api/cameras";
 import { isTouchDevice } from "lib/helpers";
 import * as types from "lib/types";
-
-dayjs.extend(utc);
 
 const usePlayerCardCallbacks = (
   paperRef: React.RefObject<HTMLDivElement | null>,

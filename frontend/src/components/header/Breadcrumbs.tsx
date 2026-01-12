@@ -6,11 +6,8 @@ import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { Link as RouterLink, useLocation } from "react-router-dom";
 
-import {
-  capitalizeEachWord,
-  getCameraNameFromQueryCache,
-  isDateFormat,
-} from "lib/helpers";
+import { capitalizeEachWord, getCameraNameFromQueryCache } from "lib/helpers";
+import { isDateFormat } from "lib/helpers/dates";
 
 export default function Breadcrumbs() {
   const theme = useTheme();

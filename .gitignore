@@ -86,6 +86,8 @@
 !/frontend
 !/frontend/e2e
 !/frontend/e2e/**
+!/frontend/eslint-rules
+!/frontend/eslint-rules/**
 !/frontend/public
 !/frontend/public/*
 !/frontend/public/static

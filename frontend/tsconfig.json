@@ -27,5 +27,5 @@
       "e2e/*": ["../e2e/*"]
     }
   },
-  "include": ["src", "tests", "e2e", "playwright.config.ts"]
+  "include": ["src", "tests", "e2e", "playwright.config.ts", "eslint-rules"]
 }

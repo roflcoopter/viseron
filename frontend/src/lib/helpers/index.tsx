@@ -110,28 +110,8 @@ export function capitalizeEachWord(str: string) {
     .join(" ");
 }
 
-export function isDateFormat(str: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(str);
-}
-
 // eslint-disable-next-line no-promise-executor-return
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-export function getTimeFromDate(date: Date, seconds = true) {
-  return date.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    ...(seconds && { second: "2-digit" }),
-  });
-}
-
-export const dateToTimestamp = (date: Date) =>
-  Math.floor(date.getTime() / 1000);
-
-export const dateToTimestampMillis = (date: Date) => Math.floor(date.getTime());
-
-export const timestampToDate = (timestamp: number) =>
-  new Date(timestamp * 1000);
 
 export function removeURLParameter(url: string, parameter: string) {
   const [base, queryString] = url.split("?");
@@ -173,13 +153,6 @@ export function throttle(func: () => void, timeFrame: number) {
 
 export function isTouchDevice() {
   return "ontouchstart" in window || navigator.maxTouchPoints > 0;
-}
-
-export function is12HourFormat() {
-  const format = new Intl.DateTimeFormat(undefined, {
-    hour: "numeric",
-  }).resolvedOptions().hourCycle;
-  return !!format?.startsWith("h12");
 }
 
 export function getCameraFromQueryCache(

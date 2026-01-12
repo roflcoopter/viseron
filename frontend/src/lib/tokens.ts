@@ -1,17 +1,19 @@
 import { InternalAxiosRequestConfig } from "axios";
-import dayjs, { Dayjs } from "dayjs";
+import { Dayjs } from "dayjs";
 
 import { authToken } from "lib/api/auth";
 import { clientId } from "lib/api/client";
 import { dispatchCustomEvent } from "lib/events";
 import * as types from "lib/types";
 
+import { getDayjs, getDayjsFromDateTimeString } from "./helpers/dates";
+
 export const genTokens = (
   tokens: types.AuthTokenResponse,
 ): types.StoredTokens => ({
   ...tokens,
-  expires_at: dayjs(tokens.expires_at),
-  session_expires_at: dayjs(tokens.session_expires_at),
+  expires_at: getDayjsFromDateTimeString(tokens.expires_at),
+  session_expires_at: getDayjsFromDateTimeString(tokens.session_expires_at),
 });
 
 export const storeTokens = (tokens: types.AuthTokenResponse) => {
@@ -54,7 +56,7 @@ export const setSessionExpiredTimeout = () => {
     clearTimeout(sessionExpiredTimeout);
   }
 
-  if (storedTokens.session_expires_at <= dayjs()) {
+  if (storedTokens.session_expires_at <= getDayjs()) {
     return;
   }
 
@@ -62,7 +64,7 @@ export const setSessionExpiredTimeout = () => {
     () => {
       dispatchCustomEvent("session-expired");
     },
-    (storedTokens.session_expires_at.unix() - dayjs().unix()) * 1000,
+    (storedTokens.session_expires_at.unix() - getDayjs().unix()) * 1000,
   );
 };
 
@@ -72,7 +74,7 @@ export const clearTokens = () => {
 };
 
 const expired = (expires_at: Dayjs): boolean =>
-  dayjs() > expires_at.subtract(10, "seconds");
+  getDayjs() > expires_at.subtract(10, "seconds");
 
 export const tokenExpired = (): boolean => {
   const storedTokens = loadTokens();

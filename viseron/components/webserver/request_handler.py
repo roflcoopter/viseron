@@ -4,10 +4,11 @@ from __future__ import annotations
 import hmac
 import logging
 from collections.abc import Callable
-from datetime import timedelta
+from datetime import datetime, timedelta
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, overload
 
+import pytz
 import tornado.web
 from sqlalchemy.orm import Session
 from tornado.ioloop import IOLoop
@@ -88,10 +89,28 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
     def utc_offset(self) -> timedelta:
         """Return the UTC offset for the client.
 
-        The offset is calculated from the X-Client-UTC-Offset header.
-        If the header is not present, look for a cookie with the same name.
-        If the cookie is not present, the offset is set to the servers timezone.
+        The offset is calculated in the following order of priority:
+        1. User's timezone preference (IANA timezone string)
+        2. X-Client-UTC-Offset header (minutes offset)
+        3. X-Client-UTC-Offset cookie (minutes offset, used by WebSocket)
+        4. Server's timezone
+
+        Using pytz due to this bug: https://github.com/python/cpython/issues/116676
         """
+        if (
+            self.current_user
+            and self.current_user.preferences
+            and self.current_user.preferences.timezone
+        ):
+            try:
+                local_now = datetime.now(
+                    tz=pytz.timezone(self.current_user.preferences.timezone)
+                )
+                offset = local_now.utcoffset() or timedelta(0)
+                return offset
+            except (KeyError, ValueError):
+                pass
+
         if header := self.request.headers.get("X-Client-UTC-Offset", None):
             return timedelta(minutes=int(header))
         if cookie := self.get_cookie("X-Client-UTC-Offset", None):

@@ -3,7 +3,10 @@ import { useTheme } from "@mui/material/styles";
 import { memo } from "react";
 
 import { TICK_HEIGHT } from "components/events/utils";
-import { getTimeFromDate, timestampToDate } from "lib/helpers";
+import {
+  getDayjsFromUnixTimestamp,
+  getTimeStringFromDayjs,
+} from "lib/helpers/dates";
 
 type TimeTickProps = {
   time: number;
@@ -30,7 +33,7 @@ export const TimeTick = memo(({ time }: TimeTickProps) => {
           fontSize={9}
           style={{ marginLeft: "13px" }}
         >
-          {getTimeFromDate(timestampToDate(time), false)}
+          {getTimeStringFromDayjs(getDayjsFromUnixTimestamp(time), false)}
         </Typography>
       </div>
     );

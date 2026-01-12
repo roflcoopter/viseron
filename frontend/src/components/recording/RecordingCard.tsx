@@ -19,7 +19,11 @@ import LicensePlateRecognitionIcon from "components/icons/LicensePlateRecognitio
 import VideoPlayerPlaceholder from "components/player/videoplayer/VideoPlayerPlaceholder";
 import { useAuthContext } from "context/AuthContext";
 import { useDeleteRecording } from "lib/api/recordings";
-import { getTimeFromDate, getVideoElement } from "lib/helpers";
+import { getVideoElement } from "lib/helpers";
+import {
+  getDayjsFromDateTimeString,
+  getTimeStringFromDayjs,
+} from "lib/helpers/dates";
 import * as types from "lib/types";
 
 interface RecordingCardInterface {
@@ -75,7 +79,9 @@ export default function RecordingCard({
             </Tooltip>
           ) : null}
           <Typography>
-            {getTimeFromDate(new Date(recording.start_time))}
+            {getTimeStringFromDayjs(
+              getDayjsFromDateTimeString(recording.start_time),
+            )}
           </Typography>
         </Stack>
       </CardContent>

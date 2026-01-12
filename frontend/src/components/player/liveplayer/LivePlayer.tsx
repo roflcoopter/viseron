@@ -12,7 +12,7 @@ import { useZoomPan } from "components/player/hooks/useZoomPan";
 import { VideoRTC } from "components/player/liveplayer/video-rtc.js";
 import "components/player/liveplayer/video-stream.js";
 import { useCameraManualRecording } from "lib/api/camera";
-import { isTouchDevice } from "lib/helpers.js";
+import { isTouchDevice } from "lib/helpers";
 import * as types from "lib/types";
 
 const useVideoControlsVisibility = (
