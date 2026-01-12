@@ -4,6 +4,7 @@ import {
   Moon,
   RightPanelClose,
   Settings,
+  User,
 } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
@@ -185,6 +186,17 @@ export default function AppHeader() {
                 </IconButton>
               </Tooltip>
             ) : null}
+            {auth.enabled && (
+              <Tooltip title="My Profile" enterDelay={300}>
+                <IconButton
+                  component={RouterLink}
+                  color="primary"
+                  to="/profile"
+                >
+                  <User />
+                </IconButton>
+              </Tooltip>
+            )}
             {auth.enabled && (
               <Tooltip title="Logout" enterDelay={300}>
                 <IconButton
