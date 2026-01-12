@@ -1,9 +1,6 @@
 import { Container } from "@mui/material";
 import Button from "@mui/material/Button";
 import { AxiosHeaders } from "axios";
-import dayjs from "dayjs";
-import timezone from "dayjs/plugin/timezone";
-import utc from "dayjs/plugin/utc";
 import Cookies from "js-cookie";
 import {
   createContext,
@@ -22,11 +19,9 @@ import { Loading } from "components/loading/Loading";
 import { useToast } from "hooks/UseToast";
 import { useAuthEnabled, useAuthUser } from "lib/api/auth";
 import { viseronAPI } from "lib/api/client";
+import { dayjsSetDefaultTimezone, getDefaultTimezone } from "lib/helpers/dates";
 import { getToken, isManualLogoutActive } from "lib/tokens";
 import * as types from "lib/types";
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
 
 function ErrorLoadingUser() {
   return (
@@ -45,13 +40,6 @@ function ErrorLoadingUser() {
       </Button>
     </Container>
   );
-}
-
-let defaultTimezone: string = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-function dayjsSetDefaultTimezone(tz: string) {
-  defaultTimezone = tz;
-  dayjs.tz.setDefault(tz);
 }
 
 const useAuthAxiosInterceptor = (
@@ -230,7 +218,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const userTimezone =
     userQuery.data?.preferences?.timezone ??
     Intl.DateTimeFormat().resolvedOptions().timeZone;
-  if (defaultTimezone !== userTimezone) {
+  if (getDefaultTimezone() !== userTimezone) {
     dayjsSetDefaultTimezone(userTimezone);
   }
 

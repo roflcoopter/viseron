@@ -1,6 +1,22 @@
 import dayjs, { Dayjs } from "dayjs";
+import timezone from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 export const DATE_FORMAT = "YYYY-MM-DD";
+
+let defaultTimezone: string = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+export function dayjsSetDefaultTimezone(tz: string) {
+  defaultTimezone = tz;
+  dayjs.tz.setDefault(tz);
+}
+
+export function getDefaultTimezone() {
+  return defaultTimezone;
+}
 
 export function is12HourFormat() {
   const format = new Intl.DateTimeFormat(undefined, {

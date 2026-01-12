@@ -1,12 +1,12 @@
-import dayjs from "dayjs";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import { getDayjs } from "lib/helpers/dates";
 import * as tokens from "lib/tokens";
 import * as types from "lib/types";
 
 const TOKENS_KEY = "tokens";
 
-const NOW = dayjs();
+const NOW = getDayjs();
 const TOKEN_RESPONSE: types.AuthTokenResponse = {
   header: "header",
   payload: "payload",
@@ -90,10 +90,10 @@ describe("Tokens", () => {
     test("token is flagged as expired when it has less than 10 seconds left to live", () => {
       const _tokens = {
         ...TOKEN_DATA,
-        expires_at: dayjs().add(9, "seconds").toISOString(),
-        expires_at_timestamp: dayjs().add(9, "seconds").unix(),
-        session_expires_at: dayjs().add(9, "seconds").toISOString(),
-        session_expires_at_timestamp: dayjs().add(9, "seconds").unix(),
+        expires_at: getDayjs().add(9, "seconds").toISOString(),
+        expires_at_timestamp: getDayjs().add(9, "seconds").unix(),
+        session_expires_at: getDayjs().add(9, "seconds").toISOString(),
+        session_expires_at_timestamp: getDayjs().add(9, "seconds").unix(),
       };
       tokens.storeTokens(_tokens);
       const expired = tokens.tokenExpired();
@@ -103,10 +103,10 @@ describe("Tokens", () => {
     test("token is NOT flagged as expired", () => {
       const _tokens = {
         ...TOKEN_DATA,
-        expires_at: dayjs().add(1, "hour").toISOString(),
-        expires_at_timestamp: dayjs().add(1, "hour").unix(),
-        session_expires_at: dayjs().add(1, "hour").toISOString(),
-        session_expires_at_timestamp: dayjs().add(1, "hour").unix(),
+        expires_at: getDayjs().add(1, "hour").toISOString(),
+        expires_at_timestamp: getDayjs().add(1, "hour").unix(),
+        session_expires_at: getDayjs().add(1, "hour").toISOString(),
+        session_expires_at_timestamp: getDayjs().add(1, "hour").unix(),
       };
       tokens.storeTokens(_tokens);
       const expired = tokens.tokenExpired();
@@ -145,13 +145,15 @@ describe("Tokens", () => {
     });
 
     test("should set session expired timeout", () => {
-      const sessionExpiresAt = dayjs().add(1, "hour");
+      const sessionExpiresAt = getDayjs().add(1, "hour");
 
       tokens.setSessionExpiredTimeout();
 
       expect(dispatchCustomEventSpy).not.toHaveBeenCalled();
 
-      vi.advanceTimersByTime((sessionExpiresAt.unix() - dayjs().unix()) * 2000);
+      vi.advanceTimersByTime(
+        (sessionExpiresAt.unix() - getDayjs().unix()) * 2000,
+      );
 
       expect(dispatchCustomEventSpy).toHaveBeenCalledTimes(1);
       expect(dispatchCustomEventSpy).toHaveBeenCalledWith("session-expired");
