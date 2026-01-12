@@ -26,6 +26,7 @@ import Typography from "@mui/material/Typography";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import screenfull from "screenfull";
 
+import { useAuthContext } from "context/AuthContext";
 import { useFullscreen } from "context/FullscreenContext";
 import { isTouchDevice } from "lib/helpers";
 
@@ -134,6 +135,7 @@ export function CustomControls({
   const [isDragging, setIsDragging] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const volumeControlRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuthContext();
 
   const handleVolumeControlMouseEnter = useCallback(() => {
     if (!isDragging) {
@@ -246,44 +248,44 @@ export function CustomControls({
             alignItems: "center",
           }}
         >
-          {/* LIVE/record button */}
-          {onLiveClick && (
-            <Button
-              onClick={onLiveClick}
-              onTouchStart={(e) => e.stopPropagation()}
-              variant="contained"
-              size="small"
-              sx={{ margin: 0.25 }}
-            >
-              <CircleFill
-                fill={isLive ? "red" : "gray"}
-                size={12}
-                style={{ marginRight: 8 }}
-              />
-              <Typography variant="button">LIVE</Typography>
-            </Button>
-          )}
-          {onManualRecording && (
-            <CustomFab
-              onClick={onManualRecording}
-              title={isRecording ? "Stop Recording" : "Start Recording"}
-              disabled={manualRecordingLoading}
-              data-testid="manual-recording-button"
-              color={isRecording ? "error" : "success"}
-            >
-              {manualRecordingLoading ? (
-                <CircularProgress enableTrackSlot size={20} />
-              ) : isRecording ? (
-                <StopFilledAlt size={20} />
-              ) : (
-                <RecordingFilled size={20} />
+          {/* Left-aligned controls */}
+          <Box display="flex" alignItems="center">
+            {onLiveClick && (
+              <Button
+                onClick={onLiveClick}
+                onTouchStart={(e) => e.stopPropagation()}
+                variant="contained"
+                size="small"
+                sx={{ margin: 0.25 }}
+              >
+                <CircleFill
+                  fill={isLive ? "red" : "gray"}
+                  size={12}
+                  style={{ marginRight: 8 }}
+                />
+                <Typography variant="button">LIVE</Typography>
+              </Button>
+            )}
+
+            {(!user || user.role === "admin" || user.role === "write") &&
+              onManualRecording && (
+                <CustomFab
+                  onClick={onManualRecording}
+                  title={isRecording ? "Stop Recording" : "Start Recording"}
+                  disabled={manualRecordingLoading}
+                  data-testid="manual-recording-button"
+                  color={isRecording ? "error" : "success"}
+                >
+                  {manualRecordingLoading ? (
+                    <CircularProgress enableTrackSlot size={20} />
+                  ) : isRecording ? (
+                    <StopFilledAlt size={20} />
+                  ) : (
+                    <RecordingFilled size={20} />
+                  )}
+                </CustomFab>
               )}
-            </CustomFab>
-          )}
-          {!onLiveClick && !onManualRecording && (
-            // Empty div so that 'space-between' works
-            <div />
-          )}
+          </Box>
 
           {/* Right-aligned controls */}
           <Box display="flex" alignItems="center">
