@@ -78,7 +78,7 @@ function Settings() {
   ];
 
   return (
-    <Container maxWidth={false} sx={{ paddingX: 2 }}>
+    <Container maxWidth={false} sx={{ paddingX: { xs: 1, md: 2 } }}>
       <Box
         sx={{
           display: "flex",
@@ -88,7 +88,7 @@ function Settings() {
         }}
       >
         <Card sx={{ maxWidth: 600, width: "100%" }}>
-          <CardContent>
+          <CardContent sx={{ paddingX: { xs: 0.5, md: 2 } }}>
             <List sx={{ width: "100%", maxWidth: 600 }}>
               {settingsMenuItems.map((item) => (
                 <ListItemButton
