@@ -211,6 +211,7 @@ class AbstractCamera(AbstractDomain):
             "connected": self.connected,
             "live_stream_available": self.live_stream_available,
             "is_recording": self.is_recording,
+            "ptz_support": self.get_ptz_support(),
         }
 
     def generate_token(self):
@@ -427,6 +428,10 @@ class AbstractCamera(AbstractDomain):
     def config(self) -> dict[str, Any]:
         """Return camera config."""
         return self._config
+
+    def get_ptz_support(self) -> str | None:
+        """Return PTZ support type."""
+        return None
 
     def tier_base_path(self, tier_id: int, tier_category: str, subcategory: str) -> str:
         """Return storage tier base path."""
