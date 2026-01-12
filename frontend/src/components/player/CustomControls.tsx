@@ -30,7 +30,7 @@ import { useAuthContext } from "context/AuthContext";
 import { useFullscreen } from "context/FullscreenContext";
 import { isTouchDevice } from "lib/helpers";
 
-const ZINDEX = 900;
+const ZINDEX = 1100;
 
 interface CustomFabProps {
   onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;

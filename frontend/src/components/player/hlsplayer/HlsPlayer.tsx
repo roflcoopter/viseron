@@ -488,6 +488,7 @@ export function HlsPlayer({ camera }: HlsPlayerProps) {
         }}
         controls={false}
         playsInline
+        muted
       />
 
       {/* Show loading indicator and when camera is connected */}
