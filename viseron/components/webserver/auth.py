@@ -424,6 +424,10 @@ class Auth:
         refresh_tokens: dict[str, RefreshToken] = {}
 
         for user in data.get("users", {}).values():
+            preferences: Preferences | None = None
+            if preferences_dict := user.get("preferences", None):
+                preferences = Preferences(**preferences_dict)
+
             users[user["id"]] = User(
                 name=user["name"],
                 username=user["username"],
@@ -433,7 +437,7 @@ class Auth:
                 id=user["id"],
                 enabled=user["enabled"],
                 assigned_cameras=user.get("assigned_cameras", None),
-                preferences=user.get("preferences", None),
+                preferences=preferences,
             )
 
         for refresh_token in data.get("refresh_tokens", {}).values():
