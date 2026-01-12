@@ -75,6 +75,7 @@ class CameraAPIHandler(BaseAPIHandler):
             "method": "post_stop_camera",
         },
         {
+            "requires_role": [Role.ADMIN, Role.WRITE],
             "path_pattern": (
                 r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)/manual_recording"
             ),
