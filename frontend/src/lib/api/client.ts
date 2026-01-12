@@ -4,7 +4,6 @@ import { useContext, useEffect } from "react";
 
 import { ViseronContext } from "context/ViseronContext";
 import { subscribeEvent, subscribeStates } from "lib/commands";
-import { getDayjs } from "lib/helpers/dates";
 import * as types from "lib/types";
 
 // Detect base path from the current URL for subpath support
@@ -25,7 +24,6 @@ export const viseronAPI = axios.create({
   headers: {
     "Content-Type": "application/json",
     "X-Requested-With": "XMLHttpRequest",
-    "X-Client-UTC-Offset": getDayjs().utcOffset().toString(),
   },
 });
 export const clientId = (): string =>
