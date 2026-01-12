@@ -35,4 +35,5 @@ types-psutil
 types-psycopg2
 types-python-slugify
 types-PyYAML
+types-pytz
 pygobject-stubs
