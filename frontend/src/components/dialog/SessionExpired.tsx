@@ -59,7 +59,6 @@ const useSessionExpiredEvent = (
 function SessionExpired() {
   const [open, setOpen] = useState(false);
   useSessionExpiredEvent(setOpen);
-  console.log("SessionExpired: rendering");
   return (
     <Dialog
       open={open}
