@@ -49,9 +49,7 @@ def get_handler(api_version: str, endpoint: str):
     endpoint_parts = endpoint.split("/")
     for i in range(len(endpoint_parts), 0, -1):
         module_parts = endpoint_parts[:i]
-        module_path = (
-            version_path / "/".join(module_parts[:-1]) / f"{module_parts[-1]}.py"
-        )
+        module_path = version_path.joinpath(*module_parts).with_suffix(".py")
 
         if module_path.is_file():
             try:
