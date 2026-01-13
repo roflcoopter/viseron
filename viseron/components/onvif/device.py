@@ -1,4 +1,5 @@
 """Device (Core) service management for ONVIF component."""
+
 from __future__ import annotations
 
 import logging
@@ -38,11 +39,11 @@ class Device:
         self._client = client
         self._config = config
         self._auto_config = auto_config
-        self._device_service: Any = None
+        self._onvif_device_service: Any = None  # ONVIF Device service instance
 
     async def initialize(self) -> None:
         """Initialize the Device/Core service."""
-        self._device_service = self._client.devicemgmt()
+        self._onvif_device_service = self._client.devicemgmt()
 
         if not self._auto_config and self._config:
             await self.apply_config()
@@ -54,22 +55,22 @@ class Device:
     @operation()
     async def get_capabilities(self) -> Any:
         """Get device capabilities."""
-        return self._device_service.GetCapabilities(Category="All")
+        return self._onvif_device_service.GetCapabilities(Category="All")
 
     @operation()
     async def get_services(self) -> Any:
         """Get available services on the device."""
-        return self._device_service.GetServices(IncludeCapability=False)
+        return self._onvif_device_service.GetServices(IncludeCapability=False)
 
     @operation()
     async def get_device_information(self) -> Any:
         """Get device information."""
-        return self._device_service.GetDeviceInformation()
+        return self._onvif_device_service.GetDeviceInformation()
 
     @operation()
     async def get_discovery_mode(self) -> Any:
         """Get discovery mode."""
-        return self._device_service.GetDiscoveryMode()
+        return self._onvif_device_service.GetDiscoveryMode()
 
     @operation()
     async def set_discovery_mode(self, discoverable: bool | None = None) -> bool:
@@ -78,38 +79,38 @@ class Device:
             discoverable = self._config.get(CONFIG_DEVICE_DISCOVERABLE, True)
 
         mode = "Discoverable" if discoverable else "NonDiscoverable"
-        self._device_service.SetDiscoveryMode(DiscoveryMode=mode)
+        self._onvif_device_service.SetDiscoveryMode(DiscoveryMode=mode)
 
         return True
 
     @operation()
     async def get_scopes(self) -> Any:
         """Get device scopes."""
-        return self._device_service.GetScopes()
+        return self._onvif_device_service.GetScopes()
 
     @operation()
     async def add_scopes(self, scopes: list[str]) -> bool:
         """Add device scopes."""
-        self._device_service.AddScopes(Scopes=scopes)
+        self._onvif_device_service.AddScopes(Scopes=scopes)
         return True
 
     @operation()
     async def set_scopes(self, scopes: list[str]) -> bool:
         """Set device scopes."""
-        self._device_service.SetScopes(Scopes=scopes)
+        self._onvif_device_service.SetScopes(Scopes=scopes)
         return True
 
     @operation()
     async def remove_scopes(self, scopes: list[str]) -> bool:
         """Remove device scopes."""
-        self._device_service.RemoveScopes(Scopes=scopes)
+        self._onvif_device_service.RemoveScopes(Scopes=scopes)
         return True
 
     @operation()
     async def system_reboot(self) -> bool:
         """Reboot the device."""
         LOGGER.warning(f"Rebooting ONVIF camera for {self._camera.identifier}")
-        self._device_service.SystemReboot()
+        self._onvif_device_service.SystemReboot()
 
         return True
 
@@ -118,7 +119,7 @@ class Device:
     @operation()
     async def get_system_date_and_time(self) -> Any:
         """Get system date and time from the device."""
-        return self._device_service.GetSystemDateAndTime()
+        return self._onvif_device_service.GetSystemDateAndTime()
 
     @operation()
     async def set_system_date_and_time(
@@ -138,7 +139,7 @@ class Device:
             timezone = timezone or self._config.get(CONFIG_DEVICE_TIMEZONE)
             timezone_param = {"TZ": timezone} if timezone else None
 
-        self._device_service.SetSystemDateAndTime(
+        self._onvif_device_service.SetSystemDateAndTime(
             DateTimeType=datetime_type,
             DaylightSavings=daylight_savings,
             TimeZone=timezone_param,
@@ -151,23 +152,23 @@ class Device:
     @operation()
     async def get_users(self) -> Any:
         """Get device users."""
-        return self._device_service.GetUsers()
+        return self._onvif_device_service.GetUsers()
 
     @operation()
     async def create_users(self, user: dict[str, Any]) -> Any:
         """Create device users."""
-        return self._device_service.CreateUsers(User=user)
+        return self._onvif_device_service.CreateUsers(User=user)
 
     @operation()
     async def delete_users(self, usernames: list[str]) -> bool:
         """Delete device users."""
-        self._device_service.DeleteUsers(Usernames=usernames)
+        self._onvif_device_service.DeleteUsers(Usernames=usernames)
         return True
 
     @operation()
     async def set_user(self, user: dict[str, Any]) -> bool:
         """Set device user."""
-        self._device_service.SetUser(User=user)
+        self._onvif_device_service.SetUser(User=user)
         return True
 
     # ---- Network Operations ---- #
@@ -175,18 +176,18 @@ class Device:
     @operation()
     async def get_hostname(self) -> Any:
         """Get device hostname."""
-        return self._device_service.GetHostname()
+        return self._onvif_device_service.GetHostname()
 
     @operation()
     async def set_hostname(self, hostname: str | None = None) -> Any:
         """Set device hostname."""
-        self._device_service.SetHostname(Name=hostname)
+        self._onvif_device_service.SetHostname(Name=hostname)
         return True
 
     @operation()
     async def get_ntp(self) -> Any:
         """Get NTP configuration."""
-        return self._device_service.GetNTP()
+        return self._onvif_device_service.GetNTP()
 
     @operation()
     async def set_ntp(
@@ -214,29 +215,29 @@ class Device:
                     case _:
                         return False
 
-        self._device_service.SetNTP(FromDHCP=from_dhcp, NTPManual=ntp_manual)
+        self._onvif_device_service.SetNTP(FromDHCP=from_dhcp, NTPManual=ntp_manual)
 
         return True
 
     @operation()
     async def get_network_default_gateway(self) -> Any:
         """Get network interfaces."""
-        return self._device_service.GetNetworkDefaultGateway()
+        return self._onvif_device_service.GetNetworkDefaultGateway()
 
     @operation()
     async def get_network_interfaces(self) -> Any:
         """Get network interfaces."""
-        return self._device_service.GetNetworkInterfaces()
+        return self._onvif_device_service.GetNetworkInterfaces()
 
     @operation()
     async def get_network_protocols(self) -> Any:
         """Get network protocols."""
-        return self._device_service.GetNetworkProtocols()
+        return self._onvif_device_service.GetNetworkProtocols()
 
     @operation()
     async def get_dns(self) -> Any:
         """Get network DNS."""
-        return self._device_service.GetDNS()
+        return self._onvif_device_service.GetDNS()
 
     # ## Apply Configuration at Startup ## #
 

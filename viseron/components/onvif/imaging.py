@@ -54,13 +54,13 @@ class Imaging:
             media_service  # you can't use imaging without media service
         )
         self._media_profile: Any = None  # selected media profile
-        self._imaging_service: Any = None
+        self._onvif_imaging_service: Any = None  # ONVIF Imaging service instance
         self._video_source_token: str | None = None
 
     async def initialize(self) -> None:
         """Initialize the Imaging service."""
 
-        self._imaging_service = self._client.imaging()
+        self._onvif_imaging_service = self._client.imaging()
 
         self._media_profile = self._media_service.get_selected_profile()
         self._video_source_token = (
@@ -110,14 +110,14 @@ class Imaging:
     @operation()
     async def get_options(self) -> Any:
         """Get available imaging options."""
-        return self._imaging_service.GetOptions(
+        return self._onvif_imaging_service.GetOptions(
             VideoSourceToken=self._video_source_token
         )
 
     @operation()
     async def get_imaging_settings(self) -> Any:
         """Get current imaging settings."""
-        return self._imaging_service.GetImagingSettings(
+        return self._onvif_imaging_service.GetImagingSettings(
             VideoSourceToken=self._video_source_token,
         )
 
@@ -126,7 +126,7 @@ class Imaging:
         self, settings: dict[str, Any], force_persistence: bool = True
     ) -> bool:
         """Set imaging settings."""
-        self._imaging_service.SetImagingSettings(
+        self._onvif_imaging_service.SetImagingSettings(
             VideoSourceToken=self._video_source_token,
             ImagingSettings=self._convert_keys_to_camel(self._to_dict(settings)),
             ForcePersistence=force_persistence,
@@ -138,14 +138,14 @@ class Imaging:
     @operation()
     async def get_move_options(self) -> Any:
         """Get available move options."""
-        return self._imaging_service.GetMoveOptions(
+        return self._onvif_imaging_service.GetMoveOptions(
             VideoSourceToken=self._video_source_token
         )
 
     @operation()
     async def get_status(self) -> bool:
         """Get focus movement status."""
-        self._imaging_service.GetStatus(
+        self._onvif_imaging_service.GetStatus(
             VideoSourceToken=self._video_source_token,
         )
         return True
@@ -153,7 +153,7 @@ class Imaging:
     @operation()
     async def move_focus(self, move_config: dict[str, Any]) -> bool:
         """Move focus continuously or relatively."""
-        self._imaging_service.Move(
+        self._onvif_imaging_service.Move(
             VideoSourceToken=self._video_source_token,
             Focus=move_config,
         )
@@ -162,7 +162,7 @@ class Imaging:
     @operation()
     async def stop_focus(self) -> bool:
         """Stop focus movement."""
-        self._imaging_service.Stop(
+        self._onvif_imaging_service.Stop(
             VideoSourceToken=self._video_source_token,
         )
         return True
