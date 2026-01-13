@@ -3,13 +3,17 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  ChevronDown,
+  ChevronUp,
   Close,
   DataCollection,
+  Draggable,
+  Error,
   Flag,
   Home,
   ImageSearchAlt,
   Move,
-  StopFilledAlt,
+  Settings,
   TrashCan,
   ZAxis,
   ZoomIn,
@@ -18,13 +22,13 @@ import {
 import {
   Box,
   Button,
+  Card,
   CircularProgress,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  Drawer,
-  FormControl,
   FormControlLabel,
   IconButton,
   List,
@@ -32,6 +36,7 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Portal,
   Slider,
   Switch,
   TextField,
@@ -39,8 +44,8 @@ import {
   Typography,
 } from "@mui/material";
 import Stack from "@mui/material/Stack";
-import { useTheme } from "@mui/material/styles";
-import { useEffect, useState } from "react";
+import { alpha, useTheme } from "@mui/material/styles";
+import { useCallback, useEffect, useState } from "react";
 
 import { CustomFab } from "components/player/CustomControls";
 import {
@@ -49,6 +54,7 @@ import {
   useGetPtzPresets,
 } from "lib/api/actions/onvif/ptz";
 
+import { useDraggable } from "./useDraggable";
 import { useOnvifPtzHandlers } from "./useOnvifPtzHandlers";
 
 interface OnvifPtzControllerProps {
@@ -59,7 +65,7 @@ export function OnvifPtzController({
   cameraIdentifier,
 }: OnvifPtzControllerProps) {
   const theme = useTheme();
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const [presetsDialogOpen, setPresetsDialogOpen] = useState(false);
   const [savePresetDialogOpen, setSavePresetDialogOpen] = useState(false);
   const [setHomeDialogOpen, setSetHomeDialogOpen] = useState(false);
@@ -68,6 +74,20 @@ export function OnvifPtzController({
   const [selectedPresetToken, setSelectedPresetToken] = useState<string>("");
   const [selectedPresetName, setSelectedPresetName] = useState<string>("");
   const [moveSpeed, setMoveSpeed] = useState(0.5);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const PTZ_CONTROL_SIZE = 80;
+
+  const {
+    position,
+    isDragging,
+    isPositionReady,
+    dragRef,
+    handleMouseDown,
+    handleTouchStart,
+    initializePosition,
+    resetPosition,
+  } = useDraggable();
 
   const { data: nodesData } = useGetPtzNodes(cameraIdentifier);
 
@@ -143,6 +163,15 @@ export function OnvifPtzController({
     configData?.user_config?.reverse_tilt,
   ]);
 
+  // Initialize position when card opens
+  useEffect(() => {
+    if (isOpen) {
+      requestAnimationFrame(() => {
+        initializePosition();
+      });
+    }
+  }, [isOpen, initializePosition]);
+
   // Combine user-defined presets with ONVIF presets if auto-config is disabled
   const userPresets = supportsAbsoluteMove
     ? (configData?.user_config?.presets || []).map((preset) => ({
@@ -189,350 +218,435 @@ export function OnvifPtzController({
     configData,
   });
 
+  const handleClose = useCallback(() => {
+    setIsOpen(false);
+    handleStop();
+    resetPosition();
+  }, [handleStop, resetPosition]);
+
   return (
     <>
       {/* PTZ FAB Button */}
-      <CustomFab onClick={() => setDrawerOpen(true)} title="PTZ Controls">
+      <CustomFab
+        onClick={() => {
+          if (isOpen) {
+            handleClose();
+          } else {
+            setIsOpen(true);
+          }
+        }}
+        title="PTZ Controls"
+      >
         <Move />
       </CustomFab>
 
-      {/* PTZ Controls Drawer */}
-      <Drawer
-        anchor="right"
-        open={drawerOpen}
-        onClose={() => {
-          setDrawerOpen(false);
-          handleStop(); // Stop all movement when closing drawer
-        }}
-        slotProps={{
-          paper: {
-            sx: {
-              width: { xs: 310, md: 300 },
-              p: 2,
-              overflowX: "hidden",
-              overflowY: "auto",
+      {/* Draggable PTZ Card - Rendered via Portal to escape player container */}
+      {isOpen && (
+        <Portal>
+          <Card
+            ref={dragRef}
+            elevation={8}
+            onMouseDown={handleMouseDown}
+            onTouchStart={handleTouchStart}
+            sx={{
+              position: "fixed",
+              left: position.x,
+              top: position.y,
+              width: 280,
               zIndex: 9004,
-            },
-          },
-        }}
-        sx={{
-          "& .MuiDrawer-paper": {
-            borderTop: "none !important",
-            borderBottom: "none !important",
-            borderRight: "none !important",
-          },
-          zIndex: 9004,
-        }}
-      >
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            mb: 2,
-            color:
-              theme.palette.mode === "dark"
-                ? theme.palette.primary[300]
-                : theme.palette.primary.main,
-          }}
-        >
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <Move size={24} />
-            <Typography variant="h6">PTZ Controls</Typography>
-          </Stack>
-          <IconButton
-            size="small"
-            onClick={() => {
-              setDrawerOpen(false);
-              handleStop();
+              overflow: "hidden",
+              cursor: isDragging ? "grabbing" : "default",
+              userSelect: "none",
+              opacity: isPositionReady ? 1 : 0,
+              transition: "opacity 0.15s ease-in-out",
             }}
           >
-            <Close size={20} />
-          </IconButton>
-        </Box>
-
-        {/* Directional Controls */}
-        <Box
-          sx={{
-            p: 1,
-            mb: 2,
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gridTemplateRows: "repeat(3, 1fr)",
-            gap: 0.5,
-            aspectRatio: "1",
-          }}
-        >
-          {/* Top Row */}
-          <Box />
-          <Tooltip
-            title="Tilt Up"
-            PopperProps={{
-              style: { zIndex: 9005 },
-            }}
-          >
-            <IconButton
-              onMouseDown={() => handleMoveStart(0, 1)}
-              onMouseUp={handleStop}
-              onTouchStart={() => handleMoveStart(0, 1)}
-              onTouchEnd={handleStop}
-              sx={{ bgcolor: "action.hover" }}
-            >
-              <ArrowUp size={24} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip
-            title="Zoom In"
-            PopperProps={{
-              style: { zIndex: 9005 },
-            }}
-          >
-            <IconButton
-              onMouseDown={() => handleMoveStart(0, 0, 0.1)}
-              onMouseUp={handleStop}
-              onTouchStart={() => handleMoveStart(0, 0, 0.1)}
-              onTouchEnd={handleStop}
-              sx={{ bgcolor: "action.hover" }}
-              disabled={!supportsZoom}
-            >
-              <ZoomIn size={24} />
-            </IconButton>
-          </Tooltip>
-
-          {/* Middle Row */}
-          <Tooltip
-            title="Pan Left"
-            PopperProps={{
-              style: { zIndex: 9005 },
-            }}
-          >
-            <IconButton
-              onMouseDown={() => handleMoveStart(-1, 0)}
-              onMouseUp={handleStop}
-              onTouchStart={() => handleMoveStart(-1, 0)}
-              onTouchEnd={handleStop}
-              sx={{ bgcolor: "action.hover" }}
-            >
-              <ArrowLeft size={24} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip
-            title="Stop"
-            PopperProps={{
-              style: { zIndex: 9005 },
-            }}
-          >
-            <IconButton onClick={handleStop} sx={{ bgcolor: "error.dark" }}>
-              <StopFilledAlt size={24} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip
-            title="Pan Right"
-            PopperProps={{
-              style: { zIndex: 9005 },
-            }}
-          >
-            <IconButton
-              onMouseDown={() => handleMoveStart(1, 0)}
-              onMouseUp={handleStop}
-              onTouchStart={() => handleMoveStart(1, 0)}
-              onTouchEnd={handleStop}
-              sx={{ bgcolor: "action.hover" }}
-            >
-              <ArrowRight size={24} />
-            </IconButton>
-          </Tooltip>
-
-          {/* Bottom Row */}
-          <Box />
-          <Tooltip
-            title="Tilt Down"
-            PopperProps={{
-              style: { zIndex: 9005 },
-            }}
-          >
-            <IconButton
-              onMouseDown={() => handleMoveStart(0, -1)}
-              onMouseUp={handleStop}
-              onTouchStart={() => handleMoveStart(0, -1)}
-              onTouchEnd={handleStop}
-              sx={{ bgcolor: "action.hover" }}
-            >
-              <ArrowDown size={24} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip
-            title="Zoom Out"
-            PopperProps={{
-              style: { zIndex: 9005 },
-            }}
-          >
-            <IconButton
-              onMouseDown={() => handleMoveStart(0, 0, -0.1)}
-              onMouseUp={handleStop}
-              onTouchStart={() => handleMoveStart(0, 0, -0.1)}
-              onTouchEnd={handleStop}
-              sx={{ bgcolor: "action.hover" }}
-              disabled={!supportsZoom}
-            >
-              <ZoomOut size={24} />
-            </IconButton>
-          </Tooltip>
-        </Box>
-
-        {/* Speed Control Slider */}
-        <FormControl>
-          <Typography variant="subtitle2" gutterBottom>
-            Speed: {Math.round(moveSpeed * 100)}%
-          </Typography>
-          <Slider
-            value={moveSpeed}
-            onChange={(_, value) => setMoveSpeed(value as number)}
-            min={speedMinMax.panTiltMin || 0.0}
-            max={speedMinMax.panTiltMax || 1.0}
-            step={0.05}
-            size="small"
-            valueLabelDisplay="auto"
-            valueLabelFormat={(value) => `${Math.round(value * 100)}%`}
-          />
-        </FormControl>
-
-        {/* Reverse Controls */}
-        <Box
-          sx={{
-            pl: 0.5,
-            mt: 2,
-            mb: 1,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <FormControlLabel
-            control={
-              <Switch
-                checked={reversePan}
-                onChange={(e) => setReversePan(e.target.checked)}
-                size="small"
-              />
-            }
-            label="Reverse Pan"
-            slotProps={{ typography: { variant: "body2" } }}
-          />
-          <FormControlLabel
-            control={
-              <Switch
-                checked={reverseTilt}
-                onChange={(e) => setReverseTilt(e.target.checked)}
-                size="small"
-              />
-            }
-            label="Reverse Tilt"
-            slotProps={{ typography: { variant: "body2" } }}
-          />
-        </Box>
-
-        {/* Action Buttons */}
-        <Box mb={2} mt={2}>
-          {supportsHome && (
-            <Tooltip
-              title="Go to Home Position"
-              PopperProps={{
-                style: { zIndex: 9005 },
+            {/* Header - Drag Handle */}
+            <Box
+              data-drag-handle
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                px: 1.5,
+                py: 1,
+                bgcolor: alpha(theme.palette.primary.main, 0.1),
+                cursor: isDragging ? "grabbing" : "grab",
               }}
-              placement="left"
-              arrow
             >
-              <Button
-                variant="outlined"
-                fullWidth
-                startIcon={<Home size={16} />}
-                onClick={handleGoHome}
+              <Stack direction="row" alignItems="center" spacing={0.5}>
+                <Draggable size={16} />
+                <Typography variant="body1">PTZ Controls</Typography>
+              </Stack>
+              <IconButton size="small" onClick={handleClose}>
+                <Close size={16} />
+              </IconButton>
+            </Box>
+
+            {/* Content */}
+            <Box sx={{ p: 1.5 }}>
+              {/* Directional Controls - Compact Grid */}
+              <Box
                 sx={{
-                  mb: 1,
-                  textTransform: "none",
-                  justifyContent: "flex-start",
+                  display: "grid",
+                  gridTemplateColumns: `repeat(3, ${PTZ_CONTROL_SIZE}px)`,
+                  gridTemplateRows: `repeat(3, ${PTZ_CONTROL_SIZE}px)`,
+                  gap: 0.5,
+                  mb: 1.5,
+                  justifyContent: "center",
                 }}
               >
-                HOME
-              </Button>
-            </Tooltip>
-          )}
-          {supportsPresets && (
-            <>
-              <Tooltip
-                title="Manage PTZ Presets"
-                PopperProps={{
-                  style: { zIndex: 9005 },
-                }}
-                placement="left"
-                arrow
-              >
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<ImageSearchAlt size={16} />}
-                  onClick={() => setPresetsDialogOpen(true)}
-                  sx={{
-                    mb: 1,
-                    textTransform: "none",
-                    justifyContent: "flex-start",
+                {/* Top Row */}
+                <Box />
+                <Tooltip
+                  title="Tilt Up"
+                  placement="top"
+                  slotProps={{
+                    popper: {
+                      style: { zIndex: 9005 },
+                    },
                   }}
                 >
-                  PRESETS
-                </Button>
-              </Tooltip>
-              <Tooltip
-                title="Save Current Position as Preset"
-                PopperProps={{
-                  style: { zIndex: 9005 },
-                }}
-                placement="left"
-                arrow
-              >
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<DataCollection size={16} />}
-                  onClick={() => setSavePresetDialogOpen(true)}
-                  color="success"
-                  sx={{
-                    mb: 1,
-                    textTransform: "none",
-                    justifyContent: "flex-start",
+                  <IconButton
+                    size="small"
+                    onMouseDown={() => handleMoveStart(0, 1)}
+                    onMouseUp={handleStop}
+                    onTouchStart={() => handleMoveStart(0, 1)}
+                    onTouchEnd={handleStop}
+                    sx={{
+                      bgcolor: "action.hover",
+                      width: PTZ_CONTROL_SIZE,
+                      height: PTZ_CONTROL_SIZE,
+                    }}
+                  >
+                    <ArrowUp size={24} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip
+                  title="Zoom In"
+                  placement="top"
+                  slotProps={{
+                    popper: {
+                      style: { zIndex: 9005 },
+                    },
                   }}
                 >
-                  SAVE PRESET
-                </Button>
-              </Tooltip>
-            </>
-          )}
-          {supportsHome && (
-            <Tooltip
-              title="Save Current Position as Home"
-              PopperProps={{
-                style: { zIndex: 9005 },
-              }}
-              placement="left"
-              arrow
-            >
-              <Button
-                variant="outlined"
-                fullWidth
-                startIcon={<Flag size={16} />}
-                onClick={() => setSetHomeDialogOpen(true)}
-                color="success"
+                  <span>
+                    <IconButton
+                      size="small"
+                      onMouseDown={() => handleMoveStart(0, 0, 0.1)}
+                      onMouseUp={handleStop}
+                      onTouchStart={() => handleMoveStart(0, 0, 0.1)}
+                      onTouchEnd={handleStop}
+                      sx={{
+                        bgcolor: "action.hover",
+                        width: PTZ_CONTROL_SIZE,
+                        height: PTZ_CONTROL_SIZE,
+                      }}
+                      disabled={!supportsZoom}
+                    >
+                      <ZoomIn size={24} />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+
+                {/* Middle Row */}
+                <Tooltip
+                  title="Pan Left"
+                  placement="left"
+                  slotProps={{
+                    popper: {
+                      style: { zIndex: 9005 },
+                    },
+                  }}
+                >
+                  <IconButton
+                    size="small"
+                    onMouseDown={() => handleMoveStart(-1, 0)}
+                    onMouseUp={handleStop}
+                    onTouchStart={() => handleMoveStart(-1, 0)}
+                    onTouchEnd={handleStop}
+                    sx={{
+                      bgcolor: "action.hover",
+                      width: PTZ_CONTROL_SIZE,
+                      height: PTZ_CONTROL_SIZE,
+                    }}
+                  >
+                    <ArrowLeft size={24} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip
+                  title="Stop"
+                  slotProps={{
+                    popper: {
+                      style: { zIndex: 9005 },
+                    },
+                  }}
+                >
+                  <IconButton
+                    size="small"
+                    onClick={handleStop}
+                    sx={{
+                      bgcolor: "error.dark",
+                      color: "error.contrastText",
+                      width: PTZ_CONTROL_SIZE,
+                      height: PTZ_CONTROL_SIZE,
+                    }}
+                  >
+                    <Error size={24} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip
+                  title="Pan Right"
+                  placement="right"
+                  slotProps={{
+                    popper: {
+                      style: { zIndex: 9005 },
+                    },
+                  }}
+                >
+                  <IconButton
+                    size="small"
+                    onMouseDown={() => handleMoveStart(1, 0)}
+                    onMouseUp={handleStop}
+                    onTouchStart={() => handleMoveStart(1, 0)}
+                    onTouchEnd={handleStop}
+                    sx={{
+                      bgcolor: "action.hover",
+                      width: PTZ_CONTROL_SIZE,
+                      height: PTZ_CONTROL_SIZE,
+                    }}
+                  >
+                    <ArrowRight size={24} />
+                  </IconButton>
+                </Tooltip>
+
+                {/* Bottom Row */}
+                <Box />
+                <Tooltip
+                  title="Tilt Down"
+                  placement="bottom"
+                  slotProps={{
+                    popper: {
+                      style: { zIndex: 9005 },
+                    },
+                  }}
+                >
+                  <IconButton
+                    size="small"
+                    onMouseDown={() => handleMoveStart(0, -1)}
+                    onMouseUp={handleStop}
+                    onTouchStart={() => handleMoveStart(0, -1)}
+                    onTouchEnd={handleStop}
+                    sx={{
+                      bgcolor: "action.hover",
+                      width: PTZ_CONTROL_SIZE,
+                      height: PTZ_CONTROL_SIZE,
+                    }}
+                  >
+                    <ArrowDown size={24} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip
+                  title="Zoom Out"
+                  placement="bottom"
+                  slotProps={{
+                    popper: {
+                      style: { zIndex: 9005 },
+                    },
+                  }}
+                >
+                  <span>
+                    <IconButton
+                      size="small"
+                      onMouseDown={() => handleMoveStart(0, 0, -0.1)}
+                      onMouseUp={handleStop}
+                      onTouchStart={() => handleMoveStart(0, 0, -0.1)}
+                      onTouchEnd={handleStop}
+                      sx={{
+                        bgcolor: "action.hover",
+                        width: PTZ_CONTROL_SIZE,
+                        height: PTZ_CONTROL_SIZE,
+                      }}
+                      disabled={!supportsZoom}
+                    >
+                      <ZoomOut size={24} />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Box>
+
+              {/* Speed Slider */}
+              <Box sx={{ px: 0.5, mb: 0 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Speed: {Math.round(moveSpeed * 100)}%
+                </Typography>
+                <Slider
+                  value={moveSpeed}
+                  onChange={(_, value) => setMoveSpeed(value as number)}
+                  min={speedMinMax.panTiltMin || 0.0}
+                  max={speedMinMax.panTiltMax || 1.0}
+                  step={0.05}
+                  size="small"
+                  valueLabelDisplay="auto"
+                  valueLabelFormat={(value) => `${Math.round(value * 100)}%`}
+                />
+              </Box>
+
+              {/* Quick Actions */}
+              <Stack
+                direction="row"
+                alignItems="center"
+                justifyContent="center"
+                spacing={0.5}
+                flexWrap="wrap"
+                sx={{ mb: 3, mt: 1 }}
+              >
+                {supportsHome && (
+                  <Tooltip
+                    title="Go Home"
+                    slotProps={{
+                      popper: {
+                        style: { zIndex: 9005 },
+                      },
+                    }}
+                  >
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={handleGoHome}
+                      sx={{ minWidth: 0, p: 1 }}
+                    >
+                      <Home size={18} />
+                    </Button>
+                  </Tooltip>
+                )}
+                {supportsPresets && (
+                  <Tooltip
+                    title="Presets"
+                    slotProps={{
+                      popper: {
+                        style: { zIndex: 9005 },
+                      },
+                    }}
+                  >
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => setPresetsDialogOpen(true)}
+                      sx={{ minWidth: 0, p: 1 }}
+                    >
+                      <ImageSearchAlt size={18} />
+                    </Button>
+                  </Tooltip>
+                )}
+                {supportsPresets && (
+                  <Tooltip
+                    title="Save Preset"
+                    slotProps={{
+                      popper: {
+                        style: { zIndex: 9005 },
+                      },
+                    }}
+                  >
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="success"
+                      onClick={() => setSavePresetDialogOpen(true)}
+                      sx={{ minWidth: 0, p: 1 }}
+                    >
+                      <DataCollection size={18} />
+                    </Button>
+                  </Tooltip>
+                )}
+                {supportsHome && (
+                  <Tooltip
+                    title="Set Home"
+                    slotProps={{
+                      popper: {
+                        style: { zIndex: 9005 },
+                      },
+                    }}
+                  >
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="success"
+                      onClick={() => setSetHomeDialogOpen(true)}
+                      sx={{ minWidth: 0, p: 1 }}
+                    >
+                      <Flag size={18} />
+                    </Button>
+                  </Tooltip>
+                )}
+              </Stack>
+
+              {/* Advanced Section */}
+              <Box
+                onClick={() => setShowAdvanced(!showAdvanced)}
                 sx={{
-                  textTransform: "none",
-                  justifyContent: "flex-start",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  py: 0.5,
+                  mt: 1,
+                  borderRadius: 1,
+                  "&:hover": {
+                    bgcolor: "action.hover",
+                  },
                 }}
               >
-                SET HOME
-              </Button>
-            </Tooltip>
-          )}
-        </Box>
-      </Drawer>
+                <Settings size={14} />
+                <Typography variant="caption" sx={{ mx: 0.5 }}>
+                  Advanced
+                </Typography>
+                {showAdvanced ? (
+                  <ChevronUp size={14} />
+                ) : (
+                  <ChevronDown size={14} />
+                )}
+              </Box>
+              <Collapse in={showAdvanced}>
+                <Box
+                  sx={{
+                    pl: 1,
+                    pr: 1,
+                    pt: 1,
+                    display: "flex",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={reversePan}
+                        onChange={(e) => setReversePan(e.target.checked)}
+                        size="small"
+                      />
+                    }
+                    label={<Typography variant="body2">Reverse Pan</Typography>}
+                  />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={reverseTilt}
+                        onChange={(e) => setReverseTilt(e.target.checked)}
+                        size="small"
+                      />
+                    }
+                    label={
+                      <Typography variant="body2">Reverse Tilt</Typography>
+                    }
+                    sx={{ mr: 0 }}
+                  />
+                </Box>
+              </Collapse>
+            </Box>
+          </Card>
+        </Portal>
+      )}
 
       {/* Presets Dialog */}
       <Dialog
