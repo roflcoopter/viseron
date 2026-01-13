@@ -7,7 +7,6 @@ import {
   Roadmap,
   Settings,
   TableSplit,
-  UserAvatar,
   Video,
   VideoChat,
 } from "@carbon/icons-react";
@@ -93,10 +92,6 @@ const getDrawerItems = (
         ]
       : []),
     { type: "divider" },
-  ];
-
-  const bottomItems: Array<DrawerItemTypes> = [
-    { type: "divider" },
     { type: "header", title: "Links" },
     {
       type: "link",
@@ -120,17 +115,9 @@ const getDrawerItems = (
       external: true,
     },
     { type: "divider" },
-    ...(auth.enabled && user
-      ? [
-          {
-            type: "link",
-            title: user.name,
-            icon: UserAvatar,
-            path: "/profile",
-          } as DrawerItemTypes,
-        ]
-      : []),
   ];
+
+  const bottomItems: Array<DrawerItemTypes> = [];
 
   return { topItems, bottomItems };
 };

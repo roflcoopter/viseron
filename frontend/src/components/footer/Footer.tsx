@@ -22,10 +22,12 @@ export default function AppFooter() {
   const showFooter = !["/events", "/live", "/settings/configuration"].includes(
     location.pathname,
   );
-  const isCamera = location.pathname.startsWith("/cameras");
+  const isLowerPaddingTop =
+    location.pathname.startsWith("/cameras") ||
+    ["/profile"].includes(location.pathname);
 
   return showFooter ? (
-    <Footer sx={{ paddingTop: isCamera ? "30px" : "60px" }}>
+    <Footer sx={{ paddingTop: isLowerPaddingTop ? "30px" : "60px" }}>
       <Box
         sx={{
           display: "flex",
