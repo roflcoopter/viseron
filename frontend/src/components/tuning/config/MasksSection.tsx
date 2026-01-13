@@ -28,7 +28,7 @@ export function MasksSection({
   onContextMenu,
 }: MasksSectionProps) {
   return (
-    <Box mb={2}>
+    <Box mb={2.5}>
       <Box
         display="flex"
         justifyContent="space-between"
@@ -46,24 +46,26 @@ export function MasksSection({
         </Button>
       </Box>
       {masks && Array.isArray(masks) && masks.length > 0 ? (
-        masks.map((mask: Mask, index: number) => (
-          <Button
-            key={
-              mask.name ||
-              `mask-${JSON.stringify(mask.coordinates?.[0])}-${index}`
-            }
-            variant={selectedMaskIndex === index ? "contained" : "outlined"}
-            fullWidth
-            sx={{ mb: 1, justifyContent: "flex-start" }}
-            onClick={() => onMaskClick(index)}
-            onContextMenu={(e) => onContextMenu(e, "mask", index)}
-            disabled={isDrawingMode || isSaving}
-            color="error"
-            startIcon={<Area />}
-          >
-            {mask.name || `Mask ${index + 1}`}
-          </Button>
-        ))
+        <Box display="flex" flexDirection="column" gap={1}>
+          {masks.map((mask: Mask, index: number) => (
+            <Button
+              key={
+                mask.name ||
+                `mask-${JSON.stringify(mask.coordinates?.[0])}-${index}`
+              }
+              variant={selectedMaskIndex === index ? "contained" : "outlined"}
+              fullWidth
+              sx={{ justifyContent: "flex-start" }}
+              onClick={() => onMaskClick(index)}
+              onContextMenu={(e) => onContextMenu(e, "mask", index)}
+              disabled={isDrawingMode || isSaving}
+              color="error"
+              startIcon={<Area />}
+            >
+              {mask.name || `Mask ${index + 1}`}
+            </Button>
+          ))}
+        </Box>
       ) : (
         <Typography
           variant="caption"

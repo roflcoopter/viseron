@@ -61,7 +61,7 @@ export function VideoTransformsSection({
   };
 
   return (
-    <Box mb={3} mt={2}>
+    <Box mb={2.5}>
       <Box
         sx={{
           display: "flex",
@@ -94,47 +94,48 @@ export function VideoTransformsSection({
           No video transforms configured
         </Typography>
       ) : (
-        videoTransforms.map((transform, index) => (
-          <Button
-            key={transform.id}
-            variant={
-              selectedVideoTransformIndex === index ? "contained" : "outlined"
-            }
-            fullWidth
-            onClick={() => onVideoTransformClick(index)}
-            onContextMenu={(e) => onContextMenu(e, "video_transform", index)}
-            disabled={isDrawingMode || isSaving}
-            color={transform.type === "camera" ? "info" : "secondary"}
-            sx={{
-              mb: 1,
-              p: 1.5,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              textTransform: "none",
-            }}
-            startIcon={getTransformIcon(transform.transform)}
-          >
-            <Typography
-              variant="body2"
+        <Box display="flex" flexDirection="column" gap={1}>
+          {videoTransforms.map((transform, index) => (
+            <Button
+              key={transform.id}
+              variant={
+                selectedVideoTransformIndex === index ? "contained" : "outlined"
+              }
+              fullWidth
+              onClick={() => onVideoTransformClick(index)}
+              onContextMenu={(e) => onContextMenu(e, "video_transform", index)}
+              disabled={isDrawingMode || isSaving}
+              color={transform.type === "camera" ? "info" : "secondary"}
               sx={{
-                flexGrow: 1,
-                textAlign: "left",
-                fontWeight: 500,
+                p: 1.5,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                textTransform: "none",
               }}
+              startIcon={getTransformIcon(transform.transform)}
             >
-              {getTransformLabel(transform.transform)}
-            </Typography>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              {transform.type === "camera" ? (
-                <Camera size={16} color="text.secondary" />
-              ) : (
-                <Video size={16} color="text.secondary" />
-              )}
-              <Typography variant="caption">{transform.type}</Typography>
-            </Box>
-          </Button>
-        ))
+              <Typography
+                variant="body2"
+                sx={{
+                  flexGrow: 1,
+                  textAlign: "left",
+                  fontWeight: 500,
+                }}
+              >
+                {getTransformLabel(transform.transform)}
+              </Typography>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                {transform.type === "camera" ? (
+                  <Camera size={16} color="text.secondary" />
+                ) : (
+                  <Video size={16} color="text.secondary" />
+                )}
+                <Typography variant="caption">{transform.type}</Typography>
+              </Box>
+            </Button>
+          ))}
+        </Box>
       )}
     </Box>
   );

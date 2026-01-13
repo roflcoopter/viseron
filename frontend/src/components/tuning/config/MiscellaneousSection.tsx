@@ -145,7 +145,7 @@ export function MiscellaneousSection({
   };
 
   return (
-    <Box sx={{ mt: 2 }}>
+    <Box mt={0.5}>
       <Box
         sx={{
           display: "flex",
@@ -153,7 +153,7 @@ export function MiscellaneousSection({
           mb: 1,
         }}
       >
-        <Typography variant="subtitle2">Miscellaneous</Typography>
+        <Typography variant="subtitle2">Configurations</Typography>
       </Box>
 
       <Box>{fields.map((field) => renderField(field))}</Box>

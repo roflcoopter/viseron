@@ -51,61 +51,62 @@ export function LabelsSection({
         </Button>
       </Box>
       {labels && Array.isArray(labels) && labels.length > 0 ? (
-        labels.map((labelItem: Label | string, index: number) => {
-          // Check if labelItem is a string (face_recognition) or Label object (object_detector)
-          const isStringLabel = typeof labelItem === "string";
-          const labelText = isStringLabel ? labelItem : labelItem.label;
-          const confidence = isStringLabel ? undefined : labelItem.confidence;
+        <Box display="flex" flexDirection="column" gap={1}>
+          {labels.map((labelItem: Label | string, index: number) => {
+            // Check if labelItem is a string (face_recognition) or Label object (object_detector)
+            const isStringLabel = typeof labelItem === "string";
+            const labelText = isStringLabel ? labelItem : labelItem.label;
+            const confidence = isStringLabel ? undefined : labelItem.confidence;
 
-          // Select icon based on componentType
-          const IconComponent =
-            componentType === "face_recognition"
-              ? User
-              : componentType === "license_plate_recognition"
-                ? LabelIcon
-                : TextCreation;
+            // Select icon based on componentType
+            const IconComponent =
+              componentType === "face_recognition"
+                ? User
+                : componentType === "license_plate_recognition"
+                  ? LabelIcon
+                  : TextCreation;
 
-          return (
-            <Button
-              key={labelText || `label-${index}`}
-              variant="outlined"
-              fullWidth
-              onClick={() => onLabelClick(index)}
-              onContextMenu={(e) => onContextMenu(e, "label", index)}
-              color="info"
-              disabled={isDrawingMode || isSaving}
-              sx={{
-                mb: 1,
-                p: 1.5,
-                display: "flex",
-                justifyContent: "flex-start",
-                textTransform: "none",
-              }}
-            >
-              <IconComponent style={{ marginRight: 8, flexShrink: 0 }} />
-              <Typography
-                variant="body2"
+            return (
+              <Button
+                key={labelText || `label-${index}`}
+                variant="outlined"
+                fullWidth
+                onClick={() => onLabelClick(index)}
+                onContextMenu={(e) => onContextMenu(e, "label", index)}
+                color="info"
+                disabled={isDrawingMode || isSaving}
                 sx={{
-                  textTransform: "uppercase",
-                  fontWeight: 500,
-                  flexGrow: 1,
-                  textAlign: "left",
+                  p: 1.5,
+                  display: "flex",
+                  justifyContent: "flex-start",
+                  textTransform: "none",
                 }}
               >
-                {labelText || `Label ${index + 1}`}
-              </Typography>
-              {confidence !== undefined && (
+                <IconComponent style={{ marginRight: 8, flexShrink: 0 }} />
                 <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ flexShrink: 0 }}
+                  variant="body2"
+                  sx={{
+                    textTransform: "uppercase",
+                    fontWeight: 500,
+                    flexGrow: 1,
+                    textAlign: "left",
+                  }}
                 >
-                  {Math.round((confidence ?? 0.8) * 100)}%
+                  {labelText || `Label ${index + 1}`}
                 </Typography>
-              )}
-            </Button>
-          );
-        })
+                {confidence !== undefined && (
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ flexShrink: 0 }}
+                  >
+                    {Math.round((confidence ?? 0.8) * 100)}%
+                  </Typography>
+                )}
+              </Button>
+            );
+          })}
+        </Box>
       ) : (
         <Typography
           variant="caption"
