@@ -266,7 +266,7 @@ class PTZ:
     # ---- Position Operations ---- #
 
     @operation()
-    async def go_home_position(self) -> bool:
+    async def goto_home_position(self) -> bool:
         """Move the camera to its home position."""
         self._onvif_ptz_service.GotoHomePosition(ProfileToken=self._media_profile.token)
         return True
@@ -770,7 +770,7 @@ class PTZ:
 
             # Move to home position if configured
             if home_position and not has_on_startup:
-                await self.go_home_position()
+                await self.goto_home_position()
                 LOGGER.debug(
                     f"PTZ Go Home Position executed for {self._camera.identifier}"
                 )

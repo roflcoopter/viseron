@@ -183,9 +183,9 @@ class ActionsOnvifPtzAPIHandler(ActionsOnvifAPIHandler):
             await self.validate_action_status(stop, action, camera_identifier)
             return
 
-        if action == "home":
-            home = await ptz_service.go_home_position()
-            await self.validate_action_status(home, action, camera_identifier)
+        if action == "goto_home":
+            goto_home = await ptz_service.goto_home_position()
+            await self.validate_action_status(goto_home, action, camera_identifier)
             return
 
         if action == "goto_preset":

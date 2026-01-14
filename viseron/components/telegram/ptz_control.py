@@ -118,7 +118,7 @@ class TelegramPTZ:
         """Move the camera to its home position."""
 
         status = (
-            await self._ptz_service.go_home_position() if self._ptz_service else False
+            await self._ptz_service.goto_home_position() if self._ptz_service else False
         )
         await self._inform(update, "home", status)
 
