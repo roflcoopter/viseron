@@ -32,8 +32,10 @@ from .tuning import (
     LicensePlateRecognitionTuningHandler,
     MotionDetectorTuningHandler,
     ObjectDetectorTuningHandler,
+    OnvifTuningHandler,
 )
 from .tuning.labels import get_available_labels
+from .tuning.onvif import process_onvif_config
 
 LOGGER = logging.getLogger(__name__)
 
@@ -48,7 +50,7 @@ SKIPPED_COMPONENTS = [
 ]
 
 # special case because the "Protocol" domain does not exist.
-PROTOCOL_RELATED = "protocol"
+PROTOCOL_RELATED = "protocol"  # not used for now, will be used later if needed
 PROTOCOL_COMPONENTS = [ONVIF_COMPONENT]
 
 
@@ -151,7 +153,16 @@ class TuneAPIHandler(BaseAPIHandler):
             if self._should_skip_camera(cam_id, camera_identifier):
                 continue
             self._ensure_camera_in_settings(tune_settings, cam_id)
-            tune_settings[cam_id][component_name] = cam_config
+
+            if component_name in PROTOCOL_COMPONENTS:
+                # Special handling for ONVIF: group base keys under "client"
+                if component_name == ONVIF_COMPONENT and isinstance(cam_config, dict):
+                    processed_config = process_onvif_config(
+                        self._vis, cam_config, cam_id
+                    )
+                    tune_settings[cam_id][component_name] = processed_config
+            else:
+                tune_settings[cam_id][component_name] = cam_config
 
     def _process_camera_domain(
         self,
@@ -351,13 +362,15 @@ class TuneAPIHandler(BaseAPIHandler):
             MOTION_DETECTOR_DOMAIN,
             FACE_RECOGNITION_DOMAIN,
             LICENSE_PLATE_RECOGNITION_DOMAIN,
+            ONVIF_COMPONENT,  # ONVIF treated as special case
         ]:
             self.response_error(
                 status_code=HTTPStatus.BAD_REQUEST,
                 reason=f"Domain '{domain}' update not supported. "
                 f"Only '{CAMERA_DOMAIN}', '{OBJECT_DETECTOR_DOMAIN}', "
-                f"'{MOTION_DETECTOR_DOMAIN}', '{FACE_RECOGNITION_DOMAIN}', and "
-                f"'{LICENSE_PLATE_RECOGNITION_DOMAIN}' are supported.",
+                f"'{MOTION_DETECTOR_DOMAIN}', '{FACE_RECOGNITION_DOMAIN}', "
+                f"'{LICENSE_PLATE_RECOGNITION_DOMAIN}', and '{ONVIF_COMPONENT}' "
+                f"are supported.",
             )
             return
 
@@ -371,6 +384,7 @@ class TuneAPIHandler(BaseAPIHandler):
                 | FaceRecognitionTuningHandler
                 | LicensePlateRecognitionTuningHandler
                 | CameraTuningHandler
+                | OnvifTuningHandler
                 | None
             ) = None
 
@@ -384,6 +398,8 @@ class TuneAPIHandler(BaseAPIHandler):
                 handler = FaceRecognitionTuningHandler(config)
             elif domain == LICENSE_PLATE_RECOGNITION_DOMAIN:
                 handler = LicensePlateRecognitionTuningHandler(config)
+            elif domain == ONVIF_COMPONENT:
+                handler = OnvifTuningHandler(config)
 
             if handler:
                 success = handler.update(camera_identifier, component, data)

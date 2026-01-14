@@ -94,17 +94,7 @@ class BaseTuningHandler:
     def _get_camera_config(
         self, camera_id: str, component: str, domain: str
     ) -> dict[str, Any] | None:
-        """
-        Get camera configuration for a specific domain.
-
-        Args:
-            camera_id: Camera identifier
-            component: Component name (e.g., 'deepstack', 'edgetpu')
-            domain: Domain name (e.g., 'object_detector', 'face_recognition')
-
-        Returns:
-            Camera config dict if found, None otherwise
-        """
+        """Get camera configuration for a specific domain."""
         # Find component config
         if component not in self.config:
             LOGGER.warning(f"Component '{component}' not found in config")
@@ -134,6 +124,23 @@ class BaseTuningHandler:
         cameras = domain_config[CONFIG_CAMERAS]
         if camera_id not in cameras:
             LOGGER.warning(f"Camera '{camera_id}' not found in {component}.{domain}")
+            return None
+
+        return cameras[camera_id]
+
+    def _get_direct_camera_config(
+        self, camera_id: str, component: str
+    ) -> dict[str, Any] | None:
+        """Get camera configuration for components with direct 'cameras' key."""
+        if component not in self.config:
+            LOGGER.warning(f"Component '{component}' not found in config")
+            return None
+
+        component_config = self.config[component]
+        cameras = component_config.get(CONFIG_CAMERAS, {})
+
+        if camera_id not in cameras:
+            LOGGER.warning(f"Camera '{camera_id}' not found in {component}.cameras")
             return None
 
         return cameras[camera_id]

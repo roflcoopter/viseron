@@ -3,6 +3,9 @@
 COMPONENT = "onvif"
 DESC_COMPONENT = "ONVIF cameras integration."
 
+# Special config keys, not part of ONVIF spec, used for grouping in tuning API
+CONFIG_CLIENT = "client"
+
 # ONVIF CONFIG
 CONFIG_CAMERAS = "cameras"
 CONFIG_HOST = "host"
