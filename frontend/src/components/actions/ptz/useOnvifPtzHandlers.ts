@@ -4,7 +4,7 @@ import { useToast } from "hooks/UseToast";
 import {
   usePtzAbsoluteMove,
   usePtzContinuousMove,
-  usePtzGoHome,
+  usePtzGotoHome,
   usePtzGotoPreset,
   usePtzRemovePreset,
   usePtzSetHome,
@@ -73,7 +73,7 @@ export function useOnvifPtzHandlers({
   const continuousMoveMutation = usePtzContinuousMove();
   const absoluteMoveMutation = usePtzAbsoluteMove();
   const stopMutation = usePtzStop();
-  const goHomeMutation = usePtzGoHome();
+  const gotoHomeMutation = usePtzGotoHome();
   const gotoPresetMutation = usePtzGotoPreset();
   const setHomeMutation = usePtzSetHome();
   const setPresetMutation = usePtzSetPreset();
@@ -188,8 +188,8 @@ export function useOnvifPtzHandlers({
     stopContinuousMove();
   };
 
-  const handleGoHome = () => {
-    goHomeMutation.mutate(
+  const handleGotoHome = () => {
+    gotoHomeMutation.mutate(
       { cameraIdentifier },
       {
         onError: (error) => {
@@ -297,7 +297,7 @@ export function useOnvifPtzHandlers({
   return {
     handleMoveStart,
     handleStop,
-    handleGoHome,
+    handleGotoHome,
     handleSetHome,
     handleGotoPreset,
     handleSavePreset,

@@ -195,7 +195,7 @@ export function OnvifPtzController({
   const {
     handleMoveStart,
     handleStop,
-    handleGoHome,
+    handleGotoHome,
     handleSetHome,
     handleGotoPreset,
     handleSavePreset,
@@ -511,7 +511,7 @@ export function OnvifPtzController({
               >
                 {supportsHome && (
                   <Tooltip
-                    title="Go Home"
+                    title="Go to Home"
                     slotProps={{
                       popper: {
                         style: { zIndex: 9005 },
@@ -521,7 +521,7 @@ export function OnvifPtzController({
                     <Button
                       size="small"
                       variant="outlined"
-                      onClick={handleGoHome}
+                      onClick={handleGotoHome}
                       sx={{ minWidth: 0, p: 1 }}
                     >
                       <Home size={18} />
