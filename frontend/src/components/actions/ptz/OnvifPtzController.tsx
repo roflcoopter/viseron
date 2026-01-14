@@ -246,8 +246,15 @@ export function OnvifPtzController({
           <Card
             ref={dragRef}
             elevation={8}
-            onMouseDown={handleMouseDown}
-            onTouchStart={handleTouchStart}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              handleMouseDown(e);
+            }}
+            onTouchStart={(e) => {
+              e.stopPropagation();
+              handleTouchStart(e);
+            }}
+            onWheel={(e) => e.stopPropagation()}
             sx={{
               position: "fixed",
               left: position.x,
