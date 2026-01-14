@@ -136,7 +136,7 @@ class ActionsOnvifDeviceAPIHandler(ActionsOnvifAPIHandler):
             )
             return
 
-        if action == "network_interface":
+        if action == "network_interfaces":
             await self.validate_action_response(
                 await device_service.get_network_interfaces(), action, camera_identifier
             )
