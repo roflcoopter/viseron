@@ -4,6 +4,8 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 
+from viseron.helpers import caller_name
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -11,6 +13,7 @@ class WatchDog(ABC):
     """A watchdog for long running items."""
 
     registered_items: list = []
+    started: bool = False
 
     def __init__(self) -> None:
         """Initialize the watchdog."""
@@ -23,6 +26,13 @@ class WatchDog(ABC):
         """Register item in the watchdog."""
         LOGGER.debug(f"Registering {item} in the watchdog")
         cls.registered_items.append(item)
+        if not cls.started:
+            LOGGER.warning(
+                f"Registering {item} while watchdog is not started. "
+                f"Item IS NOT monitored properly. "
+                f"Call came from: {caller_name()}, "
+                "please report this as a bug on GitHub",
+            )
 
     @classmethod
     def unregister(
