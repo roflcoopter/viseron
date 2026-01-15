@@ -362,12 +362,14 @@ class Camera(AbstractCamera):
         if self._frame_queue:
             self._frame_queue.close()
         self._frame_queue = mp.Queue(maxsize=2)
+        # Start watchdogs for this process since it spawns a RestartablePopen
         return RestartableProcess(
             name="viseron.camera." + self.identifier,
             args=(self._frame_queue,),
             target=self.read_frames,
             daemon=True,
             register=True,
+            start_watchdogs=True,
         ), RestartableThread(
             name="viseron.camera." + self.identifier + ".relay_frame",
             target=self.relay_frame,
