@@ -129,6 +129,10 @@ class RestartableThread(threading.Thread):
         self._stage = stage
         setattr(self, "__stage__", stage)
 
+    def __repr__(self):
+        """Return string representation of the thread."""
+        return f"<RestartableThread name={self._restartable_name} ident={self.ident}>"
+
     @property
     def started(self):
         """Return if thread has started."""
@@ -191,6 +195,7 @@ class ThreadWatchDog(WatchDog):
     """A watchdog for long running threads."""
 
     registered_items: list[RestartableThread] = []
+    started: bool = False
 
     def __init__(self, background_scheduler: BackgroundScheduler) -> None:
         super().__init__()
@@ -204,6 +209,9 @@ class ThreadWatchDog(WatchDog):
             coalesce=True,
             replace_existing=True,
         )
+        # Clear registered items on creation, useful when start watchdogs in child procs
+        ThreadWatchDog.registered_items = []
+        ThreadWatchDog.started = True
 
     def watchdog(self) -> None:
         """Check for stopped threads and restart them."""

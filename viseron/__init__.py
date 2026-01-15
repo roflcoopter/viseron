@@ -194,7 +194,6 @@ def enable_logging() -> None:
 def setup_viseron(vis: Viseron):
     """Set up and run Viseron."""
     start = timer()
-    enable_logging()
     viseron_version = os.getenv("VISERON_VERSION")
     LOGGER.info("-------------------------------------------")
     LOGGER.info(f"Initializing Viseron {viseron_version if viseron_version else ''}")
@@ -278,8 +277,8 @@ class Viseron:
         if start_background_scheduler:
             self.background_scheduler.start()
             self._thread_watchdog = ThreadWatchDog(self.background_scheduler)
-            self._subprocess_watchdog = SubprocessWatchDog(self)
-            self._process_watchdog = ProcessWatchDog(self)
+            self._subprocess_watchdog = SubprocessWatchDog(self.background_scheduler)
+            self._process_watchdog = ProcessWatchDog(self.background_scheduler)
 
         self.storage: Storage | None = None
         self.jinja_env = Environment(loader=BaseLoader(), undefined=StrictUndefined)

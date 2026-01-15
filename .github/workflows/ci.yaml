@@ -419,7 +419,7 @@ jobs:
       - name: Clean up space used
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-          docker rmi -f $(docker images -aq)
+          docker rmi -f $(docker images -aq) || true
           docker system prune --force --all --volumes
       - name: List free space after cleaning
         run: |
