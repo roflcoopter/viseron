@@ -5,7 +5,6 @@ import json
 import logging
 from typing import TYPE_CHECKING, TypeVar
 
-from viseron.components.mqtt.const import CONFIG_CLIENT_ID
 from viseron.components.mqtt.helpers import SubscribeTopic
 from viseron.components.nvr.nvr import NVR
 from viseron.components.nvr.toggle import ManualRecordingToggle
@@ -38,7 +37,7 @@ class ToggleMQTTEntity(MQTTEntity[E]):
     def command_topic(self) -> str:
         """Return command topic."""
         return (
-            f"{self._config[CONFIG_CLIENT_ID]}/{self.entity.domain}/"
+            f"{self._mqtt.base_topic}/{self.entity.domain}/"
             f"{self.entity.object_id}/command"
         )
 
