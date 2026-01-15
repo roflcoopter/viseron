@@ -45,6 +45,13 @@
         "default": null
       },
       {
+        "type": "boolean",
+        "name": "publish_states_on_reconnect",
+        "description": "Publish states of all entities on broker reconnect.",
+        "optional": true,
+        "default": true
+      },
+      {
         "type": "map",
         "value": [
           {
@@ -60,6 +67,13 @@
             "description": "Retain config topic messages.",
             "optional": true,
             "default": true
+          },
+          {
+            "type": "boolean",
+            "name": "publish_ha_config_on_reconnect",
+            "description": "Publish Home Assistant MQTT Discovery config of all entities on broker reconnect.",
+            "optional": true,
+            "default": false
           }
         ],
         "name": "home_assistant",
