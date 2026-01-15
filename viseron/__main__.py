@@ -9,7 +9,8 @@ import sys
 import threading
 from threading import Timer
 
-from viseron import Viseron, setup_viseron
+from viseron import Viseron, enable_logging, setup_viseron
+from viseron.helpers import kill_zombie_processes
 
 LOGGER = logging.getLogger("viseron.main")
 
@@ -38,6 +39,8 @@ def main():
     signal.signal(signal.SIGINT, signal_term)
 
     viseron = Viseron()
+    enable_logging()
+    kill_zombie_processes()
     setup_viseron(viseron)
 
     signal.pause()

@@ -194,7 +194,6 @@ def enable_logging() -> None:
 def setup_viseron(vis: Viseron):
     """Set up and run Viseron."""
     start = timer()
-    enable_logging()
     viseron_version = os.getenv("VISERON_VERSION")
     LOGGER.info("-------------------------------------------")
     LOGGER.info(f"Initializing Viseron {viseron_version if viseron_version else ''}")
