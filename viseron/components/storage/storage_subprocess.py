@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import psutil
+import setproctitle
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from manager import connect
@@ -194,6 +195,8 @@ def initializer(cpulimit: int | None):
             register=False,
             shell=True,
         )
+    # Set process name
+    setproctitle.setproctitle(f"viseron_storage_subprocess_{pid}")
 
 
 def worker_task_files(
