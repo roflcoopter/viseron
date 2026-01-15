@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 import paho.mqtt.client as mqtt
 import voluptuous as vol
+from paho.mqtt.enums import MQTTErrorCode
 
 from viseron.components.nvr.toggle import ManualRecordingToggle
 from viseron.const import (
@@ -16,6 +17,7 @@ from viseron.const import (
     EVENT_STATE_CHANGED,
     VISERON_SIGNAL_SHUTDOWN,
 )
+from viseron.events import EventEmptyData
 from viseron.helpers.validators import CoerceNoneToDict, Maybe
 from viseron.states import EventEntityAddedData
 from viseron.watchdog.thread_watchdog import RestartableThread
@@ -29,6 +31,8 @@ from .const import (
     CONFIG_LAST_WILL_TOPIC,
     CONFIG_PASSWORD,
     CONFIG_PORT,
+    CONFIG_PUBLISH_HA_CONFIG_ON_RECONNECT,
+    CONFIG_PUBLISH_STATES_ON_RECONNECT,
     CONFIG_RETAIN_CONFIG,
     CONFIG_USERNAME,
     DEFAULT_CLIENT_ID,
@@ -36,6 +40,8 @@ from .const import (
     DEFAULT_LAST_WILL_TOPIC,
     DEFAULT_PASSWORD,
     DEFAULT_PORT,
+    DEFAULT_PUBLISH_HA_CONFIG_ON_RECONNECT,
+    DEFAULT_PUBLISH_STATES_ON_RECONNECT,
     DEFAULT_RETAIN_CONFIG,
     DEFAULT_USERNAME,
     DESC_BROKER,
@@ -46,8 +52,11 @@ from .const import (
     DESC_LAST_WILL_TOPIC,
     DESC_PASSWORD,
     DESC_PORT,
+    DESC_PUBLISH_HA_CONFIG_ON_RECONNECT,
+    DESC_PUBLISH_STATES_ON_RECONNECT,
     DESC_RETAIN_CONFIG,
     DESC_USERNAME,
+    EVENT_MQTT_BROKER_RECONNECT,
     EVENT_MQTT_ENTITY_ADDED,
     INCLUSION_GROUP_AUTHENTICATION,
     MESSAGE_AUTHENTICATION,
@@ -91,6 +100,11 @@ HOME_ASSISTANT_SCHEMA = vol.Schema(
             default=DEFAULT_RETAIN_CONFIG,
             description=DESC_RETAIN_CONFIG,
         ): bool,
+        vol.Optional(
+            CONFIG_PUBLISH_HA_CONFIG_ON_RECONNECT,
+            default=DEFAULT_PUBLISH_HA_CONFIG_ON_RECONNECT,
+            description=DESC_PUBLISH_HA_CONFIG_ON_RECONNECT,
+        ): bool,
     }
 )
 
@@ -127,6 +141,11 @@ CONFIG_SCHEMA = vol.Schema(
                         default=DEFAULT_LAST_WILL_TOPIC,
                         description=DESC_LAST_WILL_TOPIC,
                     ): Maybe(str),
+                    vol.Optional(
+                        CONFIG_PUBLISH_STATES_ON_RECONNECT,
+                        default=DEFAULT_PUBLISH_STATES_ON_RECONNECT,
+                        description=DESC_PUBLISH_STATES_ON_RECONNECT,
+                    ): bool,
                     vol.Optional(
                         CONFIG_HOME_ASSISTANT,
                         description=DESC_HOME_ASSISTANT,
@@ -249,21 +268,34 @@ class MQTT:
         )
 
         if self._reconnect:
-            LOGGER.debug("Reconnected to MQTT broker, re-subscribing to topics")
-            self._reconnect = False
-            # Re-subscribe to all topics
-            for topic, _ in self._subscriptions.items():
-                LOGGER.debug(f"Re-subscribing to topic {topic}")
-                self._client.subscribe(topic)
+            self.on_reconnect()
             return
 
         self._vis.listen_event(EVENT_ENTITY_ADDED, self.entity_added)
         self.create_entities(self._vis.get_entities())
         self._vis.listen_event(EVENT_STATE_CHANGED, self.state_changed)
 
+    def on_reconnect(self):
+        """Handle broker reconnect."""
+        LOGGER.debug("Reconnected to MQTT broker, re-subscribing to topics")
+        self._reconnect = False
+        # Re-subscribe to all topics
+        for topic, _ in self._subscriptions.items():
+            LOGGER.debug(f"Re-subscribing to topic {topic}")
+            self._client.subscribe(topic)
+
+        # Re-publish all states
+        if self._config[CONFIG_PUBLISH_STATES_ON_RECONNECT]:
+            for entity in self._entities.values():
+                entity.publish_state()
+        self._vis.dispatch_event(EVENT_MQTT_BROKER_RECONNECT, EventEmptyData())
+
     def on_disconnect(self, _client, _userdata, returncode) -> None:
         """On MQTT disconnection."""
-        LOGGER.warning(f"MQTT disconnected with returncode {str(returncode)}")
+        if returncode != MQTTErrorCode.MQTT_ERR_SUCCESS:
+            LOGGER.warning(
+                f"MQTT disconnected with returncode {str(returncode)}({returncode})"
+            )
         if self._connected:
             self._reconnect = True
             self._connected = False
