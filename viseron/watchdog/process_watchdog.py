@@ -7,10 +7,13 @@ import os
 from collections.abc import Callable
 
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.base import SchedulerNotRunningError
 
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.helpers import utcnow
 from viseron.watchdog import WatchDog
+from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
+from viseron.watchdog.thread_watchdog import ThreadWatchDog
 
 LOGGER = logging.getLogger(__name__)
 
@@ -30,6 +33,7 @@ class RestartableProcess:
         register=True,
         stage: str | None = VISERON_SIGNAL_SHUTDOWN,
         create_process_method: Callable[[], mp.Process] | None = None,
+        start_watchdogs: bool = False,
         **kwargs,
     ) -> None:
         self._args = args
@@ -43,6 +47,11 @@ class RestartableProcess:
         self._start_time: float | None = None
         self._register = register
         self._create_process_method = create_process_method
+        self._start_watchdogs = start_watchdogs
+        self._background_scheduler: BackgroundScheduler | None = None
+        self._thread_watchdog: ThreadWatchDog | None = None
+        self._subprocess_watchdog: SubprocessWatchDog | None = None
+        self._process_watchdog: ProcessWatchDog | None = None
         if self._register:
             ProcessWatchDog.register(self)
         setattr(self, "__stage__", stage)
@@ -107,8 +116,15 @@ class RestartableProcess:
                 management (e.g. terminating entire groups) more robust and
                 prevents the process from receiving signals intended for the
                 parent group.
+
+                Watchdogs are also started inside the process if enabled.
                 """
                 os.setsid()
+                ThreadWatchDog.started = False
+                SubprocessWatchDog.started = False
+                ProcessWatchDog.started = False
+                if self._start_watchdogs:
+                    self._start_local_watchdogs()
                 original_target(*targs, **tkwargs)
 
             self._kwargs["target"] = wrapped_target
@@ -149,6 +165,22 @@ class RestartableProcess:
         self._started = False
         ProcessWatchDog.unregister(self)
 
+        if (
+            self._thread_watchdog
+            and self._subprocess_watchdog
+            and self._process_watchdog
+        ):
+            self._thread_watchdog.stop()
+            self._subprocess_watchdog.stop()
+            self._process_watchdog.stop()
+
+        if self._background_scheduler:
+            try:
+                self._background_scheduler.remove_all_jobs()
+                self._background_scheduler.shutdown(wait=False)
+            except SchedulerNotRunningError as err:
+                LOGGER.warning(f"Failed to shutdown scheduler: {err}")
+
     def terminate(self) -> None:
         """Terminate the process."""
         self._started = False
@@ -162,6 +194,19 @@ class RestartableProcess:
         ProcessWatchDog.unregister(self)
         if self._process:
             self._process.kill()
+
+    def _start_local_watchdogs(self) -> None:
+        """Start local watchdogs inside the process.
+
+        Threads, subprocesses and processes are monitored in the parent,
+        but if the process itself spawns long-running entities, those need to
+        be monitored as well.
+        """
+        self._background_scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
+        self._background_scheduler.start()
+        self._thread_watchdog = ThreadWatchDog(self._background_scheduler)
+        self._subprocess_watchdog = SubprocessWatchDog(self._background_scheduler)
+        self._process_watchdog = ProcessWatchDog(self._background_scheduler)
 
 
 class ProcessWatchDog(WatchDog):
