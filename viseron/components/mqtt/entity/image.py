@@ -3,7 +3,6 @@ import json
 
 import cv2
 
-from viseron.components.mqtt.const import CONFIG_CLIENT_ID
 from viseron.components.mqtt.helpers import PublishPayload
 from viseron.helpers.entity.image import ImageEntity
 
@@ -17,7 +16,7 @@ class ImageMQTTEntity(MQTTEntity[ImageEntity]):
     def state_topic(self) -> str:
         """Return state topic."""
         return (
-            f"{self._config[CONFIG_CLIENT_ID]}/{self.entity.domain}/"
+            f"{self._mqtt.base_topic}/{self.entity.domain}/"
             f"{self.entity.object_id}/image"
         )
 
@@ -25,7 +24,7 @@ class ImageMQTTEntity(MQTTEntity[ImageEntity]):
     def attributes_topic(self) -> str:
         """Return attributes topic."""
         return (
-            f"{self._config[CONFIG_CLIENT_ID]}/{self.entity.domain}/"
+            f"{self._mqtt.base_topic}/{self.entity.domain}/"
             f"{self.entity.object_id}/attributes"
         )
 

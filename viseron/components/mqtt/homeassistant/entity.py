@@ -7,14 +7,11 @@ from typing import TYPE_CHECKING, Generic, TypeVar
 
 from viseron.components.mqtt.const import (
     COMPONENT as MQTT_COMPONENT,
-    CONFIG_CLIENT_ID,
     CONFIG_DISCOVERY_PREFIX,
     CONFIG_HOME_ASSISTANT,
-    CONFIG_LAST_WILL_TOPIC,
     CONFIG_RETAIN_CONFIG,
     MQTT_CLIENT_CONNECTION_OFFLINE,
     MQTT_CLIENT_CONNECTION_ONLINE,
-    MQTT_CLIENT_CONNECTION_TOPIC,
 )
 from viseron.components.mqtt.entity import MQTTEntity
 from viseron.components.mqtt.helpers import PublishPayload
@@ -46,14 +43,12 @@ class HassMQTTEntity(ABC, Generic[T]):
 
         return [
             {
-                "topic": self._config[CONFIG_LAST_WILL_TOPIC],
+                "topic": self._mqtt.lwt_topic,
                 "payload_available": "alive",
                 "payload_not_available": "dead",
             },
             {
-                "topic": MQTT_CLIENT_CONNECTION_TOPIC.format(
-                    client_id=self._config[CONFIG_CLIENT_ID]
-                ),
+                "topic": self._mqtt.client_connection_topic,
                 "payload_available": MQTT_CLIENT_CONNECTION_ONLINE,
                 "payload_not_available": MQTT_CLIENT_CONNECTION_OFFLINE,
             },
