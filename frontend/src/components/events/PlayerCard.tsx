@@ -2,7 +2,7 @@ import Image from "@jy95/material-ui-image";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import { useTheme } from "@mui/material/styles";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import screenfull from "screenfull";
 import { useShallow } from "zustand/react/shallow";
 
@@ -19,6 +19,7 @@ import {
 import { CustomControls } from "components/player/CustomControls";
 import { PlayerGrid } from "components/player/grid/PlayerGrid";
 import { HlsPlayer } from "components/player/hlsplayer/HlsPlayer";
+import { useVideoControls } from "components/player/hooks/useVideoControls";
 import { useCamerasAll } from "lib/api/cameras";
 import { isTouchDevice } from "lib/helpers";
 import * as types from "lib/types";
@@ -51,20 +52,17 @@ const usePlayerCardCallbacks = (
       setPlaybackSpeed: state.setPlaybackSpeed,
     })),
   );
-  const [controlsVisible, setControlsVisible] = useState(false);
-  const [isHovering, setIsHovering] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const showControlsTemporarily = useCallback(() => {
-    setControlsVisible(true);
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    timeoutRef.current = setTimeout(() => {
-      setControlsVisible(false);
-    }, 3000); // Hide controls after 3 seconds
-  }, []);
+  const {
+    controlsVisible,
+    isHovering,
+    isFullscreen,
+    setIsFullscreen,
+    showControlsTemporarily,
+    handleMouseEnter,
+    handleMouseLeave,
+    handleTouchStart,
+  } = useVideoControls();
 
   const togglePlayPause = useCallback(() => {
     setIsPlaying(!isPlaying);
@@ -182,37 +180,7 @@ const usePlayerCardCallbacks = (
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
     };
-  }, []);
-
-  const handleMouseEnter = useCallback(() => {
-    setIsHovering(true);
-    setControlsVisible(true);
-  }, []);
-
-  const handleMouseLeave = useCallback(() => {
-    setIsHovering(false);
-    setControlsVisible(false);
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-  }, []);
-
-  const handleTouchStart = useCallback(() => {
-    if (controlsVisible) {
-      setControlsVisible(false);
-    } else {
-      showControlsTemporarily();
-    }
-  }, [controlsVisible, showControlsTemporarily]);
-
-  useEffect(
-    () => () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    },
-    [],
-  );
+  }, [setIsFullscreen]);
 
   return {
     handlePlayPause,
