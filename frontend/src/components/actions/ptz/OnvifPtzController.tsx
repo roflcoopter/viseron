@@ -53,8 +53,8 @@ import {
   useGetPtzNodes,
   useGetPtzPresets,
 } from "lib/api/actions/onvif/ptz";
+import { useDraggable } from "lib/helpers/draggable";
 
-import { useDraggable } from "./useDraggable";
 import { useOnvifPtzHandlers } from "./useOnvifPtzHandlers";
 
 interface OnvifPtzControllerProps {
