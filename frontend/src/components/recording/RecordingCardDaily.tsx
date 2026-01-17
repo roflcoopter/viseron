@@ -41,7 +41,7 @@ export default function RecordingCardDaily({
   recording,
 }: RecordingCardDailyProps) {
   const theme = useTheme();
-  const { auth, user } = useAuthContext();
+  const { user } = useAuthContext();
   const deleteRecording = useDeleteRecording();
 
   return (
@@ -75,7 +75,7 @@ export default function RecordingCardDaily({
           }
         >
           {objHasValues<types.Recording>(recording) ? (
-            getVideoElement(camera, recording, auth.enabled)
+            getVideoElement(camera, recording)
           ) : (
             <Box
               sx={{
