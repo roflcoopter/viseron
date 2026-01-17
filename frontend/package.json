@@ -62,7 +62,6 @@
     "screenfull": "^6.0.2",
     "typescript": "^5.9.3",
     "uuid": "^13.0.0",
-    "video.js": "^8.23.4",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
@@ -79,7 +78,6 @@
     "@types/react-lazyload": "^3.2.3",
     "@types/react-page-visibility": "^6.4.4",
     "@types/uuid": "^11.0.0",
-    "@types/video.js": "^7.3.58",
     "@typescript-eslint/eslint-plugin": "8.46.0",
     "@typescript-eslint/parser": "8.46.0",
     "@vitejs/plugin-react": "^5.0.4",
