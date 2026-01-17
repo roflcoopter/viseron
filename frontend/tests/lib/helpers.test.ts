@@ -165,12 +165,9 @@ describe("getVideoElement", () => {
     const { getByTestId } = renderWithContext(
       getVideoElement(mockCamera, recording),
     );
-    await waitFor(
-      () => {
-        expect(getByTestId("hls-vod-player")).toBeInTheDocument();
-      },
-      { timeout: 3000 },
-    );
+    await waitFor(() => {
+      expect(getByTestId("hls-vod-player")).toBeInTheDocument();
+    });
   });
 });
 
