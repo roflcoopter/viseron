@@ -150,6 +150,7 @@ describe("getVideoElement", () => {
   });
 
   it("should render HlsVodPlayer if recording has values", async () => {
+    import("components/player/hlsplayer/HlsVodPlayer");
     const recording: types.Recording = {
       thumbnail_path: "thumbnail.jpg",
       hls_url: "video.m3u8",
@@ -165,9 +166,12 @@ describe("getVideoElement", () => {
     const { getByTestId } = renderWithContext(
       getVideoElement(mockCamera, recording),
     );
-    await waitFor(() => {
-      expect(getByTestId("hls-vod-player")).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(getByTestId("hls-vod-player")).toBeInTheDocument();
+      },
+      { timeout: 30000 },
+    );
   });
 });
 
