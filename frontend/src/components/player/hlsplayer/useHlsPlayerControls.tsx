@@ -6,7 +6,11 @@ export const useHlsPlayerControls = (
   videoRef: React.RefObject<HTMLVideoElement | null>,
 ) => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(
+    videoRef.current
+      ? videoRef.current.muted || videoRef.current.volume === 0
+      : false,
+  );
 
   const {
     controlsVisible,
