@@ -19,12 +19,13 @@ function formatTime(seconds: number): string {
 
 // Hook that listens to video time updates and duration changes
 const useListenTimeUpdate = (
-  video: HTMLVideoElement | null,
+  videoRef: RefObject<HTMLVideoElement | null>,
   isProgressDragging: boolean,
   setCurrentTime: React.Dispatch<React.SetStateAction<number>>,
   setDuration: React.Dispatch<React.SetStateAction<number>>,
 ) => {
   useEffect(() => {
+    const video = videoRef.current;
     if (!video) return () => {};
 
     const handleTimeUpdate = () => {
@@ -59,7 +60,7 @@ const useListenTimeUpdate = (
       video.removeEventListener("durationchange", handleDurationChange);
       video.removeEventListener("loadedmetadata", handleLoadedMetadata);
     };
-  }, [video, isProgressDragging, setCurrentTime, setDuration]);
+  }, [videoRef, isProgressDragging, setCurrentTime, setDuration]);
 };
 
 // Hook to handle global mouse/touch up events to always end dragging
@@ -126,7 +127,7 @@ export function ProgressBar({
 
   // Subscribe to video element time updates
   useListenTimeUpdate(
-    videoRef.current,
+    videoRef,
     isProgressDragging,
     setCurrentTime,
     setDuration,
