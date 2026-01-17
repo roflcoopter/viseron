@@ -33,9 +33,16 @@
       {
         "type": "string",
         "name": "client_id",
-        "description": "Client ID used when connecting to broker.</br>Also used as the base for all topics.",
+        "description": "Client ID used when connecting to broker.</br>Also used as the base for all topics, if <code>base_topic</code> is not set.",
         "optional": true,
         "default": "viseron"
+      },
+      {
+        "type": "string",
+        "name": "base_topic",
+        "description": "Base topic for all MQTT messages. If not set, client_id is used.",
+        "optional": true,
+        "default": null
       },
       {
         "type": "string",
