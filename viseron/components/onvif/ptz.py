@@ -52,6 +52,7 @@ class PTZ:
         self._media_service = media_service  # you can't use ptz without media service
         self._media_profile: Any = None  # selected media profile for any PTZ operations
         self._onvif_ptz_service: Any = None  # ONVIF PTZ service instance
+        self._ptz_capabilities: Any = None  # to store PTZ capabilities
         self._ptz_config: Any = None  # to determine PTZ behaviour
         self._ptz_config_options: Any = None  # to determine PTZ options
         self._stop_patrol_event: asyncio.Event = asyncio.Event()
@@ -59,6 +60,7 @@ class PTZ:
     async def initialize(self) -> None:
         """Initialize the PTZ service."""
         self._onvif_ptz_service = self._client.ptz()
+        self._ptz_capabilities = await self.get_service_capabilities()
 
         self._media_profile = self._media_service.get_selected_profile()
 
@@ -128,6 +130,13 @@ class PTZ:
             task.cancel()
 
     # ## The Real Operations ## #
+
+    # ---- Capabilities Operations ---- #
+
+    @operation()
+    async def get_service_capabilities(self) -> Any:
+        """Get PTZ service capabilities."""
+        return self._onvif_ptz_service.GetServiceCapabilities()
 
     # ---- Movement Operations ---- #
 
@@ -333,6 +342,17 @@ class PTZ:
         return self._onvif_ptz_service.GetConfigurationOptions(
             ConfigurationToken=self._media_profile.PTZConfiguration.token
         )
+
+    @operation()
+    async def set_configuration(
+        self, ptz_config: dict[str, Any], force_persistence: bool = True
+    ) -> bool:
+        """Set the PTZ configuration of the camera."""
+        self._onvif_ptz_service.SetConfiguration(
+            PTZConfiguration=ptz_config,
+            ForcePersistence=force_persistence,
+        )
+        return True
 
     # ## Derived operations ## #
 

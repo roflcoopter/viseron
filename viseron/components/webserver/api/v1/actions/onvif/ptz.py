@@ -120,6 +120,19 @@ class ActionsOnvifPtzAPIHandler(ActionsOnvifAPIHandler):
             await self.validate_action_status(set_preset, action, camera_identifier)
             return
 
+        if action == "set_configuration":
+            configuration = self.validate_request_data(request_data, "configuration")
+            force_persistence = self.validate_request_data(
+                request_data, "force_persistence"
+            )
+            set_configuration = await ptz_service.set_configuration(
+                ptz_config=configuration, force_persistence=force_persistence
+            )
+            await self.validate_action_status(
+                set_configuration, action, camera_identifier
+            )
+            return
+
         self.unknown_action(action)
 
     @action_handler
