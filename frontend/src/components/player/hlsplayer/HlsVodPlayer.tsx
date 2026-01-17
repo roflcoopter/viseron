@@ -195,6 +195,8 @@ export function HlsVodPlayer({
   useInitializePlayer(hlsRef, hlsClientIdRef, videoRef);
   useLoadSourceOnPlay(hlsRef, hlsClientIdRef, videoRef, camera, recording);
 
+  const aspectRatio = camera.mainstream.width / camera.mainstream.height;
+
   return (
     <div
       data-testid="hls-vod-player"
@@ -203,6 +205,7 @@ export function HlsVodPlayer({
         width: "100%",
         height: "100%",
         display: "flex",
+        aspectRatio,
       }}
       onMouseEnter={!isTouchDevice() ? handleMouseEnter : undefined}
       onMouseLeave={handleMouseLeave}
