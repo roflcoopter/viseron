@@ -52,12 +52,14 @@ class Media:
         self._config = config
         self._auto_config = auto_config
         self._onvif_media_service: Any = None  # ONVIF Media service instance
+        self._imaging_capabilities: Any = None  # to store Media capabilities
         self._selected_profile: Any = None
         self._profiles: list[Any] = []
 
     async def initialize(self) -> None:
         """Initialize the Media service."""
         self._onvif_media_service = self._client.media()
+        self._imaging_capabilities = await self.get_service_capabilities()
 
         # Load media profiles
         self._profiles = await self.get_profiles()
@@ -89,6 +91,13 @@ class Media:
             await self.apply_config()
 
     # ## The Real Operations ## #
+
+    # ---- Capabilities Operations ---- #
+
+    @operation()
+    async def get_service_capabilities(self) -> Any:
+        """Get Media service capabilities."""
+        return self._onvif_media_service.GetServiceCapabilities()
 
     # ---- Profiles Operations ---- #
 
