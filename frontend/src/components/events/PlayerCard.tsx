@@ -2,7 +2,7 @@ import Image from "@jy95/material-ui-image";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import { useTheme } from "@mui/material/styles";
-import { useCallback, useEffect, useRef } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef } from "react";
 import screenfull from "screenfull";
 import { useShallow } from "zustand/react/shallow";
 
@@ -18,11 +18,13 @@ import {
 } from "components/events/utils";
 import { CustomControls } from "components/player/CustomControls";
 import { PlayerGrid } from "components/player/grid/PlayerGrid";
-import { HlsPlayer } from "components/player/hlsplayer/HlsPlayer";
 import { useVideoControls } from "components/player/hooks/useVideoControls";
+import VideoPlayerPlaceholder from "components/player/videoplayer/VideoPlayerPlaceholder";
 import { useCamerasAll } from "lib/api/cameras";
 import { isTouchDevice } from "lib/helpers";
 import * as types from "lib/types";
+
+const HlsPlayer = lazy(() => import("components/player/hlsplayer/HlsPlayer"));
 
 const usePlayerCardCallbacks = (
   paperRef: React.RefObject<HTMLDivElement | null>,
@@ -242,10 +244,16 @@ export function PlayerCard() {
 
   const renderPlayer = useCallback(
     (camera: types.Camera | types.FailedCamera) => (
-      <>
+      <Suspense
+        fallback={
+          <VideoPlayerPlaceholder
+            aspectRatio={camera.mainstream.width / camera.mainstream.height}
+          />
+        }
+      >
         <HlsPlayer key={camera.identifier} camera={camera} />
         <CameraNameOverlay camera_identifier={camera.identifier} />
-      </>
+      </Suspense>
     ),
     [],
   );
