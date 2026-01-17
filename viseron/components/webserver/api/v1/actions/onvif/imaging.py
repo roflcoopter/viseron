@@ -75,6 +75,18 @@ class ActionsOnvifImagingAPIHandler(ActionsOnvifAPIHandler):
             )
             return
 
+        if action == "presets":
+            await self.validate_action_response(
+                await imaging_service.get_presets(), action, camera_identifier
+            )
+            return
+
+        if action == "current_preset":
+            await self.validate_action_response(
+                await imaging_service.get_current_preset(), action, camera_identifier
+            )
+            return
+
         if action == "move_options":
             await self.validate_action_response(
                 await imaging_service.get_move_options(), action, camera_identifier
@@ -103,6 +115,14 @@ class ActionsOnvifImagingAPIHandler(ActionsOnvifAPIHandler):
                 settings, force_persistence
             )
             await self.validate_action_status(set_settings, action, camera_identifier)
+            return
+
+        if action == "set_current_preset":
+            preset_token = self.validate_request_data(request_data, "preset_token")
+            set_current_preset = await imaging_service.set_current_preset(preset_token)
+            await self.validate_action_status(
+                set_current_preset, action, camera_identifier
+            )
             return
 
         if action == "brightness":

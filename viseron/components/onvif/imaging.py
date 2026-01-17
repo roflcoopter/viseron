@@ -55,12 +55,14 @@ class Imaging:
         )
         self._media_profile: Any = None  # selected media profile
         self._onvif_imaging_service: Any = None  # ONVIF Imaging service instance
+        self._imaging_capabilities: Any = None  # to store Imaging capabilities
         self._video_source_token: str | None = None
 
     async def initialize(self) -> None:
         """Initialize the Imaging service."""
 
         self._onvif_imaging_service = self._client.imaging()
+        self._imaging_capabilities = await self.get_service_capabilities()
 
         self._media_profile = self._media_service.get_selected_profile()
         self._video_source_token = (
@@ -105,14 +107,14 @@ class Imaging:
 
     # ## The Real Operations ## #
 
-    # ---- Settings Operations ---- #
+    # ---- Capabilities Operations ---- #
 
     @operation()
-    async def get_options(self) -> Any:
-        """Get available imaging options."""
-        return self._onvif_imaging_service.GetOptions(
-            VideoSourceToken=self._video_source_token
-        )
+    async def get_service_capabilities(self) -> Any:
+        """Get Imaging service capabilities."""
+        return self._onvif_imaging_service.GetServiceCapabilities()
+
+    # ---- Settings Operations ---- #
 
     @operation()
     async def get_imaging_settings(self) -> Any:
@@ -133,6 +135,38 @@ class Imaging:
         )
         return True
 
+    @operation()
+    async def get_options(self) -> Any:
+        """Get available imaging options."""
+        return self._onvif_imaging_service.GetOptions(
+            VideoSourceToken=self._video_source_token
+        )
+
+    # ---- Presets Operations ---- #
+
+    @operation()
+    async def get_presets(self) -> Any:
+        """Get available imaging presets."""
+        return self._onvif_imaging_service.GetPresets(
+            VideoSourceToken=self._video_source_token
+        )
+
+    @operation()
+    async def get_current_preset(self) -> Any:
+        """Get current imaging preset."""
+        return self._onvif_imaging_service.GetCurrentPreset(
+            VideoSourceToken=self._video_source_token
+        )
+
+    @operation()
+    async def set_current_preset(self, preset_token: str) -> bool:
+        """Set current imaging preset."""
+        self._onvif_imaging_service.SetCurrentPreset(
+            VideoSourceToken=self._video_source_token,
+            PresetToken=preset_token,
+        )
+        return True
+
     # ---- Focus Operations ---- #
 
     @operation()
@@ -143,12 +177,11 @@ class Imaging:
         )
 
     @operation()
-    async def get_status(self) -> bool:
+    async def get_status(self) -> Any:
         """Get focus movement status."""
-        self._onvif_imaging_service.GetStatus(
+        return self._onvif_imaging_service.GetStatus(
             VideoSourceToken=self._video_source_token,
         )
-        return True
 
     @operation()
     async def move_focus(self, move_config: dict[str, Any]) -> bool:
@@ -169,231 +202,127 @@ class Imaging:
 
     # ## Derived operations ## #
 
-    async def set_brightness(
-        self, force_persistence: bool, brightness: float | None = None
-    ) -> bool:
+    async def set_brightness(self, force_persistence: bool, brightness: float) -> bool:
         """Set brightness level."""
-        if not self._auto_config and brightness is None:
-            brightness = self._config.get(CONFIG_IMAGING_BRIGHTNESS)
-
-        if brightness is not None:
-            return await self.set_imaging_settings(
-                {"Brightness": brightness}, force_persistence
-            )
-
-        return False
+        return await self.set_imaging_settings(
+            {"Brightness": brightness}, force_persistence
+        )
 
     async def set_color_saturation(
-        self, force_persistence: bool, saturation: float | None = None
+        self, force_persistence: bool, saturation: float
     ) -> bool:
         """Set color saturation level."""
-        if not self._auto_config and saturation is None:
-            saturation = self._config.get(CONFIG_IMAGING_COLOR_SATURATION)
+        return await self.set_imaging_settings(
+            {"ColorSaturation": saturation}, force_persistence
+        )
 
-        if saturation is not None:
-            return await self.set_imaging_settings(
-                {"ColorSaturation": saturation}, force_persistence
-            )
-
-        return False
-
-    async def set_contrast(
-        self, force_persistence: bool, contrast: float | None = None
-    ) -> bool:
+    async def set_contrast(self, force_persistence: bool, contrast: float) -> bool:
         """Set contrast level."""
-        if not self._auto_config and contrast is None:
-            contrast = self._config.get(CONFIG_IMAGING_CONTRAST)
+        return await self.set_imaging_settings(
+            {"Contrast": contrast}, force_persistence
+        )
 
-        if contrast is not None:
-            return await self.set_imaging_settings(
-                {"Contrast": contrast}, force_persistence
-            )
-
-        return False
-
-    async def set_sharpness(
-        self, force_persistence: bool, sharpness: float | None = None
-    ) -> bool:
+    async def set_sharpness(self, force_persistence: bool, sharpness: float) -> bool:
         """Set sharpness level."""
-        if not self._auto_config and sharpness is None:
-            sharpness = self._config.get(CONFIG_IMAGING_SHARPNESS)
-
-        if sharpness is not None:
-            return await self.set_imaging_settings(
-                {"Sharpness": sharpness}, force_persistence
-            )
-
-        return False
+        return await self.set_imaging_settings(
+            {"Sharpness": sharpness}, force_persistence
+        )
 
     async def set_ircut_filter(
-        self, force_persistence: bool, ircut_filter: str | None = None
+        self, force_persistence: bool, ircut_filter: str
     ) -> bool:
         """Set IR cut filter mode."""
-        if not self._auto_config and ircut_filter is None:
-            ircut_filter = self._config.get(CONFIG_IMAGING_IRCUT_FILTER)
-
-        if ircut_filter is not None:
-            return await self.set_imaging_settings(
-                {"IrCutFilter": ircut_filter}, force_persistence
-            )
-
-        return False
+        return await self.set_imaging_settings(
+            {"IrCutFilter": ircut_filter}, force_persistence
+        )
 
     async def set_backlight_compensation(
-        self, force_persistence: bool, blc_mode: str | None = None
+        self, force_persistence: bool, blc_mode: str
     ) -> bool:
         """Set backlight compensation settings."""
-        if not self._auto_config and blc_mode is None:
-            blc_mode = self._config.get(CONFIG_IMAGING_BACKLIGHT_COMPENSATION)
-
-        if blc_mode is not None:
-            return await self.set_imaging_settings(
-                {"BacklightCompensation": {"Mode": blc_mode}}, force_persistence
-            )
-
-        return False
+        return await self.set_imaging_settings(
+            {"BacklightCompensation": {"Mode": blc_mode}}, force_persistence
+        )
 
     async def set_exposure(
-        self, force_persistence: bool, exposure_config: dict[str, Any] | None = None
+        self, force_persistence: bool, exposure_config: dict[str, Any]
     ) -> bool:
         """Set exposure settings."""
-        if not self._auto_config and exposure_config is None:
-            exposure_config = self._config.get(CONFIG_IMAGING_EXPOSURE)
-
-        if exposure_config is not None:
-            return await self.set_imaging_settings(
-                {"Exposure": exposure_config}, force_persistence
-            )
-
-        return False
+        return await self.set_imaging_settings(
+            {"Exposure": exposure_config}, force_persistence
+        )
 
     async def set_focus(
-        self, force_persistence: bool, focus_config: dict[str, Any] | None = None
+        self, force_persistence: bool, focus_config: dict[str, Any]
     ) -> bool:
         """Set focus settings."""
-        if not self._auto_config and focus_config is None:
-            focus_config = self._config.get(CONFIG_IMAGING_FOCUS)
-
-        if focus_config is not None:
-            return await self.set_imaging_settings(
-                {"Focus": focus_config}, force_persistence
-            )
-
-        return False
+        return await self.set_imaging_settings(
+            {"Focus": focus_config}, force_persistence
+        )
 
     async def set_wide_dynamic_range(
-        self, force_persistence: bool, wdr_config: dict[str, Any] | None = None
+        self, force_persistence: bool, wdr_config: dict[str, Any]
     ) -> bool:
         """Set wide dynamic range settings."""
-        if not self._auto_config and wdr_config is None:
-            wdr_config = self._config.get(CONFIG_IMAGING_WIDE_DYNAMIC_RANGE)
-
-        if wdr_config is not None:
-            return await self.set_imaging_settings(
-                {"WideDynamicRange": wdr_config}, force_persistence
-            )
-
-        return False
+        return await self.set_imaging_settings(
+            {"WideDynamicRange": wdr_config}, force_persistence
+        )
 
     async def set_white_balance(
-        self, force_persistence: bool, wb_config: dict[str, Any] | None = None
+        self, force_persistence: bool, wb_config: dict[str, Any]
     ) -> bool:
         """Set white balance settings."""
-        if not self._auto_config and wb_config is None:
-            wb_config = self._config.get(CONFIG_IMAGING_WHITE_BALANCE)
-
-        if wb_config is not None:
-            return await self.set_imaging_settings(
-                {"WhiteBalance": wb_config}, force_persistence
-            )
-
-        return False
+        return await self.set_imaging_settings(
+            {"WhiteBalance": wb_config}, force_persistence
+        )
 
     async def set_image_stabilization(
-        self, force_persistence: bool, is_config: dict[str, Any] | None = None
+        self, force_persistence: bool, is_config: dict[str, Any]
     ) -> bool:
         """Set image stabilization settings."""
-        if not self._auto_config and is_config is None:
-            is_config = self._config.get(CONFIG_IMAGING_IMAGE_STABILIZATION)
-
-        if is_config is not None:
-            return await self.set_imaging_settings(
-                {"Extension": {"ImageStabilization": is_config}}, force_persistence
-            )
-
-        return False
+        return await self.set_imaging_settings(
+            {"Extension": {"ImageStabilization": is_config}}, force_persistence
+        )
 
     async def set_ircut_filter_auto_adjustment(
-        self, force_persistence: bool, ifaa_config: dict[str, Any] | None = None
+        self, force_persistence: bool, ifaa_config: dict[str, Any]
     ) -> bool:
         """Set ircut filter auto adjustment settings."""
-        if not self._auto_config and ifaa_config is None:
-            ifaa_config = self._config.get(CONFIG_IMAGING_IRCUT_FILTER_AUTO_ADJUSTMENT)
-
-        if ifaa_config is not None:
-            return await self.set_imaging_settings(
-                {
-                    "Extension": {
-                        "Extension": {"IrCutFilterAutoAdjustment": ifaa_config}
-                    }
-                },
-                force_persistence,
-            )
-
-        return False
+        return await self.set_imaging_settings(
+            {"Extension": {"Extension": {"IrCutFilterAutoAdjustment": ifaa_config}}},
+            force_persistence,
+        )
 
     async def set_tone_compensation(
-        self, force_persistence: bool, tc_config: dict[str, Any] | None = None
+        self, force_persistence: bool, tc_config: dict[str, Any]
     ) -> bool:
         """Set tone compensation settings."""
-        if not self._auto_config and tc_config is None:
-            tc_config = self._config.get(CONFIG_IMAGING_TONE_COMPENSATION)
-
-        if tc_config is not None:
-            return await self.set_imaging_settings(
-                {
-                    "Extension": {
-                        "Extension": {"Extension": {"ToneCompensation": tc_config}}
-                    }
-                },
-                force_persistence,
-            )
-
-        return False
+        return await self.set_imaging_settings(
+            {
+                "Extension": {
+                    "Extension": {"Extension": {"ToneCompensation": tc_config}}
+                }
+            },
+            force_persistence,
+        )
 
     async def set_defogging(
-        self, force_persistence: bool, d_config: dict[str, Any] | None = None
+        self, force_persistence: bool, d_config: dict[str, Any]
     ) -> bool:
         """Set defogging settings."""
-        if not self._auto_config and d_config is None:
-            d_config = self._config.get(CONFIG_IMAGING_DEFOGGING)
-
-        if d_config is not None:
-            return await self.set_imaging_settings(
-                {"Extension": {"Extension": {"Extension": {"Defogging": d_config}}}},
-                force_persistence,
-            )
-
-        return False
+        return await self.set_imaging_settings(
+            {"Extension": {"Extension": {"Extension": {"Defogging": d_config}}}},
+            force_persistence,
+        )
 
     async def set_noise_reduction(
-        self, force_persistence: bool, nr_config: dict[str, Any] | None = None
+        self, force_persistence: bool, nr_config: dict[str, Any]
     ) -> bool:
         """Set noise reduction settings."""
-        if not self._auto_config and nr_config is None:
-            nr_config = self._config.get(CONFIG_IMAGING_NOISE_REDUCTION)
-
-        if nr_config is not None:
-            return await self.set_imaging_settings(
-                {
-                    "Extension": {
-                        "Extension": {"Extension": {"NoiseReduction": nr_config}}
-                    }
-                },
-                force_persistence,
-            )
-
-        return False
+        return await self.set_imaging_settings(
+            {"Extension": {"Extension": {"Extension": {"NoiseReduction": nr_config}}}},
+            force_persistence,
+        )
 
     # ## Apply Configuration at Startup ## #
 
