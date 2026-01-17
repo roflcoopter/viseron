@@ -33,9 +33,16 @@
       {
         "type": "string",
         "name": "client_id",
-        "description": "Client ID used when connecting to broker.</br>Also used as the base for all topics.",
+        "description": "Client ID used when connecting to broker.</br>Also used as the base for all topics, if <code>base_topic</code> is not set.",
         "optional": true,
         "default": "viseron"
+      },
+      {
+        "type": "string",
+        "name": "base_topic",
+        "description": "Base topic for all MQTT messages. If not set, client_id is used.",
+        "optional": true,
+        "default": null
       },
       {
         "type": "string",
@@ -43,6 +50,13 @@
         "description": "Last will topic.",
         "optional": true,
         "default": null
+      },
+      {
+        "type": "boolean",
+        "name": "publish_states_on_reconnect",
+        "description": "Publish states of all entities on broker reconnect.",
+        "optional": true,
+        "default": true
       },
       {
         "type": "map",
@@ -60,6 +74,13 @@
             "description": "Retain config topic messages.",
             "optional": true,
             "default": true
+          },
+          {
+            "type": "boolean",
+            "name": "publish_ha_config_on_reconnect",
+            "description": "Publish Home Assistant MQTT Discovery config of all entities on broker reconnect.",
+            "optional": true,
+            "default": false
           }
         ],
         "name": "home_assistant",

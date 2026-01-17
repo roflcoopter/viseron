@@ -48,7 +48,7 @@ You can observe the logs to find the entity ids.
 
 ### Binary sensor topics
 
-#### `{client_id}/binary_sensor/{camera_identifier}_connected/state`
+#### `{base_topic}/binary_sensor/{camera_identifier}_connected/state`
 
 Shows if Viseron is connected to a camera.
 
@@ -78,7 +78,7 @@ Shows if Viseron is connected to a camera.
 </Tabs>
 </details>
 
-#### `{client_id}/binary_sensor/{camera_identifier}_recorder/state`
+#### `{base_topic}/binary_sensor/{camera_identifier}_recorder/state`
 
 Shows whether the recorder is recording or not.
 
@@ -152,7 +152,7 @@ Shows whether the recorder is recording or not.
 </Tabs>
 </details>
 
-#### `{client_id}/binary_sensor/{camera_identifier}_object_detected/state`
+#### `{base_topic}/binary_sensor/{camera_identifier}_object_detected/state`
 
 A JSON formatted payload is published to this topic when <b>any</b> configured label is in the field of view.
 
@@ -182,7 +182,7 @@ A JSON formatted payload is published to this topic when <b>any</b> configured l
 </Tabs>
 </details>
 
-#### `{client_id}/binary_sensor/{camera_identifier}_object_detected_{label}/state`
+#### `{base_topic}/binary_sensor/{camera_identifier}_object_detected_{label}/state`
 
 A JSON formatted payload is published to this topic when a <b>specific</b> configured label is in the field of view.
 
@@ -216,7 +216,7 @@ A JSON formatted payload is published to this topic when a <b>specific</b> confi
 </Tabs>
 </details>
 
-#### `{client_id}/binary_sensor/{camera_identifier}_zone_{zone}_object_detected/state`
+#### `{base_topic}/binary_sensor/{camera_identifier}_zone_{zone}_object_detected/state`
 
 A JSON formatted payload is published to this topic when <b>any</b> configured label is in the specific zone.
 
@@ -246,7 +246,7 @@ A JSON formatted payload is published to this topic when <b>any</b> configured l
 </Tabs>
 </details>
 
-#### `{client_id}/binary_sensor/{camera_identifier}_zone_{zone}_object_detected_{label}/state`
+#### `{base_topic}/binary_sensor/{camera_identifier}_zone_{zone}_object_detected_{label}/state`
 
 A JSON formatted payload is published to this topic when a <b>specific</b> configured label is in the specific zone.
 
@@ -282,7 +282,7 @@ A JSON formatted payload is published to this topic when a <b>specific</b> confi
 
 </details>
 
-#### `{client_id}/binary_sensor/{camera_identifier}_motion_detected/state`
+#### `{base_topic}/binary_sensor/{camera_identifier}_motion_detected/state`
 
 A JSON formatted payload is published to this topic when motion is detected.
 
@@ -314,7 +314,7 @@ A JSON formatted payload is published to this topic when motion is detected.
 
 </details>
 
-#### `{client_id}/binary_sensor/{camera_identifier}_face_detected_{person name}/state`
+#### `{base_topic}/binary_sensor/{camera_identifier}_face_detected_{person name}/state`
 
 A JSON formatted payload is published to this topic when a tracked face is detected.
 
@@ -352,7 +352,7 @@ A JSON formatted payload is published to this topic when a tracked face is detec
 
 </details>
 
-#### `{client_id}/binary_sensor/{camera_identifier}_still_image_available/state`
+#### `{base_topic}/binary_sensor/{camera_identifier}_still_image_available/state`
 
 A JSON formatted payload is published to this topic when still image becomes available/unavailable.
 
@@ -386,7 +386,7 @@ A JSON formatted payload is published to this topic when still image becomes ava
 
 ### Toggle topics
 
-#### `{client_id}/toggle/{camera_identifier}_connection/command`
+#### `{base_topic}/toggle/{camera_identifier}_connection/command`
 
 Used for turning on/off a camera. Payload should be `ON` or `OFF`.
 
@@ -412,7 +412,7 @@ OFF
 
 </details>
 
-#### `{client_id}/toggle/{camera_identifier}_connection/state`
+#### `{base_topic}/toggle/{camera_identifier}_connection/state`
 
 Camera connection state.
 
@@ -444,7 +444,7 @@ Camera connection state.
 
 </details>
 
-#### `{client_id}/toggle/{camera_identifier}_manual_recording/command`
+#### `{base_topic}/toggle/{camera_identifier}_manual_recording/command`
 
 Used for starting/stopping a manual recording. Payload should be a valid JSON, `ON` or `OFF`.
 
@@ -480,7 +480,7 @@ OFF
 
 </details>
 
-#### `{client_id}/toggle/{camera_identifier}_manual_recording/state`
+#### `{base_topic}/toggle/{camera_identifier}_manual_recording/state`
 
 Manual recording state.
 
@@ -509,17 +509,17 @@ Manual recording state.
 
 ### Image topics
 
-#### `{client_id}/image/{camera_identifier}_latest_thumbnail/image`
+#### `{base_topic}/image/{camera_identifier}_latest_thumbnail/image`
 
 A JPEG encoded image is published to this topic when a new recording starts. The object that triggered the recorder will have its bounding box drawn.
 
-#### `{client_id}/image/{camera_identifier}_latest_thumbnail/attributes`
+#### `{base_topic}/image/{camera_identifier}_latest_thumbnail/attributes`
 
 A JSON formatted payload with attributes (currently empty)
 
 ### Sensor topics
 
-#### `{client_id}/sensor/{camera_identifier}_object_detector_fps/state`
+#### `{base_topic}/sensor/{camera_identifier}_object_detector_fps/state`
 
 A JSON formatted payload is periodically published to with an estimate of the current object detectors processing FPS.
 
@@ -541,7 +541,7 @@ A JSON formatted payload is periodically published to with an estimate of the cu
 
 </details>
 
-#### `{client_id}/sensor/{camera_identifier}_operation_state/state`
+#### `{base_topic}/sensor/{camera_identifier}_operation_state/state`
 
 A JSON formatted payload is published to this topic to indicate the current status of the camera
 
@@ -607,11 +607,11 @@ Sent to the MQTT broker when an error occurs while scanning a frame for `motion`
 
 </details>
 
-#### `{client_id}/sensor/{camera_identifier}_image_classification/state`
+#### `{base_topic}/sensor/{camera_identifier}_image_classification/state`
 
 ### Viseron state topic
 
-#### `{client_id}/state`
+#### `{base_topic}/state`
 
 A JSON formatted payload is published to this topic to indicate the current status of Viseron.
 
@@ -639,7 +639,7 @@ offline
 
 ### Last Will Topic
 
-#### `{client_id}/lwt`
+#### `{base_topic}/lwt`
 
 MQTT Last will and Testament
 

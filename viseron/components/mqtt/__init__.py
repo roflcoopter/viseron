@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 import paho.mqtt.client as mqtt
 import voluptuous as vol
+from paho.mqtt.enums import MQTTErrorCode
 
 from viseron.components.nvr.toggle import ManualRecordingToggle
 from viseron.const import (
@@ -16,12 +17,14 @@ from viseron.const import (
     EVENT_STATE_CHANGED,
     VISERON_SIGNAL_SHUTDOWN,
 )
+from viseron.events import EventEmptyData
 from viseron.helpers.validators import CoerceNoneToDict, Maybe
 from viseron.states import EventEntityAddedData
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
     COMPONENT,
+    CONFIG_BASE_TOPIC,
     CONFIG_BROKER,
     CONFIG_CLIENT_ID,
     CONFIG_DISCOVERY_PREFIX,
@@ -29,15 +32,21 @@ from .const import (
     CONFIG_LAST_WILL_TOPIC,
     CONFIG_PASSWORD,
     CONFIG_PORT,
+    CONFIG_PUBLISH_HA_CONFIG_ON_RECONNECT,
+    CONFIG_PUBLISH_STATES_ON_RECONNECT,
     CONFIG_RETAIN_CONFIG,
     CONFIG_USERNAME,
+    DEFAULT_BASE_TOPIC,
     DEFAULT_CLIENT_ID,
     DEFAULT_DISCOVERY_PREFIX,
     DEFAULT_LAST_WILL_TOPIC,
     DEFAULT_PASSWORD,
     DEFAULT_PORT,
+    DEFAULT_PUBLISH_HA_CONFIG_ON_RECONNECT,
+    DEFAULT_PUBLISH_STATES_ON_RECONNECT,
     DEFAULT_RETAIN_CONFIG,
     DEFAULT_USERNAME,
+    DESC_BASE_TOPIC,
     DESC_BROKER,
     DESC_CLIENT_ID,
     DESC_COMPONENT,
@@ -46,14 +55,16 @@ from .const import (
     DESC_LAST_WILL_TOPIC,
     DESC_PASSWORD,
     DESC_PORT,
+    DESC_PUBLISH_HA_CONFIG_ON_RECONNECT,
+    DESC_PUBLISH_STATES_ON_RECONNECT,
     DESC_RETAIN_CONFIG,
     DESC_USERNAME,
+    EVENT_MQTT_BROKER_RECONNECT,
     EVENT_MQTT_ENTITY_ADDED,
     INCLUSION_GROUP_AUTHENTICATION,
     MESSAGE_AUTHENTICATION,
     MQTT_CLIENT_CONNECTION_OFFLINE,
     MQTT_CLIENT_CONNECTION_ONLINE,
-    MQTT_CLIENT_CONNECTION_TOPIC,
     MQTT_RC,
 )
 from .entity import MQTTEntity
@@ -72,13 +83,6 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-def get_lwt_topic(mqtt_config: dict) -> dict:
-    """Return last will topic."""
-    if not mqtt_config["last_will_topic"]:
-        mqtt_config["last_will_topic"] = f"{mqtt_config['client_id']}/lwt"
-    return mqtt_config
-
-
 HOME_ASSISTANT_SCHEMA = vol.Schema(
     {
         vol.Optional(
@@ -91,49 +95,61 @@ HOME_ASSISTANT_SCHEMA = vol.Schema(
             default=DEFAULT_RETAIN_CONFIG,
             description=DESC_RETAIN_CONFIG,
         ): bool,
+        vol.Optional(
+            CONFIG_PUBLISH_HA_CONFIG_ON_RECONNECT,
+            default=DEFAULT_PUBLISH_HA_CONFIG_ON_RECONNECT,
+            description=DESC_PUBLISH_HA_CONFIG_ON_RECONNECT,
+        ): bool,
     }
 )
 
 CONFIG_SCHEMA = vol.Schema(
     {
         vol.Required(COMPONENT, description=DESC_COMPONENT): vol.Schema(
-            vol.All(
-                {
-                    vol.Required(CONFIG_BROKER, description=DESC_BROKER): str,
-                    vol.Optional(
-                        CONFIG_PORT, default=DEFAULT_PORT, description=DESC_PORT
-                    ): int,
-                    vol.Inclusive(
-                        CONFIG_USERNAME,
-                        INCLUSION_GROUP_AUTHENTICATION,
-                        default=DEFAULT_USERNAME,
-                        description=DESC_USERNAME,
-                        msg=MESSAGE_AUTHENTICATION,
-                    ): Maybe(str),
-                    vol.Inclusive(
-                        CONFIG_PASSWORD,
-                        INCLUSION_GROUP_AUTHENTICATION,
-                        default=DEFAULT_PASSWORD,
-                        description=DESC_PASSWORD,
-                        msg=MESSAGE_AUTHENTICATION,
-                    ): Maybe(str),
-                    vol.Optional(
-                        CONFIG_CLIENT_ID,
-                        default=DEFAULT_CLIENT_ID,
-                        description=DESC_CLIENT_ID,
-                    ): Maybe(str),
-                    vol.Optional(
-                        CONFIG_LAST_WILL_TOPIC,
-                        default=DEFAULT_LAST_WILL_TOPIC,
-                        description=DESC_LAST_WILL_TOPIC,
-                    ): Maybe(str),
-                    vol.Optional(
-                        CONFIG_HOME_ASSISTANT,
-                        description=DESC_HOME_ASSISTANT,
-                    ): vol.All(CoerceNoneToDict(), HOME_ASSISTANT_SCHEMA),
-                },
-                get_lwt_topic,
-            )
+            {
+                vol.Required(CONFIG_BROKER, description=DESC_BROKER): str,
+                vol.Optional(
+                    CONFIG_PORT, default=DEFAULT_PORT, description=DESC_PORT
+                ): int,
+                vol.Inclusive(
+                    CONFIG_USERNAME,
+                    INCLUSION_GROUP_AUTHENTICATION,
+                    default=DEFAULT_USERNAME,
+                    description=DESC_USERNAME,
+                    msg=MESSAGE_AUTHENTICATION,
+                ): Maybe(str),
+                vol.Inclusive(
+                    CONFIG_PASSWORD,
+                    INCLUSION_GROUP_AUTHENTICATION,
+                    default=DEFAULT_PASSWORD,
+                    description=DESC_PASSWORD,
+                    msg=MESSAGE_AUTHENTICATION,
+                ): Maybe(str),
+                vol.Optional(
+                    CONFIG_CLIENT_ID,
+                    default=DEFAULT_CLIENT_ID,
+                    description=DESC_CLIENT_ID,
+                ): Maybe(str),
+                vol.Optional(
+                    CONFIG_BASE_TOPIC,
+                    default=DEFAULT_BASE_TOPIC,
+                    description=DESC_BASE_TOPIC,
+                ): Maybe(str),
+                vol.Optional(
+                    CONFIG_LAST_WILL_TOPIC,
+                    default=DEFAULT_LAST_WILL_TOPIC,
+                    description=DESC_LAST_WILL_TOPIC,
+                ): Maybe(str),
+                vol.Optional(
+                    CONFIG_PUBLISH_STATES_ON_RECONNECT,
+                    default=DEFAULT_PUBLISH_STATES_ON_RECONNECT,
+                    description=DESC_PUBLISH_STATES_ON_RECONNECT,
+                ): bool,
+                vol.Optional(
+                    CONFIG_HOME_ASSISTANT,
+                    description=DESC_HOME_ASSISTANT,
+                ): vol.All(CoerceNoneToDict(), HOME_ASSISTANT_SCHEMA),
+            },
         )
     },
     extra=vol.ALLOW_EXTRA,
@@ -185,6 +201,25 @@ class MQTT:
         self._entity_creation_lock = threading.Lock()
         self._entities: dict[str, MQTTEntity] = {}
 
+    @property
+    def base_topic(self) -> str:
+        """Return base topic."""
+        if self._config[CONFIG_BASE_TOPIC]:
+            return self._config[CONFIG_BASE_TOPIC]
+        return self._config[CONFIG_CLIENT_ID]
+
+    @property
+    def lwt_topic(self) -> str:
+        """Return last will topic."""
+        if self._config[CONFIG_LAST_WILL_TOPIC]:
+            return self._config[CONFIG_LAST_WILL_TOPIC]
+        return f"{self.base_topic}/lwt"
+
+    @property
+    def client_connection_topic(self) -> str:
+        """Return client connection topic."""
+        return f"{self.base_topic}/state"
+
     def create_entity(self, entity: Entity) -> None:
         """Create entity in Home Assistant."""
         with self._entity_creation_lock:
@@ -233,37 +268,44 @@ class MQTT:
         self._connected = True
 
         # Send initial alive message
+        self.publish(PublishPayload(topic=self.lwt_topic, payload="alive", retain=True))
         self.publish(
             PublishPayload(
-                topic=self._config[CONFIG_LAST_WILL_TOPIC], payload="alive", retain=True
-            )
-        )
-        self.publish(
-            PublishPayload(
-                topic=MQTT_CLIENT_CONNECTION_TOPIC.format(
-                    client_id=self._config[CONFIG_CLIENT_ID]
-                ),
+                topic=self.client_connection_topic,
                 payload=MQTT_CLIENT_CONNECTION_ONLINE,
                 retain=True,
             )
         )
 
         if self._reconnect:
-            LOGGER.debug("Reconnected to MQTT broker, re-subscribing to topics")
-            self._reconnect = False
-            # Re-subscribe to all topics
-            for topic, _ in self._subscriptions.items():
-                LOGGER.debug(f"Re-subscribing to topic {topic}")
-                self._client.subscribe(topic)
+            self.on_reconnect()
             return
 
         self._vis.listen_event(EVENT_ENTITY_ADDED, self.entity_added)
         self.create_entities(self._vis.get_entities())
         self._vis.listen_event(EVENT_STATE_CHANGED, self.state_changed)
 
+    def on_reconnect(self):
+        """Handle broker reconnect."""
+        LOGGER.debug("Reconnected to MQTT broker, re-subscribing to topics")
+        self._reconnect = False
+        # Re-subscribe to all topics
+        for topic, _ in self._subscriptions.items():
+            LOGGER.debug(f"Re-subscribing to topic {topic}")
+            self._client.subscribe(topic)
+
+        # Re-publish all states
+        if self._config[CONFIG_PUBLISH_STATES_ON_RECONNECT]:
+            for entity in self._entities.values():
+                entity.publish_state()
+        self._vis.dispatch_event(EVENT_MQTT_BROKER_RECONNECT, EventEmptyData())
+
     def on_disconnect(self, _client, _userdata, returncode) -> None:
         """On MQTT disconnection."""
-        LOGGER.warning(f"MQTT disconnected with returncode {str(returncode)}")
+        if returncode != MQTTErrorCode.MQTT_ERR_SUCCESS:
+            LOGGER.warning(
+                f"MQTT disconnected with returncode {str(returncode)}({returncode})"
+            )
         if self._connected:
             self._reconnect = True
             self._connected = False
@@ -304,9 +346,7 @@ class MQTT:
         ).start()
 
         # Set a Last Will message
-        self._client.will_set(
-            self._config[CONFIG_LAST_WILL_TOPIC], payload="dead", retain=True
-        )
+        self._client.will_set(self.lwt_topic, payload="dead", retain=True)
         self._client.connect(self._config[CONFIG_BROKER], self._config[CONFIG_PORT], 10)
 
         # Start threaded loop to read/publish messages
@@ -355,9 +395,7 @@ class MQTT:
         LOGGER.debug("Stopping MQTT client")
         # Publish using client directly so we are sure its published
         self._client.publish(
-            topic=MQTT_CLIENT_CONNECTION_TOPIC.format(
-                client_id=self._config[CONFIG_CLIENT_ID]
-            ),
+            topic=self.client_connection_topic,
             payload=MQTT_CLIENT_CONNECTION_OFFLINE,
             retain=True,
         )
