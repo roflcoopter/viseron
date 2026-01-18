@@ -171,4 +171,3 @@ class ActionsOnvifAPIHandler(BaseAPIHandler):
             status_code=HTTPStatus.BAD_REQUEST,
             reason=f"Unknown action: {self._service_name.upper()} {action}",
         )
-        return
