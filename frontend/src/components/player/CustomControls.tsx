@@ -102,6 +102,7 @@ interface CustomControlsProps {
   playbackSpeed?: number;
   isFullscreen?: boolean;
   onFullscreenToggle?: () => void;
+  isFullscreenSupported?: boolean;
   onPictureInPictureToggle?: () => void;
   isPictureInPictureSupported?: boolean;
   extraButtons?: React.ReactNode;
@@ -127,6 +128,7 @@ export function CustomControls({
   playbackSpeed = 1,
   isFullscreen = false,
   onFullscreenToggle,
+  isFullscreenSupported,
   onPictureInPictureToggle,
   isPictureInPictureSupported = false,
   extraButtons,
@@ -449,15 +451,16 @@ export function CustomControls({
                 <ShrinkScreen size={20} />
               </CustomFab>
             )}
-            {onFullscreenToggle && screenfull.isEnabled && (
-              <CustomFab
-                onClick={onFullscreenToggle}
-                title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-                isFullscreen={isFullscreen}
-              >
-                {isFullscreen ? <PopIn size={20} /> : <Launch size={20} />}
-              </CustomFab>
-            )}
+            {onFullscreenToggle &&
+              (isFullscreenSupported ?? screenfull.isEnabled) && (
+                <CustomFab
+                  onClick={onFullscreenToggle}
+                  title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                  isFullscreen={isFullscreen}
+                >
+                  {isFullscreen ? <PopIn size={20} /> : <Launch size={20} />}
+                </CustomFab>
+              )}
           </Box>
         </Box>
       </Box>

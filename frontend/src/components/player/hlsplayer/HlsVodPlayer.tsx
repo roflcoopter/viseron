@@ -7,6 +7,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useHlsStore } from "components/events/utils";
 import { CustomControls } from "components/player/CustomControls";
 import { HlsErrorOverlay } from "components/player/hlsplayer/HlsErrorOverlay";
+import { useFullscreen } from "components/player/hlsplayer/useFullscreen";
 import { useHlsPlayerControls } from "components/player/hlsplayer/useHlsPlayerControls";
 import {
   cleanupHlsInstance,
@@ -192,6 +193,9 @@ export function HlsVodPlayer({
     isMuted,
   } = useHlsPlayerControls(videoRef);
 
+  const { isFullscreen, isFullscreenSupported, toggleFullscreen } =
+    useFullscreen(videoRef);
+
   useInitializePlayer(hlsRef, hlsClientIdRef, videoRef);
   useLoadSourceOnPlay(hlsRef, hlsClientIdRef, videoRef, camera, recording);
 
@@ -238,6 +242,9 @@ export function HlsVodPlayer({
         onMuteToggle={handleMuteToggle}
         videoRef={videoRef}
         showProgressBar={!!recording}
+        isFullscreen={isFullscreen}
+        onFullscreenToggle={toggleFullscreen}
+        isFullscreenSupported={isFullscreenSupported}
       />
 
       {hlsRef.current && <HlsErrorOverlay error={hlsRefError} />}
