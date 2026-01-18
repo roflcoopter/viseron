@@ -43,7 +43,7 @@
     "buffer": "^6.0.3",
     "dayjs": "^1.11.18",
     "dompurify": "^3.2.7",
-    "hls.js": "^1.6.13",
+    "hls.js": "^1.6.15",
     "http-proxy-middleware": "^3.0.5",
     "js-cookie": "^3.0.5",
     "js-yaml": "^4.1.0",
