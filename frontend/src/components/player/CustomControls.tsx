@@ -332,7 +332,7 @@ export function CustomControls({
                       right: "50%",
                       top: "50%",
                       transform: "translateY(-50%)",
-                      height: 35,
+                      height: 25,
                       width: isVolumeSliderVisible || isDragging ? 150 : 0,
                       visibility:
                         isVolumeSliderVisible || isDragging
@@ -363,9 +363,16 @@ export function CustomControls({
                       onMouseUp={handleMouseUp}
                       aria-labelledby="horizontal-volume-slider"
                       sx={{
+                        height: 4,
                         width: "80%",
                         "& .MuiSlider-thumb": {
+                          width: 12,
+                          height: 12,
                           transition: "none",
+                        },
+                        // Make track (left side of the thumb) smaller
+                        "& .MuiSlider-track": {
+                          border: "none",
                         },
                       }}
                       min={0}
