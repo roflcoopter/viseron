@@ -105,6 +105,7 @@ interface CustomControlsProps {
   playbackSpeed?: number;
   isFullscreen?: boolean;
   onFullscreenToggle?: () => void;
+  isFullscreenSupported?: boolean;
   onPictureInPictureToggle?: () => void;
   isPictureInPictureSupported?: boolean;
   extraButtons?: React.ReactNode;
@@ -130,6 +131,7 @@ export function CustomControls({
   playbackSpeed = 1,
   isFullscreen = false,
   onFullscreenToggle,
+  isFullscreenSupported,
   onPictureInPictureToggle,
   isPictureInPictureSupported = false,
   extraButtons,
@@ -336,7 +338,7 @@ export function CustomControls({
                       right: "50%",
                       top: "50%",
                       transform: "translateY(-50%)",
-                      height: 35,
+                      height: 25,
                       width: isVolumeSliderVisible || isDragging ? 150 : 0,
                       visibility:
                         isVolumeSliderVisible || isDragging
@@ -367,9 +369,16 @@ export function CustomControls({
                       onMouseUp={handleMouseUp}
                       aria-labelledby="horizontal-volume-slider"
                       sx={{
+                        height: 4,
                         width: "80%",
                         "& .MuiSlider-thumb": {
+                          width: 12,
+                          height: 12,
                           transition: "none",
+                        },
+                        // Make track (left side of the thumb) smaller
+                        "& .MuiSlider-track": {
+                          border: "none",
                         },
                       }}
                       min={0}
@@ -455,15 +464,16 @@ export function CustomControls({
                 <ShrinkScreen size={20} />
               </CustomFab>
             )}
-            {onFullscreenToggle && screenfull.isEnabled && (
-              <CustomFab
-                onClick={onFullscreenToggle}
-                title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-                isFullscreen={isFullscreen}
-              >
-                {isFullscreen ? <PopIn size={20} /> : <Launch size={20} />}
-              </CustomFab>
-            )}
+            {onFullscreenToggle &&
+              (isFullscreenSupported ?? screenfull.isEnabled) && (
+                <CustomFab
+                  onClick={onFullscreenToggle}
+                  title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                  isFullscreen={isFullscreen}
+                >
+                  {isFullscreen ? <PopIn size={20} /> : <Launch size={20} />}
+                </CustomFab>
+              )}
           </Box>
         </Box>
       </Box>

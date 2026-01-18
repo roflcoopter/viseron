@@ -16,10 +16,10 @@ import LazyLoad from "react-lazyload";
 
 import MutationIconButton from "components/buttons/MutationIconButton";
 import LicensePlateRecognitionIcon from "components/icons/LicensePlateRecognition";
+import { getVideoElement } from "components/player/utils";
 import VideoPlayerPlaceholder from "components/player/videoplayer/VideoPlayerPlaceholder";
 import { useAuthContext } from "context/AuthContext";
 import { useDeleteRecording } from "lib/api/recordings";
-import { getVideoElement } from "lib/helpers";
 import {
   getDayjsFromDateTimeString,
   getTimeStringFromDayjs,

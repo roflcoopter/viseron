@@ -145,23 +145,6 @@ export const useAuthLogout = () =>
     },
   });
 
-interface AuthTokenVariables {
-  grant_type: string;
-  client_id: string;
-}
-
-export async function authToken({
-  grant_type,
-  client_id,
-}: AuthTokenVariables): Promise<types.AuthTokenResponse> {
-  const response = await viseronAPI.post("/auth/token", {
-    grant_type,
-    client_id,
-  });
-  storeTokens(response.data);
-  return response.data;
-}
-
 async function authEnabled() {
   const response =
     await viseronAPI.get<types.AuthEnabledResponse>("/auth/enabled");

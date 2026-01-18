@@ -6,11 +6,7 @@ export const useHlsPlayerControls = (
   videoRef: React.RefObject<HTMLVideoElement | null>,
 ) => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(
-    videoRef.current
-      ? videoRef.current.muted || videoRef.current.volume === 0
-      : false,
-  );
+  const [isMuted, setIsMuted] = useState(true);
 
   const {
     controlsVisible,
@@ -97,17 +93,20 @@ export const useHlsPlayerControls = (
   }, [videoRef]);
 
   useEffect(() => {
-    // setInterval that syncs isPlaying state with video element
+    // setInterval that syncs isPlaying and isMuted state with video element
     const playerStatusInterval = setInterval(() => {
       const video = videoRef.current;
       if (video && !video.paused !== isPlaying) {
         setIsPlaying(!video.paused);
       }
+      if (video && video.muted !== isMuted) {
+        setIsMuted(video.muted);
+      }
     }, 500);
     return () => {
       clearInterval(playerStatusInterval);
     };
-  }, [videoRef, isPlaying]);
+  }, [videoRef, isPlaying, isMuted]);
 
   return {
     handlePlayPause,
