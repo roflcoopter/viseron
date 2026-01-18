@@ -1,8 +1,7 @@
 import { InternalAxiosRequestConfig } from "axios";
 import { Dayjs } from "dayjs";
 
-import { authToken } from "lib/api/auth";
-import { clientId } from "lib/api/client";
+import { clientId, viseronAPI } from "lib/api/client";
 import { dispatchCustomEvent } from "lib/events";
 import * as types from "lib/types";
 
@@ -93,6 +92,23 @@ export const getAuthHeader = (): string | null => {
   }
   return null;
 };
+
+interface AuthTokenVariables {
+  grant_type: string;
+  client_id: string;
+}
+
+export async function authToken({
+  grant_type,
+  client_id,
+}: AuthTokenVariables): Promise<types.AuthTokenResponse> {
+  const response = await viseronAPI.post("/auth/token", {
+    grant_type,
+    client_id,
+  });
+  storeTokens(response.data);
+  return response.data;
+}
 
 let isFetchingTokens = false;
 let tokenPromise: Promise<types.AuthTokenResponse>;

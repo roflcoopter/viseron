@@ -14,11 +14,12 @@ import LazyLoad from "react-lazyload";
 import { Link } from "react-router-dom";
 
 import MutationIconButton from "components/buttons/MutationIconButton";
+import { getVideoElement } from "components/player/utils";
 import VideoPlayerPlaceholder from "components/player/videoplayer/VideoPlayerPlaceholder";
 import { useAuthContext } from "context/AuthContext";
 import { useCamera } from "lib/api/camera";
 import { useDeleteRecording, useRecordings } from "lib/api/recordings";
-import { getVideoElement, objHasValues } from "lib/helpers";
+import { objHasValues } from "lib/helpers";
 import {
   getDateStringFromDayjs,
   getDayjsFromDateTimeString,

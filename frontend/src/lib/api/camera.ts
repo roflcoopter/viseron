@@ -1,7 +1,8 @@
 import { UseQueryOptions, useMutation, useQuery } from "@tanstack/react-query";
 
 import { useToast } from "hooks/UseToast";
-import { useInvalidateQueryOnStateChange, viseronAPI } from "lib/api/client";
+import { viseronAPI } from "lib/api/client";
+import { useInvalidateQueryOnStateChange } from "lib/api/utils";
 import * as types from "lib/types";
 
 type CameraRequest = {
