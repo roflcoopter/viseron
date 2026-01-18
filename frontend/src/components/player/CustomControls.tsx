@@ -26,6 +26,7 @@ import Typography from "@mui/material/Typography";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import screenfull from "screenfull";
 
+import { useAuthContext } from "context/AuthContext";
 import { ProgressBar } from "components/player/ProgressBar";
 import { useFullscreen } from "context/FullscreenContext";
 import { isTouchDevice } from "lib/helpers";
@@ -35,6 +36,7 @@ const ZINDEX = 900;
 interface CustomFabProps {
   onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
   size?: "small" | "medium" | "large";
+  color?: "primary" | "success" | "error";
   children: React.ReactNode;
   title?: string;
   isFullscreen?: boolean;
@@ -44,6 +46,7 @@ interface CustomFabProps {
 export function CustomFab({
   onClick,
   size = "small",
+  color = "primary",
   children,
   title,
   isFullscreen = false,
@@ -57,7 +60,7 @@ export function CustomFab({
       onClick={onClick}
       onTouchStart={(e) => e.stopPropagation()}
       size={size}
-      color="primary"
+      color={color}
       sx={{ margin: 0.25, zIndex: ZINDEX }}
       disabled={disabled}
       data-testid={dataTestId}
@@ -138,6 +141,7 @@ export function CustomControls({
   const [isProgressDragging, setIsProgressDragging] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const volumeControlRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuthContext();
 
   const handleProgressDragStart = useCallback(() => {
     setIsProgressDragging(true);

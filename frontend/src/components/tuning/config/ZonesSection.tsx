@@ -46,21 +46,23 @@ export function ZonesSection({
         </Button>
       </Box>
       {zones && Array.isArray(zones) && zones.length > 0 ? (
-        zones.map((zone: Zone, index: number) => (
-          <Button
-            key={zone.name || `zone-${index}`}
-            variant={selectedZoneIndex === index ? "contained" : "outlined"}
-            fullWidth
-            sx={{ mb: 1, justifyContent: "flex-start" }}
-            onClick={() => onZoneClick(index)}
-            onContextMenu={(e) => onContextMenu(e, "zone", index)}
-            disabled={isDrawingMode || isSaving}
-            color="success"
-            startIcon={<AreaCustom />}
-          >
-            {zone.name || `Zone ${index + 1}`}
-          </Button>
-        ))
+        <Box display="flex" flexDirection="column" gap={1}>
+          {zones.map((zone: Zone, index: number) => (
+            <Button
+              key={zone.name || `zone-${index}`}
+              variant={selectedZoneIndex === index ? "contained" : "outlined"}
+              fullWidth
+              sx={{ justifyContent: "flex-start" }}
+              onClick={() => onZoneClick(index)}
+              onContextMenu={(e) => onContextMenu(e, "zone", index)}
+              disabled={isDrawingMode || isSaving}
+              color="success"
+              startIcon={<AreaCustom />}
+            >
+              {zone.name || `Zone ${index + 1}`}
+            </Button>
+          ))}
+        </Box>
       ) : (
         <Typography
           variant="caption"

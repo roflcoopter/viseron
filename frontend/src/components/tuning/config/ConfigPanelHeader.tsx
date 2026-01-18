@@ -6,6 +6,9 @@ interface ConfigPanelHeaderProps {
   isDrawingMode: boolean;
   isSaving: boolean;
   onRevertConfig: () => void;
+  currentDomainName: string;
+  componentName?: string;
+  isOnvifAutoConfig?: boolean;
 }
 
 export function ConfigPanelHeader({
@@ -13,8 +16,18 @@ export function ConfigPanelHeader({
   isDrawingMode,
   isSaving,
   onRevertConfig,
+  currentDomainName,
+  componentName,
+  isOnvifAutoConfig,
 }: ConfigPanelHeaderProps) {
   const theme = useTheme();
+
+  // Hide reset button for ONVIF components (except client) when auto_config is true
+  const shouldShowResetButton = !(
+    currentDomainName === "onvif" &&
+    componentName !== "client" &&
+    isOnvifAutoConfig
+  );
 
   return (
     <Box
@@ -32,15 +45,17 @@ export function ConfigPanelHeader({
         <SettingsServices size={20} style={{ marginRight: 8 }} />
         <Typography variant="h6">Tuning Config</Typography>
       </Box>
-      <Button
-        size="small"
-        startIcon={<Reset size={16} />}
-        onClick={onRevertConfig}
-        disabled={!isConfigModified || isDrawingMode || isSaving}
-        color="warning"
-      >
-        RESET
-      </Button>
+      {shouldShowResetButton && (
+        <Button
+          size="small"
+          startIcon={<Reset size={16} />}
+          onClick={onRevertConfig}
+          disabled={!isConfigModified || isDrawingMode || isSaving}
+          color="warning"
+        >
+          RESET
+        </Button>
+      )}
     </Box>
   );
 }

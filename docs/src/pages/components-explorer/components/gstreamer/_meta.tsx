@@ -8,6 +8,8 @@ const ComponentMetadata: Component = {
   image: "/img/logos/gstreamer.svg",
   tags: ["camera"],
   category: "choose_one",
+  path: "viseron/components/gstreamer",
+  issue: "gstreamer",
 };
 
 export default ComponentMetadata;

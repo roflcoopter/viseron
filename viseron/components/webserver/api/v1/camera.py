@@ -14,6 +14,7 @@ import voluptuous as vol
 
 from viseron.components.storage.models import TriggerTypes
 from viseron.components.webserver.api.handlers import BaseAPIHandler
+from viseron.components.webserver.auth import Role
 from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.const import (
     AUTHENTICATION_BASIC,
@@ -62,16 +63,19 @@ class CameraAPIHandler(BaseAPIHandler):
             ),
         },
         {
+            "requires_role": [Role.ADMIN],
             "path_pattern": r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)/start",
             "supported_methods": ["POST"],
             "method": "post_start_camera",
         },
         {
+            "requires_role": [Role.ADMIN],
             "path_pattern": r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)/stop",
             "supported_methods": ["POST"],
             "method": "post_stop_camera",
         },
         {
+            "requires_role": [Role.ADMIN, Role.WRITE],
             "path_pattern": (
                 r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)/manual_recording"
             ),

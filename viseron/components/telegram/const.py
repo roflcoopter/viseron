@@ -5,7 +5,7 @@ from typing import Final
 COMPONENT = "telegram"
 DESC_COMPONENT = "Telegram bot to control cameras."
 
-CONFIG_PTZ_COMPONENT = "ptz"
+CONFIG_ONVIF_COMPONENT = "onvif"
 
 CONFIG_TELEGRAM_BOT_TOKEN = "telegram_bot_token"
 CONFIG_TELEGRAM_CHAT_IDS = "telegram_chat_ids"

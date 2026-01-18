@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 import cv2
 import voluptuous as vol
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.constants import ParseMode
 from telegram.error import TelegramError
 from telegram.ext import (
     Application,
@@ -20,6 +21,7 @@ from telegram.ext import (
     CallbackQueryHandler,
     CommandHandler,
 )
+from telegram.request import HTTPXRequest
 
 from viseron.components.nvr import COMPONENT as NVR_COMPONENT
 from viseron.components.storage.models import TriggerTypes
@@ -42,7 +44,7 @@ from .const import (
     CONFIG_CAMERAS,
     CONFIG_DETECTION_LABEL,
     CONFIG_DETECTION_LABEL_DEFAULT,
-    CONFIG_PTZ_COMPONENT,
+    CONFIG_ONVIF_COMPONENT,
     CONFIG_SEND_MESSAGE,
     CONFIG_SEND_THUMBNAIL,
     CONFIG_SEND_VIDEO,
@@ -132,13 +134,14 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
 
     telegram_notifier = TelegramEventNotifier(vis, component_config)
 
-    if not config.get(CONFIG_PTZ_COMPONENT):
-        LOGGER.info("No PTZ component. Won't start Telegram PTZ Controller.")
+    # Check if ONVIF component is loaded and ready
+    if CONFIG_ONVIF_COMPONENT not in vis.data:
+        LOGGER.info("ONVIF component not loaded. Won't start Telegram PTZ Controller.")
         telegram_ptz = None
     else:
-        if not vis.data.get(CONFIG_PTZ_COMPONENT):
+        if not vis.data.get(CONFIG_ONVIF_COMPONENT):
             raise ComponentNotReady(
-                f"PTZ component '{CONFIG_PTZ_COMPONENT}' not ready yet"
+                f"PTZ component '{CONFIG_ONVIF_COMPONENT}' not ready yet"
             )
         telegram_ptz = TelegramPTZ(vis, component_config, telegram_notifier)
         Thread(target=telegram_ptz.run_async).start()
@@ -182,6 +185,13 @@ class TelegramEventNotifier:
     """
 
     def __init__(self, vis: Viseron, config: dict[str, Any]) -> None:
+        request = HTTPXRequest(
+            connect_timeout=60,
+            read_timeout=60,
+            write_timeout=60,
+            pool_timeout=60,
+        )
+
         self._vis = vis
         self._config = config
         SensitiveInformationFilter.add_sensitive_string(
@@ -194,7 +204,9 @@ class TelegramEventNotifier:
         self._chat_ids = self._config[CONFIG_TELEGRAM_CHAT_IDS]
         self._loop = asyncio.new_event_loop()
         self._bot = Bot(token=self._bot_token)
-        self._app = Application.builder().token(self._bot_token).build()
+        self._app = (
+            Application.builder().request(request).token(self._bot_token).build()
+        )
         self._stop_event = asyncio.Event()
         self._active_camera_identifier: str = (
             list(self._config[CONFIG_CAMERAS].keys())[0] or ""
@@ -284,9 +296,12 @@ class TelegramEventNotifier:
             while not self._stop_event.is_set():
                 await asyncio.sleep(1)
         finally:
-            if self._app.updater:
+            if self._app.updater and self._app.updater.running:
                 await self._app.updater.stop()
-            await self._app.stop()
+
+            if self._app.running:
+                await self._app.stop()
+
             await self._app.shutdown()
 
     def run_async(self):
@@ -359,7 +374,8 @@ class TelegramEventNotifier:
         if update.message:
             if self.active_camera_identifier:
                 await update.message.reply_text(
-                    f"Active camera: {self.active_camera_identifier}"
+                    f"Active camera: <b>{self.active_camera_identifier}</b>",
+                    parse_mode=ParseMode.HTML,
                 )
             else:
                 await update.message.reply_text("No camera selected.")
@@ -371,7 +387,11 @@ class TelegramEventNotifier:
         if cam:
             ret, snapshot = cam.get_snapshot(cam.current_frame)
             if update.message and ret:
-                await update.message.reply_photo(photo=snapshot)
+                await update.message.reply_photo(
+                    photo=snapshot,
+                    caption=f"Snapshot from <b>{cam.name or cam.identifier}</b>",
+                    parse_mode=ParseMode.HTML,
+                )
         else:
             if update.message:
                 await update.message.reply_text("No active camera.")
@@ -384,11 +404,17 @@ class TelegramEventNotifier:
             if cam.is_on:
                 cam.stop_camera()
                 if update.message:
-                    await update.message.reply_text("Camera turned off.")
+                    await update.message.reply_text(
+                        f"<b>{cam.name or cam.identifier}</b> is turned off.",
+                        parse_mode=ParseMode.HTML,
+                    )
             else:
                 cam.start_camera()
                 if update.message:
-                    await update.message.reply_text("Camera turned on.")
+                    await update.message.reply_text(
+                        f"<b>{cam.name or cam.identifier}</b> is turned on.",
+                        parse_mode=ParseMode.HTML,
+                    )
 
     @limit_user_access
     async def _record(self, update: Update, context: CallbackContext) -> None:
@@ -443,8 +469,9 @@ class TelegramEventNotifier:
             )
             if update.message:
                 await update.message.reply_text(
-                    f"Started manual recording for camera {cam.identifier} with "
+                    f"Started manual recording for camera <b>{cam.identifier}</b> with "
                     f"{f'duration {duration}s' if duration else 'no duration'}.",
+                    parse_mode=ParseMode.HTML,
                 )
             if duration:
                 await asyncio.sleep(duration)
@@ -525,8 +552,11 @@ class TelegramEventNotifier:
                 first_line_doc = next(
                     (line.strip() for line in doc.split("\n") if line.strip()), ""
                 )
-                commands.append(f"{command_list} - {first_line_doc}")
+                commands.append(f"{command_list} — {first_line_doc}")
 
-        help_message = "\n".join(commands)
-        help_message += "\nUse /help <command> to get more information about a command."
+        help_message = "Viseron Telegram commands:\n\n"
+        help_message += "\n".join(commands)
+        help_message += (
+            "\n\nUse /help <command> to get more information about a command."
+        )
         await update.message.reply_text(help_message)
