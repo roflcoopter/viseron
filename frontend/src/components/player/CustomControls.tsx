@@ -26,8 +26,8 @@ import Typography from "@mui/material/Typography";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import screenfull from "screenfull";
 
-import { useAuthContext } from "context/AuthContext";
 import { ProgressBar } from "components/player/ProgressBar";
+import { useAuthContext } from "context/AuthContext";
 import { useFullscreen } from "context/FullscreenContext";
 import { isTouchDevice } from "lib/helpers";
 
@@ -286,22 +286,24 @@ export function CustomControls({
                 <Typography variant="button">LIVE</Typography>
               </Button>
             )}
-            {onManualRecording && (
-              <CustomFab
-                onClick={onManualRecording}
-                title={isRecording ? "Stop Recording" : "Start Recording"}
-                disabled={manualRecordingLoading}
-                data-testid="manual-recording-button"
-              >
-                {manualRecordingLoading ? (
-                  <CircularProgress enableTrackSlot size={20} />
-                ) : isRecording ? (
-                  <StopFilledAlt size={25} color="red" />
-                ) : (
-                  <RecordingFilled size={25} />
-                )}
-              </CustomFab>
-            )}
+            {(!user || user.role === "admin" || user.role === "write") &&
+              onManualRecording && (
+                <CustomFab
+                  onClick={onManualRecording}
+                  title={isRecording ? "Stop Recording" : "Start Recording"}
+                  disabled={manualRecordingLoading}
+                  data-testid="manual-recording-button"
+                  color={isRecording ? "error" : "success"}
+                >
+                  {manualRecordingLoading ? (
+                    <CircularProgress enableTrackSlot size={20} />
+                  ) : isRecording ? (
+                    <StopFilledAlt size={20} />
+                  ) : (
+                    <RecordingFilled size={20} />
+                  )}
+                </CustomFab>
+              )}
           </Box>
 
           {/* Progress bar */}
