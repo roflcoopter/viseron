@@ -29,7 +29,7 @@ export function getVideoElement(
       }
     >
       <HlsVodPlayer
-        key={camera.identifier}
+        key={recording.id}
         camera={camera}
         recording={recording}
         loop
