@@ -603,6 +603,7 @@ def generate_playlist(
     fragments: list[Fragment],
     init_file: str,
     media_sequence=0,
+    target_duration: int | None = None,
     end=False,
     file_directive=False,
 ) -> str:
@@ -615,14 +616,15 @@ def generate_playlist(
     if media_sequence:
         playlist.append(f"#EXT-X-DISCONTINUITY-SEQUENCE:{media_sequence}")
 
-    if fragments:
+    if target_duration:
+        pass
+    elif fragments and target_duration is None:
         target_duration = ceil(max(f.duration for f in fragments))
-        playlist.append(
-            f"#EXT-X-TARGETDURATION:{max(target_duration, CAMERA_SEGMENT_DURATION)}"
-        )
+        target_duration = max(target_duration, CAMERA_SEGMENT_DURATION)
     else:
-        playlist.append(f"#EXT-X-TARGETDURATION:{CAMERA_SEGMENT_DURATION}")
+        target_duration = CAMERA_SEGMENT_DURATION
 
+    playlist.append(f"#EXT-X-TARGETDURATION:{target_duration}")
     playlist.append("#EXT-X-INDEPENDENT-SEGMENTS")
     playlist.append(f'#EXT-X-MAP:URI="{_get_file_path(init_file, file_directive)}"')
 
