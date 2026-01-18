@@ -5,7 +5,25 @@ on:
     branches:
       - dev
       - master
-  pull_request: ~
+    paths:
+      - viseron/**
+      - tests/**
+      - requirements.txt
+      - requirements_test.txt
+      - requirements_ci.txt
+      - .pre-commit-config.yaml
+      - azure-pipelines/**
+      - .github/workflows/ci.yaml
+  pull_request:
+    paths:
+      - viseron/**
+      - tests/**
+      - requirements.txt
+      - requirements_test.txt
+      - requirements_ci.txt
+      - .pre-commit-config.yaml
+      - azure-pipelines/**
+      - .github/workflows/ci.yaml
 
 env:
   CACHE_VERSION: 1
