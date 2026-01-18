@@ -5,13 +5,7 @@ on:
     branches:
       - dev
       - master
-    paths:
-      - frontend/**
-      - .github/workflows/ci-frontend.yaml
-  pull_request:
-    paths:
-      - frontend/**
-      - .github/workflows/ci-frontend.yaml
+  pull_request: ~
 
 env:
   NODE_VERSION: 22
