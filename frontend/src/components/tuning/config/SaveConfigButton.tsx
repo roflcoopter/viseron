@@ -1,5 +1,5 @@
 import { Save } from "@carbon/icons-react";
-import { Box, Button } from "@mui/material";
+import { Box, Button, CircularProgress } from "@mui/material";
 
 interface SaveConfigButtonProps {
   isConfigModified: boolean;
@@ -27,7 +27,13 @@ export function SaveConfigButton({
         variant="contained"
         color="primary"
         fullWidth
-        startIcon={<Save size={16} />}
+        startIcon={
+          isSaving ? (
+            <CircularProgress enableTrackSlot size={16} />
+          ) : (
+            <Save size={16} />
+          )
+        }
         onClick={onSaveConfig}
         disabled={!isConfigModified || isSaving || isDrawingMode}
       >
