@@ -223,6 +223,16 @@ export const useReferencePlayerStore = create<ReferencePlayerStore>((set) => ({
   playingDateRef: { current: getDayjs().unix() - LIVE_EDGE_DELAY },
 }));
 
+interface ScrollingStore {
+  isScrolling: boolean;
+  setIsScrolling: (isScrolling: boolean) => void;
+}
+
+export const useScrollingStore = create<ScrollingStore>((set) => ({
+  isScrolling: false,
+  setIsScrolling: (isScrolling) => set({ isScrolling }),
+}));
+
 export const DEFAULT_ITEM: TimelineItem = {
   time: 0,
   timedEvent: null,

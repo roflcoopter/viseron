@@ -1,12 +1,5 @@
-import { Suspense, lazy } from "react";
-
-import VideoPlayerPlaceholder from "components/player/videoplayer/VideoPlayerPlaceholder";
 import queryClient from "lib/api/client";
 import * as types from "lib/types";
-
-const HlsVodPlayer = lazy(
-  () => import("components/player/hlsplayer/HlsVodPlayer"),
-);
 
 export const BLANK_IMAGE =
   "data:image/svg+xml;charset=utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E";
@@ -29,69 +22,6 @@ export function objIsEmpty(obj: any) {
 
 export function objHasValues<T = Record<never, never>>(obj: unknown): obj is T {
   return typeof obj === "object" && obj !== null && Object.keys(obj).length > 0;
-}
-
-export function getRecordingVideoJSOptions(
-  recording: types.Recording,
-  auth_token?: string,
-) {
-  return {
-    autoplay: false,
-    playsinline: true,
-    controls: true,
-    loop: true,
-    poster: `${recording.thumbnail_path}`,
-    preload: "none",
-    responsive: true,
-    fluid: true,
-    playbackRates: [0.5, 1, 2, 5, 10],
-    liveui: true,
-    liveTracker: {
-      trackingThreshold: 0,
-    },
-    html5: {
-      vhs: {
-        experimentalLLHLS: true,
-      },
-    },
-    sources: [
-      {
-        src: recording.hls_url + (auth_token ? `?token=${auth_token}` : ""),
-        type: "application/x-mpegURL",
-      },
-    ],
-  };
-}
-
-export function getVideoElement(
-  camera: types.Camera | types.FailedCamera,
-  recording: types.Recording | null | undefined,
-) {
-  if (!objHasValues(recording) || !recording) {
-    return (
-      <VideoPlayerPlaceholder
-        aspectRatio={camera.mainstream.width / camera.mainstream.height}
-      />
-    );
-  }
-
-  return (
-    <Suspense
-      fallback={
-        <VideoPlayerPlaceholder
-          aspectRatio={camera.mainstream.width / camera.mainstream.height}
-        />
-      }
-    >
-      <HlsVodPlayer
-        key={camera.identifier}
-        camera={camera}
-        recording={recording}
-        loop
-        poster={`${recording.thumbnail_path}`}
-      />
-    </Suspense>
-  );
 }
 
 export function toTitleCase(str: string) {

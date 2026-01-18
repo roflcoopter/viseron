@@ -88,7 +88,7 @@ module.exports = defineConfig([
       "no-underscore-dangle": "off",
       "no-param-reassign": "off",
       "no-restricted-syntax": ["error", "LabeledStatement", "WithStatement"],
-      "import/no-cycle": "off", // Long term we should try to fix these
+      "import/no-cycle": "warn",
       "import/extensions": "off",
       "import/prefer-default-export": "off",
       "import/no-extraneous-dependencies": [

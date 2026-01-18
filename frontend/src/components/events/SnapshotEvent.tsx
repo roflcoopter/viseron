@@ -19,7 +19,6 @@ import HoverPopover from "material-ui-popup-state/HoverPopover";
 import { memo, useCallback, useMemo, useRef } from "react";
 
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
-import { useScrollingStore } from "components/events/timeline/VirtualList";
 import {
   EVENT_ICON_HEIGHT,
   TICK_HEIGHT,
@@ -31,6 +30,7 @@ import {
   getIcon,
   getSrc,
   useFilterStore,
+  useScrollingStore,
   useSelectEvent,
 } from "components/events/utils";
 import { ImageWithFallback } from "components/images/ImageWithFallback";

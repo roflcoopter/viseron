@@ -1,9 +1,8 @@
 import { render, waitFor } from "@testing-library/react";
 import { renderWithContext } from "tests/utils/renderWithContext";
 
+import { getVideoElement } from "components/player/utils";
 import {
-  getRecordingVideoJSOptions,
-  getVideoElement,
   objHasValues,
   objIsEmpty,
   removeURLParameter,
@@ -91,50 +90,6 @@ describe("objHasValues", () => {
   it("should return false if the object is undefined", () => {
     const obj = undefined;
     expect(objHasValues(obj)).toBe(false);
-  });
-});
-
-describe("getRecordingVideoJSOptions", () => {
-  it("should return the correct videoJS options", () => {
-    const recording: types.Recording = {
-      thumbnail_path: "thumbnail.jpg",
-      hls_url: "video.m3u8",
-      id: 0,
-      camera_identifier: "",
-      start_time: "",
-      start_timestamp: 0,
-      end_time: "",
-      end_timestamp: 0,
-      trigger_type: "",
-      trigger_id: 0,
-    };
-    const options = getRecordingVideoJSOptions(recording);
-    expect(options).toEqual({
-      autoplay: false,
-      playsinline: true,
-      controls: true,
-      loop: true,
-      poster: "thumbnail.jpg",
-      preload: "none",
-      responsive: true,
-      fluid: true,
-      playbackRates: [0.5, 1, 2, 5, 10],
-      liveui: true,
-      liveTracker: {
-        trackingThreshold: 0,
-      },
-      html5: {
-        vhs: {
-          experimentalLLHLS: true,
-        },
-      },
-      sources: [
-        {
-          src: "video.m3u8",
-          type: "application/x-mpegURL",
-        },
-      ],
-    });
   });
 });
 
