@@ -26,6 +26,7 @@ import Typography from "@mui/material/Typography";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import screenfull from "screenfull";
 
+import { ProgressBar } from "components/player/ProgressBar";
 import { useFullscreen } from "context/FullscreenContext";
 import { isTouchDevice } from "lib/helpers";
 
@@ -104,6 +105,8 @@ interface CustomControlsProps {
   onPictureInPictureToggle?: () => void;
   isPictureInPictureSupported?: boolean;
   extraButtons?: React.ReactNode;
+  videoRef?: React.RefObject<HTMLVideoElement | null>;
+  showProgressBar?: boolean;
 }
 
 export function CustomControls({
@@ -127,11 +130,22 @@ export function CustomControls({
   onPictureInPictureToggle,
   isPictureInPictureSupported = false,
   extraButtons,
+  videoRef,
+  showProgressBar = false,
 }: CustomControlsProps) {
   const [isVolumeSliderVisible, setIsVolumeSliderVisible] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isProgressDragging, setIsProgressDragging] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const volumeControlRef = useRef<HTMLDivElement>(null);
+
+  const handleProgressDragStart = useCallback(() => {
+    setIsProgressDragging(true);
+  }, []);
+
+  const handleProgressDragEnd = useCallback(() => {
+    setIsProgressDragging(false);
+  }, []);
 
   const handleVolumeControlMouseEnter = useCallback(() => {
     if (!isDragging) {
@@ -176,16 +190,22 @@ export function CustomControls({
           setIsVolumeSliderVisible(false);
         }
       }
+      if (isProgressDragging) {
+        setIsProgressDragging(false);
+      }
     };
 
     document.addEventListener("mouseup", handleGlobalMouseUp);
     return () => {
       document.removeEventListener("mouseup", handleGlobalMouseUp);
     };
-  }, [isDragging]);
+  }, [isDragging, isProgressDragging]);
 
   return (
-    <Fade in={isVisible || Boolean(anchorEl)} timeout={300}>
+    <Fade
+      in={isVisible || Boolean(anchorEl) || isProgressDragging}
+      timeout={300}
+    >
       <Box
         sx={{
           position: "absolute",
@@ -244,46 +264,54 @@ export function CustomControls({
             alignItems: "center",
           }}
         >
-          {/* LIVE/record button */}
-          {onLiveClick && (
-            <Button
-              onClick={onLiveClick}
-              onTouchStart={(e) => e.stopPropagation()}
-              variant="contained"
-              size="small"
-              sx={{ margin: 0.25 }}
-            >
-              <CircleFill
-                fill={isLive ? "red" : "gray"}
-                size={12}
-                style={{ marginRight: 8 }}
-              />
-              <Typography variant="button">LIVE</Typography>
-            </Button>
-          )}
-          {onManualRecording && (
-            <CustomFab
-              onClick={onManualRecording}
-              title={isRecording ? "Stop Recording" : "Start Recording"}
-              disabled={manualRecordingLoading}
-              data-testid="manual-recording-button"
-            >
-              {manualRecordingLoading ? (
-                <CircularProgress enableTrackSlot size={20} />
-              ) : isRecording ? (
-                <StopFilledAlt size={25} color="red" />
-              ) : (
-                <RecordingFilled size={25} />
-              )}
-            </CustomFab>
-          )}
-          {!onLiveClick && !onManualRecording && (
-            // Empty div so that 'space-between' works
-            <div />
+          {/* Left-aligned controls */}
+          <Box display="flex" alignItems="center" flexShrink={0}>
+            {onLiveClick && (
+              <Button
+                onClick={onLiveClick}
+                onTouchStart={(e) => e.stopPropagation()}
+                variant="contained"
+                size="small"
+                sx={{ margin: 0.25 }}
+              >
+                <CircleFill
+                  fill={isLive ? "red" : "gray"}
+                  size={12}
+                  style={{ marginRight: 8 }}
+                />
+                <Typography variant="button">LIVE</Typography>
+              </Button>
+            )}
+            {onManualRecording && (
+              <CustomFab
+                onClick={onManualRecording}
+                title={isRecording ? "Stop Recording" : "Start Recording"}
+                disabled={manualRecordingLoading}
+                data-testid="manual-recording-button"
+              >
+                {manualRecordingLoading ? (
+                  <CircularProgress enableTrackSlot size={20} />
+                ) : isRecording ? (
+                  <StopFilledAlt size={25} color="red" />
+                ) : (
+                  <RecordingFilled size={25} />
+                )}
+              </CustomFab>
+            )}
+          </Box>
+
+          {/* Progress bar */}
+          {showProgressBar && videoRef && (
+            <ProgressBar
+              videoRef={videoRef}
+              isProgressDragging={isProgressDragging}
+              onDragStart={handleProgressDragStart}
+              onDragEnd={handleProgressDragEnd}
+            />
           )}
 
           {/* Right-aligned controls */}
-          <Box display="flex" alignItems="center">
+          <Box display="flex" alignItems="center" flexShrink={0}>
             {(onVolumeChange || onMuteToggle) && (
               <Box
                 ref={volumeControlRef}

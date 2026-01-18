@@ -1,4 +1,3 @@
-import { VideoOff } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTheme } from "@mui/material/styles";
@@ -19,6 +18,12 @@ import {
   useHlsStore,
   useReferencePlayerStore,
 } from "components/events/utils";
+import { HlsErrorOverlay } from "components/player/hlsplayer/HlsErrorOverlay";
+import {
+  cleanupHlsInstance,
+  createHlsInstance,
+  setupHlsErrorHandling,
+} from "components/player/hlsplayer/utils";
 import { useAuthContext } from "context/AuthContext";
 import { ViseronContext } from "context/ViseronContext";
 import { useFirstRender } from "hooks/UseFirstRender";
@@ -28,7 +33,6 @@ import {
   getDateStringFromDayjs,
   getDayjsFromUnixTimestamp,
 } from "lib/helpers/dates";
-import { getToken } from "lib/tokens";
 import * as types from "lib/types";
 
 const loadSource = (
@@ -142,26 +146,8 @@ const initializePlayer = (
     hlsRef.current = null;
   }
 
-  // Create a new hls instance
-  hlsRef.current = new Hls({
-    autoStartLoad: false,
-    maxBufferLength: 30, // 30 seconds of forward buffer
-    backBufferLength: 15, // 15 seconds of back buffer
-    liveSyncDurationCount: 1, // Start from the second last segment
-    maxStarvationDelay: 99999999, // Prevents auto seeking back on starvation
-    liveDurationInfinity: false, // Has to be false to seek backwards
-    async xhrSetup(xhr, _url) {
-      xhr.withCredentials = true;
-      if (auth.enabled) {
-        const token = await getToken();
-        if (token) {
-          xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
-          xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-        }
-      }
-      xhr.setRequestHeader("Hls-Client-Id", hlsClientIdRef.current);
-    },
-  });
+  // Create a new hls instance using shared factory
+  hlsRef.current = createHlsInstance(auth, hlsClientIdRef);
 
   if (videoRef.current) {
     hlsRef.current.attachMedia(videoRef.current);
@@ -175,18 +161,13 @@ const initializePlayer = (
     onMediaAttached(hlsRef, videoRef, initialProgramDateTime, playingDateRef);
   });
 
-  // Reset error state when a fragment is loaded
-  hlsRef.current.on(Hls.Events.FRAG_LOADED, () => {
-    setHlsRefsError(hlsRef, null);
-  });
-
-  // Make sure initialization is retried on error after a delay
-  const delayedInitialization = () => {
-    if (delayedInitializationTimeoutRef.current) {
-      return;
-    }
-
-    delayedInitializationTimeoutRef.current = setTimeout(() => {
+  // Setup error handling using shared utility
+  setupHlsErrorHandling(hlsRef.current, {
+    hlsRef,
+    setHlsRefsError,
+    delayedInitializationTimeoutRef,
+    delayedRecoveryTimeoutRef,
+    onReinitialize: () => {
       initializePlayer(
         hlsRef,
         hlsClientIdRef,
@@ -199,52 +180,7 @@ const initializePlayer = (
         delayedInitializationTimeoutRef,
         delayedRecoveryTimeoutRef,
       );
-      delayedInitializationTimeoutRef.current = undefined;
-    }, 5000);
-  };
-
-  const delayedRecovery = () => {
-    if (delayedRecoveryTimeoutRef.current) {
-      return;
-    }
-
-    delayedRecoveryTimeoutRef.current = setTimeout(() => {
-      hlsRef.current!.recoverMediaError();
-    }, 5000);
-  };
-
-  // Handle errors
-  hlsRef.current.on(Hls.Events.ERROR, (_event, data) => {
-    // Ignore some HLS errors:
-    // - FRAG_GAP: Natural since recordings are not necessarily continuous
-    // - BUFFER_STALLED_ERROR: Happens when too close to live edge, automatically stabilizezes itself
-    switch (data.details) {
-      case Hls.ErrorDetails.FRAG_GAP:
-      case Hls.ErrorDetails.BUFFER_STALLED_ERROR:
-        break;
-      default:
-        setHlsRefsError(hlsRef, data.error.message.slice(0, 200));
-        break;
-    }
-
-    if (data.fatal) {
-      switch (data.type) {
-        case Hls.ErrorTypes.NETWORK_ERROR:
-          if (data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR) {
-            delayedInitialization();
-          }
-          hlsRef.current!.startLoad();
-          break;
-
-        case Hls.ErrorTypes.MEDIA_ERROR:
-          delayedRecovery();
-          break;
-
-        default:
-          delayedInitialization();
-          break;
-      }
-    }
+    },
   });
 };
 
@@ -317,15 +253,12 @@ const useInitializePlayer = (
       );
     }
     return () => {
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        removeHlsRef(hlsRef);
-        hlsRef.current = null;
-      }
-      if (delayedInitializationTimeoutRef.current) {
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        clearTimeout(delayedInitializationTimeoutRef.current);
-      }
+      cleanupHlsInstance(
+        hlsRef,
+        removeHlsRef,
+        delayedInitializationTimeoutRef,
+        delayedRecoveryTimeoutRef,
+      );
     };
     // Must disable this warning since we dont want to ever run this twice
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -513,50 +446,9 @@ export function HlsPlayer({ camera }: HlsPlayerProps) {
       )}
 
       {/* Show error overlay */}
-      {!!(hlsRef.current && hlsRefError) && (
-        <Box
-          sx={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            width: "100%",
-            height: "100%",
-            backgroundColor: (t) =>
-              t.palette.mode === "dark"
-                ? "rgba(0, 0, 0, 0.8)"
-                : "rgba(235, 235, 235, 0.8)",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: 200,
-            gap: 2,
-            zIndex: 2,
-          }}
-        >
-          <VideoOff
-            size={48}
-            style={{
-              color: theme.palette.text.secondary,
-              opacity: 0.5,
-            }}
-          />
-          <Box
-            sx={{
-              color: theme.palette.text.secondary,
-              textAlign: "center",
-              fontSize: "0.875rem",
-              opacity: 0.7,
-              maxWidth: "80%",
-              wordBreak: "break-word",
-            }}
-          >
-            {hlsRefError}
-          </Box>
-        </Box>
-      )}
+      {hlsRef.current && <HlsErrorOverlay error={hlsRefError} />}
     </div>
   );
 }
+
+export default HlsPlayer;

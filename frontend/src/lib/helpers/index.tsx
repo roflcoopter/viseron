@@ -2,11 +2,10 @@ import { Suspense, lazy } from "react";
 
 import VideoPlayerPlaceholder from "components/player/videoplayer/VideoPlayerPlaceholder";
 import queryClient from "lib/api/client";
-import { getAuthHeader } from "lib/tokens";
 import * as types from "lib/types";
 
-const VideoPlayer = lazy(
-  () => import("components/player/videoplayer/VideoPlayer"),
+const HlsVodPlayer = lazy(
+  () => import("components/player/hlsplayer/HlsVodPlayer"),
 );
 
 export const BLANK_IMAGE =
@@ -67,7 +66,6 @@ export function getRecordingVideoJSOptions(
 export function getVideoElement(
   camera: types.Camera | types.FailedCamera,
   recording: types.Recording | null | undefined,
-  authEnabled: boolean,
 ) {
   if (!objHasValues(recording) || !recording) {
     return (
@@ -77,14 +75,6 @@ export function getVideoElement(
     );
   }
 
-  let authHeader: string | null = null;
-  if (authEnabled) {
-    authHeader = getAuthHeader();
-  }
-  const videoJsOptions = getRecordingVideoJSOptions(
-    recording,
-    authHeader || undefined,
-  );
   return (
     <Suspense
       fallback={
@@ -93,7 +83,13 @@ export function getVideoElement(
         />
       }
     >
-      <VideoPlayer options={videoJsOptions} />
+      <HlsVodPlayer
+        key={camera.identifier}
+        camera={camera}
+        recording={recording}
+        loop
+        poster={`${recording.thumbnail_path}`}
+      />
     </Suspense>
   );
 }

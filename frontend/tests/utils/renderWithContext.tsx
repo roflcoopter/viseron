@@ -12,6 +12,7 @@ import { MemoryRouter } from "react-router-dom";
 import ToastContainer from "components/toast/ToastContainer";
 import { AuthContext } from "context/AuthContext";
 import { ColorModeProvider } from "context/ColorModeContext";
+import { FullscreenProvider } from "context/FullscreenContext";
 import { ViseronContext, ViseronContextState } from "context/ViseronContext";
 import * as types from "lib/types";
 
@@ -73,9 +74,11 @@ export function createProvidersWrapper(options: TestContextOptions = {}) {
           <MemoryRouter>
             {/* eslint-disable-next-line react/jsx-no-constructed-context-values */}
             <AuthContext.Provider value={{ auth, user }}>
-              <ViseronContext.Provider value={viseronValue}>
-                {children}
-              </ViseronContext.Provider>
+              <FullscreenProvider>
+                <ViseronContext.Provider value={viseronValue}>
+                  {children}
+                </ViseronContext.Provider>
+              </FullscreenProvider>
             </AuthContext.Provider>
           </MemoryRouter>
           <ToastContainer />
