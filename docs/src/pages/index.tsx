@@ -6,9 +6,9 @@ import {
   Chip,
   Demo,
   FaceActivated,
-  GroupObjects,
+  WatsonHealth3DMprToggle,
   PartitionAuto,
-  ImageReference,
+  VisualRecognition,
   Movement,
   Video,
 } from "@carbon/icons-react";
@@ -72,7 +72,7 @@ function HomepageHeader() {
                 to="/components-explorer?tags=object_detector"
                 className={styles.featureItem}
               >
-                <GroupObjects size={32} className={styles.featureIcon} />
+                <WatsonHealth3DMprToggle size={32} className={styles.featureIcon} />
                 <div>
                   <div className={styles.featureTitle}>Object Detection</div>
                   <div className={styles.featureDesc}>
@@ -108,7 +108,7 @@ function HomepageHeader() {
                 to="/components-explorer?tags=image_classification"
                 className={styles.featureItem}
               >
-                <ImageReference size={32} className={styles.featureIcon} />
+                <VisualRecognition size={32} className={styles.featureIcon} />
                 <div>
                   <div className={styles.featureTitle}>
                     Image Classification
