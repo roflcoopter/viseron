@@ -36,7 +36,7 @@ export default function RecordingCardLatest({
   failed,
 }: RecordingCardLatestProps) {
   const theme = useTheme();
-  const { auth, user } = useAuthContext();
+  const { user } = useAuthContext();
   const deleteRecording = useDeleteRecording();
 
   const recordingsQuery = useRecordings({
@@ -135,7 +135,7 @@ export default function RecordingCardLatest({
           }
         >
           {objHasValues(recording) ? (
-            getVideoElement(cameraQuery.data, recording, auth.enabled)
+            getVideoElement(cameraQuery.data, recording)
           ) : (
             <Box
               sx={{

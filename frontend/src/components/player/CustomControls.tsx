@@ -27,6 +27,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import screenfull from "screenfull";
 
 import { useAuthContext } from "context/AuthContext";
+import { ProgressBar } from "components/player/ProgressBar";
 import { useFullscreen } from "context/FullscreenContext";
 import { isTouchDevice } from "lib/helpers";
 
@@ -107,6 +108,8 @@ interface CustomControlsProps {
   onPictureInPictureToggle?: () => void;
   isPictureInPictureSupported?: boolean;
   extraButtons?: React.ReactNode;
+  videoRef?: React.RefObject<HTMLVideoElement | null>;
+  showProgressBar?: boolean;
 }
 
 export function CustomControls({
@@ -130,12 +133,23 @@ export function CustomControls({
   onPictureInPictureToggle,
   isPictureInPictureSupported = false,
   extraButtons,
+  videoRef,
+  showProgressBar = false,
 }: CustomControlsProps) {
   const [isVolumeSliderVisible, setIsVolumeSliderVisible] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isProgressDragging, setIsProgressDragging] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const volumeControlRef = useRef<HTMLDivElement>(null);
   const { user } = useAuthContext();
+
+  const handleProgressDragStart = useCallback(() => {
+    setIsProgressDragging(true);
+  }, []);
+
+  const handleProgressDragEnd = useCallback(() => {
+    setIsProgressDragging(false);
+  }, []);
 
   const handleVolumeControlMouseEnter = useCallback(() => {
     if (!isDragging) {
@@ -180,16 +194,22 @@ export function CustomControls({
           setIsVolumeSliderVisible(false);
         }
       }
+      if (isProgressDragging) {
+        setIsProgressDragging(false);
+      }
     };
 
     document.addEventListener("mouseup", handleGlobalMouseUp);
     return () => {
       document.removeEventListener("mouseup", handleGlobalMouseUp);
     };
-  }, [isDragging]);
+  }, [isDragging, isProgressDragging]);
 
   return (
-    <Fade in={isVisible || Boolean(anchorEl)} timeout={300}>
+    <Fade
+      in={isVisible || Boolean(anchorEl) || isProgressDragging}
+      timeout={300}
+    >
       <Box
         sx={{
           position: "absolute",
@@ -249,7 +269,7 @@ export function CustomControls({
           }}
         >
           {/* Left-aligned controls */}
-          <Box display="flex" alignItems="center">
+          <Box display="flex" alignItems="center" flexShrink={0}>
             {onLiveClick && (
               <Button
                 onClick={onLiveClick}
@@ -266,29 +286,36 @@ export function CustomControls({
                 <Typography variant="button">LIVE</Typography>
               </Button>
             )}
-
-            {(!user || user.role === "admin" || user.role === "write") &&
-              onManualRecording && (
-                <CustomFab
-                  onClick={onManualRecording}
-                  title={isRecording ? "Stop Recording" : "Start Recording"}
-                  disabled={manualRecordingLoading}
-                  data-testid="manual-recording-button"
-                  color={isRecording ? "error" : "success"}
-                >
-                  {manualRecordingLoading ? (
-                    <CircularProgress enableTrackSlot size={20} />
-                  ) : isRecording ? (
-                    <StopFilledAlt size={20} />
-                  ) : (
-                    <RecordingFilled size={20} />
-                  )}
-                </CustomFab>
-              )}
+            {onManualRecording && (
+              <CustomFab
+                onClick={onManualRecording}
+                title={isRecording ? "Stop Recording" : "Start Recording"}
+                disabled={manualRecordingLoading}
+                data-testid="manual-recording-button"
+              >
+                {manualRecordingLoading ? (
+                  <CircularProgress enableTrackSlot size={20} />
+                ) : isRecording ? (
+                  <StopFilledAlt size={25} color="red" />
+                ) : (
+                  <RecordingFilled size={25} />
+                )}
+              </CustomFab>
+            )}
           </Box>
 
+          {/* Progress bar */}
+          {showProgressBar && videoRef && (
+            <ProgressBar
+              videoRef={videoRef}
+              isProgressDragging={isProgressDragging}
+              onDragStart={handleProgressDragStart}
+              onDragEnd={handleProgressDragEnd}
+            />
+          )}
+
           {/* Right-aligned controls */}
-          <Box display="flex" alignItems="center">
+          <Box display="flex" alignItems="center" flexShrink={0}>
             {(onVolumeChange || onMuteToggle) && (
               <Box
                 ref={volumeControlRef}

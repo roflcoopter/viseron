@@ -36,7 +36,7 @@ export default function RecordingCard({
   recording,
 }: RecordingCardInterface) {
   const theme = useTheme();
-  const { auth, user } = useAuthContext();
+  const { user } = useAuthContext();
   const deleteRecording = useDeleteRecording();
 
   return (
@@ -95,7 +95,7 @@ export default function RecordingCard({
             />
           }
         >
-          {getVideoElement(camera, recording, auth.enabled)}
+          {getVideoElement(camera, recording)}
         </LazyLoad>
       </CardMedia>
       {!user || user.role === "admin" || user.role === "write" ? (
