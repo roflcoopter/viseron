@@ -1,10 +1,8 @@
 import { UseQueryOptions, useMutation, useQuery } from "@tanstack/react-query";
 
 import { useToast } from "hooks/UseToast";
-import queryClient, {
-  useInvalidateQueryOnEvent,
-  viseronAPI,
-} from "lib/api/client";
+import queryClient, { viseronAPI } from "lib/api/client";
+import { useInvalidateQueryOnEvent } from "lib/api/utils";
 import * as types from "lib/types";
 
 type RecordingsVariables = {

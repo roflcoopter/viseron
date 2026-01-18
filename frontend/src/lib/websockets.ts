@@ -1,12 +1,11 @@
 import React from "react";
 
 import { Toast, toastIds } from "hooks/UseToast";
-import { authToken } from "lib/api/auth";
 import { BASE_PATH, clientId } from "lib/api/client";
 import { sleep } from "lib/helpers";
 import { getDayjs } from "lib/helpers/dates";
 import * as messages from "lib/messages";
-import { loadTokens, tokenExpired } from "lib/tokens";
+import { authToken, loadTokens, tokenExpired } from "lib/tokens";
 import * as types from "lib/types";
 
 const DEBUG = false;
