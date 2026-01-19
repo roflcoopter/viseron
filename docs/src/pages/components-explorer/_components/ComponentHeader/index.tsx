@@ -120,7 +120,7 @@ function ComponentHeader({ meta }: { meta: Component }) {
             &nbsp;View source on Github
           </Link>
           <Link
-            href={`https://github.com/roflcoopter/viseron/issues?q=${meta.issue}`}
+            href={`https://github.com/roflcoopter/viseron/issues?q=is:issue%20${meta.issue}`}
             style={{
               display: "flex",
               alignItems: "center",
