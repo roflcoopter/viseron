@@ -9,7 +9,7 @@ const ComponentMetadata: Component = {
   tags: ["motion_detector"],
   category: null,
   path: "viseron/components/mog2",
-  issue: "mog2%20OR%20motion",
+  issue: 'label:"component: mog2" OR label:"domain: motion_detector"',
 };
 
 export default ComponentMetadata;

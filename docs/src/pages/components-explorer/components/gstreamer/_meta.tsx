@@ -9,7 +9,7 @@ const ComponentMetadata: Component = {
   tags: ["camera"],
   category: "choose_one",
   path: "viseron/components/gstreamer",
-  issue: "gstreamer",
+  issue: 'gstreamer OR label:"domain: camera"',
 };
 
 export default ComponentMetadata;

@@ -9,7 +9,7 @@ const ComponentMetadata: Component = {
   tags: ["system"],
   category: null,
   path: "viseron/components/webserver",
-  issue: "webserver",
+  issue: 'label:"component: webserver"',
 };
 
 export default ComponentMetadata;

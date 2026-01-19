@@ -9,7 +9,7 @@ const ComponentMetadata: Component = {
   tags: ["nvr"],
   category: "required",
   path: "viseron/components/nvr",
-  issue: "nvr",
+  issue: 'nvr OR label:"component: nvr"',
 };
 
 export default ComponentMetadata;

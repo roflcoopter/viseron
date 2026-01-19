@@ -9,7 +9,7 @@ const ComponentMetadata: Component = {
   tags: ["object_detector"],
   category: null,
   path: "viseron/components/darknet",
-  issue: "darknet",
+  issue: 'darknet OR label:"domain: object_detector"',
 };
 
 export default ComponentMetadata;

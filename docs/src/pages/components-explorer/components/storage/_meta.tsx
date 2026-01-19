@@ -9,7 +9,7 @@ const ComponentMetadata: Component = {
   tags: ["system"],
   category: "featured",
   path: "viseron/components/storage",
-  issue: "storage",
+  issue: 'label:"component: storage"',
 };
 
 export default ComponentMetadata;

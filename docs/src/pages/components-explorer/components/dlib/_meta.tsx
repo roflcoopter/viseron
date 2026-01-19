@@ -9,7 +9,7 @@ const ComponentMetadata: Component = {
   tags: ["face_recognition"],
   category: null,
   path: "viseron/components/dlib",
-  issue: "dlib",
+  issue: 'dlib OR label:"domain: face_recognition"',
 };
 
 export default ComponentMetadata;

@@ -9,7 +9,7 @@ const ComponentMetadata: Component = {
   tags: ["face_recognition"],
   category: null,
   path: "viseron/components/compreface",
-  issue: "compreface",
+  issue: 'compreface OR label:"domain: face_recognition"',
 };
 
 export default ComponentMetadata;

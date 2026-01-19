@@ -9,7 +9,7 @@ const ComponentMetadata: Component = {
   tags: ["camera"],
   category: "choose_one",
   path: "viseron/components/ffmpeg",
-  issue: "ffmpeg%20OR%20camera",
+  issue: 'ffmpeg OR label:"component: ffmpeg" OR label:"domain: camera"',
 };
 
 export default ComponentMetadata;

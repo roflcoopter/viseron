@@ -9,7 +9,7 @@ const ComponentMetadata: Component = {
   tags: ["protocol"],
   category: null,
   path: "viseron/components/mqtt",
-  issue: "mqtt",
+  issue: 'mqtt OR label:"component: mqtt"',
 };
 
 export default ComponentMetadata;
