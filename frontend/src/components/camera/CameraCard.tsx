@@ -323,8 +323,8 @@ function SuccessCameraCard({
                   >
                     <IntrusionPrevention
                       style={{
-                        width: "clamp(18px, 3vw, 20px)",
-                        height: "clamp(18px, 3vw, 20px)",
+                        width: "clamp(16px, 3vw, 20px)",
+                        height: "clamp(16px, 3vw, 20px)",
                       }}
                     />
                   </IconButton>
@@ -336,8 +336,8 @@ function SuccessCameraCard({
                   >
                     <Roadmap
                       style={{
-                        width: "clamp(18px, 3vw, 20px)",
-                        height: "clamp(18px, 3vw, 20px)",
+                        width: "clamp(16px, 3vw, 20px)",
+                        height: "clamp(16px, 3vw, 20px)",
                       }}
                     />
                   </IconButton>
@@ -349,8 +349,8 @@ function SuccessCameraCard({
                   >
                     <Demo
                       style={{
-                        width: "clamp(18px, 3vw, 20px)",
-                        height: "clamp(18px, 3vw, 20px)",
+                        width: "clamp(16px, 3vw, 20px)",
+                        height: "clamp(16px, 3vw, 20px)",
                       }}
                     />
                   </IconButton>
@@ -362,8 +362,8 @@ function SuccessCameraCard({
                   >
                     <VideoChat
                       style={{
-                        width: "clamp(18px, 3vw, 20px)",
-                        height: "clamp(18px, 3vw, 20px)",
+                        width: "clamp(16px, 3vw, 20px)",
+                        height: "clamp(16px, 3vw, 20px)",
                       }}
                     />
                   </IconButton>
@@ -376,8 +376,8 @@ function SuccessCameraCard({
                     >
                       <SettingsAdjust
                         style={{
-                          width: "clamp(18px, 3vw, 20px)",
-                          height: "clamp(18px, 3vw, 20px)",
+                          width: "clamp(16px, 3vw, 20px)",
+                          height: "clamp(16px, 3vw, 20px)",
                         }}
                       />
                     </IconButton>

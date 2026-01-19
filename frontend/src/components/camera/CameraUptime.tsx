@@ -32,8 +32,8 @@ export function CameraUptime({
         icon={
           <NetworkTimeProtocol
             style={{
-              width: "clamp(18px, 3vw, 20px)",
-              height: "clamp(18px, 3vw, 20px)",
+              width: "clamp(16px, 3vw, 20px)",
+              height: "clamp(16px, 3vw, 20px)",
             }}
           />
         }
