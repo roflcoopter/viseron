@@ -653,6 +653,7 @@ function Tunes() {
                   ? tuneHandlers.selectedComponentData?.auto_config === true
                   : tuneConfig.data?.onvif?.client?.auto_config === true
               }
+              onUpdateSnapshot={updateSnapshot}
             />
           </Grid>
 
