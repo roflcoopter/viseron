@@ -7,11 +7,11 @@ import config from "./config.json";
 
 <ComponentHeader meta={ComponentMetadata} />
 
-Ultralytics YOLO supports a wide range of models, from early versions like YOLOv3 to the latest YOLO11.
+Ultralytics YOLO supports a wide range of models, from early versions like YOLOv3 to the latest YOLO26.
 
 :::warning
 
-This component has undergone limited testing. In addition to partial functional testing, only the following models have been confirmed to work: yolov5mu.pt, yolov8n, and yolo11s.pt
+This component has undergone limited testing. In addition to partial functional testing, only the following models have been confirmed to work: yolov5mu.pt, yolov8n, yolo11s.pt and yolov26n.pt.
 
 :::
 
@@ -106,6 +106,12 @@ Only one model can be used at a time.
 Images inferenced by the component are resized by the underlying `ultralytics` package to match the model's input size.
 
 There is no functionality to resize the image in the `yolo` component configuration before inferencing.
+
+### Performance tips
+
+While Ultralytics models perform well on CUDA-enabled GPUs, they may underperform on CPUs. If your workflow is CPU-bound, YOLO26 is a more efficient choice.
+
+Performance can be assessed by inspecting the Viseron Entity `object_detector_fps`.
 
 ### Labels
 
