@@ -816,7 +816,7 @@ export function OnvifPtzController({
             }
           >
             {mutations.setPresetMutation.isPending ? (
-              <CircularProgress size={24} />
+              <CircularProgress enableTrackSlot size={24} />
             ) : (
               "Save"
             )}
@@ -855,7 +855,7 @@ export function OnvifPtzController({
             disabled={mutations.setHomeMutation.isPending}
           >
             {mutations.setHomeMutation.isPending ? (
-              <CircularProgress size={24} />
+              <CircularProgress enableTrackSlot size={24} />
             ) : (
               "Confirm"
             )}
@@ -899,7 +899,7 @@ export function OnvifPtzController({
             disabled={mutations.removePresetMutation.isPending}
           >
             {mutations.removePresetMutation.isPending ? (
-              <CircularProgress size={24} />
+              <CircularProgress enableTrackSlot size={24} />
             ) : (
               "Remove"
             )}
