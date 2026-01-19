@@ -1,5 +1,5 @@
-import { AddAlt, Camera, Video } from "@carbon/icons-react";
-import { Box, Button, Typography } from "@mui/material";
+import { AddAlt, Camera, Help, Video } from "@carbon/icons-react";
+import { Box, Button, Tooltip, Typography } from "@mui/material";
 import { MouseEvent } from "react";
 
 import { OSDText } from "../camera/types";
@@ -35,7 +35,16 @@ export function OSDTextsSection({
         alignItems="center"
         mb={1}
       >
-        <Typography variant="subtitle2">OSD Texts</Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography variant="subtitle2">OSD Texts</Typography>
+          <Tooltip
+            title="OSD (On-Screen Display) texts are used to display information such as timestamps or custom text on the video stream."
+            arrow
+            placement="top"
+          >
+            <Help size={16} />
+          </Tooltip>
+        </Box>
         <Box display="flex" gap={0.5}>
           <Button
             size="small"

@@ -1,10 +1,11 @@
 import {
   AddAlt,
+  Help,
   Label as LabelIcon,
   TextCreation,
   User,
 } from "@carbon/icons-react";
-import { Box, Button, Typography } from "@mui/material";
+import { Box, Button, Tooltip, Typography } from "@mui/material";
 import { MouseEvent } from "react";
 
 import { Label } from "../object_detector/types";
@@ -40,7 +41,16 @@ export function LabelsSection({
         alignItems="center"
         mb={1}
       >
-        <Typography variant="subtitle2">Labels</Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography variant="subtitle2">Labels</Typography>
+          <Tooltip
+            title="Labels are used to tell Viseron what objects to look for and keep recordings of. The available labels depends on what detection model you are using."
+            arrow
+            placement="top"
+          >
+            <Help size={16} />
+          </Tooltip>
+        </Box>
         <Button
           size="small"
           startIcon={<AddAlt size={16} />}

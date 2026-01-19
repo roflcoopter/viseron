@@ -1,5 +1,5 @@
-import { AddAlt, AreaCustom } from "@carbon/icons-react";
-import { Box, Button, Typography } from "@mui/material";
+import { AddAlt, AreaCustom, Help } from "@carbon/icons-react";
+import { Box, Button, Tooltip, Typography } from "@mui/material";
 import { MouseEvent } from "react";
 
 import { Zone } from "../object_detector/types";
@@ -35,7 +35,16 @@ export function ZonesSection({
         alignItems="center"
         mb={1}
       >
-        <Typography variant="subtitle2">Zones</Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography variant="subtitle2">Zones</Typography>
+          <Tooltip
+            title="Zones are used to define areas in the cameras field of view where you want to look for certain objects (labels)."
+            arrow
+            placement="top"
+          >
+            <Help size={16} />
+          </Tooltip>
+        </Box>
         <Button
           size="small"
           startIcon={<AddAlt size={16} />}

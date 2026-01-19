@@ -1,12 +1,13 @@
 import {
   AddAlt,
   Camera,
+  Help,
   ReflectHorizontal,
   ReflectVertical,
   WatsonHealthRotate_180 as Rotate180,
   Video,
 } from "@carbon/icons-react";
-import { Box, Button, Typography } from "@mui/material";
+import { Box, Button, Tooltip, Typography } from "@mui/material";
 import { MouseEvent } from "react";
 
 import { VideoTransform } from "../camera/types";
@@ -70,7 +71,16 @@ export function VideoTransformsSection({
           mb: 1,
         }}
       >
-        <Typography variant="subtitle2">Video Transforms</Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography variant="subtitle2">Video Transforms</Typography>
+          <Tooltip
+            title="Video transforms are used to modify the video stream, such as flipping or rotating the image."
+            arrow
+            placement="top"
+          >
+            <Help size={16} />
+          </Tooltip>
+        </Box>
         <Box display="flex" gap={0.5}>
           <Button
             size="small"

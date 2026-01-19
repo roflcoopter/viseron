@@ -1,5 +1,5 @@
-import { AddAlt, Area } from "@carbon/icons-react";
-import { Box, Button, Typography } from "@mui/material";
+import { AddAlt, Area, Help } from "@carbon/icons-react";
+import { Box, Button, Tooltip, Typography } from "@mui/material";
 import { MouseEvent } from "react";
 
 import { Mask } from "../shared/types";
@@ -35,7 +35,16 @@ export function MasksSection({
         alignItems="center"
         mb={1}
       >
-        <Typography variant="subtitle2">Masks</Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography variant="subtitle2">Masks</Typography>
+          <Tooltip
+            title="Masks are used to exclude certain areas in the image from any detection/post processing. If a detected object has its lower portion inside of the mask it will be discarded."
+            arrow
+            placement="top"
+          >
+            <Help size={16} />
+          </Tooltip>
+        </Box>
         <Button
           size="small"
           startIcon={<AddAlt size={16} />}
