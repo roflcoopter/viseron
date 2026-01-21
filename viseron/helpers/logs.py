@@ -13,6 +13,8 @@ from typing import Any, AnyStr, Literal, TextIO
 
 from colorlog import ColoredFormatter
 
+from viseron.const import ENV_DEV_WARNINGS
+
 LOG_FORMAT = "%(asctime)s.%(msecs)03d [%(levelname)-8s] [%(name)s] - %(message)s"
 STREAM_LOG_FORMAT = "%(log_color)s" + LOG_FORMAT
 LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
@@ -346,3 +348,9 @@ class StreamToLogger(typing.TextIO):
             return 0
         self.logger.log(self.log_level, text.rstrip())
         return 1
+
+
+def development_warning(logger: logging.Logger, message: str) -> None:
+    """Log a warning in development mode."""
+    if os.environ.get(ENV_DEV_WARNINGS, None):
+        logger.warning(message)

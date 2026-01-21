@@ -14,7 +14,7 @@ import voluptuous as vol
 
 from viseron import Viseron
 from viseron.const import ENV_CUDA_SUPPORTED, ENV_VAAPI_SUPPORTED
-from viseron.domains.camera import AbstractCamera
+from viseron.domains.camera import AbstractCamera, EventFrameBytesData
 from viseron.domains.camera.config import (
     BASE_CONFIG_SCHEMA as BASE_CAMERA_CONFIG_SCHEMA,
     DEFAULT_RECORDER,
@@ -500,7 +500,14 @@ class Camera(AbstractCamera):
             self._poll_timer = utcnow().timestamp()
             self.shared_frames.create(shared_frame, frame_bytes)
             self.current_frame = shared_frame
-            self._data_stream.publish_data(self.frame_bytes_topic, self.current_frame)
+            self._vis.dispatch_event(
+                self.frame_bytes_topic,
+                EventFrameBytesData(
+                    camera_identifier=self.identifier,
+                    shared_frame=self.current_frame,
+                ),
+                store=False,
+            )
 
         self.connected = False
         self.still_image_available = self.still_image_configured

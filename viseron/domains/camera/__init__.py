@@ -18,10 +18,6 @@ from sqlalchemy import or_, select
 from typing_extensions import assert_never
 
 from viseron.components import DomainToSetup
-from viseron.components.data_stream import (
-    COMPONENT as DATA_STREAM_COMPONENT,
-    DataStream,
-)
 from viseron.components.go2rtc.const import COMPONENT as GO2RTC_COMPONENT
 from viseron.components.storage.config import validate_tiers
 from viseron.components.storage.const import (
@@ -95,6 +91,15 @@ LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
+class EventFrameBytesData(EventData):
+    """Hold information on camera frame bytes event."""
+
+    json_serializable = False
+    camera_identifier: str
+    shared_frame: SharedFrame
+
+
+@dataclass
 class EventCameraStatusData(EventData):
     """Hold information on camera status event."""
 
@@ -108,7 +113,7 @@ class EventCameraStillImageAvailable(EventData):
     available: bool
 
 
-DATA_FRAME_BYTES_TOPIC = "{camera_identifier}/camera/frame_bytes"
+EVENT_FRAME_BYTES_TOPIC = "{camera_identifier}/camera/frame_bytes"
 
 
 class AbstractCamera(AbstractDomain):
@@ -128,10 +133,9 @@ class AbstractCamera(AbstractDomain):
         self._still_image_available: bool = False
         self.stopped = Event()
         self.stopped.set()
-        self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
         self.current_frame: SharedFrame | None = None
         self.shared_frames = SharedFrames(vis)
-        self.frame_bytes_topic = DATA_FRAME_BYTES_TOPIC.format(
+        self.frame_bytes_topic = EVENT_FRAME_BYTES_TOPIC.format(
             camera_identifier=self.identifier
         )
         self.access_tokens: deque = deque([], 2)

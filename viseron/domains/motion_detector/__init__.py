@@ -12,7 +12,6 @@ import numpy as np
 import voluptuous as vol
 from sqlalchemy import insert, update
 
-from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.components.nvr.const import EVENT_SCAN_FRAMES, MOTION_DETECTOR
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import Motion, MotionContours
@@ -36,8 +35,6 @@ from viseron.domains.motion_detector.const import (
     CONFIG_TRIGGER_EVENT_RECORDING,
     CONFIG_TRIGGER_RECORDER,
     CONFIG_WIDTH,
-    DATA_MOTION_DETECTOR_RESULT,
-    DATA_MOTION_DETECTOR_SCAN,
     DEFAULT_AREA,
     DEFAULT_FPS,
     DEFAULT_HEIGHT,
@@ -60,6 +57,8 @@ from viseron.domains.motion_detector.const import (
     DESC_WIDTH,
     DOMAIN,
     EVENT_MOTION_DETECTED,
+    EVENT_MOTION_DETECTOR_RESULT,
+    EVENT_MOTION_DETECTOR_SCAN,
     WARNING_TRIGGER_RECORDER,
 )
 from viseron.events import EventData
@@ -75,8 +74,7 @@ from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
-    from viseron.components.data_stream import DataStream
-    from viseron.components.nvr.nvr import EventScanFrames
+    from viseron.components.nvr.nvr import EventFrameToScan, EventScanFrames
     from viseron.components.storage import Storage
     from viseron.domains.camera import AbstractCamera
     from viseron.domains.camera.shared_frames import SharedFrame
@@ -136,6 +134,21 @@ class EventMotionDetected(EventData):
             "max_area": (
                 self.motion_contours.max_area if self.motion_contours else None
             ),
+        }
+
+
+@dataclass
+class EventMotionDetectorScannerResult(EventData):
+    """Hold information on motion detector scanner result event."""
+
+    camera_identifier: str
+    contours: Contours
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return event data as dict."""
+        return {
+            "camera_identifier": self.camera_identifier,
+            "max_area": self.contours.max_area,
         }
 
 
@@ -340,7 +353,6 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
         self._get_frame_function: Callable[[SharedFrame], np.ndarray] = getattr(
             self, f"_get_decoded_frame_{color_format}"
         )
-        self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
 
         self._resolution = (
             config[CONFIG_CAMERAS][camera_identifier][CONFIG_WIDTH],
@@ -356,7 +368,7 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
             self._mask_image = generate_mask_image(self._mask, self._camera.resolution)
 
         self._kill_received = False
-        self.motion_detection_queue: Queue[SharedFrame] = Queue(maxsize=1)
+        self.motion_detection_queue: Queue[Event[EventFrameToScan]] = Queue(maxsize=1)
         self._motion_detection_thread = RestartableThread(
             target=self._motion_detection,
             name=f"{camera_identifier}.motion_detection",
@@ -364,20 +376,24 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
             daemon=True,
         )
         self._motion_detection_thread.start()
-        topic = DATA_MOTION_DETECTOR_SCAN.format(camera_identifier=camera_identifier)
-        self._data_stream.subscribe_data(
-            data_topic=topic,
-            callback=self.motion_detection_queue,
+        self._listeners: list[Callable] = []
+        self._listeners.append(
+            vis.listen_event(
+                EVENT_MOTION_DETECTOR_SCAN.format(camera_identifier=camera_identifier),
+                self.motion_detection_queue,
+            )
         )
-
-        vis.listen_event(
-            EVENT_SCAN_FRAMES.format(
-                camera_identifier=camera_identifier, scanner_name=MOTION_DETECTOR
-            ),
-            self.handle_stop_scan,
+        self._listeners.append(
+            vis.listen_event(
+                EVENT_SCAN_FRAMES.format(
+                    camera_identifier=camera_identifier, scanner_name=MOTION_DETECTOR
+                ),
+                self.handle_stop_scan,
+            )
         )
-
-        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
+        self._listeners.append(
+            vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
+        )
 
     @abstractmethod
     def preprocess(self, frame: np.ndarray) -> np.ndarray:
@@ -412,10 +428,11 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
         """Perform motion detection and publish the results."""
         while not self._kill_received:
             try:
-                shared_frame: SharedFrame = self.motion_detection_queue.get(timeout=1)
+                frame_to_scan = self.motion_detection_queue.get(timeout=1)
             except Empty:
                 continue
 
+            shared_frame = frame_to_scan.data.shared_frame
             with shared_frame:
                 decoded_frame = self._get_frame_function(shared_frame).copy()
                 if self._mask:
@@ -424,11 +441,15 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
 
                 contours = self.return_motion(preprocessed_frame)
                 self._filter_motion(shared_frame, contours)
-                self._data_stream.publish_data(
-                    DATA_MOTION_DETECTOR_RESULT.format(
+                self._vis.dispatch_event(
+                    EVENT_MOTION_DETECTOR_RESULT.format(
                         camera_identifier=shared_frame.camera_identifier
                     ),
-                    contours,
+                    EventMotionDetectorScannerResult(
+                        camera_identifier=shared_frame.camera_identifier,
+                        contours=contours,
+                    ),
+                    store=False,
                 )
         self._logger.debug("Motion detection thread stopped")
 
@@ -466,4 +487,5 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
     def stop(self) -> None:
         """Stop motion detector."""
         self._kill_received = True
+        self._motion_detection_thread.stop()
         self._motion_detection_thread.join()

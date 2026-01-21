@@ -10,7 +10,6 @@ from unittest.mock import ANY, MagicMock, Mock, patch
 import numpy as np
 import pytest
 
-from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.components.nvr.const import (
     COMPONENT,
     DATA_NO_DETECTOR_RESULT,
@@ -18,12 +17,16 @@ from viseron.components.nvr.const import (
     NO_DETECTOR,
     OBJECT_DETECTOR,
 )
-from viseron.components.nvr.nvr import DATA_MOTION_DETECTOR_RESULT, NVR
+from viseron.components.nvr.nvr import EVENT_MOTION_DETECTOR_RESULT, NVR
 from viseron.components.storage.models import TriggerTypes
+from viseron.domains.camera import EventFrameBytesData
 from viseron.domains.camera.recorder import ManualRecording
+from viseron.events import Event
+from viseron.helpers import utcnow
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from tests.common import MockCamera, MockMotionDetector, MockObjectDetector
+from tests.conftest import MockViseron
 
 
 class FakeTime:
@@ -91,7 +94,17 @@ def feed_frame_to_nvr(nvr) -> None:
     """Queue frame + scanner tokens."""
     for scanner in nvr._frame_scanners.values():  # pylint: disable=protected-access
         safe_put(scanner.result_queue, object())
-    frame = SimpleNamespace(name="dummy_frame", capture_time=time.time())
+    frame = Event(
+        "dummy",
+        EventFrameBytesData(
+            camera_identifier=nvr._camera.identifier,
+            shared_frame=SimpleNamespace(  # type: ignore[arg-type]
+                name="dummy_frame",
+                capture_time=time.time(),
+            ),
+        ),
+        utcnow().timestamp(),
+    )
     nvr._frame_queue.put_nowait(frame)
 
 
@@ -142,10 +155,8 @@ class TestNVRInit:
         assert nvr._frame_scanners[NO_DETECTOR].scan is False
 
         # Subscribed to camera bytes and result topic
-        vis.data[DATA_STREAM_COMPONENT].subscribe_data.assert_any_call(
-            cam.frame_bytes_topic, ANY
-        )
-        vis.data[DATA_STREAM_COMPONENT].subscribe_data.assert_any_call(
+        vis.listen_event.assert_any_call(cam.frame_bytes_topic, ANY)
+        vis.listen_event.assert_any_call(
             DATA_NO_DETECTOR_RESULT.format(camera_identifier=cam.identifier),
             ANY,
         )
@@ -164,7 +175,7 @@ class TestNVRInit:
         assert MOTION_DETECTOR not in nvr._frame_scanners
         assert NO_DETECTOR not in nvr._frame_scanners
 
-    def test_init_motion_only_scanner_enabled(self, vis):
+    def test_init_motion_only_scanner_enabled(self, vis: MockViseron):
         """Motion only -> motion scan on."""
         motion_detector = MockMotionDetector(fps=5, trigger_event_recording=True)
         nvr, cam = make_nvr(vis, motion_detector=motion_detector)
@@ -173,8 +184,8 @@ class TestNVRInit:
         assert nvr._frame_scanners[MOTION_DETECTOR].scan is True
 
         # Subscribed to motion result topic
-        vis.data[DATA_STREAM_COMPONENT].subscribe_data.assert_any_call(
-            DATA_MOTION_DETECTOR_RESULT.format(camera_identifier=cam.identifier),
+        vis.listen_event.assert_any_call(
+            EVENT_MOTION_DETECTOR_RESULT.format(camera_identifier=cam.identifier),
             ANY,
         )
 

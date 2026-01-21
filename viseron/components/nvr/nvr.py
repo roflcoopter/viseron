@@ -25,12 +25,12 @@ from viseron.const import DOMAIN_IDENTIFIERS, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.motion_detector import AbstractMotionDetectorScanner
 from viseron.domains.motion_detector.const import (
-    DATA_MOTION_DETECTOR_RESULT,
-    DATA_MOTION_DETECTOR_SCAN,
+    EVENT_MOTION_DETECTOR_RESULT,
+    EVENT_MOTION_DETECTOR_SCAN,
 )
 from viseron.domains.object_detector.const import (
-    DATA_OBJECT_DETECTOR_RESULT,
-    DATA_OBJECT_DETECTOR_SCAN,
+    EVENT_OBJECT_DETECTOR_RESULT,
+    EVENT_OBJECT_DETECTOR_SCAN,
 )
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.events import EventData
@@ -42,9 +42,9 @@ from viseron.watchdog.thread_watchdog import RestartableThread
 from .const import (
     DATA_NO_DETECTOR_RESULT,
     DATA_NO_DETECTOR_SCAN,
-    DATA_PROCESSED_FRAME_TOPIC,
     DOMAIN,
     EVENT_OPERATION_STATE,
+    EVENT_PROCESSED_FRAME_TOPIC,
     EVENT_SCAN_FRAMES,
     MOTION_DETECTOR,
     NO_DETECTOR,
@@ -56,12 +56,13 @@ from .const import (
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.components.data_stream import DataStream
-    from viseron.domains.camera import AbstractCamera
+    from viseron.domains.camera import AbstractCamera, EventFrameBytesData
     from viseron.domains.camera.recorder import ManualRecording
     from viseron.domains.camera.shared_frames import SharedFrame
     from viseron.domains.motion_detector import AbstractMotionDetector, Contours
     from viseron.domains.object_detector import AbstractObjectDetector
     from viseron.domains.post_processor import AbstractPostProcessor
+    from viseron.events import Event
     from viseron.helpers.filter import Filter
 
 LOGGER = logging.getLogger(__name__)
@@ -95,8 +96,8 @@ def setup(vis: Viseron, config, identifier) -> bool:
 
 
 @dataclass
-class DataProcessedFrame:
-    """Processed frame that is sent on DATA_PROCESSED_FRAME_TOPIC."""
+class EventProcessedFrame(EventData):
+    """Processed frame that is sent on EVENT_PROCESSED_FRAME_TOPIC."""
 
     frame: np.ndarray
     objects_in_fov: list[DetectedObject] | None
@@ -109,6 +110,15 @@ class EventOperationState(EventData):
 
     camera_identifier: str
     operation_state: str
+
+
+@dataclass
+class EventFrameToScan(EventData):
+    """Event dispatched when a frame is marked for scanning."""
+
+    shared_frame: SharedFrame
+    camera_identifier: str
+    scanner_name: str
 
 
 @dataclass
@@ -159,8 +169,7 @@ class FrameIntervalCalculator:
         self._frame_number = 0
         self.result_queue: Queue = Queue(maxsize=1)
 
-        self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
-        self._data_stream.subscribe_data(topic_result, self.result_queue)
+        self._vis.listen_event(topic_result, self.result_queue)
 
         self.calculate_scan_interval(output_fps)
 
@@ -169,7 +178,15 @@ class FrameIntervalCalculator:
         if self.scan:
             if self._frame_number % self._scan_interval == 0:
                 self._frame_number = 1
-                self._data_stream.publish_data(self._topic_scan, shared_frame)
+                self._vis.dispatch_event(
+                    self._topic_scan,
+                    EventFrameToScan(
+                        shared_frame=shared_frame,
+                        camera_identifier=self._camera_identifier,
+                        scanner_name=self._name,
+                    ),
+                    store=False,
+                )
                 return True
             self._frame_number += 1
         else:
@@ -257,9 +274,6 @@ class NVR:
         self._frame_scanners: dict[str, FrameIntervalCalculator] = {}
         self._current_frame_scanners: dict[str, FrameIntervalCalculator] = {}
         self._frame_scanner_errors: list[str] = []
-        self._topic_processed_frame = DATA_PROCESSED_FRAME_TOPIC.format(
-            camera_identifier=camera_identifier
-        )
 
         self._motion_only_frames = 0
         self._motion_recorder_keepalive_reached = False
@@ -274,10 +288,10 @@ class NVR:
                 self._logger,
                 self._camera.output_fps,
                 self._motion_detector.fps,
-                DATA_MOTION_DETECTOR_SCAN.format(
+                EVENT_MOTION_DETECTOR_SCAN.format(
                     camera_identifier=self._camera.identifier
                 ),
-                DATA_MOTION_DETECTOR_RESULT.format(
+                EVENT_MOTION_DETECTOR_RESULT.format(
                     camera_identifier=self._camera.identifier
                 ),
                 self._motion_detector,
@@ -294,10 +308,10 @@ class NVR:
                 self._logger,
                 self._camera.output_fps,
                 self._object_detector.fps,
-                DATA_OBJECT_DETECTOR_SCAN.format(
+                EVENT_OBJECT_DETECTOR_SCAN.format(
                     camera_identifier=self._camera.identifier
                 ),
-                DATA_OBJECT_DETECTOR_RESULT.format(
+                EVENT_OBJECT_DETECTOR_RESULT.format(
                     camera_identifier=self._camera.identifier
                 ),
                 self._object_detector,
@@ -357,10 +371,8 @@ class NVR:
         self._post_processors: dict[Domain, AbstractPostProcessor] = {}
         self.set_post_processors()
 
-        self._frame_queue: Queue[SharedFrame] = Queue(maxsize=100)
-        self._data_stream.subscribe_data(
-            self._camera.frame_bytes_topic, self._frame_queue
-        )
+        self._frame_queue: Queue[Event[EventFrameBytesData]] = Queue(maxsize=100)
+        self._vis.listen_event(self._camera.frame_bytes_topic, self._frame_queue)
         self._nvr_thread = RestartableThread(
             name=str(self),
             target=self.run,
@@ -826,13 +838,14 @@ class NVR:
         """Process frames from camera."""
         self.update_operation_state()
         try:
-            shared_frame = self._frame_queue.get(timeout=1)
+            frame = self._frame_queue.get(timeout=1)
         except Empty:
             return
 
         if first_frame_log:
             self._logger.debug("First frame received")
 
+        shared_frame = frame.data.shared_frame
         if (frame_age := time.time() - shared_frame.capture_time) > 1:
             self._logger.debug(f"Frame is {frame_age} seconds old. Discarding")
             self.remove_frame(shared_frame)
@@ -840,9 +853,11 @@ class NVR:
 
         self.process_frame(shared_frame)
         self.process_recorder(shared_frame)
-        self._data_stream.publish_data(
-            self._topic_processed_frame,
-            DataProcessedFrame(
+        self._vis.dispatch_event(
+            EVENT_PROCESSED_FRAME_TOPIC.format(
+                camera_identifier=self._camera.identifier
+            ),
+            EventProcessedFrame(
                 frame=self._camera.shared_frames.get_decoded_frame_rgb(
                     shared_frame
                 ).copy(),
@@ -853,6 +868,7 @@ class NVR:
                 if self._motion_detector
                 else None,
             ),
+            store=False,
         )
         self.remove_frame(shared_frame)
 

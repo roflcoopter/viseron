@@ -81,6 +81,10 @@ from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
 from viseron.watchdog.thread_watchdog import ThreadWatchDog
 
 if TYPE_CHECKING:
+    from queue import Queue
+
+    from tornado.queues import Queue as tornado_queue
+
     from viseron.components.nvr.nvr import NVR
     from viseron.domains.camera import AbstractCamera
     from viseron.domains.face_recognition import AbstractFaceRecognition
@@ -333,7 +337,9 @@ class Viseron:
             VISERON_SIGNALS[viseron_signal], callback, stage=viseron_signal
         )
 
-    def listen_event(self, event: str, callback, ioloop=None) -> Callable[[], None]:
+    def listen_event(
+        self, event: str, callback: Callable | Queue | tornado_queue, ioloop=None
+    ) -> Callable[[], None]:
         """Register a listener to an event."""
         if DATA_STREAM_COMPONENT not in self.data:
             LOGGER.error(
