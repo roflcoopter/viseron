@@ -5,8 +5,8 @@ DOMAIN: Final = "motion_detector"
 
 
 # Data stream topic constants
-DATA_MOTION_DETECTOR_SCAN = "motion_detector/{camera_identifier}/scan"
-DATA_MOTION_DETECTOR_RESULT = "motion_detector/{camera_identifier}/result"
+EVENT_MOTION_DETECTOR_SCAN = "motion_detector/{camera_identifier}/scan"
+EVENT_MOTION_DETECTOR_RESULT = "motion_detector/{camera_identifier}/result"
 
 
 # Event topic constants

@@ -34,7 +34,7 @@ from viseron.components.ffmpeg.const import (
     DESC_RECORDER_OUTPUT_ARGS,
     DESC_RECORDER_VIDEO_FILTERS,
 )
-from viseron.domains.camera import AbstractCamera
+from viseron.domains.camera import AbstractCamera, EventFrameBytesData
 from viseron.domains.camera.config import (
     BASE_CONFIG_SCHEMA as BASE_CAMERA_CONFIG_SCHEMA,
     DEFAULT_RECORDER,
@@ -356,8 +356,13 @@ class Camera(AbstractCamera):
                 self.still_image_available = True
                 empty_frames = 0
                 self._poll_timer = utcnow().timestamp()
-                self._data_stream.publish_data(
-                    self.frame_bytes_topic, self.current_frame
+                self._vis.dispatch_event(
+                    self.frame_bytes_topic,
+                    EventFrameBytesData(
+                        camera_identifier=self.identifier,
+                        shared_frame=self.current_frame,
+                    ),
+                    store=False,
                 )
                 continue
 
