@@ -5,13 +5,14 @@ import logging
 import time
 from abc import abstractmethod
 from collections import deque
+from collections.abc import Callable
+from dataclasses import dataclass
 from queue import Empty, Queue
 from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 from sqlalchemy import insert
 
-from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.components.nvr.const import EVENT_SCAN_FRAMES, OBJECT_DETECTOR
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import Objects
@@ -24,6 +25,7 @@ from viseron.domains.camera.const import (
 from viseron.domains.camera.events import EventCameraEventData
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.motion_detector.const import DOMAIN as MOTION_DETECTOR_DOMAIN
+from viseron.events import EventData
 from viseron.exceptions import DomainNotRegisteredError
 from viseron.helpers import apply_mask, generate_mask, generate_mask_image
 from viseron.helpers.filter import Filter
@@ -62,8 +64,6 @@ from .const import (
     CONFIG_SCAN_ON_MOTION_ONLY,
     CONFIG_ZONE_NAME,
     CONFIG_ZONES,
-    DATA_OBJECT_DETECTOR_RESULT,
-    DATA_OBJECT_DETECTOR_SCAN,
     DEFAULT_FPS,
     DEFAULT_LABEL_CONFIDENCE,
     DEFAULT_LABEL_HEIGHT_MAX,
@@ -103,6 +103,8 @@ from .const import (
     DESC_ZONE_NAME,
     DESC_ZONES,
     DOMAIN,
+    EVENT_OBJECT_DETECTOR_RESULT,
+    EVENT_OBJECT_DETECTOR_SCAN,
     EVENT_OBJECTS_IN_FOV,
     WARNING_LABEL_TRIGGER_RECORDER,
 )
@@ -112,7 +114,7 @@ from .zone import Zone
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
-    from viseron.components.nvr.nvr import EventScanFrames
+    from viseron.components.nvr.nvr import EventFrameToScan, EventScanFrames
     from viseron.components.storage import Storage
     from viseron.domains.camera import AbstractCamera
 
@@ -247,6 +249,14 @@ BASE_CONFIG_SCHEMA = vol.Schema(
 )
 
 
+@dataclass
+class EventObjectDetectorScannerResult(EventData):
+    """Event data for object detector scanner result event."""
+
+    camera_identifier: str
+    objects: list[DetectedObject]
+
+
 class AbstractObjectDetector(AbstractDomain):
     """Abstract Object Detector."""
 
@@ -311,7 +321,7 @@ class AbstractObjectDetector(AbstractDomain):
         )
 
         self._kill_received = False
-        self.object_detection_queue: Queue[SharedFrame] = Queue(maxsize=1)
+        self.object_detection_queue: Queue[Event[EventFrameToScan]] = Queue(maxsize=1)
         self._object_detection_thread = RestartableThread(
             target=self._object_detection,
             name=f"{camera_identifier}.object_detection",
@@ -319,17 +329,23 @@ class AbstractObjectDetector(AbstractDomain):
             daemon=True,
         )
         self._object_detection_thread.start()
-        topic = DATA_OBJECT_DETECTOR_SCAN.format(camera_identifier=camera_identifier)
-        self._vis.data[DATA_STREAM_COMPONENT].subscribe_data(
-            data_topic=topic,
-            callback=self.object_detection_queue,
+        self._listeners: list[Callable] = []
+        self._listeners.append(
+            vis.listen_event(
+                EVENT_OBJECT_DETECTOR_SCAN.format(camera_identifier=camera_identifier),
+                self.object_detection_queue,
+            )
         )
-
-        vis.listen_event(
-            EVENT_SCAN_FRAMES.format(
-                camera_identifier=camera_identifier, scanner_name=OBJECT_DETECTOR
-            ),
-            self.handle_stop_scan,
+        self._listeners.append(
+            vis.listen_event(
+                EVENT_SCAN_FRAMES.format(
+                    camera_identifier=camera_identifier, scanner_name=OBJECT_DETECTOR
+                ),
+                self.handle_stop_scan,
+            )
+        )
+        self._listeners.append(
+            vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
         )
 
         self._scan_on_motion_only = self._config[CONFIG_CAMERAS][
@@ -345,7 +361,6 @@ class AbstractObjectDetector(AbstractDomain):
                 )
                 self._scan_on_motion_only = False
 
-        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
         vis.add_entity(component, ObjectDetectedBinarySensorFoV(vis, self._camera))
         vis.add_entity(component, ObjectDetectorFPSSensor(vis, self, self._camera))
 
@@ -482,10 +497,11 @@ class AbstractObjectDetector(AbstractDomain):
         """Object detection thread."""
         while not self._kill_received:
             try:
-                shared_frame: SharedFrame = self.object_detection_queue.get(timeout=1)
+                frame_to_scan = self.object_detection_queue.get(timeout=1)
             except Empty:
                 continue
 
+            shared_frame = frame_to_scan.data.shared_frame
             frame_time = time.time()
             if (frame_age := frame_time - shared_frame.capture_time) > self._config[
                 CONFIG_CAMERAS
@@ -516,11 +532,15 @@ class AbstractObjectDetector(AbstractDomain):
         self.filter_fov(shared_frame, objects)
         self.filter_zones(shared_frame, objects)
         self._insert_objects(shared_frame, objects)
-        self._vis.data[DATA_STREAM_COMPONENT].publish_data(
-            DATA_OBJECT_DETECTOR_RESULT.format(
+        self._vis.dispatch_event(
+            EVENT_OBJECT_DETECTOR_RESULT.format(
                 camera_identifier=shared_frame.camera_identifier
             ),
-            self.objects_in_fov,
+            EventObjectDetectorScannerResult(
+                camera_identifier=shared_frame.camera_identifier,
+                objects=self.objects_in_fov,
+            ),
+            store=False,
         )
         self._theoretical_max_fps.append(1 / (time.time() - frame_time))
 

@@ -1,6 +1,7 @@
 """Handles different kind of browser streams."""
 import asyncio
 import logging
+from dataclasses import dataclass
 from http import HTTPStatus
 
 import cv2
@@ -10,13 +11,13 @@ import tornado.ioloop
 import tornado.web
 from tornado.queues import Queue
 
-from viseron.components.data_stream import DataStream
 from viseron.components.nvr import COMPONENT as NVR_COMPONENT
-from viseron.components.nvr.const import DATA_PROCESSED_FRAME_TOPIC
-from viseron.components.nvr.nvr import NVR, DataProcessedFrame
+from viseron.components.nvr.const import EVENT_PROCESSED_FRAME_TOPIC
+from viseron.components.nvr.nvr import NVR, EventProcessedFrame
 from viseron.const import TOPIC_STATIC_MJPEG_STREAMS
 from viseron.domains.camera.config import MJPEG_STREAM_SCHEMA
 from viseron.domains.motion_detector import AbstractMotionDetectorScanner
+from viseron.events import Event, EventData
 from viseron.helpers import (
     draw_contours,
     draw_motion_mask,
@@ -79,7 +80,7 @@ class StreamHandler(ViseronRequestHandler):
         )
         self.set_header("Pragma", "no-cache")
 
-    async def write_jpg(self, jpg) -> None:
+    async def write_jpg(self, jpg: np.ndarray) -> None:
         """Set the headers and write the jpg data."""
         self.write(f"{BOUNDARY}\r\n")
         self.write("Content-type: image/jpeg\r\n")
@@ -89,7 +90,7 @@ class StreamHandler(ViseronRequestHandler):
 
     @staticmethod
     def process_frame(
-        nvr: NVR, processed_frame: DataProcessedFrame, mjpeg_stream_config
+        nvr: NVR, processed_frame: EventProcessedFrame, mjpeg_stream_config
     ) -> tuple[bool, np.ndarray]:
         """Return JPG with drawn objects, zones etc."""
         _frame = processed_frame.frame.copy()
@@ -185,12 +186,11 @@ class DynamicStreamHandler(StreamHandler):
                 continue
             break
 
-        frame_queue: Queue[DataProcessedFrame] = Queue(maxsize=1)
-        frame_topic = DATA_PROCESSED_FRAME_TOPIC.format(
-            camera_identifier=nvr.camera.identifier
-        )
-        unique_id = DataStream.subscribe_data(
-            frame_topic, frame_queue, ioloop=self.ioloop
+        frame_queue: Queue[Event[EventProcessedFrame]] = Queue(maxsize=1)
+        unsub = self._vis.listen_event(
+            EVENT_PROCESSED_FRAME_TOPIC.format(camera_identifier=nvr.camera.identifier),
+            frame_queue,
+            ioloop=self.ioloop,
         )
 
         self._set_stream_headers()
@@ -199,7 +199,7 @@ class DynamicStreamHandler(StreamHandler):
             try:
                 processed_frame = await frame_queue.get()
                 ret, jpg = await self.run_in_executor(
-                    self.process_frame, nvr, processed_frame, mjpeg_stream_config
+                    self.process_frame, nvr, processed_frame.data, mjpeg_stream_config
                 )
 
                 if ret:
@@ -208,9 +208,16 @@ class DynamicStreamHandler(StreamHandler):
                 tornado.iostream.StreamClosedError,
                 asyncio.exceptions.CancelledError,
             ):
-                DataStream.unsubscribe_data(frame_topic, unique_id)
+                unsub()
                 LOGGER.debug(f"Stream closed for camera {nvr.camera.identifier}")
                 break
+
+
+@dataclass
+class EventStaticStreamFrame(EventData):
+    """Event containing an annotated frame to output to a static MJPEG stream."""
+
+    frame: np.ndarray
 
 
 class StaticStreamHandler(StreamHandler):
@@ -222,24 +229,27 @@ class StaticStreamHandler(StreamHandler):
         self, nvr, mjpeg_stream, mjpeg_stream_config, publish_frame_topic
     ) -> None:
         """Subscribe to frames, draw on them, then publish processed frame."""
-        frame_queue: Queue[DataProcessedFrame] = Queue(maxsize=1)
-        frame_topic = DATA_PROCESSED_FRAME_TOPIC.format(
-            camera_identifier=nvr.camera.identifier
-        )
-        unique_id = DataStream.subscribe_data(
-            frame_topic, frame_queue, ioloop=self.ioloop
+        frame_queue: Queue[Event[EventProcessedFrame]] = Queue(maxsize=1)
+        unsub = self._vis.listen_event(
+            EVENT_PROCESSED_FRAME_TOPIC.format(camera_identifier=nvr.camera.identifier),
+            frame_queue,
+            ioloop=self.ioloop,
         )
 
         while self.active_streams[(nvr.camera.identifier, mjpeg_stream)]:
             processed_frame = await frame_queue.get()
             ret, jpg = await self.run_in_executor(
-                self.process_frame, nvr, processed_frame, mjpeg_stream_config
+                self.process_frame, nvr, processed_frame.data, mjpeg_stream_config
             )
 
             if ret:
-                DataStream.publish_data(publish_frame_topic, jpg)
+                self._vis.dispatch_event(
+                    publish_frame_topic,
+                    EventStaticStreamFrame(frame=jpg),
+                    store=False,
+                )
 
-        DataStream.unsubscribe_data(frame_topic, unique_id)
+        unsub()
         LOGGER.debug(f"Closing stream {mjpeg_stream}")
 
     async def get(self, camera, mjpeg_stream) -> None:
@@ -272,12 +282,14 @@ class StaticStreamHandler(StreamHandler):
             self.finish()
             return
 
-        frame_queue: Queue[np.ndarray] = Queue(maxsize=1)
+        frame_queue: Queue[Event[EventStaticStreamFrame]] = Queue(maxsize=1)
         frame_topic = (
             f"{TOPIC_STATIC_MJPEG_STREAMS}/{nvr.camera.identifier}/{mjpeg_stream}"
         )
-        unique_id = DataStream.subscribe_data(
-            frame_topic, frame_queue, ioloop=self.ioloop
+        unsub = self._vis.listen_event(
+            frame_topic,
+            frame_queue,
+            ioloop=self.ioloop,
         )
 
         if self.active_streams.get((nvr.camera.identifier, mjpeg_stream), False):
@@ -298,9 +310,9 @@ class StaticStreamHandler(StreamHandler):
         while True:
             try:
                 jpg = await frame_queue.get()
-                await self.write_jpg(jpg)
+                await self.write_jpg(jpg.data.frame)
             except tornado.iostream.StreamClosedError:
-                DataStream.unsubscribe_data(frame_topic, unique_id)
+                unsub()
                 LOGGER.debug(
                     f"Stream {mjpeg_stream} closed for camera {nvr.camera.identifier}"
                 )

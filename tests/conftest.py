@@ -29,12 +29,15 @@ class MockViseron(Viseron):
 
     def __init__(self) -> None:
         super().__init__(start_background_scheduler=False)
-        self.register_domain = Mock(  # type: ignore[method-assign]
+        self.register_domain: Mock = Mock(
             side_effect=self.register_domain,
         )
         self.mocked_register_domain = self.register_domain
-        self.add_entity = MagicMock(  # type: ignore[method-assign]
+        self.add_entity: MagicMock = MagicMock(
             auto_spec=self.add_entity,
+        )
+        self.listen_event: MagicMock = MagicMock(
+            auto_spec=self.listen_event,
         )
 
 
