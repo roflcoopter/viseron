@@ -484,6 +484,12 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
         detector.
         """
 
+    def unload(self) -> None:
+        """Unload motion detector."""
+        for unsubscribe in self._listeners:
+            unsubscribe()
+        self.stop()
+
     def stop(self) -> None:
         """Stop motion detector."""
         self._kill_received = True

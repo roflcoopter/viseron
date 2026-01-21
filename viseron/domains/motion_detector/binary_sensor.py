@@ -1,6 +1,7 @@
 """Binary sensor that represents motion detection."""
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from viseron.domains.camera.entity.binary_sensor import CameraBinarySensor
@@ -30,12 +31,21 @@ class MotionDetectionBinarySensor(CameraBinarySensor):
         self.object_id = f"{camera.identifier}_motion_detected"
         self.name = f"{camera.name} Motion Detected"
 
+        self._event_listeners: list[Callable] = []
+
     def setup(self) -> None:
         """Set up event listener."""
-        self._vis.listen_event(
-            EVENT_MOTION_DETECTED.format(camera_identifier=self._camera.identifier),
-            self.handle_event,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_MOTION_DETECTED.format(camera_identifier=self._camera.identifier),
+                self.handle_event,
+            )
         )
+
+    def unload(self) -> None:
+        """Unload entity."""
+        for unsubscribe in self._event_listeners:
+            unsubscribe()
 
     @property
     def _is_on(self):
