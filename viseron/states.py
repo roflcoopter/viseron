@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 from viseron.const import EVENT_ENTITY_ADDED, EVENT_STATE_CHANGED
 from viseron.events import EventData
 from viseron.helpers import slugify
+from viseron.helpers.logs import development_warning
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -153,6 +154,13 @@ class States:
             self._registry[entity_id] = entity
             if hasattr(entity, "setup"):
                 entity.setup()
+
+                if not hasattr(entity, "unload"):
+                    development_warning(
+                        LOGGER,
+                        f"Entity {entity.entity_id} from component {component.name} "
+                        "is missing unload method",
+                    )
 
             self._vis.dispatch_event(
                 EVENT_ENTITY_ADDED, EventEntityAddedData(entity), store=False

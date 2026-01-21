@@ -102,6 +102,7 @@ ENV_JETSON_NANO = "VISERON_JETSON_NANO"
 ENV_PROFILE_MEMORY = "VISERON_PROFILE_MEMORY"
 ENV_LOG_MAX_BYTES = "VISERON_LOG_MAX_BYTES"
 ENV_LOG_BACKUP_COUNT = "VISERON_LOG_BACKUP_COUNT"
+ENV_DEV_WARNINGS = "VISERON_DEV_WARNINGS"
 
 
 FONT = cv2.FONT_HERSHEY_SIMPLEX
@@ -112,18 +113,18 @@ FONT_THICKNESS = 1
 TOPIC_STATIC_MJPEG_STREAMS = "static_mjepg_streams"
 
 # Viseron.data constants
-LOADING = "loading"
-LOADED = "loaded"
-FAILED = "failed"
+LOADING: Final = "loading"
+LOADED: Final = "loaded"
+FAILED: Final = "failed"
 
 DOMAIN_LOADING: Final = "domain_loading"
 DOMAIN_LOADED: Final = "domain_loaded"
 DOMAIN_FAILED: Final = "domain_failed"
 
-DOMAINS_TO_SETUP = "domains_to_setup"
-DOMAIN_IDENTIFIERS = "domain_identifiers"
-DOMAIN_SETUP_TASKS = "domain_setup_tasks"
-REGISTERED_DOMAINS = "registered_domains"
+DOMAINS_TO_SETUP: Final = "domains_to_setup"
+DOMAIN_IDENTIFIERS: Final = "domain_identifiers"
+DOMAIN_SETUP_TASKS: Final = "domain_setup_tasks"
+REGISTERED_DOMAINS: Final = "registered_domains"
 
 # Signal constants
 VISERON_SIGNAL_SHUTDOWN: Final = "shutdown"
