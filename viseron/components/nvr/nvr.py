@@ -28,6 +28,7 @@ from viseron.domains.motion_detector.const import (
     EVENT_MOTION_DETECTOR_RESULT,
     EVENT_MOTION_DETECTOR_SCAN,
 )
+from viseron.domains.nvr import AbstractNVR
 from viseron.domains.object_detector.const import (
     EVENT_OBJECT_DETECTOR_RESULT,
     EVENT_OBJECT_DETECTOR_SCAN,
@@ -42,7 +43,6 @@ from viseron.watchdog.thread_watchdog import RestartableThread
 from .const import (
     DATA_NO_DETECTOR_RESULT,
     DATA_NO_DETECTOR_SCAN,
-    DOMAIN,
     EVENT_OPERATION_STATE,
     EVENT_PROCESSED_FRAME_TOPIC,
     EVENT_SCAN_FRAMES,
@@ -240,7 +240,7 @@ class FrameIntervalCalculator:
         return self._domain_instance
 
 
-class NVR:
+class NVR(AbstractNVR):
     """NVR class that orchestrates all handling of camera streams."""
 
     def __init__(
@@ -251,8 +251,7 @@ class NVR:
         object_detector: AbstractObjectDetector | Literal[False],
         motion_detector: AbstractMotionDetector | Literal[False],
     ) -> None:
-        self._vis = vis
-        self._config = config
+        super().__init__(vis, config, camera_identifier)
         self._camera: AbstractCamera = vis.get_registered_domain(
             CAMERA_DOMAIN, camera_identifier
         )
@@ -392,7 +391,6 @@ class NVR:
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
 
         self._camera.start_camera()
-        self._vis.register_domain(DOMAIN, self._camera.identifier, self)
         self._logger.info(f"NVR for camera {self._camera.name} initialized")
 
     def __repr__(self) -> str:

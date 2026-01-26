@@ -93,6 +93,7 @@ if TYPE_CHECKING:
         AbstractLicensePlateRecognition,
     )
     from viseron.domains.motion_detector import AbstractMotionDetector
+    from viseron.domains.nvr import AbstractNVR
     from viseron.domains.object_detector import AbstractObjectDetector
     from viseron.helpers.entity import Entity
 
@@ -446,7 +447,7 @@ class Viseron:
         self,
         domain: Literal["nvr"],
         identifier: str,
-        instance: NVR,
+        instance: AbstractNVR,
     ) -> None:
         ...
 
