@@ -140,6 +140,7 @@ STATE_UNKNOWN = "unknown"
 EVENT_STATE_CHANGED = "state_changed"
 EVENT_ENTITY_ADDED = "entity_added"
 EVENT_DOMAIN_REGISTERED = "domain/registered/{domain}"
+EVENT_DOMAIN_UNREGISTERED = "domain/unregistered/{domain}"
 EVENT_DOMAIN_SETUP_STATUS = "domain/setup/{status}/{domain}/{identifier}"
 
 # Setup constants
