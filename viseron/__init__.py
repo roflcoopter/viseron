@@ -93,6 +93,7 @@ if TYPE_CHECKING:
         AbstractLicensePlateRecognition,
     )
     from viseron.domains.motion_detector import AbstractMotionDetector
+    from viseron.domains.nvr import AbstractNVR
     from viseron.domains.object_detector import AbstractObjectDetector
     from viseron.helpers.entity import Entity
 
@@ -446,7 +447,7 @@ class Viseron:
         self,
         domain: Literal["nvr"],
         identifier: str,
-        instance: NVR,
+        instance: AbstractNVR,
     ) -> None:
         ...
 
@@ -613,12 +614,18 @@ class Viseron:
 
         LOGGER.info("Shutdown complete in %.1f seconds", timer() - start)
 
-    def add_entity(self, component: str, entity: Entity):
+    def add_entity(
+        self,
+        component: str,
+        entity: Entity,
+        domain: SupportedDomains | None = None,
+        identifier: str | None = None,
+    ):
         """Add entity to states registry."""
         component_instance = self.data[LOADED].get(component, None)
         if not component_instance:
             component_instance = self.data[LOADING][component]
-        return self.states.add_entity(component_instance, entity)
+        return self.states.add_entity(component_instance, entity, domain, identifier)
 
     def add_entities(self, component: str, entities: list[Entity]) -> None:
         """Add entities to states registry."""
