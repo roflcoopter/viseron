@@ -270,6 +270,15 @@ class States:
             if entity_id in self._current_states:
                 del self._current_states[entity_id]
 
+            # Also delete from entity owner registry
+            for component in self._entity_owner.values():
+                if entity_id in component["entities"]:
+                    component["entities"].remove(entity_id)
+                for domain in component["domains"].values():
+                    for entities in domain["identifiers"].values():
+                        if entity_id in entities:
+                            entities.remove(entity_id)
+
     @staticmethod
     def _assign_object_id(entity: Entity) -> None:
         """Assign object id to entity if it is missing."""
