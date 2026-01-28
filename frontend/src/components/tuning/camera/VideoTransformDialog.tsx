@@ -7,6 +7,7 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
+  FormHelperText,
   InputLabel,
   MenuItem,
   Select,
@@ -102,12 +103,11 @@ export function VideoTransformDialog({
             <MenuItem value="rotate180">Rotate 180°</MenuItem>
           </Select>
         </FormControl>
-
-        <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+        <FormHelperText sx={{ pl: 1.8 }}>
           {transformType === "hflip" && "Flips video horizontally (left-right)"}
           {transformType === "vflip" && "Flips video vertically (top-bottom)"}
           {transformType === "rotate180" && "Rotates video 180 degrees"}
-        </Typography>
+        </FormHelperText>
       </DialogContent>
       <DialogActions>
         <Button onClick={onCancel}>Cancel</Button>

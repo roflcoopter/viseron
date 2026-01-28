@@ -1,0 +1,91 @@
+{
+  "viseron/components/background_subtractor": {
+    "created": "2021-11-23T11:41:33Z",
+    "updated": "2025-03-27T10:01:40Z"
+  },
+  "viseron/components/codeprojectai": {
+    "created": "2023-04-27T12:09:31Z",
+    "updated": "2025-03-27T10:01:40Z"
+  },
+  "viseron/components/compreface": {
+    "created": "2022-11-01T16:12:07Z",
+    "updated": "2025-04-01T07:46:32Z"
+  },
+  "viseron/components/darknet": {
+    "created": "2021-12-06T15:10:41Z",
+    "updated": "2025-03-27T10:01:40Z"
+  },
+  "viseron/components/deepstack": {
+    "created": "2021-12-07T06:25:47Z",
+    "updated": "2025-06-30T11:50:37Z"
+  },
+  "viseron/components/discord": {
+    "created": "2025-03-17T23:00:48Z",
+    "updated": "2025-10-28T17:19:31Z"
+  },
+  "viseron/components/dlib": {
+    "created": "2021-12-27T14:26:06Z",
+    "updated": "2025-03-21T10:05:31Z"
+  },
+  "viseron/components/edgetpu": {
+    "created": "2021-11-01T10:25:23Z",
+    "updated": "2025-05-16T05:55:24Z"
+  },
+  "viseron/components/ffmpeg": {
+    "created": "2021-10-19T20:22:12Z",
+    "updated": "2025-08-22T07:36:47Z"
+  },
+  "viseron/components/go2rtc": {
+    "created": "2025-04-29T09:09:42Z",
+    "updated": "2025-08-11T10:10:18Z"
+  },
+  "viseron/components/gotify": {
+    "created": "2025-03-18T01:55:20Z",
+    "updated": "2025-10-18T23:23:23Z"
+  },
+  "viseron/components/gstreamer": {
+    "created": "2022-03-02T17:36:39Z",
+    "updated": "2025-10-28T17:19:31Z"
+  },
+  "viseron/components/hailo": {
+    "created": "2025-09-10T05:21:41Z",
+    "updated": "2025-12-16T21:09:55Z"
+  },
+  "viseron/components/logger": {
+    "created": "2021-10-11T12:53:55Z",
+    "updated": "2023-04-06T13:32:41Z"
+  },
+  "viseron/components/mog2": {
+    "created": "2021-11-23T11:40:40Z",
+    "updated": "2025-03-27T10:01:40Z"
+  },
+  "viseron/components/mqtt": {
+    "created": "2021-12-22T12:52:23Z",
+    "updated": "2025-07-06T11:47:51Z"
+  },
+  "viseron/components/nvr": {
+    "created": "2021-10-25T12:29:15Z",
+    "updated": "2025-05-02T21:05:37Z"
+  },
+  "viseron/components/onvif": null,
+  "viseron/components/storage": {
+    "created": "2023-06-12T15:05:18Z",
+    "updated": "2025-11-04T17:26:14Z"
+  },
+  "viseron/components/telegram": {
+    "created": "2024-07-29T21:40:23Z",
+    "updated": "2025-11-18T19:57:12Z"
+  },
+  "viseron/components/webhook": {
+    "created": "2025-08-15T12:18:50Z",
+    "updated": "2025-08-18T20:43:38Z"
+  },
+  "viseron/components/webserver": {
+    "created": "2021-10-12T14:58:37Z",
+    "updated": "2025-11-18T07:46:49Z"
+  },
+  "viseron/components/yolo": {
+    "created": "2025-06-22T17:09:46Z",
+    "updated": "2025-06-30T14:29:38Z"
+  }
+}

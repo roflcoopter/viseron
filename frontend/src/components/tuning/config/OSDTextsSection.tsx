@@ -1,5 +1,5 @@
-import { AddAlt, Camera, Video } from "@carbon/icons-react";
-import { Box, Button, Typography } from "@mui/material";
+import { AddAlt, Camera, Help, Video } from "@carbon/icons-react";
+import { Box, Button, Tooltip, Typography } from "@mui/material";
 import { MouseEvent } from "react";
 
 import { OSDText } from "../camera/types";
@@ -35,7 +35,16 @@ export function OSDTextsSection({
         alignItems="center"
         mb={1}
       >
-        <Typography variant="subtitle2">OSD Texts</Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography variant="subtitle2">OSD Texts</Typography>
+          <Tooltip
+            title="OSD (On-Screen Display) texts are used to display information such as timestamps or custom text on the video stream."
+            arrow
+            placement="top"
+          >
+            <Help size={16} />
+          </Tooltip>
+        </Box>
         <Box display="flex" gap={0.5}>
           <Button
             size="small"
@@ -49,51 +58,54 @@ export function OSDTextsSection({
         </Box>
       </Box>
       {osdTexts && Array.isArray(osdTexts) && osdTexts.length > 0 ? (
-        osdTexts.map((osdText: OSDText, index: number) => (
-          <Button
-            key={osdText.id || `osd-${index}`}
-            variant={selectedOSDTextIndex === index ? "contained" : "outlined"}
-            fullWidth
-            onClick={() => onOSDTextClick(index)}
-            onContextMenu={(e) => onContextMenu(e, "osd", index)}
-            disabled={isDrawingMode || isSaving}
-            color={osdText.type === "camera" ? "info" : "secondary"}
-            sx={{
-              mb: 1,
-              p: 1.5,
-              display: "flex",
-              justifyContent: "flex-start",
-              textTransform: "none",
-            }}
-            startIcon={
-              osdText.type === "camera" ? (
-                <Camera size={20} />
-              ) : (
-                <Video size={20} />
-              )
-            }
-          >
-            <Typography
-              variant="body2"
+        <Box display="flex" flexDirection="column" gap={1}>
+          {osdTexts.map((osdText: OSDText, index: number) => (
+            <Button
+              key={osdText.id || `osd-${index}`}
+              variant={
+                selectedOSDTextIndex === index ? "contained" : "outlined"
+              }
+              fullWidth
+              onClick={() => onOSDTextClick(index)}
+              onContextMenu={(e) => onContextMenu(e, "osd", index)}
+              disabled={isDrawingMode || isSaving}
+              color={osdText.type === "camera" ? "info" : "secondary"}
               sx={{
-                flexGrow: 1,
-                textAlign: "left",
-                fontWeight: 500,
+                p: 1.5,
+                display: "flex",
+                justifyContent: "flex-start",
+                textTransform: "none",
               }}
+              startIcon={
+                osdText.type === "camera" ? (
+                  <Camera size={20} />
+                ) : (
+                  <Video size={20} />
+                )
+              }
             >
-              {osdText.textType === "timestamp"
-                ? "Timestamp"
-                : osdText.customText || "Custom Text"}
-            </Typography>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ flexShrink: 0 }}
-            >
-              {osdText.position} • {osdText.fontSize}px
-            </Typography>
-          </Button>
-        ))
+              <Typography
+                variant="body2"
+                sx={{
+                  flexGrow: 1,
+                  textAlign: "left",
+                  fontWeight: 500,
+                }}
+              >
+                {osdText.textType === "timestamp"
+                  ? "Timestamp"
+                  : osdText.customText || "Custom Text"}
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ flexShrink: 0 }}
+              >
+                {osdText.position} • {osdText.fontSize}px
+              </Typography>
+            </Button>
+          ))}
+        </Box>
       ) : (
         <Typography
           variant="caption"

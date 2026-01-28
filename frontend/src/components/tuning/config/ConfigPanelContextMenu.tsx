@@ -98,8 +98,8 @@ export function ConfigPanelContextMenu({
           <ListItemText>Edit Transform</ListItemText>
         </MenuItem>
       )}
-      <MenuItem onClick={onDelete}>
-        <ListItemIcon>
+      <MenuItem onClick={onDelete} sx={{ color: "error.main" }}>
+        <ListItemIcon sx={{ color: "error.main" }}>
           <TrashCan />
         </ListItemIcon>
         <ListItemText>Delete</ListItemText>

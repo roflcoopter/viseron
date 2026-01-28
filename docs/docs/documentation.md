@@ -14,6 +14,7 @@ Viserons features include, but not limited to the following:
 - Tiered storage, allowing multiple storage media with different retention policies
 - A timeline view of events
 - Built in authentication system
+- [ONVIF](https://www.onvif.org/) compatible with Profile S
 - Object detection via:
   - YOLOv3, YOLOv4 and YOLOv7 Darknet using OpenCV
   - Tensorflow via [Google Coral EdgeTPU](https://coral.ai/)
