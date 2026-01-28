@@ -45,11 +45,15 @@ async function camerasFailed() {
 export const useCamerasFailed = ({ configOptions }: CamerasFailedVariables) => {
   useInvalidateQueryOnEvent([
     {
-      event: "domain/setup/domain_failed/camera/*",
+      event: "domain/setup/failed/camera/*",
       queryKey: ["cameras", "failed"],
     },
     {
-      event: "domain/setup/domain_loaded/camera/*",
+      event: "domain/setup/retrying/camera/*",
+      queryKey: ["cameras", "failed"],
+    },
+    {
+      event: "domain/setup/loaded/camera/*",
       queryKey: ["cameras", "failed"],
     },
   ]);

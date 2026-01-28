@@ -21,7 +21,7 @@ from viseron.components.nvr.const import COMPONENT
 from viseron.components.nvr.sensor import OperationStateSensor
 from viseron.components.nvr.toggle import ManualRecordingToggle
 from viseron.components.storage.models import TriggerTypes
-from viseron.const import DOMAIN_IDENTIFIERS, VISERON_SIGNAL_SHUTDOWN
+from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.motion_detector import AbstractMotionDetectorScanner
 from viseron.domains.motion_detector.const import (
@@ -71,20 +71,14 @@ LOGGER = logging.getLogger(__name__)
 def setup(vis: Viseron, config, identifier) -> bool:
     """Set up the edgetpu object_detector domain."""
     object_detector: AbstractObjectDetector | Literal[False] = False
-    if (
-        OBJECT_DETECTOR in vis.data[DOMAIN_IDENTIFIERS]
-        and identifier in vis.data[DOMAIN_IDENTIFIERS][OBJECT_DETECTOR]
-    ):
+    if vis.domain_registry.is_configured(OBJECT_DETECTOR, identifier):
         try:
             object_detector = vis.get_registered_domain(OBJECT_DETECTOR, identifier)
         except DomainNotRegisteredError:
             object_detector = False
 
     motion_detector: AbstractMotionDetector | Literal[False] = False
-    if (
-        MOTION_DETECTOR in vis.data[DOMAIN_IDENTIFIERS]
-        and identifier in vis.data[DOMAIN_IDENTIFIERS][MOTION_DETECTOR]
-    ):
+    if vis.domain_registry.is_configured(MOTION_DETECTOR, identifier):
         try:
             motion_detector = vis.get_registered_domain(MOTION_DETECTOR, identifier)
         except DomainNotRegisteredError:

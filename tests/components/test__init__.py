@@ -1,5 +1,5 @@
 """Test component module."""
-from unittest.mock import ANY, MagicMock, Mock, call, patch
+from unittest.mock import ANY, Mock, call, patch
 
 import pytest
 
@@ -7,20 +7,11 @@ from viseron.components import (
     CORE_COMPONENTS,
     DEFAULT_COMPONENTS,
     Component,
-    DomainToSetup,
-    domain_setup_status,
     setup_component,
     setup_components,
 )
-from viseron.const import (
-    DOMAIN_FAILED,
-    DOMAIN_LOADED,
-    DOMAIN_LOADING,
-    DOMAINS_TO_SETUP,
-    FAILED,
-    LOADED,
-    LOADING,
-)
+from viseron.const import FAILED, LOADED, LOADING
+from viseron.domain_registry import DomainState
 
 from tests.common import MockComponent
 from tests.conftest import MockViseron
@@ -58,25 +49,29 @@ def test_setup_components_2(vis, caplog):
 
 
 @pytest.mark.parametrize(
-    "component, loaded, loading, failed, caplog_text",
+    "component, loaded, loading, failed",
     [
         (
             "logger",
             True,
             False,
             False,
-            None,
         ),
         (
             "logger",
             False,
             False,
             True,
-            ("Failed setup of component logger"),
         ),
     ],
 )
-def test_setup_component(vis, component, loaded, loading, failed, caplog, caplog_text):
+def test_setup_component(
+    vis,
+    component,
+    loaded,
+    loading,
+    failed,
+):
     """Test setup_component."""
     mock_component = MockComponent(
         component, setup_component=lambda *_args, **_kwargs: loaded
@@ -96,9 +91,6 @@ def test_setup_component(vis, component, loaded, loading, failed, caplog, caplog
         assert vis.data[FAILED] == {component: mock_component}
     else:
         assert vis.data[FAILED] == {}
-    if caplog_text:
-        assert caplog_text in caplog.text
-        caplog.clear()
 
 
 def test_setup_missing_component(vis, caplog):
@@ -116,32 +108,55 @@ def test_setup_missing_component(vis, caplog):
 
 
 def test_domain_setup_status(vis):
-    """Test domain_setup_status."""
-    domain_to_setup = DomainToSetup(
-        MagicMock(), "object_detector", {}, "identifier1", None, None
-    )
-    domain_setup_status(vis, domain_to_setup, DOMAIN_LOADING)
-    assert vis.data[DOMAIN_LOADING]["object_detector"]["identifier1"] == domain_to_setup
-    assert vis.data[DOMAIN_LOADED]["object_detector"] == {}
-    assert vis.data[DOMAIN_FAILED]["object_detector"] == {}
+    """Test domain registry state transitions."""
+    registry = vis.domain_registry
 
-    domain_setup_status(vis, domain_to_setup, DOMAIN_LOADED)
-    assert vis.data[DOMAIN_LOADING]["object_detector"] == {}
-    assert vis.data[DOMAIN_LOADED]["object_detector"]["identifier1"] == domain_to_setup
-    assert vis.data[DOMAIN_FAILED]["object_detector"] == {}
+    registry.register(
+        component_name="test_component",
+        component_path="viseron.components.test_component",
+        domain="object_detector",
+        identifier="identifier1",
+        config={},
+        require_domains=[],
+        optional_domains=[],
+    )
+
+    # Initially should be PENDING
+    entry = registry.get("object_detector", "identifier1")
+    assert entry is not None
+    assert entry.state == DomainState.PENDING
+
+    registry.set_state("object_detector", "identifier1", DomainState.LOADING)
+    entry = registry.get("object_detector", "identifier1")
+    assert entry.state == DomainState.LOADING
+
+    registry.set_state("object_detector", "identifier1", DomainState.LOADED)
+    entry = registry.get("object_detector", "identifier1")
+    assert entry.state == DomainState.LOADED
 
 
 def test_domain_setup_status_failed(vis):
-    """Test failed domain_setup_status."""
-    domain_to_setup = DomainToSetup(
-        MagicMock(), "object_detector", {}, "identifier1", None, None
+    """Test failed domain registry state."""
+    registry = vis.domain_registry
+
+    registry.register(
+        component_name="test_component",
+        component_path="viseron.components.test_component",
+        domain="object_detector",
+        identifier="identifier1",
+        config={},
+        require_domains=[],
+        optional_domains=[],
     )
-    domain_setup_status(vis, domain_to_setup, DOMAIN_LOADING)
-    assert vis.data[DOMAIN_LOADING]["object_detector"]["identifier1"] == domain_to_setup
-    domain_setup_status(vis, domain_to_setup, DOMAIN_FAILED)
-    assert vis.data[DOMAIN_LOADING]["object_detector"] == {}
-    assert vis.data[DOMAIN_LOADED]["object_detector"] == {}
-    assert vis.data[DOMAIN_FAILED]["object_detector"]["identifier1"] == domain_to_setup
+
+    registry.set_state("object_detector", "identifier1", DomainState.LOADING)
+    registry.set_state(
+        "object_detector", "identifier1", DomainState.FAILED, error="Test error"
+    )
+
+    entry = registry.get("object_detector", "identifier1")
+    assert entry.state == DomainState.FAILED
+    assert entry.error == "Test error"
 
 
 class TestComponent:
@@ -149,20 +164,21 @@ class TestComponent:
 
     def test_add_domain_to_setup(self, vis, caplog):
         """Test add_domain_to_setup."""
+        registry = vis.domain_registry
+
         component1 = Component(vis, "component1", "component1", {})
         component1.add_domain_to_setup("object_detector", {}, "identifier1", None, None)
-        assert (
-            vis.data[DOMAINS_TO_SETUP]["object_detector"]["identifier1"].component.name
-            == "component1"
-        )
+
+        entry = registry.get("object_detector", "identifier1")
+        assert entry is not None
+        assert entry.component_name == "component1"
 
         # Assert that the same domain and identifier can't be added by another component
         component2 = Component(vis, "component2", "component2", {})
         component2.add_domain_to_setup("object_detector", {}, "identifier1", None, None)
-        assert (
-            vis.data[DOMAINS_TO_SETUP]["object_detector"]["identifier1"].component.name
-            == "component1"
-        )
+
+        entry = registry.get("object_detector", "identifier1")
+        assert entry.component_name == "component1"
         assert (
             "Domain object_detector with identifier identifier1 already in setup "
             "queue. Skipping setup of domain object_detector with identifier "

@@ -7,8 +7,7 @@ import logging
 import threading
 import time
 import traceback
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from inspect import signature
 from timeit import default_timer as timer
 from typing import TYPE_CHECKING, Any, Literal
@@ -19,15 +18,8 @@ from voluptuous.humanize import humanize_error
 from viseron.const import (
     COMPONENT_RETRY_INTERVAL,
     COMPONENT_RETRY_INTERVAL_MAX,
-    DOMAIN_FAILED,
-    DOMAIN_IDENTIFIERS,
-    DOMAIN_LOADED,
-    DOMAIN_LOADING,
     DOMAIN_RETRY_INTERVAL,
     DOMAIN_RETRY_INTERVAL_MAX,
-    DOMAIN_SETUP_TASKS,
-    DOMAINS_TO_SETUP,
-    EVENT_DOMAIN_SETUP_STATUS,
     FAILED,
     LOADED,
     LOADING,
@@ -35,46 +27,15 @@ from viseron.const import (
     SLOW_SETUP_WARNING,
     VISERON_SIGNAL_SHUTDOWN,
 )
-from viseron.events import EventData
+from viseron.domain_registry import DomainEntry, DomainState
 from viseron.exceptions import ComponentNotReady, DomainNotReady
+from viseron.helpers.named_timer import NamedTimer
 from viseron.helpers.storage import Storage
+from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.domains import OptionalDomain, RequireDomain
-    from viseron.domains.camera import FailedCamera
-
-
-@dataclass
-class DomainToSetup:
-    """Represent a domain to setup."""
-
-    component: Component
-    domain: str
-    config: dict
-    identifier: str
-    require_domains: list[RequireDomain]
-    optional_domains: list[OptionalDomain]
-    error: str | None = None
-    error_instance: FailedCamera | None = None
-    retrying: bool = False
-
-    def as_dict(self):
-        """Return as dict."""
-        return {
-            "component": self.component.name,
-            "domain": self.domain,
-            "config": self.config,
-            "identifier": self.identifier,
-            "require_domains": self.require_domains,
-            "optional_domains": self.optional_domains,
-            "error": self.error,
-        }
-
-
-@dataclass
-class EventDomanSetupStatusData(EventData, DomainToSetup):
-    """Event with information on domain setup status."""
 
 
 LOGGING_COMPONENTS = {"logger"}
@@ -106,8 +67,6 @@ class Component:
         self._name = name
         self._config = config
 
-        self.domains_to_setup: list[DomainToSetup] = []
-
     def __str__(self) -> str:
         """Return string representation."""
         return self._name
@@ -118,7 +77,7 @@ class Component:
         return self._name
 
     @property
-    def path(self):
+    def path(self) -> str:
         """Return component path."""
         return self._path
 
@@ -126,7 +85,7 @@ class Component:
         """Return component module."""
         return importlib.import_module(self._path)
 
-    def validate_component_config(self, component_module):
+    def validate_component_config(self, component_module) -> dict | bool | None:
         """Validate component config."""
         if hasattr(component_module, "CONFIG_SCHEMA"):
             try:
@@ -149,15 +108,17 @@ class Component:
             self.name,
             (f", attempt {tries}" if tries > 1 else ""),
         )
-        slow_setup_warning = threading.Timer(
+        slow_setup_warning = NamedTimer(
             SLOW_SETUP_WARNING,
             LOGGER.warning,
-            (
+            args=(
                 (
                     f"Setup of component {self.name} "
                     f"is taking longer than {SLOW_SETUP_WARNING} seconds"
                 ),
             ),
+            name=f"{self.name}_slow_setup_warning",
+            daemon=True,
         )
 
         component_module = self.get_component()
@@ -184,11 +145,13 @@ class Component:
                     f"Retrying in {wait_time} seconds in the background. "
                     f"Error: {str(error)}"
                 )
-                retry_timer = threading.Timer(
+                retry_timer = NamedTimer(
                     wait_time,
                     setup_component,
                     args=(self._vis, self),
                     kwargs={"tries": tries + 1},
+                    name=f"{self.name}_retry_timer",
+                    daemon=True,
                 )
 
                 def cancel_retry_timer() -> None:
@@ -221,12 +184,12 @@ class Component:
             )
             return True
 
-        # Clear any domains that were marked for setup
-        for domain_to_setup in self.domains_to_setup:
-            del self._vis.data[DOMAINS_TO_SETUP][domain_to_setup.domain][
-                domain_to_setup.identifier
-            ]
-        self.domains_to_setup.clear()
+        # Clear any domains that were registered by this component
+        registry = self._vis.domain_registry
+        for entry in registry.get_by_component(self.name):
+            if entry.state == DomainState.PENDING:
+                registry.unregister(entry.domain, entry.identifier)
+
         if result is False:
             LOGGER.error(
                 "Setup of component %s failed",
@@ -245,320 +208,263 @@ class Component:
         domain: str,
         config: dict[str, Any],
         identifier: str,
-        require_domains: list[RequireDomain] | None,
-        optional_domains: list[OptionalDomain] | None,
-    ) -> None:
-        """Add a domain to setup queue."""
-        if (
-            domain in self._vis.data[DOMAINS_TO_SETUP]
-            and identifier in self._vis.data[DOMAINS_TO_SETUP][domain]
-        ):
+        require_domains: list[RequireDomain] | None = None,
+        optional_domains: list[OptionalDomain] | None = None,
+    ) -> DomainEntry | None:
+        """Register a domain for setup."""
+        registry = self._vis.domain_registry
+
+        # Check if already registered (any state)
+        existing = registry.get(domain, identifier)
+        if existing:
             LOGGER.warning(
                 f"Domain {domain} with identifier {identifier} already in setup queue. "
                 f"Skipping setup of domain {domain} with identifier {identifier} for "
                 f"component {self.name}",
             )
-            return
+            return None
 
-        domain_to_setup = DomainToSetup(
-            component=self,
+        return registry.register(
+            component_name=self.name,
+            component_path=self._path,
             domain=domain,
-            config=config,
             identifier=identifier,
-            require_domains=require_domains if require_domains else [],
-            optional_domains=optional_domains if optional_domains else [],
+            config=config,
+            require_domains=require_domains,
+            optional_domains=optional_domains,
         )
-        self.domains_to_setup.append(domain_to_setup)
-        self._vis.data[DOMAINS_TO_SETUP].setdefault(domain, {})[
-            identifier
-        ] = domain_to_setup
 
-    def get_domain(self, domain):
-        """Return domain module."""
-        return importlib.import_module(f"{self._path}.{domain}")
 
-    def validate_domain_config(
-        self, config, domain, domain_module
-    ) -> tuple[dict[str, Any], None] | tuple[None, str]:
-        """Validate domain config."""
-        if hasattr(domain_module, "CONFIG_SCHEMA"):
-            try:
-                return domain_module.CONFIG_SCHEMA(config), None
-            except vol.Invalid as ex:
-                error = (
-                    f"Error validating config for domain {domain} and "
-                    f"component {self.name}: "
-                    f"{humanize_error(self._config, ex)}"
-                )
-                LOGGER.exception(error)
-                return None, error
-            except Exception:  # pylint: disable=broad-except
-                error = f"Unknown error calling {self.name}.{domain} CONFIG_SCHEMA"
-                LOGGER.exception(error)
-                return None, error
-        return config, None
+def _wait_for_dependencies(
+    vis: Viseron,
+    entry: DomainEntry,
+) -> bool:
+    """Wait for all dependencies to complete setup."""
+    registry = vis.domain_registry
 
-    def _setup_dependencies(self, domain_to_setup: DomainToSetup) -> bool:
-        """Await the setup of all dependencies."""
-
-        def _slow_dependency_warning(futures) -> None:
-            unfinished_dependencies = [future for future in futures if future.running()]
-            if unfinished_dependencies:
-                LOGGER.warning(
-                    "Domain %s for component %s%s "
-                    "is still waiting for dependencies: %s",
-                    domain_to_setup.domain,
-                    self.name,
-                    (
-                        f" with identifier {domain_to_setup.identifier}"
-                        if domain_to_setup.identifier
-                        else ""
-                    ),
-                    [
-                        f"domain: {future.domain}, identifier: {future.identifier}"
-                        for future in unfinished_dependencies
-                    ],
-                )
-
-        dependencies_futures = [
-            self._vis.data[DOMAIN_SETUP_TASKS][required_domain.domain][
-                required_domain.identifier
-            ]
-            for required_domain in domain_to_setup.require_domains
-        ]
-
-        optional_dependencies_futures = [
-            self._vis.data[DOMAIN_SETUP_TASKS][optional_domain.domain][
-                optional_domain.identifier
-            ]
-            for optional_domain in domain_to_setup.optional_domains
-            if (
-                optional_domain.domain in self._vis.data[DOMAIN_IDENTIFIERS]
-                and optional_domain.identifier
-                in self._vis.data[DOMAIN_IDENTIFIERS][optional_domain.domain]
-            )
-        ]
-
-        if dependencies_futures:
-            LOGGER.debug(
-                "Domain %s for component %s%s will wait for dependencies %s",
-                domain_to_setup.domain,
-                self.name,
-                (
-                    f" with identifier {domain_to_setup.identifier}"
-                    if domain_to_setup.identifier
-                    else ""
-                ),
-                [
-                    f"domain: {future.domain}, identifier: {future.identifier}"
-                    for future in dependencies_futures
-                ],
-            )
-        if optional_dependencies_futures:
-            LOGGER.debug(
-                "Domain %s for component %s%s will wait for optional dependencies %s",
-                domain_to_setup.domain,
-                self.name,
-                (
-                    f" with identifier {domain_to_setup.identifier}"
-                    if domain_to_setup.identifier
-                    else ""
-                ),
-                [
-                    f"domain: {future.domain}, identifier: {future.identifier}"
-                    for future in optional_dependencies_futures
-                ],
+    def _slow_warning(futures: list[Future]) -> None:
+        running = [f for f in futures if f.running()]
+        if running:
+            LOGGER.warning(
+                f"Domain {entry.domain} with identifier {entry.identifier} "
+                "still waiting for dependencies",
             )
 
-        slow_dependency_warning = self._vis.background_scheduler.add_job(
-            _slow_dependency_warning,
-            "interval",
-            seconds=SLOW_DEPENDENCY_WARNING,
-            args=[dependencies_futures + optional_dependencies_futures],
-        )
-        failed = []
-        for future in list(
-            as_completed(dependencies_futures + optional_dependencies_futures)
-        ):
-            if future.result() is True:
-                continue
-            failed.append(future)
-        try:
-            slow_dependency_warning.remove()
-        except Exception:  # pylint: disable=broad-except
-            pass
+    # Collect futures for required domains
+    futures: list[Future] = []
+    for required in entry.require_domains:
+        # Skip if already loaded
+        if registry.is_loaded(required.domain, required.identifier):
+            continue
+        future = registry.get_future(required.domain, required.identifier)
+        if future:
+            futures.append(future)
 
-        if failed:
-            LOGGER.error(
-                "Unable to setup dependencies for domain %s for component %s. "
-                "Failed dependencies: %s",
-                domain_to_setup.domain,
-                self.name,
-                [
-                    f"domain: {future.domain}, "  # type: ignore[attr-defined]
-                    f"identifier: {future.identifier}"
-                    for future in failed
-                ],
-            )
-            return False
+    # Collect futures for optional domains
+    for optional in entry.optional_domains:
+        if not registry.is_configured(optional.domain, optional.identifier):
+            continue
+        if registry.is_loaded(optional.domain, optional.identifier):
+            continue
+        future = registry.get_future(optional.domain, optional.identifier)
+        if future:
+            futures.append(future)
+
+    if not futures:
         return True
 
-    def setup_domain(self, domain_to_setup: DomainToSetup, tries=1):
-        """Set up domain."""
-        LOGGER.info(
-            "Setting up domain %s for component %s%s%s",
-            domain_to_setup.domain,
-            self.name,
-            (
-                f" with identifier {domain_to_setup.identifier}"
-                if domain_to_setup.identifier
-                else ""
-            ),
-            (f", attempt {tries}" if tries > 1 else ""),
-        )
+    LOGGER.debug(
+        f"Domain {entry.domain} with identifier {entry.identifier} "
+        f"waiting for {len(futures)} dependencies",
+    )
 
-        domain_setup_status(self._vis, domain_to_setup, DOMAIN_LOADING)
+    # Set up slow warning
+    slow_warning_job = vis.background_scheduler.add_job(
+        _slow_warning,
+        "interval",
+        seconds=SLOW_DEPENDENCY_WARNING,
+        args=[futures],
+    )
 
-        domain_module = self.get_domain(domain_to_setup.domain)
-        config, config_error = self.validate_domain_config(
-            domain_to_setup.config, domain_to_setup.domain, domain_module
-        )
+    # Wait for all dependencies
+    failed = []
+    for future in as_completed(futures):
+        if future.result() is not True:
+            failed.append(future)
 
-        if not self._setup_dependencies(domain_to_setup):
-            return False
+    try:
+        slow_warning_job.remove()
+    except Exception:  # pylint: disable=broad-except
+        pass
 
-        slow_setup_warning = threading.Timer(
-            SLOW_SETUP_WARNING,
-            LOGGER.warning,
-            args=(
-                (
-                    "Setup of domain %s for component %s%s "
-                    "is taking longer than %s seconds"
-                ),
-                domain_to_setup.domain,
-                self.name,
-                (
-                    f" with identifier {domain_to_setup.identifier}"
-                    if domain_to_setup.identifier
-                    else ""
-                ),
-                SLOW_SETUP_WARNING,
-            ),
-        )
-
-        start = timer()
-        result: bool | Any = False
-        if config:
-            try:
-                slow_setup_warning.start()
-                sig = signature(domain_module.setup)
-                if len(sig.parameters) == 4:
-                    # If the setup function has an attempt parameter, we pass it
-                    result = domain_module.setup(
-                        self._vis, config, domain_to_setup.identifier, tries
-                    )
-                else:
-                    result = domain_module.setup(
-                        self._vis, config, domain_to_setup.identifier
-                    )
-            except DomainNotReady as error:
-                if self._vis.shutdown_event.is_set():
-                    LOGGER.warning(
-                        f"Domain {domain_to_setup.domain} for "
-                        f"component {self.name} setup aborted due to shutdown"
-                    )
-                    slow_setup_warning.cancel()
-                    return False
-                # Cancel the slow setup warning here since the retrying blocks
-                domain_to_setup.error = str(error)
-                domain_to_setup.retrying = True
-                domain_setup_status(self._vis, domain_to_setup, DOMAIN_FAILED)
-                slow_setup_warning.cancel()
-                wait_time = min(
-                    tries * DOMAIN_RETRY_INTERVAL, DOMAIN_RETRY_INTERVAL_MAX
-                )
-                LOGGER.error(
-                    f"Domain {domain_to_setup.domain} "
-                    f"for component {self.name} is not ready. "
-                    f"Retrying in {wait_time} seconds. "
-                    f"Error: {str(error)}"
-                )
-                elapsed = 0.0
-                interval = 0.2
-                while elapsed < wait_time:
-                    if self._vis.shutdown_event.is_set():
-                        LOGGER.warning("Domain setup retry aborted due to shutdown")
-                        return False
-                    time.sleep(interval)
-                    elapsed += interval
-                # Running with ThreadPoolExecutor and awaiting the future does not
-                # cause a max recursion error if we retry for a long time
-                with ThreadPoolExecutor(
-                    max_workers=1, thread_name_prefix="Component.setup_domain"
-                ) as executor:
-                    future = executor.submit(
-                        self.setup_domain,
-                        domain_to_setup,
-                        tries=tries + 1,
-                    )
-                    return future.result()
-            except Exception as error:  # pylint: disable=broad-except
-                LOGGER.exception(
-                    f"Uncaught exception setting up domain {domain_to_setup.domain} for"
-                    f" component {self.name}: {error}"
-                )
-                domain_to_setup.error = str(error)
-                try:
-                    self._vis.data[DOMAIN_IDENTIFIERS][domain_to_setup.domain].remove(
-                        domain_to_setup.identifier
-                    )
-                except KeyError:
-                    pass
-            finally:
-                slow_setup_warning.cancel()
-        else:
-            domain_to_setup.error = config_error
-
-        end = timer()
-
-        if result is True:
-            LOGGER.info(
-                "Setup of domain %s for component %s%s took %.1f seconds",
-                domain_to_setup.domain,
-                self.name,
-                (
-                    f" with identifier {domain_to_setup.identifier}"
-                    if domain_to_setup.identifier
-                    else ""
-                ),
-                end - start,
-            )
-            domain_setup_status(self._vis, domain_to_setup, DOMAIN_LOADED)
-            return True
-
-        if result is False:
-            LOGGER.error(
-                "Setup of domain %s for component %s%s failed",
-                domain_to_setup.domain,
-                self.name,
-                (
-                    f" with identifier {domain_to_setup.identifier}"
-                    if domain_to_setup.identifier
-                    else ""
-                ),
-            )
-            self._vis.data[DOMAIN_FAILED][domain_to_setup.identifier] = domain_to_setup
-            self._vis.data[DOMAIN_LOADING].pop(domain_to_setup.domain, None)
-            domain_setup_status(self._vis, domain_to_setup, DOMAIN_FAILED)
-            return False
-
+    if failed:
         LOGGER.error(
-            "Setup of domain %s for component %s did not return boolean",
-            domain_to_setup.domain,
-            self.name,
+            f"Unable to setup dependencies for domain {entry.domain} "
+            f"with identifier {entry.identifier} "
+            f"for component {entry.component_name}"
         )
-        domain_setup_status(self._vis, domain_to_setup, DOMAIN_FAILED)
         return False
+    return True
+
+
+def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bool:
+    """Set up a single domain."""
+    registry = vis.domain_registry
+    component_path = entry.component_path
+
+    LOGGER.info(
+        (
+            f"Setting up domain {entry.domain} with identifier {entry.identifier} "
+            f"for component {entry.component_name}"
+        )
+        + (f", attempt {tries}" if tries > 1 else "")
+    )
+
+    registry.set_state(entry.domain, entry.identifier, DomainState.LOADING)
+
+    # Wait for dependencies
+    if not _wait_for_dependencies(vis, entry):
+        _handle_failed_domain(
+            vis, entry, DomainState.FAILED, error="Dependencies failed"
+        )
+        return False
+
+    # Load domain module
+    try:
+        domain_module = importlib.import_module(f"{component_path}.{entry.domain}")
+    except ModuleNotFoundError as err:
+        LOGGER.error(
+            "Failed to load domain module " f"{component_path}.{entry.domain}: {err}"
+        )
+        _handle_failed_domain(vis, entry, DomainState.FAILED, error=str(err))
+        return False
+
+    # Validate config
+    config = entry.config
+    if hasattr(domain_module, "CONFIG_SCHEMA"):
+        try:
+            config = domain_module.CONFIG_SCHEMA(config)
+        except vol.Invalid as ex:
+            error = (
+                f"Error validating config for domain {entry.domain} and "
+                f"component {entry.component_name}: "
+                f"{humanize_error(config, ex)}"
+            )
+            LOGGER.exception(error)
+            _handle_failed_domain(vis, entry, DomainState.FAILED, error=error)
+            return False
+        except Exception:  # pylint: disable=broad-except
+            error = (
+                "Unknown error calling "
+                f"{entry.component_name}.{entry.domain} CONFIG_SCHEMA"
+            )
+            LOGGER.exception(error)
+            _handle_failed_domain(vis, entry, DomainState.FAILED, error=error)
+            return False
+
+    # Set up slow setup warning
+    slow_setup_warning = NamedTimer(
+        SLOW_SETUP_WARNING,
+        LOGGER.warning,
+        args=(
+            f"Setup of domain {entry.domain} "
+            f"with identifier {entry.identifier} "
+            f"for component {entry.component_name} "
+            f"is taking longer than {SLOW_SETUP_WARNING} seconds",
+        ),
+        name=f"{entry.domain}_{entry.identifier}_slow_setup_warning",
+        daemon=True,
+    )
+
+    start = timer()
+    result: bool | Any = False
+    try:
+        slow_setup_warning.start()
+        sig = signature(domain_module.setup)
+        if len(sig.parameters) == 4:
+            # If the setup function has an attempt parameter, we pass it
+            result = domain_module.setup(vis, config, entry.identifier, tries)
+        else:
+            result = domain_module.setup(vis, config, entry.identifier)
+    except DomainNotReady as error:
+        if vis.shutdown_event.is_set():
+            LOGGER.warning(
+                f"Domain {entry.domain} with identifier {entry.identifier} "
+                f"for component {entry.component_name} "
+                "setup aborted due to shutdown"
+            )
+            slow_setup_warning.cancel()
+            return False
+
+        _handle_failed_domain(vis, entry, DomainState.RETRYING, error=str(error))
+        slow_setup_warning.cancel()
+
+        wait_time = min(tries * DOMAIN_RETRY_INTERVAL, DOMAIN_RETRY_INTERVAL_MAX)
+        LOGGER.error(
+            f"Domain {entry.domain} "
+            f"with identifier {entry.identifier} "
+            f"for component {entry.component_name} is not ready. "
+            f"Retrying in {wait_time} seconds. "
+            f"Error: {str(error)}"
+        )
+
+        elapsed = 0.0
+        interval = 0.2
+        while elapsed < wait_time:
+            if vis.shutdown_event.is_set():
+                LOGGER.warning("Domain setup retry aborted due to shutdown")
+                return False
+            time.sleep(interval)
+            elapsed += interval
+        # Running with ThreadPoolExecutor and awaiting the future does not
+        # cause a max recursion error if we retry for a long time
+        with ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="Component.setup_domain"
+        ) as executor:
+            future = executor.submit(_setup_single_domain, vis, entry, tries + 1)
+            return future.result()
+    except Exception as error:  # pylint: disable=broad-except
+        LOGGER.exception(
+            f"Uncaught exception setting up domain {entry.domain} for"
+            f" component {entry.component_name}: {error}"
+        )
+        _handle_failed_domain(vis, entry, DomainState.FAILED, error=str(error))
+        return False
+    finally:
+        slow_setup_warning.cancel()
+
+    end = timer()
+
+    if result is True:
+        LOGGER.info(
+            f"Setup of domain {entry.domain} "
+            f"with identifier {entry.identifier} "
+            f"for component {entry.component_name} "
+            f"took {end - start:.1f} seconds"
+        )
+        registry.set_state(entry.domain, entry.identifier, DomainState.LOADED)
+        return True
+
+    if result is False:
+        LOGGER.error(
+            f"Setup of domain {entry.domain} "
+            f"with identifier {entry.identifier} "
+            f"for component {entry.component_name} failed"
+        )
+        _handle_failed_domain(
+            vis, entry, DomainState.FAILED, error="Setup returned False"
+        )
+        return False
+
+    LOGGER.error(
+        f"Setup of domain {entry.domain} "
+        f"with identifier {entry.identifier} "
+        f"for component {entry.component_name} did not return boolean"
+    )
+    _handle_failed_domain(
+        vis, entry, DomainState.FAILED, error="Setup did not return boolean"
+    )
+    return False
 
 
 def get_component(
@@ -590,7 +496,6 @@ def setup_component(vis: Viseron, component: Component, tries: int = 1) -> None:
             vis.data[LOADED][component.name] = component
             del vis.data[LOADING][component.name]
         else:
-            LOGGER.error(f"Failed setup of component {component.name}")
             vis.data[FAILED][component.name] = component
             del vis.data[LOADING][component.name]
 
@@ -600,120 +505,115 @@ def setup_component(vis: Viseron, component: Component, tries: int = 1) -> None:
         del vis.data[LOADING][component.name]
 
 
-def domain_dependencies(vis: Viseron) -> None:
-    """Check that domain dependencies are resolved."""
-    domain_to_setup: DomainToSetup
-    for domain in vis.data[DOMAINS_TO_SETUP]:
-        for domain_to_setup in vis.data[DOMAINS_TO_SETUP][domain].values():
-            if domain_to_setup.identifier:
-                vis.data[DOMAIN_IDENTIFIERS].setdefault(
-                    domain_to_setup.domain, []
-                ).append(domain_to_setup.identifier)
-
-    for domain in vis.data[DOMAINS_TO_SETUP]:
-        for domain_to_setup in list(vis.data[DOMAINS_TO_SETUP][domain].values())[:]:
-            if not domain_to_setup.require_domains:
-                continue
-            for require_domain in domain_to_setup.require_domains:
-                if (
-                    require_domain.domain in vis.data[DOMAIN_IDENTIFIERS]
-                    and require_domain.identifier
-                    in vis.data[DOMAIN_IDENTIFIERS][require_domain.domain]
-                ):
-                    continue
-                error = (
-                    f"Domain {domain_to_setup.domain} "
-                    f"for component {domain_to_setup.component.name} "
-                    f"requires domain {require_domain.domain} with "
-                    f"identifier {require_domain.identifier} but it has not been setup"
-                )
-                LOGGER.error(error)
-                domain_to_setup.error = error
-                try:
-                    domain_setup_status(vis, domain_to_setup, DOMAIN_FAILED)
-                    domain_to_setup.component.domains_to_setup.remove(domain_to_setup)
-                    del vis.data[DOMAINS_TO_SETUP][domain_to_setup.domain][
-                        domain_to_setup.identifier
-                    ]
-                except ValueError:
-                    LOGGER.debug(
-                        f"Domain {domain_to_setup.domain} has already been removed",
-                        exc_info=True,
-                    )
-
-
-def _setup_domain(
-    vis: Viseron, executor: ThreadPoolExecutor, domain_to_setup: DomainToSetup
+def _submit_domain_setup(
+    vis: Viseron,
+    executor: ThreadPoolExecutor,
+    entry: DomainEntry,
 ) -> None:
-    with DOMAIN_SETUP_LOCK:
-        future = executor.submit(
-            domain_to_setup.component.setup_domain,
-            domain_to_setup,
-        )
-        setattr(future, "domain", domain_to_setup.domain)
-        setattr(future, "identifier", domain_to_setup.identifier)
-        vis.data[DOMAIN_SETUP_TASKS].setdefault(domain_to_setup.domain, {})[
-            domain_to_setup.identifier
-        ] = future
+    """Submit a domain for setup in the executor."""
+    registry = vis.domain_registry
 
-
-def setup_domain(
-    vis: Viseron, executor: ThreadPoolExecutor, domain_to_setup: DomainToSetup
-) -> None:
-    """Set up single domain and all its dependencies."""
     with DOMAIN_SETUP_LOCK:
-        if domain_to_setup.identifier in vis.data[DOMAIN_SETUP_TASKS].get(
-            domain_to_setup.domain, {}
-        ):
+        # Skip if already has a future
+        if registry.get_future(entry.domain, entry.identifier):
             return
 
-    for required_domain in domain_to_setup.require_domains:
-        setup_domain(
-            vis,
-            executor,
-            vis.data[DOMAINS_TO_SETUP][required_domain.domain][
-                required_domain.identifier
-            ],
-        )
+        future = executor.submit(_setup_single_domain, vis, entry)
+        registry.set_future(entry.domain, entry.identifier, future)
 
-    for optional_domain in domain_to_setup.optional_domains:
-        if (
-            optional_domain.domain in vis.data[DOMAIN_IDENTIFIERS]
-            and optional_domain.identifier
-            in vis.data[DOMAIN_IDENTIFIERS][optional_domain.domain]
-        ):
-            setup_domain(
-                vis,
-                executor,
-                vis.data[DOMAINS_TO_SETUP][optional_domain.domain][
-                    optional_domain.identifier
-                ],
-            )
 
-    _setup_domain(vis, executor, domain_to_setup)
+def _schedule_domain_setup(
+    vis: Viseron,
+    executor: ThreadPoolExecutor,
+    entry: DomainEntry,
+) -> None:
+    """Schedule a domain and its dependencies for setup."""
+    registry = vis.domain_registry
+
+    with DOMAIN_SETUP_LOCK:
+        if registry.get_future(entry.domain, entry.identifier):
+            return
+
+    # Schedule required dependencies first
+    for req in entry.require_domains:
+        req_entry = registry.get(req.domain, req.identifier)
+        if req_entry and req_entry.state == DomainState.PENDING:
+            _schedule_domain_setup(vis, executor, req_entry)
+
+    # Schedule optional dependencies
+    for opt in entry.optional_domains:
+        opt_entry = registry.get(opt.domain, opt.identifier)
+        if opt_entry and opt_entry.state == DomainState.PENDING:
+            _schedule_domain_setup(vis, executor, opt_entry)
+
+    _submit_domain_setup(vis, executor, entry)
 
 
 def setup_domains(vis: Viseron) -> None:
-    """Set up all domains."""
-    # Check that all domain dependencies are resolved
-    domain_dependencies(vis)
+    """Set up all pending domains."""
+    registry = vis.domain_registry
 
-    with ThreadPoolExecutor(
-        max_workers=100, thread_name_prefix="setup_domains"
-    ) as executor:
-        for domain in vis.data[DOMAINS_TO_SETUP]:
-            for domain_to_setup in vis.data[DOMAINS_TO_SETUP][domain].values():
-                setup_domain(vis, executor, domain_to_setup)
+    entries_missing_deps = registry.validate_dependencies()
+    for entry in entries_missing_deps:
+        LOGGER.error(
+            f"Domain {entry.domain} "
+            f"with identifier {entry.identifier} "
+            f"has missing dependencies: {entry.error}",
+        )
+        _handle_failed_domain(vis, entry, DomainState.FAILED, error=entry.error)
 
-        for future in as_completed(
-            [
-                future
-                for domain in vis.data[DOMAIN_SETUP_TASKS]
-                for future in vis.data[DOMAIN_SETUP_TASKS][domain].values()
-            ]
-        ):
-            # Await results so that any errors are raised
-            future.result()
+    pending = registry.get_pending()
+    if not pending:
+        return
+
+    LOGGER.debug(f"Setting up {len(pending)} pending domains")
+
+    with ThreadPoolExecutor(max_workers=100, thread_name_prefix="setup_domains") as ex:
+        # Schedule all pending domains
+        for entry in pending:
+            _schedule_domain_setup(vis, ex, entry)
+
+        # Wait for all to complete
+        futures = [
+            registry.get_future(e.domain, e.identifier)
+            for e in pending
+            if registry.get_future(e.domain, e.identifier)
+        ]
+        for future in as_completed(futures):  # type: ignore[arg-type]
+            try:
+                future.result()
+            except Exception:  # pylint: disable=broad-except
+                LOGGER.exception("Domain setup raised exception")
+
+    # Clear futures and handle failed domains
+    for entry in pending:
+        registry.clear_future(entry.domain, entry.identifier)
+
+
+def _handle_failed_domain(
+    vis: Viseron,
+    entry: DomainEntry,
+    state: Literal[DomainState.FAILED, DomainState.RETRYING],
+    error: str | None = None,
+) -> None:
+    """Handle a failed domain setup."""
+    error_instance = None
+    try:
+        domain_module = importlib.import_module(f"viseron.domains.{entry.domain}")
+        if hasattr(domain_module, "setup_failed"):
+            error_instance = domain_module.setup_failed(vis, entry)
+    except Exception:  # pylint: disable=broad-except
+        LOGGER.debug(
+            f"No setup_failed handler for domain {entry.domain} "
+            f"for component {entry.component_name}"
+        )
+    vis.domain_registry.set_state(
+        entry.domain,
+        entry.identifier,
+        state,
+        error_instance=error_instance,
+        error=error,
+    )
 
 
 STORAGE_KEY = "critical_components_config"
@@ -809,11 +709,12 @@ def setup_components(vis: Viseron, config: dict[str, Any]) -> None:
         - set(DEFAULT_COMPONENTS)
     ):
         setup_threads.append(
-            threading.Thread(
+            RestartableThread(
                 target=setup_component,
                 args=(vis, get_component(vis, component, config)),
                 name=f"{component}_setup",
                 daemon=True,
+                register=False,
             )
         )
     for thread in setup_threads:
@@ -834,50 +735,3 @@ def setup_components(vis: Viseron, config: dict[str, Any]) -> None:
         }
         for future in as_completed(setup_thread_future):
             future.result()
-
-
-def domain_setup_status(
-    vis: Viseron,
-    domain: DomainToSetup,
-    status: Literal["domain_loading", "domain_loaded", "domain_failed"],
-) -> None:
-    """Set the status of a domain setup.
-
-    Sends an event when a domains setup status changes.
-    """
-
-    def handle_failed_domain() -> None:
-        """Handle failed domain setup.
-
-        Domains can have a setup_failed function that is called when the domain setup
-        fails. The error_instance attribute is stored on the DomainToSetup object and
-        can be used to give access to partial functionality of the domain
-        (eg the recorder of a camera).
-        """
-        domain_module = importlib.import_module(f"viseron.domains.{domain.domain}")
-        if hasattr(domain_module, "setup_failed"):
-            domain.error_instance = domain_module.setup_failed(vis, domain)
-
-    vis.data[DOMAIN_LOADING].setdefault(domain.domain, {})
-    vis.data[DOMAIN_LOADED].setdefault(domain.domain, {})
-    vis.data[DOMAIN_FAILED].setdefault(domain.domain, {})
-
-    if status == DOMAIN_LOADING:
-        vis.data[DOMAIN_LOADING][domain.domain][domain.identifier] = domain
-    elif status == DOMAIN_LOADED:
-        vis.data[DOMAIN_LOADED][domain.domain][domain.identifier] = domain
-        vis.data[DOMAIN_LOADING][domain.domain].pop(domain.identifier, None)
-        vis.data[DOMAIN_FAILED][domain.domain].pop(domain.identifier, None)
-    elif status == DOMAIN_FAILED:
-        vis.data[DOMAIN_LOADING][domain.domain].pop(domain.identifier, None)
-        vis.data[DOMAIN_FAILED][domain.domain][domain.identifier] = domain
-        handle_failed_domain()
-    else:
-        raise ValueError(f"Invalid domain status: {status}")
-    vis.dispatch_event(
-        EVENT_DOMAIN_SETUP_STATUS.format(
-            status=status, domain=domain.domain, identifier=domain.identifier
-        ),
-        EventDomanSetupStatusData(**domain.__dict__),
-        store=False,
-    )
