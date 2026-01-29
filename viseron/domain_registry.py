@@ -129,7 +129,8 @@ class DomainRegistry:
             self._domains.setdefault(domain, {})[identifier] = entry
             LOGGER.debug(
                 f"Registered domain {domain} with "
-                f"identifier {identifier} (state: PENDING)",
+                f"identifier {identifier} "
+                f"for component {component_name} (state: PENDING)",
             )
             return entry
 
@@ -285,6 +286,17 @@ class DomainRegistry:
                 if entry.state == state
             }
 
+    def get_by_states_for_domain(
+        self, domain: str, states: list[DomainState]
+    ) -> dict[str, DomainEntry]:
+        """Get all entries for a domain type in a list of specific states."""
+        with self._lock:
+            return {
+                identifier: entry
+                for identifier, entry in self._domains.get(domain, {}).items()
+                if entry.state in states
+            }
+
     def get_pending(self) -> list[DomainEntry]:
         """Get all domains pending setup."""
         return self.get_by_state(DomainState.PENDING)
@@ -294,8 +306,10 @@ class DomainRegistry:
         return self.get_by_state_for_domain(domain, DomainState.LOADED)
 
     def get_failed(self, domain: str) -> dict[str, DomainEntry]:
-        """Get all failed domains for a domain type."""
-        return self.get_by_state_for_domain(domain, DomainState.FAILED)
+        """Get all failed (and retrying) domains for a domain type."""
+        return self.get_by_states_for_domain(
+            domain, [DomainState.FAILED, DomainState.RETRYING]
+        )
 
     def is_loaded(self, domain: str, identifier: str) -> bool:
         """Check if a domain is loaded."""
@@ -362,7 +376,7 @@ class DomainRegistry:
         return dependents
 
     def validate_dependencies(self) -> list[DomainEntry]:
-        """Validate that all required dependencies exist.
+        """Validate that all required dependencies are marked for setup.
 
         Returns list of entries with missing dependencies.
         """
