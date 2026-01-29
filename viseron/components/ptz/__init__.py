@@ -50,6 +50,7 @@ from .const import (
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
+    from viseron.domain_registry import EventDomainRegisteredData
 
 LOGGER = logging.getLogger(__name__)
 
@@ -157,8 +158,10 @@ class PTZ:
             event.set()
         self._stop_event.set()
 
-    def _camera_registered(self, event: Event[AbstractCamera]) -> None:
-        camera: AbstractCamera = event.data
+    def _camera_registered(
+        self, event_data: Event[EventDomainRegisteredData[AbstractCamera]]
+    ) -> None:
+        camera = event_data.data.instance
         if camera.identifier in self._config[CONFIG_CAMERAS]:
             self._cameras.update({camera.identifier: camera})
             config = self._config[CONFIG_CAMERAS][camera.identifier]

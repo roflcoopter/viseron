@@ -7,7 +7,9 @@ import threading
 from concurrent.futures import Future
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Generic
+
+from typing_extensions import TypeVar
 
 from viseron.const import (
     EVENT_DOMAIN_REGISTERED,
@@ -81,6 +83,20 @@ class EventDomainSetupStatusData(EventData):
     identifier: str
     state: str
     error: str | None = None
+
+
+T = TypeVar("T")
+
+
+@dataclass
+class EventDomainRegisteredData(EventData, Generic[T]):
+    """Event data for domain registered event."""
+
+    json_serializable = False
+
+    domain: str
+    identifier: str
+    instance: T
 
 
 class DomainRegistry:
@@ -179,9 +195,14 @@ class DomainRegistry:
                     f"{entry.component_name} has been loaded "
                     "but the instance has not been set",
                 )
+                return
             self._vis.dispatch_event(
                 EVENT_DOMAIN_REGISTERED.format(domain=domain),
-                entry.instance,  # type: ignore[arg-type]
+                EventDomainRegisteredData(
+                    domain=domain,
+                    identifier=identifier,
+                    instance=entry.instance,
+                ),
                 store=False,
             )
 
