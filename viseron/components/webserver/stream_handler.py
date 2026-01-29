@@ -1,8 +1,11 @@
 """Handles different kind of browser streams."""
+from __future__ import annotations
+
 import asyncio
 import logging
 from dataclasses import dataclass
 from http import HTTPStatus
+from typing import TYPE_CHECKING
 
 import cv2
 import imutils
@@ -13,11 +16,10 @@ from tornado.queues import Queue
 
 from viseron.components.nvr import COMPONENT as NVR_COMPONENT
 from viseron.components.nvr.const import EVENT_PROCESSED_FRAME_TOPIC
-from viseron.components.nvr.nvr import NVR, EventProcessedFrame
 from viseron.const import TOPIC_STATIC_MJPEG_STREAMS
 from viseron.domains.camera.config import MJPEG_STREAM_SCHEMA
 from viseron.domains.motion_detector import AbstractMotionDetectorScanner
-from viseron.events import Event, EventData
+from viseron.events import EventData
 from viseron.helpers import (
     draw_contours,
     draw_motion_mask,
@@ -32,6 +34,10 @@ from .request_handler import ViseronRequestHandler
 LOGGER = logging.getLogger(__name__)
 
 BOUNDARY = "--jpgboundary"
+
+if TYPE_CHECKING:
+    from viseron.components.nvr.nvr import NVR, EventProcessedFrame
+    from viseron.events import Event
 
 
 class StreamHandler(ViseronRequestHandler):
@@ -179,7 +185,7 @@ class DynamicStreamHandler(StreamHandler):
                 await asyncio.sleep(1)
                 continue
 
-            nvr: NVR = self._vis.data[NVR_COMPONENT].get(camera, None)
+            nvr = self._vis.data[NVR_COMPONENT].get(camera, None)
             if not nvr:
                 tries += 1
                 await asyncio.sleep(1)
@@ -268,7 +274,7 @@ class StaticStreamHandler(StreamHandler):
                 await asyncio.sleep(1)
                 continue
 
-            nvr: NVR = self._vis.data[NVR_COMPONENT].get(camera, None)
+            nvr = self._vis.data[NVR_COMPONENT].get(camera, None)
             if not nvr:
                 tries += 1
                 await asyncio.sleep(1)

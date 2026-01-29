@@ -11,7 +11,7 @@ import time
 import uuid
 from collections.abc import Callable
 from queue import Empty, Queue
-from typing import Any, TypedDict
+from typing import Any, Final, TypedDict
 
 from tornado.ioloop import IOLoop
 from tornado.queues import Queue as tornado_queue
@@ -19,7 +19,7 @@ from tornado.queues import Queue as tornado_queue
 from viseron import helpers
 from viseron.watchdog.thread_watchdog import RestartableThread
 
-COMPONENT = "data_stream"
+COMPONENT: Final = "data_stream"
 
 LOGGER = logging.getLogger(__name__)
 

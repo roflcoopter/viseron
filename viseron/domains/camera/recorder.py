@@ -47,7 +47,6 @@ from .shared_frames import SharedFrame
 
 if TYPE_CHECKING:
     from viseron import Viseron
-    from viseron.components.storage import Storage
     from viseron.components.storage.models import TriggerTypes
     from viseron.domains.camera import AbstractCamera, FailedCamera
 
@@ -140,7 +139,7 @@ class RecorderBase:
         self._config = config
         self._camera = camera
 
-        self._storage: Storage = vis.data[STORAGE_COMPONENT]
+        self._storage = vis.data[STORAGE_COMPONENT]
 
     def get_recordings(
         self, utc_offset: datetime.timedelta, date=None, subpath: str = ""
@@ -209,7 +208,7 @@ class AbstractRecorder(ABC, RecorderBase):
 
     def __init__(self, vis: Viseron, component, config, camera: AbstractCamera) -> None:
         super().__init__(vis, config, camera)
-        self._storage: Storage = vis.data[STORAGE_COMPONENT]
+        self._storage = vis.data[STORAGE_COMPONENT]
         self._camera: AbstractCamera = camera
 
         self.is_recording = False

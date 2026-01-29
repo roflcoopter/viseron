@@ -55,7 +55,6 @@ from .const import (
 
 if TYPE_CHECKING:
     from viseron import Viseron
-    from viseron.components.data_stream import DataStream
     from viseron.domains.camera import AbstractCamera, EventFrameBytesData
     from viseron.domains.camera.recorder import ManualRecording
     from viseron.domains.camera.shared_frames import SharedFrame
@@ -260,7 +259,7 @@ class NVR(AbstractNVR):
         self._manual_recording: ManualRecording | None = None
         self._start_manual_recording = False
         self._kill_received = False
-        self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
+        self._data_stream = vis.data[DATA_STREAM_COMPONENT]
         self._removal_timers: list[threading.Timer] = []
         self._operation_state = None
 

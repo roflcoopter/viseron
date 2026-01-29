@@ -21,7 +21,6 @@ from .switch import HassMQTTSwitch
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
-    from viseron.components.mqtt import MQTT
     from viseron.components.mqtt.entity import MQTTEntity
 
 LOGGER = logging.getLogger(__name__)
@@ -41,7 +40,7 @@ class HassMQTTInterface:
         self._vis = vis
         self._config = config
 
-        self._mqtt: MQTT = vis.data[COMPONENT]
+        self._mqtt = vis.data[COMPONENT]
 
         self._hass_entity_creation_lock = threading.Lock()
         self._hass_entities: dict[str, HassMQTTEntity] = {}

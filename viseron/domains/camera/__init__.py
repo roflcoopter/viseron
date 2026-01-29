@@ -76,11 +76,8 @@ from .shared_frames import SharedFrames
 
 if TYPE_CHECKING:
     from viseron import Viseron
-    from viseron.components.go2rtc import Go2RTC
     from viseron.components.nvr.nvr import FrameIntervalCalculator
-    from viseron.components.storage import Storage
     from viseron.components.storage.models import TriggerTypes
-    from viseron.components.webserver import Webserver
     from viseron.domains.object_detector.detected_object import DetectedObject
 
     from .recorder import AbstractRecorder
@@ -154,7 +151,7 @@ class AbstractCamera(AbstractDomain):
             self.update_token, "interval", minutes=UPDATE_TOKEN_INTERVAL_MINUTES
         )
 
-        self._storage: Storage = vis.data[STORAGE_COMPONENT]
+        self._storage = vis.data[STORAGE_COMPONENT]
         self.event_clips_folder: str = self._storage.get_event_clips_path(self)
         self.segments_folder: str = self._storage.get_segments_path(self)
         self.thumbnails_folder: str = self._storage.get_thumbnails_path(self)
@@ -421,7 +418,6 @@ class AbstractCamera(AbstractDomain):
     @property
     def live_stream_available(self) -> bool:
         """Return if live stream is available."""
-        go2rtc: Go2RTC
         if go2rtc := self._vis.data.get(GO2RTC_COMPONENT, None):
             if self.identifier in go2rtc.configured_cameras():
                 return True
@@ -557,8 +553,8 @@ class FailedCamera:
         self._entry = entry
         self._config: dict[str, Any] = entry.config[entry.identifier]
 
-        self._storage: Storage = vis.data[STORAGE_COMPONENT]
-        self._webserver: Webserver = vis.data[WEBSERVER_COMPONENT]
+        self._storage = vis.data[STORAGE_COMPONENT]
+        self._webserver = vis.data[WEBSERVER_COMPONENT]
         self._recorder = FailedCameraRecorder(vis, self._config, self)
 
         # Try to guess the path to the camera recordings

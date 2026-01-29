@@ -10,7 +10,6 @@ from viseron.const import LOADING
 
 if TYPE_CHECKING:
     from viseron import Viseron
-    from viseron.components import Component
     from viseron.types import SupportedDomains
 
 
@@ -72,7 +71,7 @@ def setup_domain(
     optional_domains: list[OptionalDomain] | None = None,
 ) -> None:
     """Set up single domain."""
-    component_instance: Component = vis.data[LOADING][component]
+    component_instance = vis.data[LOADING][component]
     component_instance.add_domain_to_setup(
         domain, config, identifier, require_domains, optional_domains
     )

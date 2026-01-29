@@ -12,7 +12,6 @@ from .const import COMPONENT
 
 if TYPE_CHECKING:
     from viseron import Viseron
-    from viseron.components.darknet import BaseDarknet
     from viseron.domains.camera.shared_frames import SharedFrame
     from viseron.domains.object_detector.detected_object import DetectedObject
 
@@ -32,7 +31,7 @@ class ObjectDetector(AbstractObjectDetector):
 
     def __init__(self, vis: Viseron, config, camera_identifier) -> None:
         super().__init__(vis, COMPONENT, config, camera_identifier)
-        self._darknet: BaseDarknet = vis.data[COMPONENT]
+        self._darknet = vis.data[COMPONENT]
         self._object_result_queue: Queue[list[DetectedObject]] = Queue(maxsize=1)
 
     def preprocess(self, frame: SharedFrame):
