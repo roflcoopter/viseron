@@ -421,7 +421,6 @@ class Webserver(threading.Thread):
             if self._cleanup_task and not self._cleanup_task.done():
                 self._cleanup_task.cancel()
 
-            connection: WebSocketHandler
             for connection in self._vis.data[WEBSOCKET_CONNECTIONS]:
                 LOGGER.debug("Closing websocket connection, %s", connection)
                 await connection.force_close()

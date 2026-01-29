@@ -25,7 +25,6 @@ LOGGER = logging.getLogger(__name__)
 def setup(vis: Viseron, config) -> bool:
     """Set up the gstreamer component."""
     config = config[COMPONENT]
-    vis.data[COMPONENT] = {}
 
     for camera_identifier, camera_config in config[CONFIG_CAMERA].items():
         pruned_config = {}

@@ -346,7 +346,7 @@ class Viseron:
             )
             raise DataStreamNotLoaded
 
-        data_stream: DataStream = self.data[DATA_STREAM_COMPONENT]
+        data_stream = self.data[DATA_STREAM_COMPONENT]
         topic = f"event/{event}"
         uuid = data_stream.subscribe_data(topic, callback, ioloop=ioloop)
 
@@ -573,7 +573,7 @@ class Viseron:
         self.shutdown_event.set()
 
         if self.data.get(DATA_STREAM_COMPONENT, None):
-            data_stream: DataStream = self.data[DATA_STREAM_COMPONENT]
+            data_stream = self.data[DATA_STREAM_COMPONENT]
 
         if (
             self._thread_watchdog

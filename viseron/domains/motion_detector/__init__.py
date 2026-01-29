@@ -75,7 +75,6 @@ from viseron.watchdog.thread_watchdog import RestartableThread
 if TYPE_CHECKING:
     from viseron import Event, Viseron
     from viseron.components.nvr.nvr import EventFrameToScan, EventScanFrames
-    from viseron.components.storage import Storage
     from viseron.domains.camera import AbstractCamera
     from viseron.domains.camera.shared_frames import SharedFrame
 
@@ -165,7 +164,7 @@ class AbstractMotionDetector(AbstractDomain):
         self._vis = vis
         self._config = config
         self._camera_identifier = camera_identifier
-        self._storage: Storage = vis.data[STORAGE_COMPONENT]
+        self._storage = vis.data[STORAGE_COMPONENT]
 
         self._camera: AbstractCamera = vis.get_registered_domain(
             CAMERA_DOMAIN, camera_identifier

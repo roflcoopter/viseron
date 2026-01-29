@@ -1,8 +1,10 @@
 """Public image API Handler."""
+from __future__ import annotations
 
 import logging
 import os
 from http import HTTPStatus
+from typing import TYPE_CHECKING
 
 import voluptuous as vol
 
@@ -17,6 +19,9 @@ ALLOWED_EXTENSIONS = {
     ".jpeg": "image/jpeg",
     ".png": "image/png",
 }
+
+if TYPE_CHECKING:
+    from viseron.components.webserver import Webserver
 
 
 class PublicimageAPIHandler(BaseAPIHandler):
@@ -41,6 +46,7 @@ class PublicimageAPIHandler(BaseAPIHandler):
         token = self.request_arguments["token"]
 
         # Try to get token from memory first
+        self._webserver: Webserver
         public_image_token = self._webserver.public_image_tokens.get(token)
 
         # If token not in memory, try to find file on disk (survives restart)

@@ -1,7 +1,7 @@
 """EdgeTPU constants."""
 from typing import Final
 
-COMPONENT = "edgetpu"
+COMPONENT: Final = "edgetpu"
 
 DEVICE_CPU = "cpu"
 DEFAULT_DETECTOR_CPU_MODEL = (
@@ -20,7 +20,7 @@ DEFAULT_CLASSIFIER_LABEL_PATH = "/classifiers/models/edgetpu/labels.txt"
 
 
 # Object detector config constants
-CONFIG_OBJECT_DETECTOR = "object_detector"
+CONFIG_OBJECT_DETECTOR: Final = "object_detector"
 CONFIG_MODEL_PATH = "model_path"
 CONFIG_LABEL_PATH = "label_path"
 CONFIG_DEVICE = "device"
@@ -39,7 +39,7 @@ DESC_DEVICE = (
 )
 
 # Image classification config constants
-CONFIG_IMAGE_CLASSIFICATION = "image_classification"
+CONFIG_IMAGE_CLASSIFICATION: Final = "image_classification"
 CONFIG_CROP_CORRECTION = "crop_correction"
 
 DESC_IMAGE_CLASSIFICATION = "Image classification domain config."

@@ -49,10 +49,8 @@ def setup(vis: Viseron, config, identifier) -> bool:
 class ImageClassification(AbstractImageClassification):
     """Perform EdgeTPU image classification."""
 
-    def __init__(self, vis, component, config, camera_identifier) -> None:
-        self._edgetpu: EdgeTPUClassification = vis.data[COMPONENT][
-            CONFIG_IMAGE_CLASSIFICATION
-        ]
+    def __init__(self, vis: Viseron, component, config, camera_identifier) -> None:
+        self._edgetpu = vis.data[COMPONENT][CONFIG_IMAGE_CLASSIFICATION]
         self._classification_result_queue: Queue[
             list[ImageClassificationResult]
         ] = Queue(maxsize=1)

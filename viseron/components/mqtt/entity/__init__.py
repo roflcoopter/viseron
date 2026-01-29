@@ -12,7 +12,6 @@ from viseron.helpers.json import JSONEncoder
 
 if TYPE_CHECKING:
     from viseron import Viseron
-    from viseron.components.mqtt import MQTT
 
 T = TypeVar("T", bound=Entity)
 
@@ -25,7 +24,7 @@ class MQTTEntity(Generic[T]):
         self._config = config
         self.entity = entity
 
-        self._mqtt: MQTT = vis.data[MQTT_COMPONENT]
+        self._mqtt = vis.data[MQTT_COMPONENT]
 
     @property
     def state_topic(self) -> str:

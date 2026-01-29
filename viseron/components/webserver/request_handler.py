@@ -25,7 +25,6 @@ from viseron.helpers import get_utc_offset, utcnow
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.components.nvr.nvr import NVR
-    from viseron.components.storage import Storage
     from viseron.components.webserver import Webserver
     from viseron.components.webserver.auth import RefreshToken, User
     from viseron.domains.camera import AbstractCamera, FailedCamera
@@ -41,8 +40,8 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
     def initialize(self, vis: Viseron) -> None:
         """Initialize request handler."""
         self._vis = vis
-        self._webserver: Webserver = vis.data[COMPONENT]
-        self._storage: Storage = vis.data[STORAGE_COMPONENT]
+        self._webserver = vis.data[COMPONENT]
+        self._storage = vis.data[STORAGE_COMPONENT]
         self.current_user = None
         # Manually set xsrf cookie
         self.xsrf_token  # pylint: disable=pointless-statement

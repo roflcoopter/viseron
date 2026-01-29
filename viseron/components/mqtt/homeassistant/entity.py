@@ -18,7 +18,6 @@ from viseron.components.mqtt.helpers import PublishPayload
 
 if TYPE_CHECKING:
     from viseron import Viseron
-    from viseron.components.mqtt import MQTT
 
 T = TypeVar("T", bound=MQTTEntity)
 
@@ -33,7 +32,7 @@ class HassMQTTEntity(ABC, Generic[T]):
         self._config = config
         self._mqtt_entity = mqtt_entity
 
-        self._mqtt: MQTT = vis.data[MQTT_COMPONENT]
+        self._mqtt = vis.data[MQTT_COMPONENT]
 
     @property
     def availability(self):

@@ -1,6 +1,8 @@
 """go2rtc constants."""
 
-COMPONENT = "go2rtc"
+from typing import Final
+
+COMPONENT: Final = "go2rtc"
 
 GO2RTC_CONFIG = "/tmp/go2rtc.yaml"
 

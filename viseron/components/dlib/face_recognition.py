@@ -11,7 +11,7 @@ from viseron.domains.face_recognition import AbstractFaceRecognition
 from viseron.domains.face_recognition.const import CONFIG_FACE_RECOGNITION_PATH
 from viseron.helpers import calculate_absolute_coords
 
-from .const import COMPONENT, CONFIG_FACE_RECOGNITION, CONFIG_MODEL
+from .const import CLASSIFIER, COMPONENT, CONFIG_FACE_RECOGNITION, CONFIG_MODEL
 from .predict import predict
 from .train import train
 
@@ -23,8 +23,6 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 TRAIN_LOCK = threading.Lock()
-
-CLASSIFIER = "CLASSIFIER"
 
 
 def setup(vis: Viseron, config, identifier) -> bool:

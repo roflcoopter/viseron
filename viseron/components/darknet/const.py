@@ -5,7 +5,7 @@ from typing import Final
 
 import cv2
 
-COMPONENT = "darknet"
+COMPONENT: Final = "darknet"
 
 
 # CONFIG_SCHEMA constants
