@@ -1,5 +1,7 @@
 """Background Subtractor MOG2 motion detection constants."""
 
+from typing import Final
+
 COMPONENT = "mog2"
 
 # MOTION_DETECTOR_SCHEMA constants
@@ -33,6 +35,6 @@ DESC_LEARNING_RATE = (
 
 
 # CONFIG_SCHEMA constants
-CONFIG_MOTION_DETECTOR = "motion_detector"
+CONFIG_MOTION_DETECTOR: Final = "motion_detector"
 
 DESC_MOTION_DETECTOR = "Motion detector domain config."

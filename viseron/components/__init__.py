@@ -31,6 +31,7 @@ from viseron.domain_registry import DomainEntry, DomainState
 from viseron.exceptions import ComponentNotReady, DomainNotReady
 from viseron.helpers.named_timer import NamedTimer
 from viseron.helpers.storage import Storage
+from viseron.types import SupportedDomains
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
@@ -205,7 +206,7 @@ class Component:
 
     def add_domain_to_setup(
         self,
-        domain: str,
+        domain: SupportedDomains,
         config: dict[str, Any],
         identifier: str,
         require_domains: list[RequireDomain] | None = None,

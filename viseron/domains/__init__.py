@@ -65,7 +65,7 @@ class AbstractDomain(metaclass=DomainMeta):
 def setup_domain(
     vis: Viseron,
     component: str,
-    domain: str,
+    domain: SupportedDomains,
     config: dict[str, Any],
     identifier: str,
     require_domains: list[RequireDomain] | None = None,
@@ -78,13 +78,15 @@ def setup_domain(
     )
 
 
-def get_unload_order(vis: Viseron, domain: str, identifier: str) -> list[DomainEntry]:
+def get_unload_order(
+    vis: Viseron, domain: SupportedDomains, identifier: str
+) -> list[DomainEntry]:
     """Get domains in unload order (dependents first)."""
     registry = vis.domain_registry
     unload_order: list[DomainEntry] = []
-    processed: set[tuple[str, str]] = set()
+    processed: set[tuple[SupportedDomains, str]] = set()
 
-    def traverse(_domain: str, _identifier: str) -> None:
+    def traverse(_domain: SupportedDomains, _identifier: str) -> None:
         key = (_domain, _identifier)
         if key in processed:
             return
@@ -101,3 +103,49 @@ def get_unload_order(vis: Viseron, domain: str, identifier: str) -> list[DomainE
 
     traverse(domain, identifier)
     return unload_order
+
+
+def unload_domain(
+    vis: Viseron,
+    domain: SupportedDomains,
+    identifier: str,
+) -> DomainEntry | None:
+    """Unload a single domain."""
+    registry = vis.domain_registry
+    entry = registry.get(domain, identifier)
+
+    if not entry or entry.state != DomainState.LOADED:
+        LOGGER.error(
+            f"Domain {domain} with identifier {identifier} not loaded, cannot unload"
+        )
+        return None
+
+    LOGGER.info(f"Unloading domain {domain} with identifier {identifier}")
+
+    # Unload entities for this domain
+    component_name = entry.component_name
+    entities_to_remove: list[str] = []
+    entity_owner = vis.states.entity_owner.get(component_name)
+    domains = entity_owner.get("domains") if entity_owner else None
+    domain_info = domains.get(domain) if domains else None
+    identifiers = domain_info.get("identifiers") if domain_info else None
+    entities_to_remove = identifiers.get(identifier, []) if identifiers else []
+
+    for entity_id in entities_to_remove:
+        vis.states.unload_entity(entity_id)
+
+    # Call domain's unload method
+    if entry.instance and hasattr(entry.instance, "unload"):
+        try:
+            entry.instance.unload()
+        except Exception as ex:  # pylint: disable=broad-except
+            LOGGER.error(
+                f"Error unloading domain {domain} with identifier {identifier}: {ex}"
+            )
+    else:
+        LOGGER.debug(
+            f"Domain {domain} with identifier {identifier} has no unload method"
+        )
+
+    # Unregister from registry
+    return registry.unregister(domain, identifier)

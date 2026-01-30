@@ -5,15 +5,15 @@ COMPONENT = "deepstack"
 
 
 # CONFIG_SCHEMA constants
-CONFIG_OBJECT_DETECTOR = "object_detector"
-CONFIG_FACE_RECOGNITION = "face_recognition"
-CONFIG_HOST = "host"
-CONFIG_PORT = "port"
-CONFIG_API_KEY = "api_key"
-CONFIG_TIMEOUT = "timeout"
+CONFIG_OBJECT_DETECTOR: Final = "object_detector"
+CONFIG_FACE_RECOGNITION: Final = "face_recognition"
+CONFIG_HOST: Final = "host"
+CONFIG_PORT: Final = "port"
+CONFIG_API_KEY: Final = "api_key"
+CONFIG_TIMEOUT: Final = "timeout"
 
 DEFAULT_API_KEY: Final = None
-DEFAULT_TIMEOUT = 10
+DEFAULT_TIMEOUT: Final = 10
 
 DESC_COMPONENT = "DeepStack configuration."
 DESC_OBJECT_DETECTOR = "Object detector domain config."

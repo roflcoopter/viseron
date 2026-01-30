@@ -1,8 +1,16 @@
 """Tests for domains module."""
+from logging import DEBUG
+from unittest.mock import Mock, patch
+
 import pytest
 
 from viseron.domain_registry import DomainState
-from viseron.domains import OptionalDomain, RequireDomain, get_unload_order
+from viseron.domains import (
+    OptionalDomain,
+    RequireDomain,
+    get_unload_order,
+    unload_domain,
+)
 
 from tests.conftest import MockViseron
 
@@ -245,3 +253,189 @@ class TestGetUnloadOrder:
         assert len(result) == 2
         assert result[0].domain == "object_detector"
         assert result[1].domain == "camera"
+
+
+class TestUnloadDomain:
+    """Test unload_domain function."""
+
+    @pytest.mark.parametrize(
+        "state,expected_result",
+        [
+            (DomainState.PENDING, None),
+            (DomainState.FAILED, None),
+            (None, None),  # Domain not registered
+        ],
+    )
+    def test_unload_invalid_states(self, vis: MockViseron, state, expected_result):
+        """Test unload fails for invalid states."""
+        registry = vis.domain_registry
+        if state is not None:
+            # Register domain but don't set to LOADED
+            registry.register(
+                component_name="test_comp",
+                component_path="test.path",
+                domain="camera",
+                identifier="cam1",
+                config={},
+            )
+            if state != DomainState.PENDING:
+                registry.set_state("camera", "cam1", state)
+
+        result = unload_domain(vis, "camera", "cam1")
+        assert result == expected_result
+
+    def test_unload_domain_success(self, vis: MockViseron):
+        """Test successful domain unload."""
+        # Create mock instance with unload method
+        mock_instance = Mock()
+        mock_instance.unload = Mock()
+
+        registry = vis.domain_registry
+        registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        registry.set_state("camera", "cam1", DomainState.LOADED)
+        registry.set_instance("camera", "cam1", mock_instance)
+
+        result = unload_domain(vis, "camera", "cam1")
+        assert result is not None
+        assert result.domain == "camera"
+        assert result.identifier == "cam1"
+        assert registry.get("camera", "cam1") is None
+        mock_instance.unload.assert_called_once()
+
+    def test_unload_without_unload_method(
+        self, vis: MockViseron, caplog: pytest.LogCaptureFixture
+    ):
+        """Test unload succeeds even if domain has no unload method."""
+        caplog.set_level(DEBUG)
+        # Create mock instance without unload method
+        mock_instance = Mock(spec=[])
+
+        registry = vis.domain_registry
+        registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        registry.set_state("camera", "cam1", DomainState.LOADED)
+        registry.set_instance("camera", "cam1", mock_instance)
+
+        result = unload_domain(vis, "camera", "cam1")
+        assert result is not None
+        assert result.domain == "camera"
+        assert result.identifier == "cam1"
+        assert registry.get("camera", "cam1") is None
+        assert "Domain camera with identifier cam1 has no unload method" in caplog.text
+
+    def test_unload_handles_unload_exception(self, vis: MockViseron):
+        """Test that exceptions in unload method are handled gracefully."""
+        # Create mock instance that raises exception
+        mock_instance = Mock()
+        mock_instance.unload = Mock(side_effect=RuntimeError("Unload failed"))
+
+        registry = vis.domain_registry
+        registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        registry.set_state("camera", "cam1", DomainState.LOADED)
+        registry.set_instance("camera", "cam1", mock_instance)
+
+        result = unload_domain(vis, "camera", "cam1")
+        assert result is not None
+        assert registry.get("camera", "cam1") is None
+        mock_instance.unload.assert_called_once()
+
+    def test_unload_removes_entities(self, vis: MockViseron):
+        """Test that entities are removed during unload."""
+        # Set up entity ownership structure
+        vis.states._register_entity_owner(  # pylint: disable=protected-access
+            "test_comp",
+            "entity.test1",
+            "camera",
+            "cam1",
+        )
+        vis.states._register_entity_owner(  # pylint: disable=protected-access
+            "test_comp",
+            "entity.test2",
+            "camera",
+            "cam1",
+        )
+
+        registry = vis.domain_registry
+        registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        registry.set_state("camera", "cam1", DomainState.LOADED)
+
+        with patch.object(vis.states, "unload_entity") as mock_unload_entity:
+            unload_domain(vis, "camera", "cam1")
+            assert mock_unload_entity.call_count == 2
+            mock_unload_entity.assert_any_call("entity.test1")
+            mock_unload_entity.assert_any_call("entity.test2")
+
+    @pytest.mark.parametrize(
+        "entity_structure",
+        [
+            {},  # No component entry
+            {"test_comp": {}},  # No domains entry
+            {"test_comp": {"domains": {}}},  # No camera domain
+            {"test_comp": {"domains": {"camera": {}}}},  # No identifiers
+            {"test_comp": {"domains": {"camera": {"identifiers": {}}}}},  # No cam1
+        ],
+    )
+    def test_unload_handles_missing_entity_structure(
+        self, vis: MockViseron, entity_structure
+    ):
+        """Test unload handles missing or incomplete entity structures."""
+        vis.states._entity_owner = entity_structure  # pylint: disable=protected-access
+
+        registry = vis.domain_registry
+        registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        registry.set_state("camera", "cam1", DomainState.LOADED)
+
+        with patch.object(vis.states, "unload_entity") as mock_unload_entity:
+            result = unload_domain(vis, "camera", "cam1")
+            assert result is not None
+            mock_unload_entity.assert_not_called()
+
+    def test_unload_with_no_instance(
+        self, vis: MockViseron, caplog: pytest.LogCaptureFixture
+    ):
+        """Test unload succeeds when entry has no instance."""
+        caplog.set_level(DEBUG)
+
+        registry = vis.domain_registry
+        registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        registry.set_state("camera", "cam1", DomainState.LOADED)
+
+        result = unload_domain(vis, "camera", "cam1")
+        assert result is not None
+        assert registry.get("camera", "cam1") is None
+        assert "Domain camera with identifier cam1 has no unload method" in caplog.text
