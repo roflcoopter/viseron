@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from viseron.const import LOADING
+from viseron.domain_registry import DomainEntry, DomainState
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -75,3 +76,28 @@ def setup_domain(
     component_instance.add_domain_to_setup(
         domain, config, identifier, require_domains, optional_domains
     )
+
+
+def get_unload_order(vis: Viseron, domain: str, identifier: str) -> list[DomainEntry]:
+    """Get domains in unload order (dependents first)."""
+    registry = vis.domain_registry
+    unload_order: list[DomainEntry] = []
+    processed: set[tuple[str, str]] = set()
+
+    def traverse(_domain: str, _identifier: str) -> None:
+        key = (_domain, _identifier)
+        if key in processed:
+            return
+        processed.add(key)
+
+        # Process dependents first
+        for dep in registry.get_dependents(_domain, _identifier):
+            traverse(dep.domain, dep.identifier)
+
+        # Then add this domain
+        entry = registry.get(_domain, _identifier)
+        if entry and entry.state == DomainState.LOADED:
+            unload_order.append(entry)
+
+    traverse(domain, identifier)
+    return unload_order
