@@ -85,6 +85,7 @@ if TYPE_CHECKING:
         DataItemDeleteFile,
         DataItemMoveFile,
     )
+    from viseron.domain_registry import EventDomainRegisteredData
     from viseron.domains.camera import AbstractCamera
 
 LOGGER = logging.getLogger(__name__)
@@ -615,8 +616,10 @@ class Storage:
         if filename not in self.ignored_files:
             self.ignored_files.append(filename)
 
-    def _camera_registered(self, event_data: Event[AbstractCamera]) -> None:
-        camera = event_data.data
+    def _camera_registered(
+        self, event_data: Event[EventDomainRegisteredData[AbstractCamera]]
+    ) -> None:
+        camera = event_data.data.instance
         self.create_tier_handlers(camera)
 
     def create_tier_handlers(self, camera: AbstractCamera) -> None:
