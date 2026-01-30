@@ -1,5 +1,7 @@
 """Background subtractor detection constants."""
 
+from typing import Final
+
 COMPONENT = "background_subtractor"
 
 
@@ -26,6 +28,6 @@ DESC_ALPHA = (
 )
 
 # CONFIG_SCHEMA constants
-CONFIG_MOTION_DETECTOR = "motion_detector"
+CONFIG_MOTION_DETECTOR: Final = "motion_detector"
 
 DESC_MOTION_DETECTOR = "Motion detector domain config."

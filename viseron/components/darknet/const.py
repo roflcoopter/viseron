@@ -9,22 +9,22 @@ COMPONENT: Final = "darknet"
 
 
 # CONFIG_SCHEMA constants
-CONFIG_OBJECT_DETECTOR = "object_detector"
-CONFIG_MODEL_PATH = "model_path"
-CONFIG_MODEL_CONFIG = "model_config"
-CONFIG_LABEL_PATH = "label_path"
-CONFIG_SUPPRESSION = "suppression"
-CONFIG_DNN_BACKEND = "dnn_backend"
-CONFIG_DNN_TARGET = "dnn_target"
-CONFIG_HALF_PRECISION = "half_precision"
+CONFIG_OBJECT_DETECTOR: Final = "object_detector"
+CONFIG_MODEL_PATH: Final = "model_path"
+CONFIG_MODEL_CONFIG: Final = "model_config"
+CONFIG_LABEL_PATH: Final = "label_path"
+CONFIG_SUPPRESSION: Final = "suppression"
+CONFIG_DNN_BACKEND: Final = "dnn_backend"
+CONFIG_DNN_TARGET: Final = "dnn_target"
+CONFIG_HALF_PRECISION: Final = "half_precision"
 
-DEFAULT_MODEL_PATH = "/detectors/models/darknet/default.weights"
-DEFAULT_MODEL_CONFIG = "/detectors/models/darknet/default.cfg"
-DEFAULT_LABEL_PATH = "/detectors/models/darknet/coco.names"
-DEFAULT_SUPPRESSION = 0.4
+DEFAULT_MODEL_PATH: Final = "/detectors/models/darknet/default.weights"
+DEFAULT_MODEL_CONFIG: Final = "/detectors/models/darknet/default.cfg"
+DEFAULT_LABEL_PATH: Final = "/detectors/models/darknet/coco.names"
+DEFAULT_SUPPRESSION: Final = 0.4
 DEFAULT_DNN_BACKEND: Final = None
 DEFAULT_DNN_TARGET: Final = None
-DEFAULT_HALF_PRECISION = False
+DEFAULT_HALF_PRECISION: Final = False
 
 DESC_COMPONENT = "Darknet configuration."
 DESC_OBJECT_DETECTOR = "Object detector domain config."

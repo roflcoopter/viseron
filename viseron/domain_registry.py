@@ -18,6 +18,7 @@ from viseron.const import (
 )
 from viseron.events import EventData, EventEmptyData
 from viseron.exceptions import DomainNotRegisteredError
+from viseron.types import SupportedDomains
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -43,7 +44,7 @@ class DomainEntry:
 
     component_name: str
     component_path: str
-    domain: str
+    domain: SupportedDomains
     identifier: str
     config: dict[str, Any]
     require_domains: list[RequireDomain] = field(default_factory=list)
@@ -111,7 +112,7 @@ class DomainRegistry:
         self,
         component_name: str,
         component_path: str,
-        domain: str,
+        domain: SupportedDomains,
         identifier: str,
         config: dict[str, Any],
         require_domains: list[RequireDomain] | None = None,
