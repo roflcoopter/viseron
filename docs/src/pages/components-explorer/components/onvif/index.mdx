@@ -7,7 +7,7 @@ import config from "./config.json";
 
 <ComponentHeader meta={ComponentMetadata} />
 
-The ONVIF component allows you to manage ONVIF cameras directly in Viseron using the [Profile S](https://www.onvif.org/wp-content/uploads/2019/12/ONVIF_Profile_-S_Specification_v1-3.pdf) Client requirements implementation. Currently, the implementation is limited to the **Device**, **Media**, **Imaging**, and **PTZ** (pan-tilt-zoom) services. And not all operations on the service are implemented in this component, if you feel the implementation of the operation is lacking, [please contribute!](/docs/contributing)
+The ONVIF component allows you to manage and control ONVIF cameras directly in Viseron using the [Profile S](https://www.onvif.org/wp-content/uploads/2019/12/ONVIF_Profile_-S_Specification_v1-3.pdf) Client requirements implementation. Currently, the implementation is limited to the **Device**, **Media**, **Imaging**, and **PTZ** (pan-tilt-zoom) services. And not all operations on the service are implemented in this component, if you feel the implementation of the operation is lacking, [please contribute!](/docs/contributing)
 
 All services can be configured directly via the Viseron Dashboard ([Camera Tuning](/docs/documentation/configuration)), and the PTZ service can also be controlled via the [Telegram component](/components-explorer/components/telegram) or via [Live View](/docs/documentation/configuration/live_view) page.
 
@@ -48,9 +48,11 @@ onvif:
       password: "@myS3curepassword"
       auto_config: false # will use the configuration below
       device:
+        datetime_type: NTP
         ntp_from_dhcp: false
-        ntp_type: DNS
-        ntp_server: pool.ntp.org
+        ntp_manual:
+        - ntp_type: DNS
+          ntp_server: pool.ntp.org
       imaging:
         brightness: 50.0
         color_saturation: 50.0
@@ -103,12 +105,12 @@ Device service allows you to manage ONVIF devices in the following subcategories
 
 But it should be noted that **not all operations are supported by all types of cameras**, and this **ONVIF component does not implement all operations**. For a more detailed explanation, you can refer to the [official document](https://developer.onvif.org/pub/specs/branches/development/doc/Core.xml) regarding this service. The operations implemented by this component in the Device service are described as follows:
 
-| No  | Area         | Operations                                                                                                                                                                            |
-| --- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Capabilities | `GetCapabilities`, `GetServices`                                                                                                                                                      |
-| 2   | System       | `GetDeviceInformation`, `GetDiscoveryMode`, `SetDiscoveryMode`, `GetScopes`, `AddScopes`, `SetScopes`, `RemoveScopes`, `GetSystemDateAndTime`, `SetSystemDateAndTime`, `SystemReboot` |
-| 3   | Security     | `GetUsers`, `CreateUsers`, `DeleteUsers`, `SetUser`                                                                                                                                   |
-| 4   | Network      | `GetHostname`, `SetHostname`, `GetNTP`, `SetNTP`, `GetNetworkDefaultGateway`, `GetNetworkInterfaces`, `GetNetworkProtocols`, `GetDNS`                                                 |
+| No  | Area         | Operations                                                                                                                                                                                                                                                                                |
+| --- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Capabilities | `GetServiceCapabilities`, `GetServices`                                                                                                                                                                                                                                                   |
+| 2   | System       | `GetDeviceInformation`, `GetScopes`, `AddScopes`, `SetScopes`, `RemoveScopes`, `GetSystemDateAndTime`, `SetSystemDateAndTime`, `SystemReboot`, `SystemFactoryDefault`                                                                                                                     |
+| 3   | Security     | `GetUsers`, `CreateUsers`, `DeleteUsers`, `SetUser`                                                                                                                                                                                                                                       |
+| 4   | Network      | `GetHostname`, `SetHostname`, `SetHostnameFromDHCP`,`GetDiscoveryMode`, `SetDiscoveryMode`, `GetNTP`, `SetNTP`,  `GetNetworkDefaultGateway`, `SetNetworkDefaultGateway`, `GetNetworkProtocols`, `SetNetworkProtocols`, `GetNetworkInterfaces`, `SetNetworkInterfaces`, `GetDNS`, `SetDNS` |
 
 All Device service operations and settings can be configured via the [Camera Tuning](/docs/documentation/configuration) page.
 
@@ -120,13 +122,14 @@ The Media service is mandatory for ONVIF devices that provide media streaming ca
 
 This ONVIF component does **not implement all Media service operations** defined in the ONVIF specification. For a more detailed explanation, you can refer to the [official document](https://developer.onvif.org/pub/specs/branches/development/doc/Media.xml) regarding this service. The operations implemented by this component in the Media service are described as follows:
 
-| No  | Area     | Operations                                                                                            |
-| --- | -------- | ----------------------------------------------------------------------------------------------------- |
-| 1   | Profiles | `GetProfiles`, `GetProfile`, `CreateProfile`, `DeleteProfile`                                         |
-| 2   | URI      | `GetStreamUri`, `GetSnapshotUri`                                                                      |
-| 3   | Video    | `GetVideoEncoderConfiguration`, `GetVideoEncoderConfigurationOptions`, `SetVideoEncoderConfiguration` |
-| 4   | Audio    | `GetAudioEncoderConfiguration`, `GetAudioEncoderConfigurationOptions`, `SetVideoEncoderConfiguration` |
-| 5   | OSD      | `GetOSD`, `GetOSDs`, `GetOSDOptions`, `CreateOSD`, `DeleteOSD`, `SetOSD`                              |
+| No  | Area         | Operations                                                                                            |
+| --- | ------------ | ----------------------------------------------------------------------------------------------------- |
+| 1   | Capabilities | `GetServiceCapabilities`                                                                              |
+| 2   | Profiles     | `GetProfiles`, `GetProfile`, `CreateProfile`, `DeleteProfile`                                         |
+| 3   | URI          | `GetStreamUri`, `GetSnapshotUri`                                                                      |
+| 4   | Video        | `GetVideoEncoderConfiguration`, `GetVideoEncoderConfigurationOptions`, `SetVideoEncoderConfiguration` |
+| 5   | Audio        | `GetAudioEncoderConfiguration`, `GetAudioEncoderConfigurationOptions`, `SetVideoEncoderConfiguration` |
+| 6   | OSD          | `GetOSD`, `GetOSDs`, `GetOSDOptions`, `CreateOSD`, `DeleteOSD`, `SetOSD`                              |
 
 All Media service operations and settings can be configured via the [Camera Tuning](/docs/documentation/configuration) page.
 
@@ -138,10 +141,12 @@ Imaging service allows you to control and configure the imaging properties of yo
 
 Please note that **not all Imaging service operations parameters are supported by your camera**, this component will adjust automatically in the frontend ([Camera Tuning](/docs/documentation/configuration) page) based on your camera capabilities. The operations implemented by this component in the Imaging service are described as follows:
 
-| No  | Area     | Operations                                               |
-| --- | -------- | -------------------------------------------------------- |
-| 1   | Settings | `GetOptions`, `GetImagingSettings`, `SetImagingSettings` |
-| 2   | Focus    | `GetMoveOptions`, `GetStatus`, `Move`, `Stop`            |
+| No  | Area         | Operations                                               |
+| --- | ------------ | -------------------------------------------------------- |
+| 1   | Capabilities | `GetServiceCapabilities`                                 |
+| 2   | Settings     | `GetImagingSettings`, `SetImagingSettings`, `GetOptions` |
+| 3   | Presets      | `GetPresets`, `GetCurrentPreset`, `SetCurrentPreset`     |
+| 4   | Focus        | `GetMoveOptions`, `GetStatus`, `Move`, `Stop`            |
 
 All Imaging service operations and settings can be configured via the [Camera Tuning](/docs/documentation/configuration) page.
 
@@ -179,12 +184,38 @@ But it should be noted that **not all operations are supported by all types of c
 
 | No  | Area          | Operations                                                                                                  |
 | --- | ------------- | ----------------------------------------------------------------------------------------------------------- |
-| 1   | Movement      | `ContinuousMove`, `RelativeMove`, `AbsoluteMove`, `Stop`                                                    |
-| 2   | Position      | `GotoHomePosition`, `SetHomePosition`, `GetStatus`, `GetPresets`, `GotoPreset`, `SetPreset`, `RemovePreset` |
-| 3   | Configuration | `GetNodes`, `GetConfigurations`, `GetConfigurationOptions`                                                  |
+| 1   | Capabilities  | `GetServiceCapabilities`                                                                                    |
+| 2   | Movement      | `ContinuousMove`, `RelativeMove`, `AbsoluteMove`, `Stop`                                                    |
+| 3   | Position      | `GotoHomePosition`, `SetHomePosition`, `GetStatus`, `GetPresets`, `GotoPreset`, `SetPreset`, `RemovePreset` |
+| 4   | Configuration | `GetNodes`, `GetConfigurations`, `GetConfigurationOptions`, `SetConfiguration`                              |
 
 All PTZ service settings can be configured via the [Camera Tuning](/docs/documentation/configuration) page and some settings/operations can be configured on the [Live View](/docs/documentation/configuration/live_view) page.
 
 For transparency, PTZ Control available in [Live View](/docs/documentation/configuration/live_view) uses the `ContinuousMove` operation, which is **mandatory for all ONVIF PTZ cameras**. PTZ Control in the [Telegram component](/components-explorer/components/telegram), however, will use the `RelativeMove` operation if supported by the camera, and will use `ContinuousMove` as a fallback.
 
 <ComponentTroubleshooting meta={ComponentMetadata} />
+
+### Known Issues
+
+- **Optional Action Not Implemented** / **Action Not Supported**:
+  Some cameras may return an "Optional Action Not Implemented" or "Action Not Supported" error when attempting to perform certain operations. This can occur if the camera does not support a specific ONVIF operation or if the operation is not implemented in the camera's firmware. In such cases, it is recommended to check the camera's documentation or contact the manufacturer for more information on supported ONVIF operations.
+
+- **Timeout/Network Error**:
+  A timeout error may occur when the camera takes too long to respond to an ONVIF request. This can happen due to network latency, camera processing delays, or other factors. To resolve this issue, you can try increasing the timeout value in the ONVIF component configuration or optimizing the network connection between Viseron and the camera.
+
+- **Camera ignores parameters**:
+  Some cameras may ignore certain parameters when setting up the configuration or adjusting operating parameters (e.g. PTZ Speed, Brightness Level) via ONVIF. This can happen if the camera does not support specific configuration options or if the parameters are not valid for the camera model or the camera completely ignores it. In such cases, it is recommended to check the camera's documentation or contact the manufacturer for more information on supported configuration options.
+
+- **Different schema definitions**:
+  Some cameras may have different schema definitions for certain ONVIF operations, which can lead to compatibility issues when trying to perform those operations. You can try to work around this by using a WSDL that matches your camera's ONVIF version by adding `wsdl_dir` to the key under `<CAMERA_IDENTIFIER>`. For more information on this, please see the [onvif-python](https://github.com/nirsimetri/onvif-python) library documentation.
+
+### Strange camera behavior
+
+Although this ONVIF component has tried to implement all configurations dynamically based on the camera's capabilities, there are still some cameras that have non-standard/uncommon behavior in general ONVIF compliant cameras. 
+
+Moreover, if your camera brand/model is not registered in [ONVIF Conformant Products](https://www.onvif.org/conformant-products/), then there is a big possibility that your camera will behave strangely. Some of the issues commonly encountered regarding the compatibility of ONVIF components are:
+
+- Some cameras do not properly implement the ONVIF specification, causing certain operations to fail or return unexpected results. This can lead to issues when trying to configure or control the camera using standard ONVIF commands.
+- Some cameras may have limitations in their ONVIF implementation, such as not supporting certain features or operations defined in the ONVIF specification. This can result in missing functionality when using the ONVIF component.
+- Differences in how cameras interpret and respond to ONVIF commands can lead to inconsistencies in behavior across different camera models. This can make it challenging to create a universal ONVIF component that works seamlessly with all cameras.
+- Some cameras may require specific configurations or settings to be enabled in order to fully utilize their ONVIF capabilities. If these settings are not properly configured, it can lead to issues when using the ONVIF component.

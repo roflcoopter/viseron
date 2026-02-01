@@ -48,7 +48,7 @@
                 "name": "verify_ssl",
                 "description": "Verify SSL certificates for ONVIF connections.",
                 "optional": true,
-                "default": true
+                "default": false
               },
               {
                 "type": "string",
@@ -108,7 +108,7 @@
                   {
                     "type": "string",
                     "name": "timezone",
-                    "description": "The time zone in POSIX 1003.1 format. <b>Will be ignored</b> if the <code>datetime_type</code> key is set to <code>NTP</code>.",
+                    "description": "The time zone in POSIX 1003.1 format.",
                     "optional": true,
                     "default": null
                   },
@@ -120,30 +120,41 @@
                     "default": null
                   },
                   {
-                    "type": "select",
-                    "options": [
-                      {
-                        "type": "constant",
-                        "value": "DNS"
-                      },
-                      {
-                        "type": "constant",
-                        "value": "IPv4"
-                      },
-                      {
-                        "type": "constant",
-                        "value": "IPv6"
-                      }
+                    "type": "list",
+                    "values": [
+                      [
+                        {
+                          "type": "select",
+                          "options": [
+                            {
+                              "type": "constant",
+                              "value": "DNS"
+                            },
+                            {
+                              "type": "constant",
+                              "value": "IPv4"
+                            },
+                            {
+                              "type": "constant",
+                              "value": "IPv6"
+                            }
+                          ],
+                          "name": "ntp_type",
+                          "description": "Network host type: IPv4, IPv6 or DNS.",
+                          "optional": true,
+                          "default": null
+                        },
+                        {
+                          "type": "string",
+                          "name": "ntp_server",
+                          "description": "The NTP server of the device, for example: <code>pool.ntp.org</code> or <code>time.google.com</code> or <code>192.168.1.1</code> (<b>must match</b> with <code>ntp_type</code>).",
+                          "optional": true,
+                          "default": null
+                        }
+                      ]
                     ],
-                    "name": "ntp_type",
-                    "description": "Network host type: IPv4, IPv6 or DNS. <b>Will be ignored</b> if the <code>ntp_from_dhcp</code> key is set to <code>true</code>. ",
-                    "optional": true,
-                    "default": null
-                  },
-                  {
-                    "type": "string",
-                    "name": "ntp_server",
-                    "description": "The NTP server of the device, for example: <code>pool.ntp.org</code> or <code>time.google.com</code> or <code>192.168.1.1</code> (<b>must match</b> with <code>ntp_type</code>). <b>Will be ignored</b> if the <code>ntp_from_dhcp</code> key is set to <code>true</code>. ",
+                    "name": "ntp_manual",
+                    "description": "List of manual NTP Servers settings.",
                     "optional": true,
                     "default": null
                   }
@@ -289,7 +300,7 @@
                       }
                     ],
                     "name": "video_encoder",
-                    "description": "Settings applied to your camera's video encoder. These settings will be applied to the <b>media profile that matches the RTSP url</b> you set in the camera domain (<a href='/components-explorer/components/ffmpeg'>ffmpeg</a> or <a href='/components-explorer/components/gstreamer'>gstreamer</a>).",
+                    "description": "Settings applied to your camera's video encoder. These settings will be applied to the <b>media profile that matches the RTSP url</b> you set in the camera domain (<a href='/components-explorer/components/ffmpeg'>ffmpeg</a> or <a href='/components-explorer/components/gstreamer'>gstreamer</a> or <a href='/components-explorer/components/go2rtc'>go2rtc</a>).",
                     "optional": true,
                     "default": null
                   },
@@ -340,7 +351,7 @@
                       }
                     ],
                     "name": "audio_encoder",
-                    "description": "Settings applied to your camera's audio encoder. These settings will be applied to the <b>media profile that matches the RTSP url</b> you set in the camera domain (<a href='/components-explorer/components/ffmpeg'>ffmpeg</a> or <a href='/components-explorer/components/gstreamer'>gstreamer</a>).",
+                    "description": "Settings applied to your camera's audio encoder. These settings will be applied to the <b>media profile that matches the RTSP url</b> you set in the camera domain (<a href='/components-explorer/components/ffmpeg'>ffmpeg</a> or <a href='/components-explorer/components/gstreamer'>gstreamer</a> or <a href='/components-explorer/components/go2rtc'>go2rtc</a>).",
                     "optional": true,
                     "default": null
                   }
