@@ -21,7 +21,7 @@ CONFIG_ONVIF_AUTO_CONFIG = "auto_config"
 
 DEFAULT_ONVIF_TIMEOUT = 10
 DEFAULT_ONVIF_USE_HTTPS = False
-DEFAULT_ONVIF_VERIFY_SSL = True
+DEFAULT_ONVIF_VERIFY_SSL = False
 DEFAULT_ONVIF_AUTO_CONFIG = True
 
 DESC_CAMERAS = "List of ONVIF cameras to make available to the component."
@@ -56,6 +56,7 @@ DEVICE_DATETIME_TYPE_MAP = ["NTP", "Manual"]
 CONFIG_DEVICE_DAYLIGHT_SAVINGS = "daylight_savings"
 CONFIG_DEVICE_TIMEZONE = "timezone"
 CONFIG_DEVICE_NTP_FROM_DHCP = "ntp_from_dhcp"
+CONFIG_DEVICE_NTP_MANUAL = "ntp_manual"
 CONFIG_DEVICE_NTP_TYPE = "ntp_type"
 DEVICE_NTP_TYPE_MAP = ["DNS", "IPv4", "IPv6"]
 CONFIG_DEVICE_NTP_SERVER = "ntp_server"
@@ -68,22 +69,16 @@ DESC_DEVICE_DISCOVERABLE = (
 
 DESC_DEVICE_DATETIME_TYPE = "Defines if the date and time is set via NTP or manually."
 DESC_DEVICE_DAYLIGHT_SAVINGS = "Indicates whether Daylight Savings Time is in effect."
-DESC_DEVICE_TIMEZONE = (
-    "The time zone in POSIX 1003.1 format. <b>Will be ignored</b> if the <code>"
-    "datetime_type</code> key is set to <code>NTP</code>."
-)
+DESC_DEVICE_TIMEZONE = "The time zone in POSIX 1003.1 format."
 DESC_DEVICE_NTP_FROM_DHCP = (
     "Indicate if NTP address information is to be retrieved using DHCP."
 )
-DESC_DEVICE_NTP_TYPE = (
-    "Network host type: IPv4, IPv6 or DNS. <b>Will be ignored</b> if the "
-    "<code>ntp_from_dhcp</code> key is set to <code>true</code>. "
-)
+DESC_DEVICE_NTP_MANUAL = "List of manual NTP Servers settings."
+DESC_DEVICE_NTP_TYPE = "Network host type: IPv4, IPv6 or DNS."
 DESC_DEVICE_NTP_SERVER = (
     "The NTP server of the device, for example: <code>pool.ntp.org</code> or "
     "<code>time.google.com</code> or <code>192.168.1.1</code> (<b>must match</b> with "
-    "<code>ntp_type</code>). <b>Will be ignored</b> if the <code>ntp_from_dhcp</code> "
-    "key is set to <code>true</code>. "
+    "<code>ntp_type</code>)."
 )
 
 # ONVIF IMAGING CONFIG

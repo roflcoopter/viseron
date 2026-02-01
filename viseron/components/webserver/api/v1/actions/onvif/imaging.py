@@ -1,4 +1,4 @@
-"""ONVIF Imaging API handler."""
+"""ONVIF Imaging Actions API handler."""
 
 import logging
 
@@ -63,6 +63,14 @@ class ActionsOnvifImagingAPIHandler(ActionsOnvifAPIHandler):
     ):
         """Handle GET requests for ONVIF Imaging actions."""
 
+        if action == "capabilities":
+            await self.validate_action_response(
+                await imaging_service.get_service_capabilities(),
+                action,
+                camera_identifier,
+            )
+            return
+
         if action == "settings":
             await self.validate_action_response(
                 await imaging_service.get_imaging_settings(), action, camera_identifier
@@ -125,21 +133,10 @@ class ActionsOnvifImagingAPIHandler(ActionsOnvifAPIHandler):
             )
             return
 
-        if action == "brightness":
-            brightness = self.validate_request_data(request_data, "brightness")
-            force_persistence = self.validate_request_data(
-                request_data, "force_persistence"
-            )
-            set_brightness = await imaging_service.set_brightness(
-                brightness, force_persistence
-            )
-            await self.validate_action_status(set_brightness, action, camera_identifier)
-            return
-
         self.unknown_action(action)
 
     @action_handler
-    async def post_onvif_device(
+    async def post_onvif_imaging(
         self,
         imaging_service,
         camera_identifier: str,

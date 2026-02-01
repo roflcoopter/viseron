@@ -32,6 +32,7 @@ from .const import (
     CONFIG_DEVICE_DISCOVERABLE,
     CONFIG_DEVICE_HOSTNAME,
     CONFIG_DEVICE_NTP_FROM_DHCP,
+    CONFIG_DEVICE_NTP_MANUAL,
     CONFIG_DEVICE_NTP_SERVER,
     CONFIG_DEVICE_NTP_TYPE,
     CONFIG_DEVICE_TIMEZONE,
@@ -115,6 +116,7 @@ from .const import (
     DESC_DEVICE_DISCOVERABLE,
     DESC_DEVICE_HOSTNAME,
     DESC_DEVICE_NTP_FROM_DHCP,
+    DESC_DEVICE_NTP_MANUAL,
     DESC_DEVICE_NTP_SERVER,
     DESC_DEVICE_NTP_TYPE,
     DESC_DEVICE_TIMEZONE,
@@ -189,8 +191,23 @@ from .utils import extract_rtsp_from_go2rtc
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
+    from viseron.domain_registry import EventDomainRegisteredData
 
 LOGGER = logging.getLogger(__name__)
+
+# NTP Server Schema
+NTP_SERVER_SCHEMA = vol.Schema(
+    {
+        vol.Optional(
+            CONFIG_DEVICE_NTP_TYPE,
+            description=DESC_DEVICE_NTP_TYPE,
+        ): vol.In(DEVICE_NTP_TYPE_MAP),
+        vol.Optional(
+            CONFIG_DEVICE_NTP_SERVER,
+            description=DESC_DEVICE_NTP_SERVER,
+        ): str,
+    }
+)
 
 # Device Service Schema
 DEVICE_SCHEMA = vol.Schema(
@@ -219,14 +236,9 @@ DEVICE_SCHEMA = vol.Schema(
             CONFIG_DEVICE_NTP_FROM_DHCP,
             description=DESC_DEVICE_NTP_FROM_DHCP,
         ): bool,
-        vol.Optional(
-            CONFIG_DEVICE_NTP_TYPE,
-            description=DESC_DEVICE_NTP_TYPE,
-        ): vol.In(DEVICE_NTP_TYPE_MAP),
-        vol.Optional(
-            CONFIG_DEVICE_NTP_SERVER,
-            description=DESC_DEVICE_NTP_SERVER,
-        ): str,
+        vol.Optional(CONFIG_DEVICE_NTP_MANUAL, description=DESC_DEVICE_NTP_MANUAL): [
+            NTP_SERVER_SCHEMA
+        ],
     }
 )
 
@@ -578,9 +590,11 @@ class ONVIF:
             ptz_service.stop_patrol()
         self._stop_event.set()
 
-    def _camera_registered(self, event: Event[AbstractCamera]) -> None:
+    def _camera_registered(
+        self, event: Event[EventDomainRegisteredData[AbstractCamera]]
+    ) -> None:
         """Handle camera registration event."""
-        camera: AbstractCamera = event.data
+        camera = event.data.instance
         LOGGER.debug(f"Camera registered event received for {camera.identifier}")
 
         if camera.identifier in self._config[CONFIG_CAMERAS]:
@@ -699,7 +713,9 @@ class ONVIF:
                 self._ptz_services[camera.identifier] = ptz_service
                 # Inject PTZ support into camera
                 # pylint: disable=protected-access
-                camera._ptz_support = COMPONENT
+                camera._ptz_support = (
+                    COMPONENT + "+auto" if auto_config else COMPONENT + "+manual"
+                )
                 LOGGER.debug(f"Initialized PTZ service for {camera.identifier}")
             except Exception as error:  # pylint: disable=broad-exception-caught
                 LOGGER.error(

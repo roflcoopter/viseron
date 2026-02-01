@@ -1,4 +1,4 @@
-"""ONVIF Device API handler."""
+"""ONVIF Device Actions API handler."""
 
 import logging
 
@@ -224,8 +224,7 @@ class ActionsOnvifDeviceAPIHandler(ActionsOnvifAPIHandler):
             ntp = self.validate_request_data(request_data, "ntp")
             set_ntp = await device_service.set_ntp(
                 from_dhcp=ntp.get("from_dhcp"),
-                ntp_type=ntp.get("ntp_type"),
-                ntp_server=ntp.get("ntp_server"),
+                ntp_manual=ntp.get("ntp_manual"),
             )
             await self.validate_action_status(set_ntp, action, camera_identifier)
             return
@@ -250,7 +249,7 @@ class ActionsOnvifDeviceAPIHandler(ActionsOnvifAPIHandler):
                 request_data, "network_protocols"
             )
             set_network_protocols = await device_service.set_network_protocols(
-                network_protocols=network_protocols.get("network_protocols"),
+                network_protocols=network_protocols,
             )
             await self.validate_action_status(
                 set_network_protocols, action, camera_identifier

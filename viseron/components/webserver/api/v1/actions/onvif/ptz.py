@@ -1,4 +1,4 @@
-"""ONVIF PTZ API handler."""
+"""ONVIF PTZ Actions API handler."""
 
 import logging
 
@@ -64,6 +64,14 @@ class ActionsOnvifPtzAPIHandler(ActionsOnvifAPIHandler):
     @action_handler
     async def get_onvif_ptz(self, ptz_service, camera_identifier: str, action: str):
         """Handle GET requests for ONVIF PTZ actions."""
+
+        if action == "capabilities":
+            await self.validate_action_response(
+                await ptz_service.get_service_capabilities(),
+                action,
+                camera_identifier,
+            )
+            return
 
         if action == "user_config":
             await self.validate_action_response(

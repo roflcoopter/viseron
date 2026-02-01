@@ -13,6 +13,7 @@ from .const import (
     CONFIG_DEVICE_DISCOVERABLE,
     CONFIG_DEVICE_HOSTNAME,
     CONFIG_DEVICE_NTP_FROM_DHCP,
+    CONFIG_DEVICE_NTP_MANUAL,
     CONFIG_DEVICE_NTP_SERVER,
     CONFIG_DEVICE_NTP_TYPE,
     CONFIG_DEVICE_TIMEZONE,
@@ -121,7 +122,7 @@ class Device:
     async def set_system_date_and_time(
         self,
         datetime_type: str = "NTP",
-        daylight_savings: bool | None = None,
+        daylight_savings: bool = False,
         timezone: str | None = None,
         utc_datetime: dict[str, Any] | None = None,
     ) -> bool:
@@ -200,21 +201,9 @@ class Device:
     async def set_ntp(
         self,
         from_dhcp: bool,
-        ntp_type: str | None = None,
-        ntp_server: str | None = None,
+        ntp_manual: list[dict[str, Any]] | None = None,
     ) -> bool:
         """Set NTP configuration."""
-        ntp_manual = None
-        if ntp_server and ntp_type:
-            match ntp_type:
-                case "DNS":
-                    ntp_manual = {"Type": ntp_type, "DNSname": ntp_server}
-                case "IPv4":
-                    ntp_manual = {"Type": ntp_type, "IPv4Address": ntp_server}
-                case "IPv6":
-                    ntp_manual = {"Type": ntp_type, "IPv6Address": ntp_server}
-                case _:
-                    return False
         self._onvif_device_service.SetNTP(FromDHCP=from_dhcp, NTPManual=ntp_manual)
         return True
 
@@ -283,6 +272,33 @@ class Device:
 
     # ## Apply Configuration at Startup ## #
 
+    def _build_ntp_manual(
+        self, ntp_servers: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Build NTP manual structure according to ONVIF NetworkHost schema."""
+        ntp_manual = []
+
+        for server in ntp_servers:
+            network_host = {"Type": server.get(CONFIG_DEVICE_NTP_TYPE, "IPv4")}
+
+            ntp_server = server.get(CONFIG_DEVICE_NTP_SERVER)
+            if not ntp_server:
+                ntp_manual.append(network_host)
+                continue
+
+            # Map server address to appropriate field based on Type
+            host_type = network_host["Type"]
+            if host_type == "IPv4":
+                network_host["IPv4Address"] = ntp_server
+            elif host_type == "IPv6":
+                network_host["IPv6Address"] = ntp_server
+            elif host_type == "DNS":
+                network_host["DNSname"] = ntp_server
+
+            ntp_manual.append(network_host)
+
+        return ntp_manual
+
     async def apply_config(self) -> bool:
         """Apply all configured device settings from config."""
         try:
@@ -292,18 +308,35 @@ class Device:
             if CONFIG_DEVICE_HOSTNAME in self._config:
                 await self.set_hostname(self._config[CONFIG_DEVICE_HOSTNAME])
 
-            ntp_server = self._config.get(CONFIG_DEVICE_NTP_SERVER)
-            ntp_from_dhcp = self._config.get(CONFIG_DEVICE_NTP_FROM_DHCP)
-            ntp_type = self._config.get(CONFIG_DEVICE_NTP_TYPE)
-            if ntp_server or ntp_from_dhcp is not None:
-                await self.set_ntp(
-                    ntp_server=ntp_server, from_dhcp=ntp_from_dhcp, ntp_type=ntp_type
+            if (
+                CONFIG_DEVICE_NTP_FROM_DHCP in self._config
+                or CONFIG_DEVICE_NTP_MANUAL in self._config
+            ):
+                from_dhcp = self._config.get(CONFIG_DEVICE_NTP_FROM_DHCP, False)
+                ntp_manual = None
+
+                if CONFIG_DEVICE_NTP_MANUAL in self._config:
+                    ntp_servers = self._config.get(CONFIG_DEVICE_NTP_MANUAL, [])
+                    if ntp_servers:
+                        ntp_manual = self._build_ntp_manual(ntp_servers)
+
+                await self.set_ntp(from_dhcp=from_dhcp, ntp_manual=ntp_manual)
+
+            if (
+                CONFIG_DEVICE_DATETIME_TYPE in self._config
+                or CONFIG_DEVICE_DAYLIGHT_SAVINGS in self._config
+                or CONFIG_DEVICE_TIMEZONE in self._config
+            ):
+                datetime_type = self._config.get(CONFIG_DEVICE_DATETIME_TYPE, "NTP")
+                daylight_savings = self._config.get(
+                    CONFIG_DEVICE_DAYLIGHT_SAVINGS, False
+                )
+                timezone = (
+                    {"TZ": self._config.get(CONFIG_DEVICE_TIMEZONE)}
+                    if self._config.get(CONFIG_DEVICE_TIMEZONE)
+                    else None
                 )
 
-            datetime_type = self._config.get(CONFIG_DEVICE_DATETIME_TYPE)
-            daylight_savings = self._config.get(CONFIG_DEVICE_DAYLIGHT_SAVINGS)
-            timezone = self._config.get(CONFIG_DEVICE_TIMEZONE)
-            if datetime_type or timezone or daylight_savings is not None:
                 await self.set_system_date_and_time(
                     datetime_type=datetime_type,
                     daylight_savings=daylight_savings,

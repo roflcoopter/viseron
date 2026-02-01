@@ -1,4 +1,4 @@
-"""ONVIF Media API handler."""
+"""ONVIF Media Actions API handler."""
 
 import logging
 
@@ -71,6 +71,14 @@ class ActionsOnvifMediaAPIHandler(ActionsOnvifAPIHandler):
         action: str,
     ):
         """Handle GET requests for ONVIF Media actions."""
+
+        if action == "capabilities":
+            await self.validate_action_response(
+                await media_service.get_service_capabilities(),
+                action,
+                camera_identifier,
+            )
+            return
 
         if action == "profiles":
             await self.validate_action_response(

@@ -147,6 +147,8 @@ class Imaging:
     @operation()
     async def get_presets(self) -> Any:
         """Get available imaging presets."""
+        if not self._imaging_capabilities.Presets:
+            return False
         return self._onvif_imaging_service.GetPresets(
             VideoSourceToken=self._video_source_token
         )
@@ -154,6 +156,8 @@ class Imaging:
     @operation()
     async def get_current_preset(self) -> Any:
         """Get current imaging preset."""
+        if not self._imaging_capabilities.Presets:
+            return False
         return self._onvif_imaging_service.GetCurrentPreset(
             VideoSourceToken=self._video_source_token
         )
@@ -161,6 +165,8 @@ class Imaging:
     @operation()
     async def set_current_preset(self, preset_token: str) -> bool:
         """Set current imaging preset."""
+        if not self._imaging_capabilities.AdaptablePreset:
+            return False
         self._onvif_imaging_service.SetCurrentPreset(
             VideoSourceToken=self._video_source_token,
             PresetToken=preset_token,
@@ -201,6 +207,15 @@ class Imaging:
         return True
 
     # ## Derived operations ## #
+
+    # Note:
+    # The following methods are convenience methods that set specific imaging
+    # settings by calling the more general set_imaging_settings method with
+    # appropriate parameters.
+
+    # Not yet used anywhere, implemented here to ease future development so that
+    # Viseron can directly change imaging settings per parameter without needing
+    # to combine all parameters.
 
     async def set_brightness(self, force_persistence: bool, brightness: float) -> bool:
         """Set brightness level."""
