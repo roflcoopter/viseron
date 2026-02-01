@@ -70,3 +70,24 @@ export function getTimeStringFromDayjs(date: Dayjs, seconds = true) {
 export function getDateStringFromDayjs(date: Dayjs) {
   return date.format(DATE_FORMAT);
 }
+
+// Convert ONVIF DateTime object to timezone aware dayjs instance
+export function getDayjsFromOnvifDateTime(
+  dateTime: {
+    Time?: { Hour?: number; Minute?: number; Second?: number };
+    Date?: { Year?: number; Month?: number; Day?: number };
+  },
+  isUtc = false,
+) {
+  const { Hour = 0, Minute = 0, Second = 0 } = dateTime.Time || {};
+  const { Year = 0, Month = 0, Day = 0 } = dateTime.Date || {};
+
+  const dayjsInstance = isUtc ? dayjs().utc() : dayjs();
+  return dayjsInstance
+    .year(Year)
+    .month(Month - 1)
+    .date(Day)
+    .hour(Hour)
+    .minute(Minute)
+    .second(Second);
+}
