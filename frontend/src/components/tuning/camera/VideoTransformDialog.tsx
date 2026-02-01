@@ -112,7 +112,7 @@ export function VideoTransformDialog({
       <DialogActions>
         <Button onClick={onCancel}>Cancel</Button>
         <Button onClick={onConfirm} variant="contained">
-          Save
+          {isEdit ? "Save" : "Add"}
         </Button>
       </DialogActions>
     </Dialog>
