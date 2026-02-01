@@ -1,10 +1,14 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import * as onvif_types from "lib/api/actions/onvif/types";
 import { viseronAPI } from "lib/api/client";
 import * as types from "lib/types";
 
-const ONVIF_PTZ_BASE_PATH = "actions/onvif/ptz";
+const PTZ = "ptz";
+const ONVIF_PTZ_BASE_PATH = `actions/onvif/${PTZ}`;
+
+// CONFIGURATION OPERATIONS -------------------------------------------------------------
+// //////////////////////////////////////////////////////////////////////////////////////
 
 // Get User-Defined PTZ Config
 const USER_CONFIG = "user_config";
@@ -15,13 +19,16 @@ async function getPtzConfig(cameraIdentifier: string) {
   return response.data;
 }
 
-export function useGetPtzConfig(cameraIdentifier: string) {
+export function useGetPtzConfig(
+  cameraIdentifier: string,
+  isManualMode: boolean = true,
+) {
   return useQuery<onvif_types.PtzConfigResponse, types.APIErrorResponse>({
-    queryKey: ["ptz", USER_CONFIG, cameraIdentifier],
+    queryKey: [PTZ, USER_CONFIG, cameraIdentifier],
     queryFn: () => getPtzConfig(cameraIdentifier),
-    enabled: !!cameraIdentifier,
-    retry: false, // Don't retry on error - camera either supports PTZ or doesn't
-    staleTime: Infinity, // Cache the result indefinitely - PTZ support doesn't change
+    enabled: !!cameraIdentifier && isManualMode,
+    retry: false, // Don't retry on error
+    staleTime: Infinity, // Cache the result indefinitely
   });
 }
 
@@ -36,7 +43,7 @@ async function getPtzNodes(cameraIdentifier: string) {
 
 export function useGetPtzNodes(cameraIdentifier: string) {
   return useQuery<onvif_types.PtzNodesResponse, types.APIErrorResponse>({
-    queryKey: ["ptz", NODES, cameraIdentifier],
+    queryKey: [PTZ, NODES, cameraIdentifier],
     queryFn: () => getPtzNodes(cameraIdentifier),
     enabled: !!cameraIdentifier,
   });
@@ -56,51 +63,14 @@ export function useGetPtzConfigurations(cameraIdentifier: string) {
     onvif_types.PtzConfigurationsResponse,
     types.APIErrorResponse
   >({
-    queryKey: ["ptz", CONFIGURATIONS, cameraIdentifier],
+    queryKey: [PTZ, CONFIGURATIONS, cameraIdentifier],
     queryFn: () => getPtzConfigurations(cameraIdentifier),
     enabled: !!cameraIdentifier,
   });
 }
 
-// Get PTZ Status
-const STATUS = "status";
-async function getPtzStatus(cameraIdentifier: string) {
-  const response = await viseronAPI.get(
-    `${ONVIF_PTZ_BASE_PATH}/${cameraIdentifier}/${STATUS}`,
-  );
-  return response.data;
-}
-
-export function useGetPtzStatus(cameraIdentifier: string) {
-  return useQuery<onvif_types.PtzStatusResponse, types.APIErrorResponse>({
-    queryKey: ["ptz", STATUS, cameraIdentifier],
-    queryFn: () => getPtzStatus(cameraIdentifier),
-    enabled: !!cameraIdentifier,
-    staleTime: 1000 * 5, // 5 seconds
-  });
-}
-
-// Get PTZ Presets
-const PRESETS = "presets";
-async function getPtzPresets(cameraIdentifier: string) {
-  const response = await viseronAPI.get(
-    `${ONVIF_PTZ_BASE_PATH}/${cameraIdentifier}/${PRESETS}`,
-  );
-  return response.data;
-}
-
-export function useGetPtzPresets(
-  cameraIdentifier: string,
-  ptzSupport?: "onvif" | null,
-) {
-  return useQuery<onvif_types.PtzPresetsResponse, types.APIErrorResponse>({
-    queryKey: ["ptz", PRESETS, cameraIdentifier],
-    queryFn: () => getPtzPresets(cameraIdentifier),
-    enabled: !!cameraIdentifier && ptzSupport === "onvif",
-    retry: false, // Don't retry on error - camera either supports PTZ or doesn't
-    staleTime: Infinity, // Cache the result indefinitely - PTZ support doesn't change
-  });
-}
+// MOVEMENT OPERATIONS ------------------------------------------------------------------
+// //////////////////////////////////////////////////////////////////////////////////////
 
 // PTZ Continuous Move
 const CONTINUOUS_MOVE = "continuous_move";
@@ -194,6 +164,9 @@ export function usePtzStop() {
   });
 }
 
+// POSITION OPERATIONS ------------------------------------------------------------------
+// //////////////////////////////////////////////////////////////////////////////////////
+
 // PTZ Goto Home
 const GOTO_HOME = "goto_home";
 async function ptzGotoHome(cameraIdentifier: string) {
@@ -234,6 +207,46 @@ export function usePtzSetHome() {
   });
 }
 
+// Get PTZ Status
+const STATUS = "status";
+async function getPtzStatus(cameraIdentifier: string) {
+  const response = await viseronAPI.get(
+    `${ONVIF_PTZ_BASE_PATH}/${cameraIdentifier}/${STATUS}`,
+  );
+  return response.data;
+}
+
+export function useGetPtzStatus(cameraIdentifier: string) {
+  return useQuery<onvif_types.PtzStatusResponse, types.APIErrorResponse>({
+    queryKey: [PTZ, STATUS, cameraIdentifier],
+    queryFn: () => getPtzStatus(cameraIdentifier),
+    enabled: !!cameraIdentifier,
+    staleTime: 1000 * 5, // 5 seconds
+  });
+}
+
+// Get PTZ Presets
+const PRESETS = "presets";
+async function getPtzPresets(cameraIdentifier: string) {
+  const response = await viseronAPI.get(
+    `${ONVIF_PTZ_BASE_PATH}/${cameraIdentifier}/${PRESETS}`,
+  );
+  return response.data;
+}
+
+export function useGetPtzPresets(
+  cameraIdentifier: string,
+  ptzSupport?: "onvif" | null,
+) {
+  return useQuery<onvif_types.PtzPresetsResponse, types.APIErrorResponse>({
+    queryKey: [PTZ, PRESETS, cameraIdentifier],
+    queryFn: () => getPtzPresets(cameraIdentifier),
+    enabled: !!cameraIdentifier && ptzSupport === "onvif",
+    retry: false, // Don't retry on error - camera either supports PTZ or doesn't
+    staleTime: Infinity, // Cache the result indefinitely - PTZ support doesn't change
+  });
+}
+
 // PTZ Goto Preset
 const GOTO_PRESET = "goto_preset";
 async function ptzGotoPreset(cameraIdentifier: string, presetToken: string) {
@@ -266,6 +279,8 @@ async function ptzSetPreset(cameraIdentifier: string, presetName: string) {
 }
 
 export function usePtzSetPreset() {
+  const queryClient = useQueryClient();
+
   return useMutation<
     types.APISuccessResponse,
     types.APIErrorResponse,
@@ -273,6 +288,11 @@ export function usePtzSetPreset() {
   >({
     mutationFn: ({ cameraIdentifier, presetName }) =>
       ptzSetPreset(cameraIdentifier, presetName),
+    onSuccess: (_, { cameraIdentifier }) => {
+      queryClient.invalidateQueries({
+        queryKey: [PTZ, PRESETS, cameraIdentifier],
+      });
+    },
   });
 }
 
@@ -287,6 +307,8 @@ async function ptzRemovePreset(cameraIdentifier: string, presetToken: string) {
 }
 
 export function usePtzRemovePreset() {
+  const queryClient = useQueryClient();
+
   return useMutation<
     types.APISuccessResponse,
     types.APIErrorResponse,
@@ -294,5 +316,10 @@ export function usePtzRemovePreset() {
   >({
     mutationFn: ({ cameraIdentifier, presetToken }) =>
       ptzRemovePreset(cameraIdentifier, presetToken),
+    onSuccess: (_, { cameraIdentifier }) => {
+      queryClient.invalidateQueries({
+        queryKey: [PTZ, PRESETS, cameraIdentifier],
+      });
+    },
   });
 }
