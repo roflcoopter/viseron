@@ -28,6 +28,7 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
+  DialogContentText,
   DialogTitle,
   FormControlLabel,
   IconButton,
@@ -59,10 +60,12 @@ import { useOnvifPtzHandlers } from "./useOnvifPtzHandlers";
 
 interface OnvifPtzControllerProps {
   cameraIdentifier: string;
+  ptzSupport: string;
 }
 
 export function OnvifPtzController({
   cameraIdentifier,
+  ptzSupport,
 }: OnvifPtzControllerProps) {
   const theme = useTheme();
   const [isOpen, setIsOpen] = useState(false);
@@ -135,7 +138,9 @@ export function OnvifPtzController({
     "onvif",
   );
 
-  const { data: configData } = useGetPtzConfig(cameraIdentifier);
+  // Determine if this is manual mode (auto-config is disabled) (requires user_config)
+  const isManualMode = ptzSupport.includes("manual");
+  const { data: configData } = useGetPtzConfig(cameraIdentifier, isManualMode);
 
   const [reversePan, setReversePan] = useState<boolean>(
     typeof configData?.user_config?.reverse_pan === "boolean"
@@ -841,10 +846,10 @@ export function OnvifPtzController({
           </Stack>
         </DialogTitle>
         <DialogContent>
-          <Typography>
+          <DialogContentText>
             Are you sure you want to set the current camera position as the home
             position? This will override the existing home position.
-          </Typography>
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setSetHomeDialogOpen(false)}>Cancel</Button>
@@ -880,10 +885,10 @@ export function OnvifPtzController({
           </Stack>
         </DialogTitle>
         <DialogContent>
-          <Typography>
+          <DialogContentText>
             Are you sure you want to remove preset &quot;{selectedPresetName}
             &quot;? This action cannot be undone.
-          </Typography>
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setRemovePresetDialogOpen(false)}>
