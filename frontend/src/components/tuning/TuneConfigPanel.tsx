@@ -71,6 +71,7 @@ interface TuneConfigPanelProps {
   currentDomainName: string;
   cameraIdentifier?: string;
   isOnvifAutoConfig?: boolean;
+  onUpdateSnapshot?: () => void;
 }
 
 export function TuneConfigPanel({
@@ -111,6 +112,7 @@ export function TuneConfigPanel({
   currentDomainName,
   cameraIdentifier,
   isOnvifAutoConfig,
+  onUpdateSnapshot,
 }: TuneConfigPanelProps) {
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
@@ -218,28 +220,41 @@ export function TuneConfigPanel({
           {currentDomainName === "onvif" &&
             selectedComponentData.componentType === "device" &&
             cameraIdentifier && (
-              <DeviceServiceSection cameraIdentifier={cameraIdentifier} />
+              <DeviceServiceSection
+                cameraIdentifier={cameraIdentifier}
+                isOnvifAutoConfig={isOnvifAutoConfig}
+              />
             )}
 
           {/* ONVIF Media Service Section */}
           {currentDomainName === "onvif" &&
             selectedComponentData.componentType === "media" &&
             cameraIdentifier && (
-              <MediaServiceSection cameraIdentifier={cameraIdentifier} />
+              <MediaServiceSection
+                cameraIdentifier={cameraIdentifier}
+                isOnvifAutoConfig={isOnvifAutoConfig}
+              />
             )}
 
           {/* ONVIF Imaging Service Section */}
           {currentDomainName === "onvif" &&
             selectedComponentData.componentType === "imaging" &&
             cameraIdentifier && (
-              <ImagingServiceSection cameraIdentifier={cameraIdentifier} />
+              <ImagingServiceSection
+                cameraIdentifier={cameraIdentifier}
+                isOnvifAutoConfig={isOnvifAutoConfig}
+                onSettingsApplied={onUpdateSnapshot}
+              />
             )}
 
           {/* ONVIF PTZ Service Section */}
           {currentDomainName === "onvif" &&
             selectedComponentData.componentType === "ptz" &&
             cameraIdentifier && (
-              <PTZServiceSection cameraIdentifier={cameraIdentifier} />
+              <PTZServiceSection
+                cameraIdentifier={cameraIdentifier}
+                isOnvifAutoConfig={isOnvifAutoConfig}
+              />
             )}
 
           {/* Labels section - for object_detector, face_recognition, and license_plate_recognition */}
