@@ -128,21 +128,6 @@ export const ONVIF_MISCELLANEOUS_CONFIG: {
         "Indicate if NTP address information is to be retrieved using DHCP.",
       type: "boolean",
     },
-    {
-      key: "ntp_type",
-      label: "NTP Type",
-      description:
-        "Network host type: IPv4, IPv6 or DNS. Will be ignored if the ntp_from_dhcp key is set to true.",
-      type: "enum",
-      options: ["DNS", "IPv4", "IPv6"],
-    },
-    {
-      key: "ntp_server",
-      label: "NTP Server",
-      description:
-        "The NTP server of the device, for example: pool.ntp.org or time.google.com or 192.168.1.1 (must match with ntp_type). Will be ignored if the ntp_from_dhcp key is set to true.",
-      type: "string",
-    },
   ],
   // Media component - only appears if auto_config is false
   media: [],
