@@ -261,7 +261,7 @@ class Device:
     async def set_dns(
         self,
         from_dhcp: bool,
-        search_domain: str | None = None,
+        search_domain: list[str] | None = None,
         dns_manual: list[dict[str, Any]] | None = None,
     ) -> bool:
         """Set network DNS."""

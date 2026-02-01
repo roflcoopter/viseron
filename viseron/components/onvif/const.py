@@ -166,7 +166,8 @@ DESC_VIDEO_ENCODER = (
     "Settings applied to your camera's video encoder. These settings will be applied "
     "to the <b>media profile that matches the RTSP url</b> you set in the camera domain"
     " (<a href='/components-explorer/components/ffmpeg'>ffmpeg</a> or <a "
-    "href='/components-explorer/components/gstreamer'>gstreamer</a>)."
+    "href='/components-explorer/components/gstreamer'>gstreamer</a> or <a "
+    "href='/components-explorer/components/go2rtc'>go2rtc</a>)."
 )
 DESC_VIDEO_FORCE_PERSISTENCE = (
     "To determine whether this video encoder setting will persist even after a "
@@ -213,7 +214,8 @@ DESC_AUDIO_ENCODER = (
     "Settings applied to your camera's audio encoder. These settings will be applied "
     "to the <b>media profile that matches the RTSP url</b> you set in the camera domain"
     " (<a href='/components-explorer/components/ffmpeg'>ffmpeg</a> or <a "
-    "href='/components-explorer/components/gstreamer'>gstreamer</a>)."
+    "href='/components-explorer/components/gstreamer'>gstreamer</a> or <a "
+    "href='/components-explorer/components/go2rtc'>go2rtc</a>)."
 )
 DESC_AUDIO_FORCE_PERSISTENCE = (
     "To determine whether this audio encoder setting will persist even after a "
