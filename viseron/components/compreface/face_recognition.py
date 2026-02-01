@@ -64,9 +64,7 @@ class FaceRecognition(AbstractFaceRecognition):
                 "Make sure the component is set up correctly."
             )
 
-        self._compreface_service: CompreFaceService = self._vis.data[COMPONENT][
-            CONFIG_FACE_RECOGNITION
-        ]
+        self._compreface_service = self._vis.data[COMPONENT][CONFIG_FACE_RECOGNITION]
 
         if config[CONFIG_FACE_RECOGNITION][CONFIG_USE_SUBJECTS]:
             self.update_subject_entities()
@@ -212,9 +210,7 @@ class CompreFaceTrain:
                 "Make sure the component is set up correctly."
             )
 
-        self._compreface_service: CompreFaceService = self._vis.data[COMPONENT][
-            CONFIG_FACE_RECOGNITION
-        ]
+        self._compreface_service = self._vis.data[COMPONENT][CONFIG_FACE_RECOGNITION]
         self._face_collection = (
             self._compreface_service.recognition_service.get_face_collection()
         )

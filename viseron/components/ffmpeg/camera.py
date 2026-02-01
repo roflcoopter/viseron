@@ -352,7 +352,6 @@ class Camera(AbstractCamera):
 
         if cv2.ocl.haveOpenCL():
             cv2.ocl.setUseOpenCL(True)
-        vis.data[COMPONENT][self.identifier] = self
         self._recorder = Recorder(vis, config, self)
 
         self.initialize_camera()

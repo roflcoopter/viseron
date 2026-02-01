@@ -120,8 +120,8 @@ class TierHandler(FileSystemEventHandler):
         super().__init__()
 
         self._vis = vis
-        self._storage: Storage = vis.data[COMPONENT]
-        self._webserver: Webserver = self._vis.data[WEBSERVER_COMPONENT]
+        self._storage = vis.data[COMPONENT]
+        self._webserver = self._vis.data[WEBSERVER_COMPONENT]
         self._camera = camera
         self._tier_id = tier_id
         self._category = category

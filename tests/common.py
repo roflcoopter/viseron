@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from viseron.components.storage.models import Files, Recordings
 from viseron.const import LOADED
+from viseron.domain_registry import DomainState
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.motion_detector import AbstractMotionDetectorScanner
 from viseron.domains.object_detector import AbstractObjectDetector
@@ -59,7 +60,22 @@ class MockCamera(MagicMock):
             **kwargs,
         )
         if vis:
+            vis._domain_registry.register(
+                component_name="test",
+                component_path="test",
+                domain=CAMERA_DOMAIN,
+                identifier=identifier,
+                config={},
+                require_domains=None,
+                optional_domains=None,
+            )
             vis.register_domain(CAMERA_DOMAIN, identifier, self)
+            vis._domain_registry.set_state(
+                domain=CAMERA_DOMAIN,
+                identifier=identifier,
+                state=DomainState.LOADED,
+                instance=self,
+            )
 
 
 class MockMotionDetector(MagicMock):

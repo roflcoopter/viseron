@@ -115,7 +115,6 @@ from .zone import Zone
 if TYPE_CHECKING:
     from viseron import Event, Viseron
     from viseron.components.nvr.nvr import EventFrameToScan, EventScanFrames
-    from viseron.components.storage import Storage
     from viseron.domains.camera import AbstractCamera
 
 
@@ -268,7 +267,7 @@ class AbstractObjectDetector(AbstractDomain):
         camera_identifier: str,
     ) -> None:
         self._vis = vis
-        self._storage: Storage = vis.data[STORAGE_COMPONENT]
+        self._storage = vis.data[STORAGE_COMPONENT]
         self._config = config
         self._camera_identifier = camera_identifier
         self._camera: AbstractCamera = vis.get_registered_domain(

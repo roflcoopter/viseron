@@ -1,7 +1,7 @@
 """mqtt component constants."""
 from typing import Final
 
-COMPONENT = "mqtt"
+COMPONENT: Final = "mqtt"
 DESC_COMPONENT = "MQTT configuration."
 
 MQTT_RC = {

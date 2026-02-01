@@ -17,7 +17,6 @@ import imutils
 from sqlalchemy import or_, select
 from typing_extensions import assert_never
 
-from viseron.components import DomainToSetup
 from viseron.components.go2rtc.const import COMPONENT as GO2RTC_COMPONENT
 from viseron.components.storage.config import validate_tiers
 from viseron.components.storage.const import (
@@ -30,6 +29,7 @@ from viseron.components.storage.const import (
 from viseron.components.storage.models import Files
 from viseron.components.webserver.const import COMPONENT as WEBSERVER_COMPONENT
 from viseron.const import TEMP_DIR
+from viseron.domain_registry import DomainEntry, DomainState
 from viseron.domains import AbstractDomain
 from viseron.domains.camera.const import DOMAIN
 from viseron.domains.camera.entity.sensor import CamerAccessTokenSensor
@@ -76,11 +76,8 @@ from .shared_frames import SharedFrames
 
 if TYPE_CHECKING:
     from viseron import Viseron
-    from viseron.components.go2rtc import Go2RTC
     from viseron.components.nvr.nvr import FrameIntervalCalculator
-    from viseron.components.storage import Storage
     from viseron.components.storage.models import TriggerTypes
-    from viseron.components.webserver import Webserver
     from viseron.domains.object_detector.detected_object import DetectedObject
 
     from .recorder import AbstractRecorder
@@ -154,7 +151,7 @@ class AbstractCamera(AbstractDomain):
             self.update_token, "interval", minutes=UPDATE_TOKEN_INTERVAL_MINUTES
         )
 
-        self._storage: Storage = vis.data[STORAGE_COMPONENT]
+        self._storage = vis.data[STORAGE_COMPONENT]
         self.event_clips_folder: str = self._storage.get_event_clips_path(self)
         self.segments_folder: str = self._storage.get_segments_path(self)
         self.thumbnails_folder: str = self._storage.get_thumbnails_path(self)
@@ -424,7 +421,6 @@ class AbstractCamera(AbstractDomain):
     @property
     def live_stream_available(self) -> bool:
         """Return if live stream is available."""
-        go2rtc: Go2RTC
         if go2rtc := self._vis.data.get(GO2RTC_COMPONENT, None):
             if self.identifier in go2rtc.configured_cameras():
                 return True
@@ -555,20 +551,18 @@ class FailedCamera:
     It also gives access to the cameras recordings.
     """
 
-    def __init__(self, vis: Viseron, domain_to_setup: DomainToSetup) -> None:
+    def __init__(self, vis: Viseron, entry: DomainEntry) -> None:
         """Initialize failed camera."""
         # Local import to avoid circular import
         # pylint: disable=import-outside-toplevel
         from viseron.components.storage.tier_handler import add_file_handler
 
         self._vis = vis
-        self._domain_to_setup = domain_to_setup
-        self._config: dict[str, Any] = domain_to_setup.config[
-            domain_to_setup.identifier
-        ]
+        self._entry = entry
+        self._config: dict[str, Any] = entry.config[entry.identifier]
 
-        self._storage: Storage = vis.data[STORAGE_COMPONENT]
-        self._webserver: Webserver = vis.data[WEBSERVER_COMPONENT]
+        self._storage = vis.data[STORAGE_COMPONENT]
+        self._webserver = vis.data[WEBSERVER_COMPONENT]
         self._recorder = FailedCameraRecorder(vis, self._config, self)
 
         # Try to guess the path to the camera recordings
@@ -650,12 +644,12 @@ class FailedCamera:
     @property
     def name(self):
         """Return camera name."""
-        return self._config.get(CONFIG_NAME, self._domain_to_setup.identifier)
+        return self._config.get(CONFIG_NAME, self._entry.identifier)
 
     @property
     def identifier(self) -> str:
         """Return camera identifier."""
-        return self._domain_to_setup.identifier
+        return self._entry.identifier
 
     @property
     def width(self) -> int:
@@ -675,12 +669,12 @@ class FailedCamera:
     @property
     def error(self):
         """Return error."""
-        return self._domain_to_setup.error
+        return self._entry.error
 
     @property
     def retrying(self):
         """Return retrying."""
-        return self._domain_to_setup.retrying
+        return self._entry.state == DomainState.RETRYING
 
     @property
     def recorder(self) -> FailedCameraRecorder:
@@ -705,6 +699,6 @@ class FailedCamera:
         return tier_base_path
 
 
-def setup_failed(vis: Viseron, domain_to_setup: DomainToSetup):
+def setup_failed(vis: Viseron, entry: DomainEntry):
     """Handle failed setup."""
-    return FailedCamera(vis, domain_to_setup)
+    return FailedCamera(vis, entry)

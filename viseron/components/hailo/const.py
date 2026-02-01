@@ -1,7 +1,7 @@
 """Constants for the Hailo component."""
 from typing import Final
 
-COMPONENT = "hailo"
+COMPONENT: Final = "hailo"
 
 HAILO8_DEFAULT_URL = (
     "https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/"

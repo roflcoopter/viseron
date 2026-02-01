@@ -43,28 +43,21 @@ from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import Events
 from viseron.config import load_config
 from viseron.const import (
-    DOMAIN_FAILED,
-    DOMAIN_IDENTIFIERS,
-    DOMAIN_LOADED,
-    DOMAIN_LOADING,
-    DOMAIN_SETUP_TASKS,
-    DOMAINS_TO_SETUP,
     ENV_LOG_BACKUP_COUNT,
     ENV_LOG_MAX_BYTES,
     ENV_PROFILE_MEMORY,
-    EVENT_DOMAIN_REGISTERED,
     FAILED,
     LOADED,
     LOADING,
-    REGISTERED_DOMAINS,
     VISERON_LOG_PATH,
     VISERON_SIGNAL_LAST_WRITE,
     VISERON_SIGNAL_SHUTDOWN,
     VISERON_SIGNAL_STOPPING,
 )
+from viseron.domain_registry import DomainRegistry
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.events import Event, EventData
-from viseron.exceptions import DataStreamNotLoaded, DomainNotRegisteredError
+from viseron.exceptions import DataStreamNotLoaded
 from viseron.helpers import memory_usage_profiler, parse_size_to_bytes, utcnow
 from viseron.helpers.json import JSONEncoder
 from viseron.helpers.logs import (
@@ -216,9 +209,13 @@ def setup_viseron(vis: Viseron):
 
     vis.storage = vis.data[STORAGE_COMPONENT]
 
+    registry = vis.domain_registry
+    camera_ids = registry.get_identifiers(CAMERA_DOMAIN)
+    nvr_ids = registry.get_identifiers(NVR_DOMAIN)
+
     if NVR_COMPONENT in vis.data[LOADED]:
-        for camera in vis.data[DOMAINS_TO_SETUP].get(CAMERA_DOMAIN, {}).keys():
-            if camera not in vis.data[DOMAINS_TO_SETUP].get(NVR_DOMAIN, {}).keys():
+        for camera in camera_ids:
+            if camera not in nvr_ids:
                 LOGGER.warning(
                     f"Camera with identifier {camera} is not enabled under component "
                     "nvr. This camera will not be processed"
@@ -226,9 +223,8 @@ def setup_viseron(vis: Viseron):
     else:
         nvr_config: dict = {}
         nvr_config["nvr"] = {}
-        cameras_to_setup = vis.data[DOMAINS_TO_SETUP].get(CAMERA_DOMAIN, {})
-        if cameras_to_setup:
-            for camera_to_setup in cameras_to_setup.keys():
+        if camera_ids:
+            for camera_to_setup in camera_ids:
                 LOGGER.warning(
                     "Manually setting up component nvr with "
                     f"identifier {camera_to_setup}. "
@@ -262,15 +258,7 @@ class Viseron:
         self.data[LOADED] = {}
         self.data[FAILED] = {}
 
-        self.data[DOMAIN_LOADING] = {}
-        self.data[DOMAIN_LOADED] = {}
-        self.data[DOMAIN_FAILED] = {}
-
-        self.data[DOMAINS_TO_SETUP] = {}
-        self.data[DOMAIN_SETUP_TASKS] = {}
-        self.data[DOMAIN_IDENTIFIERS] = {}
-        self._domain_register_lock = threading.Lock()
-        self.data[REGISTERED_DOMAINS] = {}
+        self._domain_registry = DomainRegistry(self)
 
         self._thread_watchdog: ThreadWatchDog | None = None
         self._subprocess_watchdog: SubprocessWatchDog | None = None
@@ -312,6 +300,11 @@ class Viseron:
         """Return the list of dispatched events."""
         return self._dispatched_events
 
+    @property
+    def domain_registry(self) -> DomainRegistry:
+        """Return the domain registry."""
+        return self._domain_registry
+
     def register_signal_handler(self, viseron_signal, callback):
         """Register a callback which gets called on signals emitted by Viseron.
 
@@ -334,9 +327,13 @@ class Viseron:
             return False
 
         data_stream: DataStream = self.data[DATA_STREAM_COMPONENT]
-        return data_stream.subscribe_data(
-            VISERON_SIGNALS[viseron_signal], callback, stage=viseron_signal
-        )
+        topic = VISERON_SIGNALS[viseron_signal]
+        uuid = data_stream.subscribe_data(topic, callback, stage=viseron_signal)
+
+        def unsubscribe() -> None:
+            data_stream.unsubscribe_data(topic, uuid)
+
+        return unsubscribe
 
     def listen_event(
         self, event: str, callback: Callable | Queue | tornado_queue, ioloop=None
@@ -349,7 +346,7 @@ class Viseron:
             )
             raise DataStreamNotLoaded
 
-        data_stream: DataStream = self.data[DATA_STREAM_COMPONENT]
+        data_stream = self.data[DATA_STREAM_COMPONENT]
         topic = f"event/{event}"
         uuid = data_stream.subscribe_data(topic, callback, ioloop=ioloop)
 
@@ -454,13 +451,24 @@ class Viseron:
     def register_domain(
         self, domain: SupportedDomains, identifier: str, instance
     ) -> None:
-        """Register a domain with a specific identifier."""
-        LOGGER.debug(f"Registering domain {domain} with identifier {identifier}")
-        with self._domain_register_lock:
-            self.data[REGISTERED_DOMAINS].setdefault(domain, {})[identifier] = instance
-            self.dispatch_event(
-                EVENT_DOMAIN_REGISTERED.format(domain=domain), instance, store=False
-            )
+        """Register a domain with a specific identifier.
+
+        Sets the instance on an existing domain entry in the registry.
+        The domain should already be registered via Component.add_domain_to_setup.
+        """
+        LOGGER.debug(
+            f"Registering domain {domain} with identifier {identifier}, {instance}"
+        )
+        self._domain_registry.set_instance(domain, identifier, instance)
+
+    def unregister_domain(self, domain: SupportedDomains, identifier: str) -> None:
+        """Unregister a domain with a specific identifier.
+
+        Note: This only clears the instance. Full unregistration happens
+        via the domain registry during unload.
+        """
+        LOGGER.debug(f"Unregistering domain {domain} with identifier {identifier}")
+        self._domain_registry.unregister(domain, identifier)
 
     @overload
     def get_registered_domain(
@@ -517,18 +525,8 @@ class Viseron:
 
     def get_registered_domain(self, domain: SupportedDomains | Domain, identifier: str):
         """Return a registered domain with a specific identifier."""
-        if isinstance(domain, Domain):
-            domain = domain.value
-        if (
-            domain in self.data[REGISTERED_DOMAINS]
-            and identifier in self.data[REGISTERED_DOMAINS][domain]
-        ):
-            return self.data[REGISTERED_DOMAINS][domain][identifier]
-
-        raise DomainNotRegisteredError(
-            domain,
-            identifier=identifier,
-        )
+        domain_str: str = domain.value if isinstance(domain, Domain) else domain
+        return self._domain_registry.get_instance(domain_str, identifier)
 
     @overload
     def get_registered_identifiers(
@@ -565,13 +563,8 @@ class Viseron:
         ...
 
     def get_registered_identifiers(self, domain: SupportedDomains):
-        """Return a list of all registered identifiers for a domain."""
-        if domain in self.data[REGISTERED_DOMAINS]:
-            return self.data[REGISTERED_DOMAINS][domain]
-
-        raise DomainNotRegisteredError(
-            domain,
-        )
+        """Return a dict of all registered identifiers and instances for a domain."""
+        return self._domain_registry.get_all_instances(domain)
 
     def shutdown(self) -> None:
         """Shut down Viseron."""
@@ -580,7 +573,7 @@ class Viseron:
         self.shutdown_event.set()
 
         if self.data.get(DATA_STREAM_COMPONENT, None):
-            data_stream: DataStream = self.data[DATA_STREAM_COMPONENT]
+            data_stream = self.data[DATA_STREAM_COMPONENT]
 
         if (
             self._thread_watchdog

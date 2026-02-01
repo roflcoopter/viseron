@@ -11,7 +11,6 @@ from .const import COMPONENT, CONFIG_OBJECT_DETECTOR
 
 if TYPE_CHECKING:
     from viseron import Viseron
-    from viseron.components.hailo import Hailo8Detector
     from viseron.domains.object_detector.detected_object import DetectedObject
 
 
@@ -32,7 +31,7 @@ class ObjectDetector(AbstractObjectDetector):
         super().__init__(
             vis, COMPONENT, config[CONFIG_OBJECT_DETECTOR], camera_identifier
         )
-        self._hailo8: Hailo8Detector = vis.data[COMPONENT]
+        self._hailo8 = vis.data[COMPONENT]
         self._object_result_queue: Queue[list[DetectedObject]] = Queue(maxsize=1)
 
     def preprocess(self, frame):

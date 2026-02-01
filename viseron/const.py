@@ -117,15 +117,6 @@ LOADING: Final = "loading"
 LOADED: Final = "loaded"
 FAILED: Final = "failed"
 
-DOMAIN_LOADING: Final = "domain_loading"
-DOMAIN_LOADED: Final = "domain_loaded"
-DOMAIN_FAILED: Final = "domain_failed"
-
-DOMAINS_TO_SETUP: Final = "domains_to_setup"
-DOMAIN_IDENTIFIERS: Final = "domain_identifiers"
-DOMAIN_SETUP_TASKS: Final = "domain_setup_tasks"
-REGISTERED_DOMAINS: Final = "registered_domains"
-
 # Signal constants
 VISERON_SIGNAL_SHUTDOWN: Final = "shutdown"
 VISERON_SIGNAL_LAST_WRITE: Final = "last_write"

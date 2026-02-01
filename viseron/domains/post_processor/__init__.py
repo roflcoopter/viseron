@@ -11,7 +11,6 @@ import numpy as np
 import voluptuous as vol
 from sqlalchemy import insert
 
-from viseron.components.storage import Storage
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import PostProcessorResults
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
@@ -92,7 +91,7 @@ class AbstractPostProcessor(AbstractDomain):
 
     def __init__(self, vis: Viseron, config, camera_identifier) -> None:
         self._vis = vis
-        self._storage: Storage = vis.data[STORAGE_COMPONENT]
+        self._storage = vis.data[STORAGE_COMPONENT]
         self._config = config
         self._camera_identifier = camera_identifier
         self._camera = vis.get_registered_domain(CAMERA_DOMAIN, camera_identifier)

@@ -7,7 +7,7 @@ from typing import Any, Final
 
 from sqlalchemy import create_engine
 
-COMPONENT = "storage"
+COMPONENT: Final = "storage"
 
 DATABASE_URL = os.getenv(
     "POSTGRES_DATABASE_URL", "postgresql://postgres@localhost/viseron"

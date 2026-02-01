@@ -472,7 +472,7 @@ class Fragmenter:
         self._logger = logging.getLogger(f"{self.__module__}.{camera.identifier}")
         self._vis = vis
         self._camera = camera
-        self._storage: Storage = vis.data[STORAGE_COMPONENT]
+        self._storage = vis.data[STORAGE_COMPONENT]
         os.makedirs(camera.temp_segments_folder, exist_ok=True)
         if camera.temp_timelapse_folder is not None:
             os.makedirs(camera.temp_timelapse_folder, exist_ok=True)

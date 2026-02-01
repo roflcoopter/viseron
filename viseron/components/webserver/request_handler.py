@@ -13,12 +13,11 @@ import tornado.web
 from sqlalchemy.orm import Session
 from tornado.ioloop import IOLoop
 
-from viseron.components import DomainToSetup
 from viseron.components.nvr.const import DOMAIN as NVR_DOMAIN
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.webserver.auth import Role
 from viseron.components.webserver.const import COMPONENT
-from viseron.const import DOMAIN_FAILED
+from viseron.domain_registry import DomainEntry
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import DomainNotRegisteredError
 from viseron.helpers import get_utc_offset, utcnow
@@ -26,7 +25,6 @@ from viseron.helpers import get_utc_offset, utcnow
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.components.nvr.nvr import NVR
-    from viseron.components.storage import Storage
     from viseron.components.webserver import Webserver
     from viseron.components.webserver.auth import RefreshToken, User
     from viseron.domains.camera import AbstractCamera, FailedCamera
@@ -42,8 +40,8 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
     def initialize(self, vis: Viseron) -> None:
         """Initialize request handler."""
         self._vis = vis
-        self._webserver: Webserver = vis.data[COMPONENT]
-        self._storage: Storage = vis.data[STORAGE_COMPONENT]
+        self._webserver = vis.data[COMPONENT]
+        self._storage = vis.data[STORAGE_COMPONENT]
         self.current_user = None
         # Manually set xsrf cookie
         self.xsrf_token  # pylint: disable=pointless-statement
@@ -265,9 +263,9 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
     def _get_failed_cameras(self) -> None | dict[str, FailedCamera]:
         """Get all registered failed camera instances."""
         try:
-            camera_domains: list[DomainToSetup] = (
-                self._vis.data[DOMAIN_FAILED].get(CAMERA_DOMAIN, {}).values()
-            )
+            failed_entries: dict[
+                str, DomainEntry
+            ] = self._vis.domain_registry.get_failed(CAMERA_DOMAIN)
         except DomainNotRegisteredError:
             return None
 
@@ -277,16 +275,15 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             or self.current_user.role == Role.ADMIN
         ):
             return {
-                camera_domain.identifier: camera_domain.error_instance
-                for camera_domain in camera_domains
-                if camera_domain.error_instance
+                identifier: entry.error_instance
+                for identifier, entry in failed_entries.items()
+                if entry.error_instance
             }
 
         return {
-            camera_domain.identifier: camera_domain.error_instance
-            for camera_domain in camera_domains
-            if camera_domain.error_instance
-            and camera_domain.identifier in self.current_user.assigned_cameras
+            identifier: entry.error_instance
+            for identifier, entry in failed_entries.items()
+            if entry.error_instance and identifier in self.current_user.assigned_cameras
         }
 
     @overload
@@ -324,13 +321,9 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             camera = self._vis.get_registered_domain(CAMERA_DOMAIN, camera_identifier)
         except DomainNotRegisteredError:
             if failed:
-                domain_to_setup = (
-                    self._vis.data[DOMAIN_FAILED]
-                    .get(CAMERA_DOMAIN, {})
-                    .get(camera_identifier, None)
-                )
-                if domain_to_setup:
-                    camera = domain_to_setup.error_instance
+                entry = self._vis.domain_registry.get(CAMERA_DOMAIN, camera_identifier)
+                if entry and entry.error_instance:
+                    camera = entry.error_instance
 
         if (
             not self.current_user

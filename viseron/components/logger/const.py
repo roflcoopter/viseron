@@ -1,12 +1,12 @@
 """Logger constants."""
 from typing import Final
 
-COMPONENT = "logger"
+COMPONENT: Final = "logger"
 
 
 # CONFIG_SCHEMA constants
 CONFIG_DEFAULT_LEVEL = "default_level"
-CONFIG_LOGS = "logs"
+CONFIG_LOGS: Final = "logs"
 CONFIG_CAMERAS = "cameras"
 
 DEFAULT_LOG_LEVEL = "info"

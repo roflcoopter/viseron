@@ -5,7 +5,7 @@ from typing import Final
 
 from viseron.const import CONFIG_DIR
 
-COMPONENT = "webserver"
+COMPONENT: Final = "webserver"
 
 WEBSERVER_STORAGE_KEY = "webserver"
 AUTH_STORAGE_KEY = "auth"
@@ -93,7 +93,7 @@ WS_ERROR_UNAUTHORIZED = "unauthorized"
 
 
 # Viseron data constants
-WEBSOCKET_COMMANDS = "websocket_commands"
-WEBSOCKET_CONNECTIONS = "websocket_connections"
-DOWNLOAD_TOKENS = "download_tokens"
-PUBLIC_IMAGE_TOKENS = "public_image_tokens"
+WEBSOCKET_COMMANDS: Final = "websocket_commands"
+WEBSOCKET_CONNECTIONS: Final = "websocket_connections"
+DOWNLOAD_TOKENS: Final = "download_tokens"
+PUBLIC_IMAGE_TOKENS: Final = "public_image_tokens"

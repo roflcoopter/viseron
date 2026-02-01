@@ -21,7 +21,7 @@ from viseron.components.nvr.const import COMPONENT
 from viseron.components.nvr.sensor import OperationStateSensor
 from viseron.components.nvr.toggle import ManualRecordingToggle
 from viseron.components.storage.models import TriggerTypes
-from viseron.const import DOMAIN_IDENTIFIERS, VISERON_SIGNAL_SHUTDOWN
+from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.motion_detector import AbstractMotionDetectorScanner
 from viseron.domains.motion_detector.const import (
@@ -55,7 +55,6 @@ from .const import (
 
 if TYPE_CHECKING:
     from viseron import Viseron
-    from viseron.components.data_stream import DataStream
     from viseron.domains.camera import AbstractCamera, EventFrameBytesData
     from viseron.domains.camera.recorder import ManualRecording
     from viseron.domains.camera.shared_frames import SharedFrame
@@ -71,20 +70,14 @@ LOGGER = logging.getLogger(__name__)
 def setup(vis: Viseron, config, identifier) -> bool:
     """Set up the edgetpu object_detector domain."""
     object_detector: AbstractObjectDetector | Literal[False] = False
-    if (
-        OBJECT_DETECTOR in vis.data[DOMAIN_IDENTIFIERS]
-        and identifier in vis.data[DOMAIN_IDENTIFIERS][OBJECT_DETECTOR]
-    ):
+    if vis.domain_registry.is_configured(OBJECT_DETECTOR, identifier):
         try:
             object_detector = vis.get_registered_domain(OBJECT_DETECTOR, identifier)
         except DomainNotRegisteredError:
             object_detector = False
 
     motion_detector: AbstractMotionDetector | Literal[False] = False
-    if (
-        MOTION_DETECTOR in vis.data[DOMAIN_IDENTIFIERS]
-        and identifier in vis.data[DOMAIN_IDENTIFIERS][MOTION_DETECTOR]
-    ):
+    if vis.domain_registry.is_configured(MOTION_DETECTOR, identifier):
         try:
             motion_detector = vis.get_registered_domain(MOTION_DETECTOR, identifier)
         except DomainNotRegisteredError:
@@ -266,7 +259,7 @@ class NVR(AbstractNVR):
         self._manual_recording: ManualRecording | None = None
         self._start_manual_recording = False
         self._kill_received = False
-        self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
+        self._data_stream = vis.data[DATA_STREAM_COMPONENT]
         self._removal_timers: list[threading.Timer] = []
         self._operation_state = None
 

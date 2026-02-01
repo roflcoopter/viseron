@@ -26,7 +26,7 @@ CONFIG_SCHEMA = vol.Schema(
 
 
 def setup(vis: Viseron, config: dict[str, Any]) -> bool:
-    """Set up the logger component."""
+    """Set up the go2rtc component."""
     vis.data[COMPONENT] = Go2RTC(vis, config)
 
     return True
@@ -61,7 +61,7 @@ class Go2RTC:
         return list(cameras)
 
     def restart(self) -> None:
-        """Restart the go2rtc."""
+        """Restart go2rtc."""
         LOGGER.debug("Restarting go2rtc")
         try:
             response = requests.post("http://localhost:1984/api/restart", timeout=5)

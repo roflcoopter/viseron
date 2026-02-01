@@ -27,7 +27,6 @@ LOGGER = logging.getLogger(__name__)
 def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     """Set up the ffmpeg component."""
     config = config[COMPONENT]
-    vis.data[COMPONENT] = {}
 
     for camera_identifier, camera_config in config[CONFIG_CAMERA].items():
         pruned_config = {}
