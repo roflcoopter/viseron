@@ -1,0 +1,645 @@
+[
+  {
+    "type": "map",
+    "value": [
+      {
+        "type": "map",
+        "value": [
+          {
+            "type": "map",
+            "value": [
+              {
+                "type": "integer",
+                "name": "port",
+                "description": "ONVIF port of the camera.",
+                "required": true,
+                "default": null
+              },
+              {
+                "type": "string",
+                "name": "username",
+                "description": "ONVIF username for the camera.",
+                "required": true,
+                "default": null
+              },
+              {
+                "type": "string",
+                "name": "password",
+                "description": "ONVIF password for the camera.",
+                "required": true,
+                "default": null
+              },
+              {
+                "type": "integer",
+                "name": "timeout",
+                "description": "Timeout for ONVIF connections in seconds.",
+                "optional": true,
+                "default": 10
+              },
+              {
+                "type": "boolean",
+                "name": "use_https",
+                "description": "Use HTTPS for ONVIF connections.",
+                "optional": true,
+                "default": false
+              },
+              {
+                "type": "boolean",
+                "name": "verify_ssl",
+                "description": "Verify SSL certificates for ONVIF connections.",
+                "optional": true,
+                "default": true
+              },
+              {
+                "type": "string",
+                "name": "wsdl_dir",
+                "description": "Path to custom WSDL directory for ONVIF client.",
+                "optional": true,
+                "default": null
+              },
+              {
+                "type": "boolean",
+                "name": "auto_config",
+                "description": "Set to <code>true</code> then it <b>will ignore all configuration</b> per each service and use the default service that is already on the ONVIF camera. Don't worry! This ONVIF component will automatically detect the existing configuration in the ONVIF camera precisely.",
+                "optional": true,
+                "default": true
+              },
+              {
+                "type": "map",
+                "value": [
+                  {
+                    "type": "string",
+                    "name": "hostname",
+                    "description": "The hostname of the device.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "boolean",
+                    "name": "discoverable",
+                    "description": "Whether the device is discoverable on the network via WS-Discovery.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "select",
+                    "options": [
+                      {
+                        "type": "constant",
+                        "value": "NTP"
+                      },
+                      {
+                        "type": "constant",
+                        "value": "Manual"
+                      }
+                    ],
+                    "name": "datetime_type",
+                    "description": "Defines if the date and time is set via NTP or manually.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "boolean",
+                    "name": "daylight_savings",
+                    "description": "Indicates whether Daylight Savings Time is in effect.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "string",
+                    "name": "timezone",
+                    "description": "The time zone in POSIX 1003.1 format. <b>Will be ignored</b> if the <code>datetime_type</code> key is set to <code>NTP</code>.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "boolean",
+                    "name": "ntp_from_dhcp",
+                    "description": "Indicate if NTP address information is to be retrieved using DHCP.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "select",
+                    "options": [
+                      {
+                        "type": "constant",
+                        "value": "DNS"
+                      },
+                      {
+                        "type": "constant",
+                        "value": "IPv4"
+                      },
+                      {
+                        "type": "constant",
+                        "value": "IPv6"
+                      }
+                    ],
+                    "name": "ntp_type",
+                    "description": "Network host type: IPv4, IPv6 or DNS. <b>Will be ignored</b> if the <code>ntp_from_dhcp</code> key is set to <code>true</code>. ",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "string",
+                    "name": "ntp_server",
+                    "description": "The NTP server of the device, for example: <code>pool.ntp.org</code> or <code>time.google.com</code> or <code>192.168.1.1</code> (<b>must match</b> with <code>ntp_type</code>). <b>Will be ignored</b> if the <code>ntp_from_dhcp</code> key is set to <code>true</code>. ",
+                    "optional": true,
+                    "default": null
+                  }
+                ],
+                "name": "device",
+                "description": "Device service configuration.",
+                "optional": true,
+                "default": null
+              },
+              {
+                "type": "map",
+                "value": [
+                  {
+                    "type": "map",
+                    "value": [
+                      {
+                        "type": "select",
+                        "options": [
+                          {
+                            "type": "constant",
+                            "value": "JPEG"
+                          },
+                          {
+                            "type": "constant",
+                            "value": "MPEG4"
+                          },
+                          {
+                            "type": "constant",
+                            "value": "H264"
+                          }
+                        ],
+                        "name": "encoding",
+                        "description": "Used video codec, either Jpeg, H.264 or Mpeg4",
+                        "required": true,
+                        "default": null
+                      },
+                      {
+                        "type": "map",
+                        "value": [
+                          {
+                            "type": "integer",
+                            "name": "width",
+                            "description": "Number of the columns of the Video image. If there is a 90-degree rotation, this represents the number of lines of the Video image.",
+                            "required": true,
+                            "default": null
+                          },
+                          {
+                            "type": "integer",
+                            "name": "height",
+                            "description": "Number of the lines of the Video image. If there is a 90-degree rotation, this represents the number of columns of the Video image.",
+                            "required": true,
+                            "default": null
+                          }
+                        ],
+                        "name": "resolution",
+                        "description": "Configured video resolution",
+                        "required": true,
+                        "default": null
+                      },
+                      {
+                        "type": "boolean",
+                        "name": "force_persistence",
+                        "description": "To determine whether this video encoder setting will persist even after a device reboot.",
+                        "optional": true,
+                        "default": true
+                      },
+                      {
+                        "type": "select",
+                        "options": [
+                          {
+                            "type": "constant",
+                            "value": "SP"
+                          },
+                          {
+                            "type": "constant",
+                            "value": "ASP"
+                          }
+                        ],
+                        "name": "mpeg4_profile",
+                        "description": "Only valid if <code>encoding</code> key is set to <code>MPEG4</code>. The Mpeg4 profile, either simple profile (SP) or advanced simple profile (ASP)",
+                        "optional": true,
+                        "default": null
+                      },
+                      {
+                        "type": "select",
+                        "options": [
+                          {
+                            "type": "constant",
+                            "value": "Baseline"
+                          },
+                          {
+                            "type": "constant",
+                            "value": "Main"
+                          },
+                          {
+                            "type": "constant",
+                            "value": "Extended"
+                          },
+                          {
+                            "type": "constant",
+                            "value": "High"
+                          }
+                        ],
+                        "name": "h264_profile",
+                        "description": "Only valid if <code>encoding</code> key is set to <code>H264</code>. The H.264 profile, either baseline, main, extended or high",
+                        "optional": true,
+                        "default": null
+                      },
+                      {
+                        "type": "float",
+                        "name": "quality",
+                        "description": "Relative value for the video quantizers and the quality of the video. A high value within supported quality range means higher quality",
+                        "optional": true,
+                        "default": null
+                      },
+                      {
+                        "type": "integer",
+                        "name": "frame_rate",
+                        "description": "Maximum output framerate in fps. If an <code>encoding_interval</code> is provided the resulting encoded framerate will be reduced by the given factor.",
+                        "optional": true,
+                        "default": null
+                      },
+                      {
+                        "type": "integer",
+                        "name": "encoding_interval",
+                        "description": "Interval at which images are encoded and transmitted. (A value of 1 means that every frame is encoded, a value of 2 means that every 2nd frame is encoded ...)",
+                        "optional": true,
+                        "default": null
+                      },
+                      {
+                        "type": "integer",
+                        "name": "bitrate_limit",
+                        "description": "the maximum output bitrate in kbps",
+                        "optional": true,
+                        "default": null
+                      },
+                      {
+                        "type": "integer",
+                        "name": "gov_length",
+                        "description": "Determines typically the interval in which the I-Frames will be coded. An entry of 1 indicates I-Frames are continuously generated. An entry of 2 indicates that every 2nd image is an I-Frame, and 3 only every 3rd frame, etc. The frames in between are coded as P or B Frames.",
+                        "optional": true,
+                        "default": null
+                      }
+                    ],
+                    "name": "video_encoder",
+                    "description": "Settings applied to your camera's video encoder. These settings will be applied to the <b>media profile that matches the RTSP url</b> you set in the camera domain (<a href='/components-explorer/components/ffmpeg'>ffmpeg</a> or <a href='/components-explorer/components/gstreamer'>gstreamer</a>).",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "map",
+                    "value": [
+                      {
+                        "type": "select",
+                        "options": [
+                          {
+                            "type": "constant",
+                            "value": "G711"
+                          },
+                          {
+                            "type": "constant",
+                            "value": "G726"
+                          },
+                          {
+                            "type": "constant",
+                            "value": "AAC"
+                          }
+                        ],
+                        "name": "encoding",
+                        "description": "Audio codec used for encoding the audio input (either G.711, G.726 or AAC)",
+                        "required": true,
+                        "default": null
+                      },
+                      {
+                        "type": "boolean",
+                        "name": "force_persistence",
+                        "description": "To determine whether this audio encoder setting will persist even after a device reboot.",
+                        "optional": true,
+                        "default": true
+                      },
+                      {
+                        "type": "integer",
+                        "name": "bitrate",
+                        "description": "The output bitrate in kbps.",
+                        "optional": true,
+                        "default": null
+                      },
+                      {
+                        "type": "integer",
+                        "name": "sample_rate",
+                        "description": "The output sample rate in kHz.",
+                        "optional": true,
+                        "default": null
+                      }
+                    ],
+                    "name": "audio_encoder",
+                    "description": "Settings applied to your camera's audio encoder. These settings will be applied to the <b>media profile that matches the RTSP url</b> you set in the camera domain (<a href='/components-explorer/components/ffmpeg'>ffmpeg</a> or <a href='/components-explorer/components/gstreamer'>gstreamer</a>).",
+                    "optional": true,
+                    "default": null
+                  }
+                ],
+                "name": "media",
+                "description": "Media service configuration.",
+                "optional": true,
+                "default": null
+              },
+              {
+                "type": "map",
+                "value": [
+                  {
+                    "type": "boolean",
+                    "name": "force_persistence",
+                    "description": "To determine whether this setting will persist even after a device reboot.",
+                    "optional": true,
+                    "default": true
+                  },
+                  {
+                    "type": "float",
+                    "name": "brightness",
+                    "description": "Brightness of the image (unit unspecified).",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "float",
+                    "name": "color_saturation",
+                    "description": "Color Saturation of the image (unit unspecified).",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "float",
+                    "name": "contrast",
+                    "description": "Contrast of the image (unit unspecified).",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "float",
+                    "name": "sharpness",
+                    "description": "Sharpness of the Video image (unit unspecified).",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "select",
+                    "options": [
+                      {
+                        "type": "constant",
+                        "value": "ON"
+                      },
+                      {
+                        "type": "constant",
+                        "value": "OFF"
+                      },
+                      {
+                        "type": "constant",
+                        "value": "AUTO"
+                      }
+                    ],
+                    "name": "ircut_filter",
+                    "description": "Infrared Cutoff Filter settings.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "select",
+                    "options": [
+                      {
+                        "type": "constant",
+                        "value": "ON"
+                      },
+                      {
+                        "type": "constant",
+                        "value": "OFF"
+                      }
+                    ],
+                    "name": "backlight_compensation",
+                    "description": "Enabled/disabled Backlight Compensation mode (on/off).",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "custom_validator",
+                    "value": "unable_to_convert",
+                    "name": "exposure",
+                    "description": "Exposure mode of the device.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "custom_validator",
+                    "value": "unable_to_convert",
+                    "name": "focus",
+                    "description": "Focus configuration.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "custom_validator",
+                    "value": "unable_to_convert",
+                    "name": "wide_dynamic_range",
+                    "description": "Wide dynamic range settings.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "custom_validator",
+                    "value": "unable_to_convert",
+                    "name": "white_balance",
+                    "description": "White balance settings.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "custom_validator",
+                    "value": "unable_to_convert",
+                    "name": "image_stabilization",
+                    "description": "Optional element to configure Image Stabilization feature.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "custom_validator",
+                    "value": "unable_to_convert",
+                    "name": "ircut_filter_auto_adjustment",
+                    "description": "An optional parameter applied to only auto mode to adjust timing of toggling Infrared Cutoff filter.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "custom_validator",
+                    "value": "unable_to_convert",
+                    "name": "tone_compensation",
+                    "description": "Optional element to configure Image Contrast Compensation.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "custom_validator",
+                    "value": "unable_to_convert",
+                    "name": "defogging",
+                    "description": "Optional element to configure Image Defogging.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "custom_validator",
+                    "value": "unable_to_convert",
+                    "name": "noise_reduction",
+                    "description": "Optional element to configure Image Noise Reduction.",
+                    "optional": true,
+                    "default": null
+                  }
+                ],
+                "name": "imaging",
+                "description": "Imaging service configuration.",
+                "optional": true,
+                "default": null
+              },
+              {
+                "type": "map",
+                "value": [
+                  {
+                    "type": "boolean",
+                    "name": "home_position",
+                    "description": "Move camera to home position on startup (<b>if supported by camera</b>). <b>Will be ignored</b> if any of the PTZ <code>presets</code> have the <code>on_startup</code> set to <code>true</code>.",
+                    "optional": true,
+                    "default": false
+                  },
+                  {
+                    "type": "boolean",
+                    "name": "reverse_pan",
+                    "description": "Reverse the pan direction. Will be implemented in backend and frontend, and <b>will not affect</b> the position of user defined PTZ <code>presets</code>.",
+                    "optional": true,
+                    "default": false
+                  },
+                  {
+                    "type": "boolean",
+                    "name": "reverse_tilt",
+                    "description": "Reverse the tilt direction. Will be implemented in backend and frontend, and <b>will not affect</b> the position of user defined PTZ <code>presets</code>.",
+                    "optional": true,
+                    "default": false
+                  },
+                  {
+                    "type": "float",
+                    "name": "min_pan",
+                    "description": "Minimum pan value of the camera. A value between -1.0 and 1.0 (will be adjusted based on the default ONVIF configuration). Automatically handled by the backend.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "float",
+                    "name": "max_pan",
+                    "description": "Maximum pan value of the camera. A value between -1.0 and 1.0 (will be adjusted based on the default ONVIF configuration). Automatically handled by the backend.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "float",
+                    "name": "min_tilt",
+                    "description": "Minimum tilt value of the camera. A value between -1.0 and 1.0 (will be adjusted based on the default ONVIF configuration). Automatically handled by the backend.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "float",
+                    "name": "max_tilt",
+                    "description": "Maximum tilt value of the camera. A value between -1.0 and 1.0 (will be adjusted based on the default ONVIF configuration). Automatically handled by the backend.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "float",
+                    "name": "min_zoom",
+                    "description": "Minimum zoom value of the camera. A value between -1.0 and 1.0 (will be adjusted based on the default ONVIF configuration). Automatically handled by the backend.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "float",
+                    "name": "max_zoom",
+                    "description": "Maximum zoom value of the camera. A value between -1.0 and 1.0 (will be adjusted based on the default ONVIF configuration). Automatically handled by the backend.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "list",
+                    "values": [
+                      [
+                        {
+                          "type": "string",
+                          "name": "name",
+                          "description": "Name of the PTZ preset.",
+                          "required": true,
+                          "default": null
+                        },
+                        {
+                          "type": "float",
+                          "name": "pan",
+                          "description": "Pan value of the PTZ preset. A value between -1.0 and 1.0.",
+                          "required": true,
+                          "default": null
+                        },
+                        {
+                          "type": "float",
+                          "name": "tilt",
+                          "description": "Tilt value of the PTZ preset. A value between -1.0 and 1.0.",
+                          "required": true,
+                          "default": null
+                        },
+                        {
+                          "type": "float",
+                          "name": "zoom",
+                          "description": "Zoom value of the PTZ preset. A value between -1.0 and 1.0",
+                          "optional": true,
+                          "default": null
+                        },
+                        {
+                          "type": "boolean",
+                          "name": "on_startup",
+                          "description": "Move to this (named) preset on startup.",
+                          "optional": true,
+                          "default": false
+                        }
+                      ]
+                    ],
+                    "name": "presets",
+                    "description": "A list of user-defined PTZ presets (using the <b>Absolute Move</b> operation <b>if supported by camera</b>). These presets <b>will not be saved</b> to the ONVIF camera.",
+                    "optional": true,
+                    "default": null
+                  }
+                ],
+                "name": "ptz",
+                "description": "PTZ service configuration.",
+                "optional": true,
+                "default": null
+              }
+            ],
+            "name": {
+              "type": "CAMERA_IDENTIFIER"
+            },
+            "description": "Camera identifier. Valid characters are lowercase a-z, numbers and underscores.",
+            "cameraidentifier": true,
+            "default": null
+          }
+        ],
+        "name": "cameras",
+        "description": "List of ONVIF cameras to make available to the component.",
+        "required": true,
+        "default": null
+      }
+    ],
+    "name": "onvif",
+    "description": "ONVIF cameras integration.",
+    "required": true,
+    "default": null
+  }
+]

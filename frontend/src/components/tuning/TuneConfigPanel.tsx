@@ -17,10 +17,15 @@ import {
 } from "./config";
 import { getMiscellaneousFields } from "./config/miscellaneousConfig";
 import { Label, Zone } from "./object_detector/types";
+import { DeviceServiceSection } from "./onvif/DeviceServiceSection";
+import { ImagingServiceSection } from "./onvif/ImagingServiceSection";
+import { MediaServiceSection } from "./onvif/MediaServiceSection";
+import { PTZServiceSection } from "./onvif/PTZServiceSection";
 import { Mask } from "./shared/types";
 
 interface ComponentData {
   componentType: string;
+  componentName?: string;
   labels?: Label[];
   zones?: Zone[];
   mask?: Mask[];
@@ -64,6 +69,8 @@ interface TuneConfigPanelProps {
   selectedOSDTextIndex: number | null;
   selectedVideoTransformIndex: number | null;
   currentDomainName: string;
+  cameraIdentifier?: string;
+  isOnvifAutoConfig?: boolean;
 }
 
 export function TuneConfigPanel({
@@ -102,6 +109,8 @@ export function TuneConfigPanel({
   selectedOSDTextIndex,
   selectedVideoTransformIndex,
   currentDomainName,
+  cameraIdentifier,
+  isOnvifAutoConfig,
 }: TuneConfigPanelProps) {
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
@@ -182,6 +191,9 @@ export function TuneConfigPanel({
             isDrawingMode={isDrawingMode}
             isSaving={isSaving}
             onRevertConfig={onRevertConfig}
+            currentDomainName={currentDomainName}
+            componentName={selectedComponentData.componentName}
+            isOnvifAutoConfig={isOnvifAutoConfig}
           />
         }
         sx={{
@@ -201,6 +213,34 @@ export function TuneConfigPanel({
               onCancelDrawing={onCancelDrawing}
             />
           )}
+
+          {/* ONVIF Device Service Section */}
+          {currentDomainName === "onvif" &&
+            selectedComponentData.componentType === "device" &&
+            cameraIdentifier && (
+              <DeviceServiceSection cameraIdentifier={cameraIdentifier} />
+            )}
+
+          {/* ONVIF Media Service Section */}
+          {currentDomainName === "onvif" &&
+            selectedComponentData.componentType === "media" &&
+            cameraIdentifier && (
+              <MediaServiceSection cameraIdentifier={cameraIdentifier} />
+            )}
+
+          {/* ONVIF Imaging Service Section */}
+          {currentDomainName === "onvif" &&
+            selectedComponentData.componentType === "imaging" &&
+            cameraIdentifier && (
+              <ImagingServiceSection cameraIdentifier={cameraIdentifier} />
+            )}
+
+          {/* ONVIF PTZ Service Section */}
+          {currentDomainName === "onvif" &&
+            selectedComponentData.componentType === "ptz" &&
+            cameraIdentifier && (
+              <PTZServiceSection cameraIdentifier={cameraIdentifier} />
+            )}
 
           {/* Labels section - for object_detector, face_recognition, and license_plate_recognition */}
           {(selectedComponentData.componentType === "object_detector" ||
@@ -275,23 +315,36 @@ export function TuneConfigPanel({
           )}
 
           {/* Miscellaneous section - domain-agnostic configurable fields */}
-          <MiscellaneousSection
-            fields={getMiscellaneousFields(
-              currentDomainName,
-              selectedComponentData,
-            )}
-            isDrawingMode={isDrawingMode}
-            isSaving={isSaving}
-            onFieldChange={onMiscellaneousFieldChange}
-          />
+          {/* Hidden for ONVIF components (except client) when auto_config is true */}
+          {!(
+            currentDomainName === "onvif" &&
+            selectedComponentData.componentName !== "client" &&
+            isOnvifAutoConfig
+          ) && (
+            <MiscellaneousSection
+              fields={getMiscellaneousFields(
+                currentDomainName,
+                selectedComponentData,
+              )}
+              isDrawingMode={isDrawingMode}
+              isSaving={isSaving}
+              onFieldChange={onMiscellaneousFieldChange}
+            />
+          )}
 
-          {/* Save Config Button */}
-          <SaveConfigButton
-            isConfigModified={isConfigModified}
-            isSaving={isSaving}
-            isDrawingMode={isDrawingMode}
-            onSaveConfig={onSaveConfig}
-          />
+          {/* Save Config Button - Hidden for ONVIF components (except client) when auto_config is true */}
+          {!(
+            currentDomainName === "onvif" &&
+            selectedComponentData.componentName !== "client" &&
+            isOnvifAutoConfig
+          ) && (
+            <SaveConfigButton
+              isConfigModified={isConfigModified}
+              isSaving={isSaving}
+              isDrawingMode={isDrawingMode}
+              onSaveConfig={onSaveConfig}
+            />
+          )}
         </Box>
       </CardContent>
 

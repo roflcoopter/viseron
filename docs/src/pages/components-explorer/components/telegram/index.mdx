@@ -7,9 +7,10 @@ import config from "./config.json";
 
 <ComponentHeader meta={ComponentMetadata} />
 
-The telegram component can do two things.
-First, it can send detection videos (and thumbnails) to a chat when a detection occurs.
-Second, it can be used to control the [PTZ component](/components-explorer/components/ptz) from the chat, with commands like `/left`, `/right`, etc.
+The telegram component can do two things:
+
+- First, it can send detection videos (and thumbnails) to a chat when a detection occurs.
+- Second, it can be used to control the PTZ (pan-tilt-zoom) for the [ONVIF component](/components-explorer/components/onvif) from the chatbot directly, with commands like `/home`, `/left`, `/right` (see [available commands](#available-commands) below).
 
 ## Configuration
 
@@ -62,7 +63,36 @@ https://www.home-assistant.io/integrations/telegram/
 
 ## Available commands
 
-To find the available commands you can use, send `/help` to your bot in Telegram.
+To find the available commands you can use, send `/help` to your bot in Telegram. As of the time of writing this documentation, the available help commands are described as follows:
+
+:::info
+
+Use `/help` `<command>` to get more information about a command. For commands starting from number **1 to 13**, they only apply to cameras that have [ONVIF component](/components-explorer/components/onvif).
+
+:::
+
+| No  | Commands                      | Description                                       | Notes                                                                                                                                                                    |
+| --- | ----------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | `/home` or `/h`               | Move the camera to its home position.             | If supported by the camera.                                                                                                                                              |
+| 2   | `/left` or `/l`               | Pan the camera to the left.                       | Using the `RelativeMove` operation. And will use `ContinuousMove` as a fallback if it is not supported.                                                                  |
+| 3   | `/right` or `/r`              | Pan the camera to the right.                      | Using the `RelativeMove` operation. And will use `ContinuousMove` as a fallback if it is not supported.                                                                  |
+| 4   | `/up` or `/u`                 | Tilt the camera up.                               | Using the `RelativeMove` operation. And will use `ContinuousMove` as a fallback if it is not supported.                                                                  |
+| 5   | `/down` or `/d`               | Tilt the camera down.                             | Using the `RelativeMove` operation. And will use `ContinuousMove` as a fallback if it is not supported.                                                                  |
+| 6   | `/zo` or `/o`                 | Zoom the camera out.                              | Using the `RelativeMove` operation. And will use `ContinuousMove` as a fallback if it is not supported.                                                                  |
+| 7   | `/zi` or `/i`                 | Zoom the camera in.                               | Using the `RelativeMove` operation. And will use `ContinuousMove` as a fallback if it is not supported.                                                                  |
+| 8   | `/pos`                        | Get the current (PTZ) position of the camera.     | If supported by the camera.                                                                                                                                              |
+| 9   | `/preset` or `/pr`            | Change the camera to a preset position.           | Will display user-defined presets and presets that are already in the ONVIF camera.                                                                                      |
+| 10  | `/repeat`                     | Presets are paths when names are reused.          | -                                                                                                                                                                        |
+| 11  | `/patrol` or `/p`             | Swings the camera from left to right and back.    | The default duration is 60 seconds. It will not work properly if your camera does not support `GetStatus`, `RelativeMove`, and `AbsoluteMove` operations.                |
+| 12  | `/lissa`                      | Perform Lissajous curve swing patrols.            | Must be stopped manually with the `/stop` command. It will not work properly if your camera does not support `GetStatus`, `RelativeMove`, and `AbsoluteMove` operations. |
+| 13  | `/stop` or `/st`              | Stop the patrol.                                  | -                                                                                                                                                                        |
+| 14  | `/record` or `/r`             | Record a video with the camera.                   | -                                                                                                                                                                        |
+| 15  | `/stop_recorder` or `/sr`     | Stop an ongoing manual recording.                 | -                                                                                                                                                                        |
+| 16  | `/list` or `/li` or `/select` | List all available cameras.                       | -                                                                                                                                                                        |
+| 17  | `/which` or `/w`              | Get the currently active camera.                  | It is important to know which camera to execute.                                                                                                                         |
+| 18  | `/toggle` or `/t`             | Toggle the camera on or off.                      | -                                                                                                                                                                        |
+| 19  | `/snapshot`                   | Take a snapshot with the camera.                  | -                                                                                                                                                                        |
+| 20  | `/help`                       | Display a list of commands and their description. | -                                                                                                                                                                        |
 
 ## Troubleshooting
 

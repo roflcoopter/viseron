@@ -727,8 +727,8 @@ const CameraPlayer = memo(
     );
 
     const playerMenuButton = useMemo(
-      () => <PlayerMenu onMenuOpen={handleMenuOpen} />,
-      [handleMenuOpen],
+      () => <PlayerMenu onMenuOpen={handleMenuOpen} camera={camera} />,
+      [handleMenuOpen, camera],
     );
 
     return mjpegPlayer ? (

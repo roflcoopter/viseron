@@ -8,6 +8,8 @@ const ComponentMetadata: Component = {
   image: "/img/undraw_server.svg",
   tags: ["system"],
   category: "featured",
+  path: "viseron/components/storage",
+  issue: 'label:"component: storage"',
 };
 
 export default ComponentMetadata;

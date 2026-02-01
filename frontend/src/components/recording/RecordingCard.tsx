@@ -1,8 +1,8 @@
 import {
-  CenterSquare,
   FaceActivated,
   Movement,
   TrashCan,
+  WatsonHealth3DMprToggle,
 } from "@carbon/icons-react";
 import Card from "@mui/material/Card";
 import CardActions from "@mui/material/CardActions";
@@ -67,7 +67,7 @@ export default function RecordingCard({
             </Tooltip>
           ) : recording.trigger_type === "object" ? (
             <Tooltip title="Object Detection">
-              <CenterSquare size={20} />
+              <WatsonHealth3DMprToggle size={20} />
             </Tooltip>
           ) : recording.trigger_type === "face_recognition" ? (
             <Tooltip title="Face Recognition">

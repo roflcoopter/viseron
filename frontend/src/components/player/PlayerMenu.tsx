@@ -6,19 +6,49 @@ import MenuItem from "@mui/material/MenuItem";
 import React from "react";
 import { useShallow } from "zustand/react/shallow";
 
+import { OnvifPtzController } from "components/actions/ptz/OnvifPtzController";
 import { CustomFab } from "components/player/CustomControls";
 import { usePlayerSettingsStore } from "components/player/UsePlayerSettingsStore";
+import { useAuthContext } from "context/AuthContext";
 import * as types from "lib/types";
 
 interface PlayerMenuProps {
   onMenuOpen: (event: React.MouseEvent<HTMLElement>) => void;
+  camera: types.Camera | types.FailedCamera;
 }
 
-export function PlayerMenu({ onMenuOpen }: PlayerMenuProps) {
+export function PlayerMenu({ onMenuOpen, camera }: PlayerMenuProps) {
+  const { auth, user } = useAuthContext();
+
+  // Determine which PTZ controller to render based on ptz_support
+  const renderPtzController = () => {
+    if (auth.enabled && user?.role !== "admin") {
+      return null;
+    }
+
+    if (!("ptz_support" in camera) || !camera.ptz_support) {
+      return null;
+    }
+
+    // Render PTZ controller based on ptz_support type
+    switch (camera.ptz_support) {
+      case "onvif":
+        return <OnvifPtzController cameraIdentifier={camera.identifier} />;
+      // Future PTZ controller types can be added here
+      // case "other_ptz_type":
+      //   return <OtherPtzController cameraIdentifier={camera.identifier} />;
+      default:
+        return null;
+    }
+  };
+
   return (
-    <CustomFab onClick={onMenuOpen} title="Player settings">
-      <GlobalFilters />
-    </CustomFab>
+    <>
+      <CustomFab onClick={onMenuOpen} title="Player settings">
+        <GlobalFilters />
+      </CustomFab>
+      {renderPtzController()}
+    </>
   );
 }
 

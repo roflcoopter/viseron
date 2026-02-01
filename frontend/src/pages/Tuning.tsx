@@ -124,14 +124,16 @@ function Tunes() {
 
           tuneHandlers.setSelectedComponentData({
             ...componentDataWithParsed,
-            componentType: domainName,
+            // For ONVIF domain, use componentName as componentType
+            // For other domains, use domainName as componentType
+            componentType: domainName === "onvif" ? componentName : domainName,
             componentName,
           });
 
           // Update original data as well after successful save
           tuneHandlers.setOriginalComponentData({
             ...componentDataWithParsed,
-            componentType: domainName,
+            componentType: domainName === "onvif" ? componentName : domainName,
             componentName,
           });
         }
@@ -578,6 +580,7 @@ function Tunes() {
               }
               isConfigModified={tuneHandlers.isConfigModified}
               isSaving={updateTuneConfig.isPending}
+              cameraIdentifier={camera_identifier}
               onLabelClick={(index) => {
                 if (
                   tuneHandlers.selectedComponentData?.componentType ===
@@ -643,6 +646,14 @@ function Tunes() {
               onDeleteVideoTransform={tuneHandlers.handleDeleteVideoTransform}
               onMiscellaneousFieldChange={handleMiscellaneousFieldChange}
               currentDomainName={getCurrentDomainName()}
+              isOnvifAutoConfig={
+                // Use selectedComponentData if viewing client component (for live updates),
+                // otherwise use tuneConfig.data
+                expandedComponent === "onvif-client"
+                  ? tuneHandlers.selectedComponentData?.auto_config === true
+                  : tuneConfig.data?.onvif?.client?.auto_config === true
+              }
+              onUpdateSnapshot={updateSnapshot}
             />
           </Grid>
 

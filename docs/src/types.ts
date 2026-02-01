@@ -24,6 +24,8 @@ export type Component = {
   image: string;
   tags: DomainType[];
   category: string | null;
+  path: string;
+  issue: string;
 };
 
 export const Domains: { [type in DomainType]: Domain } = {
@@ -60,7 +62,7 @@ export const Domains: { [type in DomainType]: Domain } = {
   object_detector: {
     label: "Object Detector",
     color: "#942f5c",
-    icon: "GroupObjects",
+    icon: "WatsonHealth3DMprToggle",
   },
 
   motion_detector: {
@@ -72,7 +74,7 @@ export const Domains: { [type in DomainType]: Domain } = {
   image_classification: {
     label: "Image Classification",
     color: "#993313",
-    icon: "ImageReference",
+    icon: "VisualRecognition",
   },
 
   face_recognition: {

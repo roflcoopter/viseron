@@ -8,6 +8,8 @@ const ComponentMetadata: Component = {
   image: "/img/logos/darknet.png",
   tags: ["object_detector"],
   category: null,
+  path: "viseron/components/darknet",
+  issue: 'darknet OR label:"domain: object_detector"',
 };
 
 export default ComponentMetadata;
