@@ -28,7 +28,6 @@ from viseron.components import (
     get_component,
     setup_component,
     setup_components,
-    setup_domains,
 )
 from viseron.components.data_stream import (
     COMPONENT as DATA_STREAM_COMPONENT,
@@ -55,6 +54,7 @@ from viseron.const import (
     VISERON_SIGNAL_STOPPING,
 )
 from viseron.domain_registry import DomainRegistry
+from viseron.domains import setup_domains
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.events import Event, EventData
 from viseron.exceptions import DataStreamNotLoaded

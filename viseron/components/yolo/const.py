@@ -4,7 +4,7 @@ from typing import Final
 COMPONENT = "yolo"
 
 # CONFIG_SCHEMA constants
-CONFIG_OBJECT_DETECTOR = "object_detector"
+CONFIG_OBJECT_DETECTOR: Final = "object_detector"
 
 # OBJECT_DETECTOR_SCHEMA constants
 CONFIG_MODEL_PATH = "model_path"
