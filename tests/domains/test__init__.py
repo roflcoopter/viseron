@@ -9,6 +9,7 @@ from viseron.domains import (
     OptionalDomain,
     RequireDomain,
     get_unload_order,
+    reload_domain,
     unload_domain,
 )
 
@@ -178,7 +179,7 @@ class TestGetUnloadOrder:
 
     def test_nonexistent_domain(self, vis: MockViseron):
         """Test unload order for a domain that doesn't exist."""
-        result = get_unload_order(vis, "nonexistent", "id1")
+        result = get_unload_order(vis, "nonexistent", "id1")  # type: ignore[arg-type]
 
         assert len(result) == 0
 
@@ -439,3 +440,118 @@ class TestUnloadDomain:
         assert result is not None
         assert registry.get("camera", "cam1") is None
         assert "Domain camera with identifier cam1 has no unload method" in caplog.text
+
+
+class TestReloadDomain:
+    """Test reload_domain function."""
+
+    def test_reload_nonexistent_domain(
+        self, vis: MockViseron, caplog: pytest.LogCaptureFixture
+    ):
+        """Test reload warns when domain doesn't exist."""
+        reload_domain(vis, "camera", "cam1")
+
+        assert "Domain camera with identifier cam1 not found for reload" in caplog.text
+
+    def test_reload_single_domain_no_dependents(self, vis: MockViseron):
+        """Test reloading a single domain with no dependents."""
+        registry = vis.domain_registry
+        registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={"test": "config"},
+        )
+        registry.set_state("camera", "cam1", DomainState.LOADED)
+
+        with patch("viseron.domains.unload_domain") as mock_unload, patch(
+            "viseron.domains.setup_domains"
+        ) as mock_setup:
+            reload_domain(vis, "camera", "cam1")
+
+            mock_unload.assert_called_once_with(vis, "camera", "cam1")
+            mock_setup.assert_called_once_with(vis)
+
+    def test_reload_domain_with_dependents(self, vis: MockViseron):
+        """Test reloading a domain with dependents."""
+        registry = vis.domain_registry
+        registry.register(
+            component_name="camera_comp",
+            component_path="camera.path",
+            domain="camera",
+            identifier="cam1",
+            config={"camera": "config"},
+        )
+        registry.set_state("camera", "cam1", DomainState.LOADED)
+
+        # Register dependent domain
+        registry.register(
+            component_name="nvr_comp",
+            component_path="nvr.path",
+            domain="nvr",
+            identifier="cam1",
+            config={"nvr": "config"},
+            require_domains=[RequireDomain("camera", "cam1")],
+        )
+        registry.set_state("nvr", "cam1", DomainState.LOADED)
+
+        with patch("viseron.domains.unload_domain") as mock_unload, patch(
+            "viseron.domains.setup_domains"
+        ) as mock_setup:
+            reload_domain(vis, "camera", "cam1")
+
+            calls = [call[0] for call in mock_unload.call_args_list]
+            assert calls[0] == (vis, "nvr", "cam1")
+            assert calls[1] == (vis, "camera", "cam1")
+
+            mock_setup.assert_called_once_with(vis)
+
+    def test_reload_domain_optional_dependents(self, vis: MockViseron):
+        """Test reloading a domain with optional dependents."""
+        registry = vis.domain_registry
+        registry.register(
+            component_name="camera_comp",
+            component_path="camera.path",
+            domain="camera",
+            identifier="cam1",
+            config={"setting": "value"},
+        )
+        registry.set_state("camera", "cam1", DomainState.LOADED)
+        registry.register(
+            component_name="motion_comp",
+            component_path="motion.path",
+            domain="motion_detector",
+            identifier="cam1",
+            config={"motion_setting": "motion_value"},
+            require_domains=[RequireDomain("camera", "cam1")],
+        )
+        registry.set_state("motion_detector", "cam1", DomainState.LOADED)
+
+        require_deps = [RequireDomain("camera", "cam1")]
+        optional_deps = [OptionalDomain("motion_detector", "cam1")]
+        registry.register(
+            component_name="nvr_comp",
+            component_path="nvr.path",
+            domain="nvr",
+            identifier="cam1",
+            config={"nvr_setting": "nvr_value"},
+            require_domains=require_deps,
+            optional_domains=optional_deps,
+        )
+        registry.set_state("nvr", "cam1", DomainState.LOADED)
+
+        with patch("viseron.domains.unload_domain") as mock_unload, patch(
+            "viseron.domains.setup_domains"
+        ):
+            reload_domain(vis, "camera", "cam1")
+
+            calls = [call[0] for call in mock_unload.call_args_list]
+            assert calls[0] == (vis, "nvr", "cam1")
+            assert calls[1] == (vis, "motion_detector", "cam1")
+            assert calls[2] == (vis, "camera", "cam1")
+
+            # Should re-register all three
+            assert registry.get("camera", "cam1") is not None
+            assert registry.get("motion_detector", "cam1") is not None
+            assert registry.get("nvr", "cam1") is not None
