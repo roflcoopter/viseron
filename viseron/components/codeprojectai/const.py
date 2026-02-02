@@ -7,12 +7,12 @@ PLATE_RECOGNITION_URL_BASE = "http://{host}:{port}/v1/image/alpr"
 
 
 # CONFIG_SCHEMA constants
-CONFIG_OBJECT_DETECTOR = "object_detector"
-CONFIG_FACE_RECOGNITION = "face_recognition"
-CONFIG_LICENSE_PLATE_RECOGNITION = "license_plate_recognition"
-CONFIG_HOST = "host"
-CONFIG_PORT = "port"
-CONFIG_TIMEOUT = "timeout"
+CONFIG_OBJECT_DETECTOR: Final = "object_detector"
+CONFIG_FACE_RECOGNITION: Final = "face_recognition"
+CONFIG_LICENSE_PLATE_RECOGNITION: Final = "license_plate_recognition"
+CONFIG_HOST: Final = "host"
+CONFIG_PORT: Final = "port"
+CONFIG_TIMEOUT: Final = "timeout"
 
 DEFAULT_PORT = 32168
 DEFAULT_TIMEOUT = 10
