@@ -79,7 +79,6 @@ export function ImagingPresets({
       isError={isError}
       errorMessage={error?.message || "Failed to load imaging presets."}
       isEmpty={presets === undefined || presets.length === 0}
-      showEmptyAlert
       title="Imaging Presets"
     >
       <Box>
