@@ -678,7 +678,7 @@ export function OnvifPtzController({
         </DialogTitle>
         <DialogContent>
           {allPresets.length > 0 ? (
-            <List>
+            <List dense>
               {allPresets.map((preset) => (
                 <ListItem
                   key={preset.token}
@@ -743,7 +743,7 @@ export function OnvifPtzController({
                         secondary={
                           preset.type !== "user_defined"
                             ? preset.PTZPosition
-                              ? `Token: ${preset.token}, Pan: ${preset.PTZPosition.PanTilt?.x?.toFixed(2) ?? "N/A"}, Tilt: ${preset.PTZPosition.PanTilt?.y?.toFixed(2) ?? "N/A"}, Zoom: ${preset.PTZPosition.Zoom?.x?.toFixed(2) ?? "N/A"}`
+                              ? `Token: ${preset.token}, Pan: ${preset.PTZPosition.PanTilt?.x?.toFixed(2) ?? "N/A"}, Tilt: ${preset.PTZPosition.PanTilt?.y?.toFixed(2) ?? "N/A"}${preset.PTZPosition.Zoom?.x?.toFixed(2) ? `, Zoom: ${preset.PTZPosition.Zoom?.x?.toFixed(2)}` : ""}`
                               : `Token: ${preset.token}`
                             : preset.PTZPosition
                               ? `On Startup: ${preset.move_on_startup}, Pan: ${preset.PTZPosition.PanTilt?.x?.toFixed(2) ?? "N/A"}, Tilt: ${preset.PTZPosition.PanTilt?.y?.toFixed(2) ?? "N/A"}, Zoom: ${preset.PTZPosition.Zoom?.x?.toFixed(2) ?? "N/A"}`
