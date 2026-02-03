@@ -844,14 +844,15 @@ export function DeviceNetworkInterfaces({
                                 sx={{ width: 120 }}
                                 placeholder="24"
                               />
-                              <IconButton
-                                size="small"
-                                onClick={() => handleRemoveIpv4Address(index)}
-                                disabled={ipv4ManualAddresses.length === 1}
-                                color="error"
-                              >
-                                <TrashCan size={20} />
-                              </IconButton>
+                              {ipv4ManualAddresses.length > 1 && (
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleRemoveIpv4Address(index)}
+                                  color="error"
+                                >
+                                  <TrashCan size={20} />
+                                </IconButton>
+                              )}
                             </Stack>
                           ))}
                           <Button

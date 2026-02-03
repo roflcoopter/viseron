@@ -26,8 +26,8 @@ import {
 import { useTheme } from "@mui/material/styles";
 import { useEffect, useState } from "react";
 
-import { useFormChanges } from "hooks/UseFormChanges";
 import { useToast } from "hooks/UseToast";
+import { useFormChanges } from "hooks/useFormChanges";
 import { useGetDeviceDNS, useSetDeviceDNS } from "lib/api/actions/onvif/device";
 
 import { QueryWrapper } from "../../config/QueryWrapper";
@@ -126,7 +126,7 @@ export function DeviceDNS({
       servers.forEach((server, index) => {
         const hasIPv4 = server?.IPv4Address;
         const hasIPv6 = server?.IPv6Address;
-        
+
         // Skip if both addresses are null/empty
         if (!hasIPv4 && !hasIPv6) {
           return;

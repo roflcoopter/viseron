@@ -221,7 +221,7 @@ export function DeviceScopes({
               variant="outlined"
               value={newScope}
               onChange={(e) => setNewScope(e.target.value)}
-              placeholder="e.g., location/office room 1"
+              placeholder="e.g., location/city/jakarta"
               helperText="Spaces and special characters will be automatically encoded"
             />
           </DialogContent>
