@@ -169,6 +169,7 @@ export type PtzPosition = {
 
 export type PtzStatusResponse = {
   status: {
+    Error?: any;
     Position?: PtzPosition;
     MoveStatus?: {
       PanTilt?: string;
