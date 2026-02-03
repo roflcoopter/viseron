@@ -510,3 +510,43 @@ def unload_domain(
 
     # Unregister from registry
     return registry.unregister(domain, identifier)
+
+
+def reload_domain(vis: Viseron, domain: SupportedDomains, identifier: str) -> None:
+    """Reload a domain and all its dependents.
+
+    Reloading is done by unloading all dependent domains first, then
+    re-registering and setting them up again in the correct order.
+    """
+    reload_order = get_unload_order(vis, domain, identifier)
+
+    if not reload_order:
+        LOGGER.warning(
+            f"Domain {domain} with identifier {identifier} not found for reload"
+        )
+        return
+
+    LOGGER.info(
+        f"Reloading domain {domain} with identifier {identifier}. "
+        f"Order: {[(e.domain, e.identifier) for e in reload_order]}",
+    )
+
+    # Unload in order (dependents first)
+    for entry in reload_order:
+        unload_domain(vis, entry.domain, entry.identifier)
+
+    # Re-register in original order
+    registry = vis.domain_registry
+    for entry in reversed(reload_order):
+        registry.register(
+            component_name=entry.component_name,
+            component_path=entry.component_path,
+            domain=entry.domain,
+            identifier=entry.identifier,
+            config=entry.config,
+            require_domains=entry.require_domains,
+            optional_domains=entry.optional_domains,
+        )
+
+    # Setup all
+    setup_domains(vis)

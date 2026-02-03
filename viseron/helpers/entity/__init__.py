@@ -14,6 +14,10 @@ class Entity(ABC):
     entity_id will be generated with the help of 'domain'.'object_id'.
     If object_id is not set, it will be generated using name.
     name is the only required property.
+
+    Entities can implement setup and unload methods to handle setup and
+    cleanup tasks when being added or removed from Viseron.
+    These methods should handle subscribing and unsubscribing from events, etc.
     """
 
     # The following variables should NOT be overridden
