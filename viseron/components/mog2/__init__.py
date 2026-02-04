@@ -66,8 +66,8 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config) -> bool:
-    """Set up the mog2 component."""
+def setup_domains(vis: Viseron, config) -> None:
+    """Set up mog2 domains."""
     config = config[COMPONENT]
     for camera_identifier in config[CONFIG_MOTION_DETECTOR][CONFIG_CAMERAS].keys():
         setup_domain(
@@ -83,5 +83,3 @@ def setup(vis: Viseron, config) -> bool:
                 )
             ],
         )
-
-    return True

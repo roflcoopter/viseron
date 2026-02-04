@@ -22,8 +22,8 @@ CONFIG_SCHEMA = vol.Schema(
 LOGGER = logging.getLogger(__name__)
 
 
-def setup(vis: Viseron, config) -> bool:
-    """Set up the gstreamer component."""
+def setup_domains(vis: Viseron, config) -> None:
+    """Set up gstreamer domains."""
     config = config[COMPONENT]
 
     for camera_identifier, camera_config in config[CONFIG_CAMERA].items():
@@ -32,5 +32,3 @@ def setup(vis: Viseron, config) -> bool:
         setup_domain(
             vis, COMPONENT, CAMERA_DOMAIN, pruned_config, identifier=camera_identifier
         )
-
-    return True

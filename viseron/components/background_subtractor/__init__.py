@@ -51,8 +51,8 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config) -> bool:
-    """Set up the background_subtractor component."""
+def setup_domains(vis: Viseron, config) -> None:
+    """Set up background_subtractor domains."""
     config = config[COMPONENT]
     for camera_identifier in config[CONFIG_MOTION_DETECTOR][CONFIG_CAMERAS].keys():
         setup_domain(
@@ -68,4 +68,3 @@ def setup(vis: Viseron, config) -> bool:
                 )
             ],
         )
-    return True

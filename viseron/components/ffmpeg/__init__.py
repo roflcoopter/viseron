@@ -24,8 +24,8 @@ CONFIG_SCHEMA = vol.Schema(
 LOGGER = logging.getLogger(__name__)
 
 
-def setup(vis: Viseron, config: dict[str, Any]) -> bool:
-    """Set up the ffmpeg component."""
+def setup_domains(vis: Viseron, config: dict[str, Any]) -> None:
+    """Set up ffmpeg domains."""
     config = config[COMPONENT]
 
     for camera_identifier, camera_config in config[CONFIG_CAMERA].items():
@@ -34,5 +34,3 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
         setup_domain(
             vis, COMPONENT, CAMERA_DOMAIN, pruned_config, identifier=camera_identifier
         )
-
-    return True

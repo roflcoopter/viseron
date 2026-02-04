@@ -93,7 +93,7 @@ CONFIG_SCHEMA = vol.Schema(
 
 
 def setup(vis: Viseron, config: dict[str, Any]) -> bool:
-    """Set up Hailo component."""
+    """Set up hailo component."""
     config = config[COMPONENT]
 
     try:
@@ -101,6 +101,13 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     except Exception as error:
         LOGGER.error("Failed to start Hailo 8 detector: %s", error, exc_info=True)
         raise ComponentNotReady from error
+
+    return True
+
+
+def setup_domains(vis: Viseron, config: dict[str, Any]) -> None:
+    """Set up hailo domains."""
+    config = config[COMPONENT]
 
     if config.get(CONFIG_OBJECT_DETECTOR, None):
         for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS].keys():
@@ -117,8 +124,6 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
                     )
                 ],
             )
-
-    return True
 
 
 class LoadHailo8Error(ViseronError):
