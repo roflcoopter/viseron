@@ -141,10 +141,10 @@ const sidebars: SidebarsConfig = {
       },
       items: [
         "developers/backend/components",
-        "developers/backend/data_stream_component",
         "developers/backend/domains",
         "developers/backend/entities",
         "developers/backend/events",
+        "developers/backend/data_stream_component",
         "developers/backend/vis_object",
         "developers/backend/database",
         "developers/backend/logging",

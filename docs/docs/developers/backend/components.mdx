@@ -1,12 +1,6 @@
 # Components
 
-:::info
-
-The developer documentation is still under construction and this page is not complete.
-
-:::
-
-Viseron is built up of multiple components. These components are responsible for different tasks such as object detection, face recognition, recording etc.
+Viseron is architectured around the concept of components and domains. Components can provide any type of functionality and can optionally setup one or more [domains](./domains.mdx).
 This guide will walk you through the process of creating a new component.
 
 :::info
@@ -15,11 +9,50 @@ A component name of `fancy_component` will be used as an example throughout this
 
 :::
 
+## Component Architecture
+
+Components in Viseron can have two optional functions:
+
+| Function          | Purpose                                                                          | Required |
+| ----------------- | -------------------------------------------------------------------------------- | -------- |
+| `setup()`         | Component-level initialization (create shared resources, initialize connections) | No       |
+| `setup_domains()` | Register domains (cameras, detectors, etc.)                                      | No       |
+
+At least one of these functions must be present. The loading sequence is:
+
+1. `setup()` is called first (if it exists) - must return `True` on success
+2. `setup_domains()` is called after successful setup (if it exists)
+
+:::danger
+
+It is very important that `setup_domains()` only registers domains and nothing else, since this method can be called multiple times during hot-reloading of configuration changes.
+
+:::
+
+### What is a Domain?
+
+Domains are **interfaces** that define types of functionality in Viseron. Components implement domains to provide specific capabilities. For example:
+
+- The `camera` domain is implemented by both `ffmpeg` and `gstreamer` components
+- The `object_detector` domain is implemented by `darknet`, `edgetpu`, `hailo`, and others
+
+This plug-and-play architecture allows for loose coupling between components and makes it easier for users to swap implementations.
+
+For detailed information on implementing domains, see the [Domains](./domains.mdx) documentation.
+
+### Stateless vs Stateful Components
+
+**Stateless components** only need `setup_domains()`. These components don't initialize any shared resources and simply register domains. Examples: `ffmpeg`, `gstreamer`, `nvr`.
+
+**Stateful components** need both `setup()` and `setup_domains()`. These components initialize shared resources (neural networks, connections, etc.) in `setup()` before registering domains. Examples: `darknet`, `edgetpu`, `hailo`.
+
 ## Creating a new Component
 
 To create a new component called `fancy_component` you need to create the directory `viseron/components/fancy_component`. The directory name should be in lowercase.
 
-Inside the directory you need to create an `__init__.py` file with a `setup` function.
+### Stateless Component (setup_domains only)
+
+For simple components that only register domains without any shared state:
 
 ```python title="/viseron/components/fancy_component/__init__.py" showLineNumbers
 """The fancy_component component."""
@@ -31,11 +64,44 @@ if TYPE_CHECKING:
     from viseron import Viseron
 
 
+def setup_domains(vis: Viseron, config: dict[str, Any]) -> None:
+    """Set up domains for the fancy_component component."""
+    # Register your domains here
+    pass
+
+```
+
+### Stateful Component (setup + setup_domains)
+
+For components that need to initialize shared resources before registering domains:
+
+```python title="/viseron/components/fancy_component/__init__.py" showLineNumbers
+"""The fancy_component component."""
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from viseron import Viseron
+
+from .const import COMPONENT
+
+
 def setup(vis: Viseron, config: dict[str, Any]) -> bool:
-    """Set up the fancy_component component."""
-    # Your setup code for the fancy_component here
+    """Set up the fancy_component component.
+
+    Initialize shared resources here. This runs before setup_domains().
+    """
+    # Initialize shared resources (neural networks, connections, etc.)
+    vis.data[COMPONENT] = MySharedResource(config)
 
     return True
+
+
+def setup_domains(vis: Viseron, config: dict[str, Any]) -> None:
+    """Set up domains for the fancy_component component."""
+    # Register your domains here
+    pass
 
 ```
 
@@ -55,6 +121,50 @@ From here you can start adding your component code. The component will be loaded
 ```yaml title="/config/config.yaml"
 fancy_component:
 ```
+
+## Setting up Domains
+
+If your component needs to set up domains, use the `setup_domains()` function. This function is called after `setup()` (if present) and is responsible for registering all domains.
+
+This function should call `setup_domain()` for each domain instance your component provides.
+
+```python title="/viseron/components/fancy_component/__init__.py" showLineNumbers
+def setup_domains(vis: Viseron, config: dict[str, Any]) -> None:
+    """Set up fancy_component object detector domains."""
+    config = config[COMPONENT]
+
+    for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS].keys():
+        setup_domain(
+            vis,
+            COMPONENT,
+            CONFIG_OBJECT_DETECTOR,
+            config,
+            identifier=camera_identifier,
+            require_domains=[
+                RequireDomain(
+                    domain="camera",
+                    identifier=camera_identifier,
+                )
+            ],
+        )
+
+```
+
+:::danger
+
+It is very important that `setup_domains()` only registers domains and nothing else, since this method can be called multiple times during hot-reloading of configuration changes.
+
+:::
+
+:::tip Why separate setup() and setup_domains()?
+
+This separation enables **hot-reloading** of configuration changes. When a user updates their config:
+
+- `setup_domains()` can be called again to register new domains without re-initializing expensive shared resources
+- The domain registry prevents duplicate registration, so only new domains are added
+- Existing domains can be reloaded individually with updated configuration
+
+:::
 
 ## Configuration schema
 
@@ -170,79 +280,6 @@ The `Deprecated` validator has the following parameters:
 - `warning`: Displayed in the logs.
 
 :::
-
-## Setup domains
-
-If your component needs to set up domains, it has to be done in the components `setup` function.
-
-```python title="/viseron/components/fancy_component/__init__.py" showLineNumbers
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Any
-
-import voluptuous as vol
-
-from viseron.components.fancy_component.const import (
-    CONFIG_COOL_OPTION,
-    CONFIG_MOTION_DETECTOR,
-    DEFAULT_COOL_OPTION,
-    DESC_COOL_OPTION,
-    DESC_MOTION_DETECTOR,
-)
-from viseron.components.storage.const import COMPONENT, DESC_COMPONENT
-from viseron.domains import RequireDomain, setup_domain
-from viseron.domains.motion_detector import CAMERA_SCHEMA_SCANNER
-from viseron.domains.motion_detector.const import CONFIG_CAMERAS, DESC_CAMERAS
-from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
-
-if TYPE_CHECKING:
-    from viseron import Viseron
-
-
-CONFIG_SCHEMA = vol.Schema(
-    {
-        vol.Required(COMPONENT, description=DESC_COMPONENT): vol.Schema(
-            {
-                vol.Optional(
-                    CONFIG_COOL_OPTION,
-                    default=DEFAULT_COOL_OPTION,
-                    description=DESC_COOL_OPTION,
-                ): str,
-                vol.Required(
-                    CONFIG_MOTION_DETECTOR, description=DESC_MOTION_DETECTOR
-                ): {
-                    vol.Required(CONFIG_CAMERAS, description=DESC_CAMERAS): {
-                        CameraIdentifier(): vol.All(CoerceNoneToDict(), CAMERA_SCHEMA_SCANNER),
-                    },
-                },
-            }
-        )
-    },
-    extra=vol.ALLOW_EXTRA,
-)
-
-
-def setup(vis: Viseron, config: dict[str, Any]) -> bool:
-    """Set up the fancy_component component."""
-    config = config[COMPONENT]
-    for camera_identifier in config[CONFIG_MOTION_DETECTOR][CONFIG_CAMERAS].keys():
-        setup_domain(
-            vis,
-            COMPONENT,
-            CONFIG_MOTION_DETECTOR,
-            config,
-            identifier=camera_identifier,
-            require_domains=[
-                RequireDomain(
-                    domain="camera",
-                    identifier=camera_identifier,
-                )
-            ],
-        )
-
-    return True
-
-```
 
 ## Component documentation
 
