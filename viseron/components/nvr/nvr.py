@@ -877,7 +877,7 @@ class NVR(AbstractNVR):
         self.remove_frame(shared_frame)
 
     def unload(self) -> None:
-        """Unload motion detector."""
+        """Unload nvr."""
         for unsubscribe in self._listeners:
             unsubscribe()
         for scanner in self._frame_scanners.values():
