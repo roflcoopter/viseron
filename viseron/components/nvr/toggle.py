@@ -26,13 +26,17 @@ class ManualRecordingToggle(CameraToggle):
 
     def setup(self) -> None:
         """Set up event listener."""
-        self._vis.listen_event(
-            EVENT_RECORDER_START.format(camera_identifier=self._camera.identifier),
-            self.handle_event,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_RECORDER_START.format(camera_identifier=self._camera.identifier),
+                self.handle_event,
+            )
         )
-        self._vis.listen_event(
-            EVENT_RECORDER_STOP.format(camera_identifier=self._camera.identifier),
-            self.handle_event,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_RECORDER_STOP.format(camera_identifier=self._camera.identifier),
+                self.handle_event,
+            )
         )
 
     def handle_event(self, _event_data: Event[EventRecorderData]) -> None:

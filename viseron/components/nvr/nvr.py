@@ -10,13 +10,13 @@ import datetime
 import logging
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from queue import Empty, Queue
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
-from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.components.nvr.const import COMPONENT
 from viseron.components.nvr.sensor import OperationStateSensor
 from viseron.components.nvr.toggle import ManualRecordingToggle
@@ -43,6 +43,7 @@ from viseron.watchdog.thread_watchdog import RestartableThread
 from .const import (
     DATA_NO_DETECTOR_RESULT,
     DATA_NO_DETECTOR_SCAN,
+    DOMAIN,
     EVENT_OPERATION_STATE,
     EVENT_PROCESSED_FRAME_TOPIC,
     EVENT_SCAN_FRAMES,
@@ -162,7 +163,8 @@ class FrameIntervalCalculator:
         self._frame_number = 0
         self.result_queue: Queue = Queue(maxsize=1)
 
-        self._vis.listen_event(topic_result, self.result_queue)
+        self._listeners: list[Callable] = []
+        self._listeners.append(self._vis.listen_event(topic_result, self.result_queue))
 
         self.calculate_scan_interval(output_fps)
 
@@ -232,6 +234,11 @@ class FrameIntervalCalculator:
         """Return domain instance of scanner."""
         return self._domain_instance
 
+    def unload(self) -> None:
+        """Unload frame interval calculator."""
+        for unsubscribe in self._listeners:
+            unsubscribe()
+
 
 class NVR(AbstractNVR):
     """NVR class that orchestrates all handling of camera streams."""
@@ -259,7 +266,6 @@ class NVR(AbstractNVR):
         self._manual_recording: ManualRecording | None = None
         self._start_manual_recording = False
         self._kill_received = False
-        self._data_stream = vis.data[DATA_STREAM_COMPONENT]
         self._removal_timers: list[threading.Timer] = []
         self._operation_state = None
 
@@ -364,7 +370,10 @@ class NVR(AbstractNVR):
         self.set_post_processors()
 
         self._frame_queue: Queue[Event[EventFrameBytesData]] = Queue(maxsize=100)
-        self._vis.listen_event(self._camera.frame_bytes_topic, self._frame_queue)
+        self._listeners: list[Callable] = []
+        self._listeners.append(
+            self._vis.listen_event(self._camera.frame_bytes_topic, self._frame_queue)
+        )
         self._nvr_thread = RestartableThread(
             name=str(self),
             target=self.run,
@@ -377,11 +386,15 @@ class NVR(AbstractNVR):
         if self._frame_scanners:
             self.calculate_output_fps(list(self._frame_scanners.values()))
 
-        vis.data.setdefault(COMPONENT, {})[camera_identifier] = self
-        vis.add_entity(COMPONENT, OperationStateSensor(vis, self))
-        vis.add_entity(COMPONENT, ManualRecordingToggle(vis, self))
-
-        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
+        vis.add_entity(
+            COMPONENT, OperationStateSensor(vis, self), DOMAIN, self._camera.identifier
+        )
+        vis.add_entity(
+            COMPONENT, ManualRecordingToggle(vis, self), DOMAIN, self._camera.identifier
+        )
+        self._listeners.append(
+            vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
+        )
 
         self._camera.start_camera()
         self._logger.info(f"NVR for camera {self._camera.name} initialized")
@@ -862,6 +875,14 @@ class NVR(AbstractNVR):
             store=False,
         )
         self.remove_frame(shared_frame)
+
+    def unload(self) -> None:
+        """Unload nvr."""
+        for unsubscribe in self._listeners:
+            unsubscribe()
+        for scanner in self._frame_scanners.values():
+            scanner.unload()
+        self._nvr_thread.stop()  # indirectly calls self.stop thru stop_target
 
     def stop(self) -> None:
         """Stop processing of events."""

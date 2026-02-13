@@ -31,9 +31,13 @@ class OperationStateSensor(CameraSensor):
 
     def setup(self) -> None:
         """Set up event listener."""
-        self._vis.listen_event(
-            EVENT_OPERATION_STATE.format(camera_identifier=self.nvr.camera.identifier),
-            self.handle_event,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_OPERATION_STATE.format(
+                    camera_identifier=self.nvr.camera.identifier
+                ),
+                self.handle_event,
+            )
         )
 
     def handle_event(self, event_data: Event[EventOperationState]) -> None:
