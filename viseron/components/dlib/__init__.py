@@ -1,4 +1,4 @@
-"""DeepStack object detection."""
+"""Dlib face recognition."""
 import logging
 import os
 
@@ -54,11 +54,15 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config) -> bool:
-    """Set up the edgetpu component."""
-    config = config[COMPONENT]
-
+def setup(vis: Viseron, _config) -> bool:
+    """Set up the dlib component."""
     vis.data[COMPONENT] = {}
+    return True
+
+
+def setup_domains(vis: Viseron, config) -> None:
+    """Set up dlib domains."""
+    config = config[COMPONENT]
 
     if config.get(CONFIG_FACE_RECOGNITION, None):
         for camera_identifier in config[CONFIG_FACE_RECOGNITION][CONFIG_CAMERAS].keys():
@@ -79,5 +83,3 @@ def setup(vis: Viseron, config) -> bool:
                     ),
                 ],
             )
-
-    return True

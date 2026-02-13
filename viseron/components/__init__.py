@@ -124,7 +124,18 @@ class Component:
         if config:
             try:
                 slow_setup_warning.start()
-                result = component_module.setup(self._vis, config)
+                # setup() is optional for stateless components
+                if hasattr(component_module, "setup"):
+                    result = component_module.setup(self._vis, config)
+                else:
+                    # No setup function, assume success if setup_domains exists
+                    if hasattr(component_module, "setup_domains"):
+                        result = True
+                    else:
+                        LOGGER.error(
+                            f"Component {self.name} has neither setup() "
+                            "nor setup_domains()"
+                        )
             except ComponentNotReady as error:
                 if self._vis.shutdown_event.is_set():
                     LOGGER.warning(
@@ -172,6 +183,16 @@ class Component:
 
         end = timer()
         if result is True:
+            # Call setup_domains if it exists to register domains
+            if hasattr(component_module, "setup_domains"):
+                try:
+                    component_module.setup_domains(self._vis, config)
+                except Exception as ex:  # pylint: disable=broad-except
+                    LOGGER.error(
+                        f"Uncaught exception in setup_domains for component "
+                        f"{self.name}: {ex}\n{traceback.format_exc()}"
+                    )
+                    return False
             LOGGER.info(
                 "Setup of component %s took %.1f seconds",
                 self.name,

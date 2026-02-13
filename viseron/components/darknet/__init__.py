@@ -133,6 +133,13 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     else:
         vis.data[COMPONENT] = DarknetDNN(vis, config[CONFIG_OBJECT_DETECTOR])
 
+    return True
+
+
+def setup_domains(vis: Viseron, config: dict[str, Any]) -> None:
+    """Set up darknet domains."""
+    config = config[COMPONENT]
+
     for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS].keys():
         setup_domain(
             vis,
@@ -153,8 +160,6 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
                 ),
             ],
         )
-
-    return True
 
 
 class LoadDarknetError(ViseronError):

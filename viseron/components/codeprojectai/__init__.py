@@ -107,8 +107,19 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config) -> bool:
-    """Set up the edgetpu component."""
+def setup(_vis: Viseron, config) -> bool:
+    """Set up the codeprojectai component."""
+    config = config[COMPONENT]
+
+    if config.get(CONFIG_FACE_RECOGNITION, None):
+        if config[CONFIG_FACE_RECOGNITION][CONFIG_TRAIN]:
+            CodeProjectAITrain(config)
+
+    return True
+
+
+def setup_domains(vis: Viseron, config) -> None:
+    """Set up codeprojectai domains."""
     config = config[COMPONENT]
 
     if config.get(CONFIG_OBJECT_DETECTOR, None):
@@ -149,9 +160,6 @@ def setup(vis: Viseron, config) -> bool:
                 ],
             )
 
-        if config[CONFIG_FACE_RECOGNITION][CONFIG_TRAIN]:
-            CodeProjectAITrain(config)
-
     if config.get(CONFIG_LICENSE_PLATE_RECOGNITION, None):
         for camera_identifier in config[CONFIG_LICENSE_PLATE_RECOGNITION][
             CONFIG_CAMERAS
@@ -169,5 +177,3 @@ def setup(vis: Viseron, config) -> bool:
                     )
                 ],
             )
-
-    return True
