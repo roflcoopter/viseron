@@ -1,5 +1,5 @@
-import type { Config } from "@docusaurus/types";
 import type * as Preset from "@docusaurus/preset-classic";
+import type { Config } from "@docusaurus/types";
 import { themes } from "prism-react-renderer";
 
 const lightCodeTheme = themes.github;
@@ -14,10 +14,16 @@ const config: Config = {
   url: SITE_URL,
   baseUrl: "/",
   onBrokenLinks: "throw",
-  onBrokenMarkdownLinks: "warn",
   favicon: "img/favicon.ico",
   organizationName: "roflcoopter",
   projectName: PROJECT.toLowerCase(),
+
+  markdown: {
+    mermaid: true,
+    hooks: {
+      onBrokenMarkdownLinks: "warn",
+    },
+  },
 
   presets: [
     [
@@ -54,7 +60,6 @@ const config: Config = {
           label: "Components",
           position: "left",
         },
-        
         {
           type: "doc",
           docId: "contributing",
@@ -78,13 +83,13 @@ const config: Config = {
           position: "right",
         },
         {
-          type: 'html',
-          position: 'right',
+          type: "html",
+          position: "right",
           value: `
             <span class="docker-pull-count">
               <img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/roflcoopter/viseron?color=blue">
             </span>
-          `
+          `,
         },
       ],
     },
@@ -158,6 +163,7 @@ const config: Config = {
     },
   } satisfies Preset.ThemeConfig,
   themes: [
+    "@docusaurus/theme-mermaid",
     [
       require.resolve("@easyops-cn/docusaurus-search-local"),
       {
@@ -170,9 +176,7 @@ const config: Config = {
     ],
   ],
   plugins: ["@docusaurus/plugin-ideal-image"],
-  clientModules: [
-    require.resolve("./src/lib/injectVersion.ts")
-  ],
+  clientModules: [require.resolve("./src/lib/injectVersion.ts")],
 };
 
 export default config;

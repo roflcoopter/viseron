@@ -90,6 +90,12 @@ def setup(vis: Viseron, config) -> bool:
     LOGGER.debug(f"Available devices: {available_devices()}")
     config = config[COMPONENT]
     vis.data[COMPONENT] = {}
+    return True
+
+
+def setup_domains(vis: Viseron, config) -> None:
+    """Set up edgetpu domains."""
+    config = config[COMPONENT]
 
     if config.get(CONFIG_OBJECT_DETECTOR, None):
         for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS].keys():
@@ -129,7 +135,6 @@ def setup(vis: Viseron, config) -> bool:
                     ),
                 ],
             )
-    return True
 
 
 def available_devices():

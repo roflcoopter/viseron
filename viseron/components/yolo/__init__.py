@@ -81,8 +81,8 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config: dict[str, Any]) -> bool:
-    """Set up YOLO component."""
+def setup_domains(vis: Viseron, config: dict[str, Any]) -> None:
+    """Set up YOLO domains."""
     config = config[COMPONENT]
 
     if config.get(CONFIG_OBJECT_DETECTOR, None):
@@ -100,5 +100,3 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
                     )
                 ],
             )
-
-    return True
