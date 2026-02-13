@@ -68,6 +68,9 @@ stages:
             inputs:
               command: login
               containerRegistry: "Docker Hub"
+
+          - template: templates/cleanup.yaml
+
           - script: |
               set -e
               export DOCKER_CLI_EXPERIMENTAL=enabled
