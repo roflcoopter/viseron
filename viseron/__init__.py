@@ -305,7 +305,7 @@ class Viseron:
         """Return the domain registry."""
         return self._domain_registry
 
-    def register_signal_handler(self, viseron_signal, callback):
+    def register_signal_handler(self, viseron_signal, callback) -> Callable[[], None]:
         """Register a callback which gets called on signals emitted by Viseron.
 
         Signals currently available:
@@ -316,7 +316,7 @@ class Viseron:
                 f"Failed to register signal handler for {viseron_signal}: "
                 f"{DATA_STREAM_COMPONENT} is not loaded"
             )
-            return False
+            raise DataStreamNotLoaded
 
         try:
             SIGNAL_SCHEMA(viseron_signal)
@@ -324,7 +324,7 @@ class Viseron:
             LOGGER.error(
                 f"Failed to register signal handler for {viseron_signal}: {err}"
             )
-            return False
+            raise ValueError(f"Invalid signal {viseron_signal}") from err
 
         data_stream: DataStream = self.data[DATA_STREAM_COMPONENT]
         topic = VISERON_SIGNALS[viseron_signal]
