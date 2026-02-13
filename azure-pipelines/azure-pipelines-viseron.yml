@@ -78,34 +78,26 @@ stages:
               function create_manifest() {
                 local release_version=$1
 
-                docker manifest create roflcoopter/viseron:${release_version} \
+                docker buildx imagetools create \
+                  --debug \
+                  --tag roflcoopter/viseron:${release_version} \
                   roflcoopter/amd64-viseron:${release_version} \
                   roflcoopter/rpi3-viseron:${release_version} \
                   roflcoopter/aarch64-viseron:${release_version}
 
-                docker manifest annotate roflcoopter/viseron:${release_version} \
-                  roflcoopter/amd64-viseron:${release_version} \
-                  --os linux --arch amd64
-
-                docker manifest annotate roflcoopter/viseron:${release_version} \
-                  roflcoopter/rpi3-viseron:${release_version} \
-                  --os linux --arch arm --variant=v7
-
-                docker manifest annotate roflcoopter/viseron:${release_version} \
-                  roflcoopter/aarch64-viseron:${release_version} \
-                  --os linux --arch arm64 --variant=v8
-
-                docker manifest push --purge roflcoopter/viseron:${release_version}
                 docker manifest inspect roflcoopter/viseron:${release_version}
               }
 
+              echo "Pulling architecture-specific images for version $(viseronVersion)"
               docker pull roflcoopter/amd64-viseron:$(viseronVersion)
               docker pull roflcoopter/rpi3-viseron:$(viseronVersion)
               docker pull roflcoopter/aarch64-viseron:$(viseronVersion)
 
               # Create version tag
-              create_manifest "$(viseronVersion)"
+              echo "Creating and pushing multi-arch manifest for $(viseronVersion)"
+              create_manifest $(viseronVersion)
               if [ $(latestRelease) = true ] ; then
+                echo "Tagging as latest"
                 create_manifest "latest"
               fi
             displayName: "Create multi-arch image"
