@@ -303,6 +303,8 @@ class AbstractObjectDetector(AbstractDomain):
                     ObjectDetectedBinarySensorFoVLabel(
                         vis, object_filter[CONFIG_LABEL_LABEL], self._camera
                     ),
+                    DOMAIN,
+                    camera_identifier,
                 )
 
         self.zones: list[Zone] = []
@@ -360,8 +362,18 @@ class AbstractObjectDetector(AbstractDomain):
                 )
                 self._scan_on_motion_only = False
 
-        vis.add_entity(component, ObjectDetectedBinarySensorFoV(vis, self._camera))
-        vis.add_entity(component, ObjectDetectorFPSSensor(vis, self, self._camera))
+        vis.add_entity(
+            component,
+            ObjectDetectedBinarySensorFoV(vis, self._camera),
+            DOMAIN,
+            camera_identifier,
+        )
+        vis.add_entity(
+            component,
+            ObjectDetectorFPSSensor(vis, self, self._camera),
+            DOMAIN,
+            camera_identifier,
+        )
 
     def __post_init__(self, *args, **kwargs):
         """Post init hook."""
@@ -603,7 +615,14 @@ class AbstractObjectDetector(AbstractDomain):
         detector.
         """
 
+    def unload(self) -> None:
+        """Unload object detector."""
+        for unsubscribe in self._listeners:
+            unsubscribe()
+        self.stop()
+
     def stop(self) -> None:
         """Stop object detector."""
         self._kill_received = True
+        self._object_detection_thread.stop()
         self._object_detection_thread.join()

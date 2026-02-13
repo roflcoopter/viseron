@@ -18,6 +18,7 @@ from .const import (
     CONFIG_COORDINATES,
     CONFIG_LABELS,
     CONFIG_ZONE_NAME,
+    DOMAIN,
     EVENT_OBJECTS_IN_ZONE,
 )
 
@@ -67,6 +68,8 @@ class Zone:
                     ObjectDetectedBinarySensorZoneLabel(
                         vis, self, object_filter[CONFIG_LABEL_LABEL], self._camera
                     ),
+                    DOMAIN,
+                    camera_identifier,
                 )
 
         else:
@@ -77,6 +80,8 @@ class Zone:
         vis.add_entity(
             component,
             ObjectDetectedBinarySensorZone(vis, self, self._camera),
+            DOMAIN,
+            camera_identifier,
         )
 
     def filter_zone(
