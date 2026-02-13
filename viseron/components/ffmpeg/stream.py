@@ -557,7 +557,9 @@ class Stream:
 
     def record_only(self):
         """Record only the stream."""
-        self._logger.debug(f"Recording only stream: {' '.join(self.build_command())}")
+        self._logger.debug(
+            f"Recording only stream: {' '.join(self.build_segment_command())}"
+        )
         try:
             if self._log_pipe:
                 self._log_pipe.close()
