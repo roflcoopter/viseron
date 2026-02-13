@@ -14,12 +14,12 @@ import tornado.ioloop
 import tornado.web
 from tornado.queues import Queue
 
-from viseron.components.nvr import COMPONENT as NVR_COMPONENT
 from viseron.components.nvr.const import EVENT_PROCESSED_FRAME_TOPIC
 from viseron.const import TOPIC_STATIC_MJPEG_STREAMS
 from viseron.domains.camera.config import MJPEG_STREAM_SCHEMA
 from viseron.domains.motion_detector import AbstractMotionDetectorScanner
 from viseron.events import EventData
+from viseron.exceptions import DomainNotRegisteredError
 from viseron.helpers import (
     draw_contours,
     draw_motion_mask,
@@ -28,6 +28,7 @@ from viseron.helpers import (
     draw_post_processor_mask,
     draw_zones,
 )
+from viseron.types import Domain
 
 from .request_handler import ViseronRequestHandler
 
@@ -179,14 +180,9 @@ class DynamicStreamHandler(StreamHandler):
                 self.finish()
                 return
 
-            nvr_data = self._vis.data.get(NVR_COMPONENT, None)
-            if not nvr_data:
-                tries += 1
-                await asyncio.sleep(1)
-                continue
-
-            nvr = self._vis.data[NVR_COMPONENT].get(camera, None)
-            if not nvr:
+            try:
+                nvr = self._vis.get_registered_domain(Domain.NVR, camera)
+            except DomainNotRegisteredError:
                 tries += 1
                 await asyncio.sleep(1)
                 continue
@@ -268,14 +264,9 @@ class StaticStreamHandler(StreamHandler):
                 self.finish()
                 return
 
-            nvr_data = self._vis.data.get(NVR_COMPONENT, None)
-            if not nvr_data:
-                tries += 1
-                await asyncio.sleep(1)
-                continue
-
-            nvr = self._vis.data[NVR_COMPONENT].get(camera, None)
-            if not nvr:
+            try:
+                nvr = self._vis.get_registered_domain(Domain.NVR, camera)
+            except DomainNotRegisteredError:
                 tries += 1
                 await asyncio.sleep(1)
                 continue
