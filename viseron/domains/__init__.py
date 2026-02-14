@@ -17,6 +17,7 @@ from voluptuous.humanize import humanize_error
 from viseron.const import (
     DOMAIN_RETRY_INTERVAL,
     DOMAIN_RETRY_INTERVAL_MAX,
+    LOADED,
     LOADING,
     SLOW_DEPENDENCY_WARNING,
     SLOW_SETUP_WARNING,
@@ -90,7 +91,9 @@ def setup_domain(
     optional_domains: list[OptionalDomain] | None = None,
 ) -> None:
     """Set up single domain."""
-    component_instance = vis.data[LOADING][component]
+    component_instance = vis.data[LOADING].get(
+        component, vis.data[LOADED].get(component, None)
+    )
     component_instance.add_domain_to_setup(
         domain, config, identifier, require_domains, optional_domains
     )
@@ -464,7 +467,7 @@ def get_unload_order(
 
         # Then add this domain
         entry = registry.get(_domain, _identifier)
-        if entry and entry.state == DomainState.LOADED:
+        if entry:
             unload_order.append(entry)
 
     traverse(domain, identifier)
@@ -480,9 +483,9 @@ def unload_domain(
     registry = vis.domain_registry
     entry = registry.get(domain, identifier)
 
-    if not entry or entry.state != DomainState.LOADED:
+    if not entry:
         LOGGER.error(
-            f"Domain {domain} with identifier {identifier} not loaded, cannot unload"
+            f"Domain {domain} with identifier {identifier} not found, cannot unload"
         )
         return None
 
@@ -497,7 +500,8 @@ def unload_domain(
     identifiers = domain_info.get("identifiers") if domain_info else None
     entities_to_remove = identifiers.get(identifier, []) if identifiers else []
 
-    for entity_id in entities_to_remove:
+    # Need to use copy since unload_entity mutates the array
+    for entity_id in entities_to_remove.copy():
         vis.states.unload_entity(entity_id)
 
     # Call domain's unload method

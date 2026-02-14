@@ -126,12 +126,11 @@ class DomainRegistry:
         with self._lock:
             if domain in self._domains and identifier in self._domains[domain]:
                 existing = self._domains[domain][identifier]
-                if existing.state in (DomainState.LOADED, DomainState.LOADING):
-                    LOGGER.warning(
-                        f"Domain {domain} with identifier {identifier} already "
-                        f"registered (state: {existing.state.value}). Skipping",
-                    )
-                    return existing
+                LOGGER.warning(
+                    f"Domain {domain} with identifier {identifier} already "
+                    f"registered (state: {existing.state.value}). Skipping",
+                )
+                return existing
 
             entry = DomainEntry(
                 component_name=component_name,
@@ -344,6 +343,11 @@ class DomainRegistry:
         with self._lock:
             return self._get_entry(domain, identifier) is not None
 
+    def get_by_identifier(self, domain: str, identifier: str) -> DomainEntry | None:
+        """Get a domain entry by domain and identifier."""
+        with self._lock:
+            return self._get_entry(domain, identifier)
+
     def get_by_component(self, component_name: str) -> list[DomainEntry]:
         """Get all domains for a specific component."""
         with self._lock:
@@ -352,17 +356,6 @@ class DomainRegistry:
                 for domain_entries in self._domains.values()
                 for entry in domain_entries.values()
                 if entry.component_name == component_name
-            ]
-
-    def get_loaded_by_component(self, component_name: str) -> list[DomainEntry]:
-        """Get all loaded domains for a specific component."""
-        with self._lock:
-            return [
-                entry
-                for domain_entries in self._domains.values()
-                for entry in domain_entries.values()
-                if entry.component_name == component_name
-                and entry.state == DomainState.LOADED
             ]
 
     def get_dependents(
@@ -376,8 +369,6 @@ class DomainRegistry:
         with self._lock:
             for domain_entries in self._domains.values():
                 for entry in domain_entries.values():
-                    if entry.state != DomainState.LOADED:
-                        continue
                     # Check require_domains
                     for req in entry.require_domains:
                         if (

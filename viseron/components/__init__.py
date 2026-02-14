@@ -23,6 +23,7 @@ from viseron.const import (
     VISERON_SIGNAL_SHUTDOWN,
 )
 from viseron.domain_registry import DomainEntry, DomainState
+from viseron.domains import get_unload_order, unload_domain
 from viseron.exceptions import ComponentNotReady
 from viseron.helpers.named_timer import NamedTimer
 from viseron.helpers.storage import Storage
@@ -49,6 +50,8 @@ LOGGER = logging.getLogger(__name__)
 
 class Component:
     """Represents a Viseron component."""
+
+    retry_timers: dict[str, NamedTimer] = {}
 
     def __init__(
         self,
@@ -80,8 +83,9 @@ class Component:
         """Return component module."""
         return importlib.import_module(self._path)
 
-    def validate_component_config(self, component_module) -> dict | bool | None:
+    def validate_component_config(self) -> dict | bool | None:
         """Validate component config."""
+        component_module = self.get_component()
         if hasattr(component_module, "CONFIG_SCHEMA"):
             try:
                 return component_module.CONFIG_SCHEMA(self._config)
@@ -117,7 +121,7 @@ class Component:
         )
 
         component_module = self.get_component()
-        config = self.validate_component_config(component_module)
+        config = self.validate_component_config()
 
         start = timer()
         result: bool | Any = False
@@ -159,6 +163,7 @@ class Component:
                     name=f"{self.name}_retry_timer",
                     daemon=True,
                 )
+                self.retry_timers[self.name] = retry_timer
 
                 def cancel_retry_timer() -> None:
                     """Cancel retry timer."""
@@ -289,6 +294,59 @@ def setup_component(
         LOGGER.error(f"Failed to load component {component.name}: {err}")
         vis.data[FAILED][component.name] = component
         del vis.data[LOADING][component.name]
+
+
+def unload_component(vis: Viseron, component: str) -> set[str] | None:
+    """Unload a component."""
+    # Cancel any ComponentNotReady retries to allow reload
+    if retry_timer := Component.retry_timers.pop(component, None):
+        LOGGER.debug(f"Cancelling retry timer {retry_timer.name}")
+        retry_timer.cancel()
+
+    component_instance: Component | None = vis.data[LOADED].get(component, None)
+    if component_instance is None:
+        LOGGER.debug(f"Component {component} not found for unload")
+        return None
+
+    # Keep track of other components that are affected by this unload
+    affected_components = set()
+    # Unload any domains that were registered by this component
+    domains_to_unload = vis.domain_registry.get_by_component(component)
+    if domains_to_unload:
+        LOGGER.debug(
+            "Component %s has %d domains to unload: %s",
+            component,
+            len(domains_to_unload),
+            [(e.domain, e.identifier) for e in domains_to_unload],
+        )
+
+        for entry in domains_to_unload:
+            unload_order = get_unload_order(vis, entry.domain, entry.identifier)
+            for e in unload_order:
+                unload_domain(vis, e.domain, e.identifier)
+                if e.component_name != component:
+                    affected_components.add(e.component_name)
+
+    # Unload component-level entities
+    entity_owner = vis.states.entity_owner.get(component, None)
+    if entity_owner:
+        for entity_id in list(vis.states.get_entities().keys()):
+            # Need to use copy since unload_entity mutates the array
+            if entity_id in entity_owner.get("entities", []).copy():
+                vis.states.unload_entity(entity_id)
+
+    # Call component's unload method
+    component_module = component_instance.get_component()
+    if hasattr(component_module, "unload"):
+        try:
+            component_module.unload()
+        except Exception as ex:  # pylint: disable=broad-except
+            LOGGER.error(f"Error unloading component {component}: {ex}")
+    else:
+        LOGGER.debug(f"Component {component} has no unload method")
+
+    del vis.data[LOADED][component]
+    return affected_components
 
 
 STORAGE_KEY = "critical_components_config"

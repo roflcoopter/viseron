@@ -39,24 +39,6 @@ class TestGetUnloadOrder:
         assert result[0].domain == "camera"
         assert result[0].identifier == "cam1"
 
-    def test_domain_not_loaded_excluded(self, vis: MockViseron):
-        """Test that domains not in LOADED state are excluded."""
-        registry = vis.domain_registry
-
-        # Register but don't load
-        registry.register(
-            component_name="test_comp",
-            component_path="test.path",
-            domain="camera",
-            identifier="cam1",
-            config={},
-        )
-        # Leave in PENDING state
-
-        result = get_unload_order(vis, "camera", "cam1")
-
-        assert len(result) == 0
-
     def test_domain_with_multiple_dependents(self, vis: MockViseron):
         """Test unload order with multiple dependent domains."""
         registry = vis.domain_registry
@@ -146,37 +128,6 @@ class TestGetUnloadOrder:
         assert result[1].domain == "object_detector"
         assert result[2].domain == "camera"
 
-    def test_dependent_not_loaded_excluded(self, vis: MockViseron):
-        """Test that dependents not in LOADED state are excluded."""
-        registry = vis.domain_registry
-
-        # Register and load base domain
-        registry.register(
-            component_name="camera_comp",
-            component_path="camera.path",
-            domain="camera",
-            identifier="cam1",
-            config={},
-        )
-        registry.set_state("camera", "cam1", DomainState.LOADED)
-
-        # Register dependent but leave in FAILED state
-        registry.register(
-            component_name="nvr_comp",
-            component_path="nvr.path",
-            domain="nvr",
-            identifier="cam1",
-            config={},
-            require_domains=[RequireDomain("camera", "cam1")],
-        )
-        registry.set_state("nvr", "cam1", DomainState.FAILED)
-
-        result = get_unload_order(vis, "camera", "cam1")
-
-        # Only camera should be in the list
-        assert len(result) == 1
-        assert result[0].domain == "camera"
-
     def test_nonexistent_domain(self, vis: MockViseron):
         """Test unload order for a domain that doesn't exist."""
         result = get_unload_order(vis, "nonexistent", "id1")  # type: ignore[arg-type]
@@ -258,32 +209,6 @@ class TestGetUnloadOrder:
 
 class TestUnloadDomain:
     """Test unload_domain function."""
-
-    @pytest.mark.parametrize(
-        "state,expected_result",
-        [
-            (DomainState.PENDING, None),
-            (DomainState.FAILED, None),
-            (None, None),  # Domain not registered
-        ],
-    )
-    def test_unload_invalid_states(self, vis: MockViseron, state, expected_result):
-        """Test unload fails for invalid states."""
-        registry = vis.domain_registry
-        if state is not None:
-            # Register domain but don't set to LOADED
-            registry.register(
-                component_name="test_comp",
-                component_path="test.path",
-                domain="camera",
-                identifier="cam1",
-                config={},
-            )
-            if state != DomainState.PENDING:
-                registry.set_state("camera", "cam1", state)
-
-        result = unload_domain(vis, "camera", "cam1")
-        assert result == expected_result
 
     def test_unload_domain_success(self, vis: MockViseron):
         """Test successful domain unload."""
