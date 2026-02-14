@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from concurrent.futures import Future
+from concurrent.futures import Future, ThreadPoolExecutor
 from logging import DEBUG
 from unittest.mock import Mock, patch
 
@@ -14,7 +14,9 @@ from viseron.domains import (
     OptionalDomain,
     RequireDomain,
     _handle_failed_domain,
+    _schedule_domain_setup,
     _setup_single_domain,
+    _submit_domain_setup,
     _wait_for_dependencies,
     get_unload_order,
     reload_domain,
@@ -1049,3 +1051,94 @@ class TestSetupSingleDomain:
         assert result is False
         assert entry.state == DomainState.FAILED
         assert entry.error is not None and "Dependencies failed" in entry.error
+
+
+class TestDomainScheduling:
+    """Test domain scheduling functions."""
+
+    def test_submit_domain_setup_skips_if_future_exists(self, vis: MockViseron) -> None:
+        """Test _submit_domain_setup skips if future already exists."""
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        future: Future[bool] = Future()
+        vis.domain_registry.set_future("camera", "cam1", future)
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            _submit_domain_setup(vis, executor, entry)
+            assert vis.domain_registry.get_future("camera", "cam1") is future
+
+    def test_submit_domain_setup_creates_future(self, vis: MockViseron) -> None:
+        """Test _submit_domain_setup creates future when none exists."""
+        mock_domain = MockDomainModule(setup_return=True)
+
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_domain
+        ):
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                _submit_domain_setup(vis, executor, entry)
+                # Wait for completion
+                future = vis.domain_registry.get_future("camera", "cam1")
+                assert future is not None
+                future.result()
+
+    def test_schedule_domain_setup_schedules_dependencies_first(
+        self, vis: MockViseron
+    ) -> None:
+        """Test _schedule_domain_setup schedules required deps first."""
+        mock_domain = MockDomainModule(setup_return=True)
+
+        # Register dependency
+        vis.domain_registry.register(
+            component_name="dep_comp",
+            component_path="dep.path",
+            domain="object_detector",
+            identifier="detector1",
+            config={},
+        )
+
+        # Register main domain with dependency
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+            require_domains=[RequireDomain("object_detector", "detector1")],
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_domain
+        ):
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                _schedule_domain_setup(vis, executor, entry)
+
+                cam_future = vis.domain_registry.get_future("camera", "cam1")
+                det_future = vis.domain_registry.get_future(
+                    "object_detector", "detector1"
+                )
+
+                assert cam_future is not None
+                assert det_future is not None
+
+                det_future.result()
+                cam_future.result()
