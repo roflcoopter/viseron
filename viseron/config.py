@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 from ruamel.yaml import YAML
 
 from viseron.const import CONFIG_PATH, DEFAULT_CONFIG, DEFAULT_PORT, SECRETS_PATH
+from viseron.types import Domain
 
 if TYPE_CHECKING:
     from viseron.types import SupportedDomains
@@ -204,6 +205,146 @@ class DomainChange:
                 new_identifiers[identifier] = cameras[identifier]
 
         return old_identifiers, new_identifiers
+
+
+@dataclass
+class ComponentChange:
+    """Represents a change to a component configuration."""
+
+    component_name: str
+    old_config: dict[str, Any] | None
+    new_config: dict[str, Any] | None
+    domain_changes: list[DomainChange] = field(default_factory=list)
+
+    @property
+    def is_added(self) -> bool:
+        """Return True if this component was added."""
+        return self.old_config is None and self.new_config is not None
+
+    @property
+    def is_removed(self) -> bool:
+        """Return True if this component was removed."""
+        return self.old_config is not None and self.new_config is None
+
+    @property
+    def is_component_level_change(self) -> bool:
+        """Return True if component-level config changed (not just domains)."""
+        if self.is_added or self.is_removed:
+            return True
+
+        if self.old_config is None or self.new_config is None:
+            return False
+
+        old_non_domain_config = copy.deepcopy(self.old_config)
+        new_non_domain_config = copy.deepcopy(self.new_config)
+        for domain in Domain:
+            old_non_domain_config.pop(domain.value, None)
+            new_non_domain_config.pop(domain.value, None)
+        return old_non_domain_config != new_non_domain_config
+
+    def get_domain_configs(
+        self,
+    ) -> tuple[dict[SupportedDomains, Any], dict[SupportedDomains, Any]]:
+        """Return old and new domain configurations as dictionaries."""
+        old_domains: dict[SupportedDomains, Any] = {}
+        new_domains: dict[SupportedDomains, Any] = {}
+
+        if self.old_config is not None:
+            for domain in Domain:
+                domain_value: SupportedDomains = domain.value
+                if domain_value in self.old_config:
+                    old_domains[domain_value] = self.old_config[domain_value]
+
+        if self.new_config is not None:
+            for domain in Domain:
+                domain_value = domain.value
+                if domain_value in self.new_config:
+                    new_domains[domain_value] = self.new_config[domain_value]
+
+        return old_domains, new_domains
+
+
+@dataclass
+class ConfigDiff:
+    """Represents the difference between two configurations."""
+
+    component_changes: dict[str, ComponentChange] = field(default_factory=dict)
+
+    @property
+    def has_changes(self) -> bool:
+        """Return True if there are any changes."""
+        return len(self.component_changes) > 0
+
+    def get_added_components(self) -> list[str]:
+        """Return list of added component names."""
+        return [
+            name for name, change in self.component_changes.items() if change.is_added
+        ]
+
+    def get_removed_components(self) -> list[str]:
+        """Return list of removed component names."""
+        return [
+            name for name, change in self.component_changes.items() if change.is_removed
+        ]
+
+    def get_modified_components(self) -> list[str]:
+        """Return list of component names with any changes (not added or removed)."""
+        return [
+            name
+            for name, change in self.component_changes.items()
+            if not change.is_added and not change.is_removed
+        ]
+
+    def get_component_change(self, component_name: str) -> ComponentChange | None:
+        """Return the ComponentChange for a given component name."""
+        return self.component_changes.get(component_name, None)
+
+
+def diff_config(old_config: dict[str, Any], new_config: dict[str, Any]) -> ConfigDiff:
+    """Compare two configurations and return the differences.
+
+    Args:
+        old_config: The previous configuration dictionary
+        new_config: The new configuration dictionary
+
+    Returns:
+        ConfigDiff containing all changes between configurations
+    """
+    result = ConfigDiff()
+
+    # Get all component names from both configs
+    old_components = set(old_config.keys())
+    new_components = set(new_config.keys())
+
+    # Added components
+    for component_name in new_components - old_components:
+        result.component_changes[component_name] = ComponentChange(
+            component_name=component_name,
+            old_config=None,
+            new_config=copy.deepcopy(new_config[component_name]),
+        )
+
+    # Removed components
+    for component_name in old_components - new_components:
+        result.component_changes[component_name] = ComponentChange(
+            component_name=component_name,
+            old_config=copy.deepcopy(old_config[component_name]),
+            new_config=None,
+        )
+
+    # Modified components (present in both)
+    for component_name in old_components & new_components:
+        old_comp_config = old_config[component_name]
+        new_comp_config = new_config[component_name]
+
+        if old_comp_config != new_comp_config:
+            result.component_changes[component_name] = ComponentChange(
+                component_name=component_name,
+                old_config=copy.deepcopy(old_comp_config),
+                new_config=copy.deepcopy(new_comp_config),
+            )
+
+    return result
 
 
 def diff_domain_config(

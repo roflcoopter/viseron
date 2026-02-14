@@ -7,9 +7,12 @@ from unittest.mock import patch
 import pytest
 
 from viseron.config import (
+    ComponentChange,
+    ConfigDiff,
     DomainChange,
     IdentifierChange,
     create_default_config,
+    diff_config,
     diff_domain_config,
     diff_identifier_config,
     load_config,
@@ -715,3 +718,276 @@ class TestDiffDomainConfig:
         result = diff_domain_config("darknet", old, new)
         assert len(result) == 1
         assert result[0].domain == "object_detector"
+
+
+class TestComponentChange:
+    """Test ComponentChange dataclass."""
+
+    def test_component_added(self) -> None:
+        """Test is_added/is_removed/is_component_level_change for added component."""
+        change = ComponentChange(
+            component_name="ffmpeg",
+            old_config=None,
+            new_config={"camera": {"cam1": {"host": "192.168.1.1"}}},
+        )
+        assert change.is_added is True
+        assert change.is_removed is False
+        assert change.is_component_level_change is True
+
+    def test_component_removed(self) -> None:
+        """Test is_added/is_removed/is_component_level_change for removed component."""
+        change = ComponentChange(
+            component_name="ffmpeg",
+            old_config={"camera": {"cam1": {"host": "192.168.1.1"}}},
+            new_config=None,
+        )
+        assert change.is_added is False
+        assert change.is_removed is True
+        assert change.is_component_level_change is True
+
+    def test_component_both_none(self) -> None:
+        """Test all properties return False when both configs are None."""
+        change = ComponentChange(
+            component_name="ffmpeg",
+            old_config=None,
+            new_config=None,
+        )
+        assert change.is_added is False
+        assert change.is_removed is False
+        assert change.is_component_level_change is False
+
+    def test_is_component_level_change_only_domain_keys_differ(self) -> None:
+        """Test component-level change is False when only domain keys differ."""
+        change = ComponentChange(
+            component_name="darknet",
+            old_config={
+                "object_detector": {"threshold": 0.5, "cameras": {"cam1": {}}},
+            },
+            new_config={
+                "object_detector": {"threshold": 0.9, "cameras": {"cam1": {}}},
+            },
+        )
+        assert change.is_component_level_change is False
+
+    def test_is_component_level_change_non_domain_key_differs(self) -> None:
+        """Test component-level change is True when non-domain config differs."""
+        change = ComponentChange(
+            component_name="darknet",
+            old_config={
+                "log_level": "info",
+                "object_detector": {"cameras": {"cam1": {}}},
+            },
+            new_config={
+                "log_level": "debug",
+                "object_detector": {"cameras": {"cam1": {}}},
+            },
+        )
+        assert change.is_component_level_change is True
+
+    def test_is_component_level_change_no_change(self) -> None:
+        """Test component-level change is False when configs are identical."""
+        config: dict[str, Any] = {
+            "log_level": "info",
+            "camera": {"cam1": {"host": "192.168.1.1"}},
+        }
+        change = ComponentChange(
+            component_name="ffmpeg",
+            old_config=config.copy(),
+            new_config=config.copy(),
+        )
+        assert change.is_component_level_change is False
+
+    def test_get_domain_configs(self) -> None:
+        """Test get_domain_configs extracts only domain keys from configs."""
+        change = ComponentChange(
+            component_name="darknet",
+            old_config={
+                "log_level": "info",
+                "object_detector": {"threshold": 0.5},
+                "camera": {"cam1": {}},
+            },
+            new_config={
+                "log_level": "debug",
+                "object_detector": {"threshold": 0.9},
+                "motion_detector": {"area": 100},
+            },
+        )
+        old_domains, new_domains = change.get_domain_configs()
+        assert old_domains == {
+            "object_detector": {"threshold": 0.5},
+            "camera": {"cam1": {}},
+        }
+        assert new_domains == {
+            "object_detector": {"threshold": 0.9},
+            "motion_detector": {"area": 100},
+        }
+
+    def test_get_domain_configs_no_domains(self) -> None:
+        """Test get_domain_configs returns empty dicts when no domain keys exist."""
+        change = ComponentChange(
+            component_name="mqtt",
+            old_config={"broker": "localhost", "port": 1883},
+            new_config={"broker": "10.0.0.1", "port": 1883},
+        )
+        old_domains, new_domains = change.get_domain_configs()
+        assert not old_domains
+        assert not new_domains
+
+    def test_get_domain_configs_both_none(self) -> None:
+        """Test get_domain_configs when both configs are None."""
+        change = ComponentChange(
+            component_name="ffmpeg",
+            old_config=None,
+            new_config=None,
+        )
+        old_domains, new_domains = change.get_domain_configs()
+        assert not old_domains
+        assert not new_domains
+
+    def test_domain_changes_default_empty(self) -> None:
+        """Test that domain_changes defaults to an empty list."""
+        change = ComponentChange(
+            component_name="ffmpeg",
+            old_config={},
+            new_config={},
+        )
+        assert not change.domain_changes
+
+
+class TestConfigDiff:
+    """Test ConfigDiff dataclass."""
+
+    def test_has_changes_empty(self) -> None:
+        """Test has_changes is False for empty ConfigDiff."""
+        diff = ConfigDiff()
+        assert diff.has_changes is False
+
+    def test_has_changes_with_entries(self) -> None:
+        """Test has_changes is True when component_changes are present."""
+        diff = ConfigDiff(
+            component_changes={
+                "ffmpeg": ComponentChange("ffmpeg", None, {"camera": {}}),
+            }
+        )
+        assert diff.has_changes is True
+
+    def test_get_added_removed_modified(self) -> None:
+        """Test get_added/removed/modified_components categorization."""
+        diff = ConfigDiff(
+            component_changes={
+                "new_comp": ComponentChange("new_comp", None, {"key": "val"}),
+                "old_comp": ComponentChange("old_comp", {"key": "val"}, None),
+                "mod_comp": ComponentChange("mod_comp", {"key": "old"}, {"key": "new"}),
+            }
+        )
+        assert diff.get_added_components() == ["new_comp"]
+        assert diff.get_removed_components() == ["old_comp"]
+        assert diff.get_modified_components() == ["mod_comp"]
+
+    def test_get_component_change(self) -> None:
+        """Test get_component_change returns the correct entry or None."""
+        change = ComponentChange("ffmpeg", None, {"camera": {}})
+        diff = ConfigDiff(component_changes={"ffmpeg": change})
+        assert diff.get_component_change("ffmpeg") is change
+        assert diff.get_component_change("nonexistent") is None
+
+
+class TestDiffConfig:
+    """Test diff_config function."""
+
+    def test_no_changes(self) -> None:
+        """Test diff when old and new configs are identical."""
+        config: dict[str, Any] = {
+            "ffmpeg": {"camera": {"cam1": {}}},
+            "mqtt": {"broker": "localhost"},
+        }
+        result = diff_config(config, config.copy())
+        assert not result.has_changes
+
+    def test_component_added(self) -> None:
+        """Test diff detects a newly added component."""
+        old: dict[str, Any] = {"ffmpeg": {"camera": {"cam1": {}}}}
+        new: dict[str, Any] = {
+            "ffmpeg": {"camera": {"cam1": {}}},
+            "mqtt": {"broker": "localhost"},
+        }
+        result = diff_config(old, new)
+        assert result.get_added_components() == ["mqtt"]
+        change = result.get_component_change("mqtt")
+        assert change is not None
+        assert change.old_config is None
+        assert change.new_config == {"broker": "localhost"}
+
+    def test_component_removed(self) -> None:
+        """Test diff detects a removed component."""
+        old: dict[str, Any] = {
+            "ffmpeg": {"camera": {"cam1": {}}},
+            "mqtt": {"broker": "localhost"},
+        }
+        new: dict[str, Any] = {"ffmpeg": {"camera": {"cam1": {}}}}
+        result = diff_config(old, new)
+        assert result.get_removed_components() == ["mqtt"]
+        change = result.get_component_change("mqtt")
+        assert change is not None
+        assert change.old_config == {"broker": "localhost"}
+        assert change.new_config is None
+
+    def test_component_modified(self) -> None:
+        """Test diff detects a modified component."""
+        old: dict[str, Any] = {"mqtt": {"broker": "localhost"}}
+        new: dict[str, Any] = {"mqtt": {"broker": "10.0.0.1"}}
+        result = diff_config(old, new)
+        assert result.get_modified_components() == ["mqtt"]
+        change = result.get_component_change("mqtt")
+        assert change is not None
+        assert change.old_config == {"broker": "localhost"}
+        assert change.new_config == {"broker": "10.0.0.1"}
+
+    def test_multiple_changes(self) -> None:
+        """Test diff with added, removed, and modified components at once."""
+        old: dict[str, Any] = {
+            "ffmpeg": {"camera": {"cam1": {}}},
+            "mqtt": {"broker": "localhost"},
+        }
+        new: dict[str, Any] = {
+            "ffmpeg": {"camera": {"cam1": {}, "cam2": {}}},
+            "darknet": {"object_detector": {"threshold": 0.5}},
+        }
+        result = diff_config(old, new)
+        assert "ffmpeg" in result.get_modified_components()
+        assert "mqtt" in result.get_removed_components()
+        assert "darknet" in result.get_added_components()
+
+    def test_both_empty(self) -> None:
+        """Test diff with empty configs."""
+        result = diff_config({}, {})
+        assert not result.has_changes
+
+    def test_deep_copies_configs(self) -> None:
+        """Test that diff_config deep copies config values."""
+        old: dict[str, Any] = {"ffmpeg": {"camera": {"cam1": {"host": "192.168.1.1"}}}}
+        new: dict[str, Any] = {"mqtt": {"broker": "localhost"}}
+        result = diff_config(old, new)
+
+        old["ffmpeg"]["camera"]["cam1"]["host"] = "MUTATED"
+        new["mqtt"]["broker"] = "MUTATED"
+        ffmpeg = result.get_component_change("ffmpeg")
+        assert ffmpeg and ffmpeg.old_config == {
+            "camera": {"cam1": {"host": "192.168.1.1"}}
+        }
+        mqtt = result.get_component_change("mqtt")
+        assert mqtt and mqtt.new_config == {"broker": "localhost"}
+
+    def test_unchanged_components_not_included(self) -> None:
+        """Test that components with no changes are excluded from the result."""
+        old: dict[str, Any] = {
+            "ffmpeg": {"camera": {"cam1": {}}},
+            "mqtt": {"broker": "localhost"},
+        }
+        new: dict[str, Any] = {
+            "ffmpeg": {"camera": {"cam1": {}}},
+            "mqtt": {"broker": "10.0.0.1"},
+        }
+        result = diff_config(old, new)
+        assert result.get_component_change("ffmpeg") is None
+        assert result.get_component_change("mqtt") is not None
