@@ -17,7 +17,7 @@ from viseron.components.storage import COMPONENT as STORAGE, Storage
 from viseron.components.storage.const import DEFAULT_TIER_CHECK_BATCH_SIZE
 from viseron.components.storage.models import Base
 from viseron.components.webserver import COMPONENT as WEBSERVER, Webserver
-from viseron.const import LOADED
+from viseron.const import FAILED, LOADED, LOADING
 
 from tests.common import MockCamera
 
@@ -39,6 +39,11 @@ class MockViseron(Viseron):
         self.listen_event: MagicMock = MagicMock(
             auto_spec=self.listen_event,
         )
+        self.initialized_event.set()
+        self._original_register_signal_handler = self.register_signal_handler
+        self.register_signal_handler: MagicMock = MagicMock(
+            side_effect=self._original_register_signal_handler
+        )
 
 
 @pytest.fixture
@@ -50,6 +55,8 @@ def vis() -> MockViseron:
     viseron.data[STORAGE].file_batch_size = DEFAULT_TIER_CHECK_BATCH_SIZE
     viseron.data[WEBSERVER] = MagicMock(spec=Webserver)
     viseron.data[LOADED] = {}
+    viseron.data[LOADING] = {}
+    viseron.data[FAILED] = {}
 
     return viseron
 
