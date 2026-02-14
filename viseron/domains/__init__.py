@@ -248,12 +248,16 @@ def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bo
         else:
             result = domain_module.setup(vis, config, entry.identifier)
     except DomainNotReady as error:
-        if vis.shutdown_event.is_set():
-            LOGGER.warning(
-                f"Domain {entry.domain} with identifier {entry.identifier} "
-                f"for component {entry.component_name} "
-                "setup aborted due to shutdown"
-            )
+        warning_text = (
+            f"Setup retry for domain {entry.domain} "
+            f"with identifier {entry.identifier} "
+            f"for component {entry.component_name} "
+            "aborted due to "
+            f"{'shutdown' if vis.shutdown_event.is_set() else 'reload'}"
+        )
+        if vis.shutdown_event.is_set() or vis.reloading_event.is_set():
+            LOGGER.warning(warning_text)
+            _handle_failed_domain(vis, entry, DomainState.FAILED, error=str(error))
             slow_setup_warning.cancel()
             return False
 
@@ -272,8 +276,9 @@ def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bo
         elapsed = 0.0
         interval = 0.2
         while elapsed < wait_time:
-            if vis.shutdown_event.is_set():
-                LOGGER.warning("Domain setup retry aborted due to shutdown")
+            if vis.shutdown_event.is_set() or vis.reloading_event.is_set():
+                LOGGER.warning(warning_text)
+                _handle_failed_domain(vis, entry, DomainState.FAILED, error=str(error))
                 return False
             time.sleep(interval)
             elapsed += interval
