@@ -205,6 +205,7 @@ def setup_viseron(vis: Viseron):
         )
         activate_safe_mode(vis)
     else:
+        vis.set_config(config)
         setup_components(vis, config)
 
     vis.storage = vis.data[STORAGE_COMPONENT]
@@ -241,6 +242,7 @@ def setup_viseron(vis: Viseron):
     else:
         vis.critical_components_config_store.save(config)
 
+    vis.initialized_event.set()
     LOGGER.info("Viseron initialized in %.1f seconds", timer() - start)
 
 
@@ -280,7 +282,22 @@ class Viseron:
         self.safe_mode = False
         self.exit_code = 0
         self.shutdown_stage: Literal["shutdown", "last_write", "stopping"] | None = None
+        self.initialized_event = threading.Event()
         self.shutdown_event = threading.Event()
+
+        # Store the current config for diffing during reload
+        self._config: dict[str, Any] = {}
+        self.reload_lock = threading.Lock()
+        self.reloading_event = threading.Event()
+
+    @property
+    def config(self) -> dict[str, Any]:
+        """Return the current configuration."""
+        return self._config
+
+    def set_config(self, config: dict[str, Any]) -> None:
+        """Set the current configuration."""
+        self._config = config
 
     @property
     def version(self) -> str:
@@ -571,6 +588,10 @@ class Viseron:
         start = timer()
         LOGGER.info("Initiating shutdown")
         self.shutdown_event.set()
+        if not self.initialized_event.is_set():
+            LOGGER.debug("Waiting for Viseron to be initialized before shutdown")
+            self.initialized_event.wait()
+            LOGGER.debug("Viseron initialized, continuing shutdown")
 
         if self.data.get(DATA_STREAM_COMPONENT, None):
             data_stream = self.data[DATA_STREAM_COMPONENT]
