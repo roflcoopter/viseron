@@ -20,6 +20,7 @@ from viseron.domains import (
     _wait_for_dependencies,
     get_unload_order,
     reload_domain,
+    setup_domains,
     unload_domain,
 )
 from viseron.exceptions import DomainNotReady
@@ -1142,3 +1143,64 @@ class TestDomainScheduling:
 
                 det_future.result()
                 cam_future.result()
+
+
+class TestSetupDomains:
+    """Test setup_domains function."""
+
+    def test_setup_domains_validates_missing_dependencies(
+        self, vis: MockViseron, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test setup_domains validates and fails domains with missing deps."""
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+            require_domains=[
+                RequireDomain(
+                    "missing_domain",  # type: ignore[arg-type]
+                    "missing_id",
+                ),
+            ],
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        setup_domains(vis)
+
+        assert entry.state == DomainState.FAILED
+        assert "has missing dependencies" in caplog.text
+
+    def test_setup_domains_no_pending_returns_early(
+        self, vis: MockViseron, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test setup_domains returns early when no pending domains."""
+        setup_domains(vis)
+        assert "Setting up" not in caplog.text
+
+    def test_setup_domains_clears_futures_after_completion(
+        self, vis: MockViseron
+    ) -> None:
+        """Test setup_domains clears futures after all complete."""
+        mock_domain = MockDomainModule(setup_return=True)
+
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_domain
+        ):
+            setup_domains(vis)
+
+            future = vis.domain_registry.get_future("camera", "cam1")
+            assert future is None
+            assert entry.state == DomainState.LOADED
