@@ -10,6 +10,7 @@ import pytest
 from sqlalchemy import insert
 from sqlalchemy.orm import Session
 
+from viseron.components import Component
 from viseron.components.storage.models import Files, Recordings
 from viseron.const import LOADED
 from viseron.domain_registry import DomainState
@@ -22,19 +23,25 @@ if TYPE_CHECKING:
     from viseron import Viseron
 
 
-class MockComponent:
+class MockComponent(Component):
     """Representation of a fake component."""
 
-    def __init__(self, component, vis: Viseron | None = None, setup_component=None):
+    def __init__(  # pylint: disable=dangerous-default-value
+        self,
+        vis: Viseron,
+        component: str,
+        config: dict = {},
+        setup_component: Callable | None = None,
+    ):
         """Initialize the mock component."""
         self.__name__ = f"viseron.components.{component}"
         self.__file__ = f"viseron/components/{component}"
+        super().__init__(vis, self.__file__, component, config)
 
-        self.name = component
-        if vis:
+        if setup_component is None:
             vis.data[LOADED][component] = self
-        if setup_component is not None:
-            self.setup_component = setup_component
+        else:
+            self.setup_component: Callable = setup_component
 
 
 class MockCamera(MagicMock):

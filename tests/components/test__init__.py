@@ -1,4 +1,7 @@
 """Test component module."""
+from __future__ import annotations
+
+from typing import Literal
 from unittest.mock import ANY, Mock, call, patch
 
 import pytest
@@ -17,7 +20,7 @@ from tests.common import MockComponent
 from tests.conftest import MockViseron
 
 
-def test_setup_components(vis: MockViseron, caplog):
+def test_setup_components(vis: MockViseron, caplog: pytest.LogCaptureFixture) -> None:
     """Test setup of core and default components."""
     setup_components(vis, {"logger": {}})
     for component in CORE_COMPONENTS:
@@ -28,7 +31,7 @@ def test_setup_components(vis: MockViseron, caplog):
     vis.shutdown()
 
 
-def test_setup_components_2(vis, caplog):
+def test_setup_components_2(vis: MockViseron, caplog: pytest.LogCaptureFixture) -> None:
     """Test setup of component."""
     with patch("viseron.components.setup_component") as mock_setup_component, patch(
         "threading.Thread.is_alive"
@@ -42,7 +45,7 @@ def test_setup_components_2(vis, caplog):
         calls = []
         for _component in set.union(CORE_COMPONENTS, DEFAULT_COMPONENTS):
             calls.append(call(vis, ANY))
-        calls.append(call(vis, ANY))
+        calls.append(call(vis, ANY, domains_only=False))
 
         mock_setup_component.assert_has_calls(calls, True)
         mock_get_component.assert_called_with(vis, "mqtt", {"mqtt": {}})
@@ -66,15 +69,15 @@ def test_setup_components_2(vis, caplog):
     ],
 )
 def test_setup_component(
-    vis,
-    component,
-    loaded,
-    loading,
-    failed,
-):
+    vis: MockViseron,
+    component: Literal["logger"],
+    loaded: bool,
+    loading: bool,
+    failed: bool,
+) -> None:
     """Test setup_component."""
     mock_component = MockComponent(
-        component, setup_component=lambda *_args, **_kwargs: loaded
+        vis, component, setup_component=lambda *_args, **_kwargs: loaded
     )
     with patch("viseron.components.Component", new=mock_component):
         setup_component(vis, mock_component)
@@ -93,10 +96,12 @@ def test_setup_component(
         assert vis.data[FAILED] == {}
 
 
-def test_setup_missing_component(vis, caplog):
+def test_setup_missing_component(
+    vis: MockViseron, caplog: pytest.LogCaptureFixture
+) -> None:
     """Test setp of missing component."""
     mock_component = MockComponent(
-        "testing", setup_component=Mock(side_effect=ModuleNotFoundError("testing"))
+        vis, "testing", setup_component=Mock(side_effect=ModuleNotFoundError("testing"))
     )
     with patch("viseron.components.Component", new=mock_component):
         setup_component(vis, mock_component)
@@ -107,7 +112,7 @@ def test_setup_missing_component(vis, caplog):
     caplog.clear()
 
 
-def test_domain_setup_status(vis):
+def test_domain_setup_status(vis: MockViseron) -> None:
     """Test domain registry state transitions."""
     registry = vis.domain_registry
 
@@ -135,7 +140,7 @@ def test_domain_setup_status(vis):
     assert entry.state == DomainState.LOADED
 
 
-def test_domain_setup_status_failed(vis):
+def test_domain_setup_status_failed(vis: MockViseron) -> None:
     """Test failed domain registry state."""
     registry = vis.domain_registry
 
@@ -162,7 +167,9 @@ def test_domain_setup_status_failed(vis):
 class TestComponent:
     """Test Component class."""
 
-    def test_add_domain_to_setup(self, vis, caplog):
+    def test_add_domain_to_setup(
+        self, vis: MockViseron, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """Test add_domain_to_setup."""
         registry = vis.domain_registry
 
