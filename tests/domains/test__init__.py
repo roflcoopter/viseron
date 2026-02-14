@@ -1,4 +1,5 @@
 """Tests for domains module."""
+import logging
 from logging import DEBUG
 from unittest.mock import Mock, patch
 
@@ -8,6 +9,7 @@ from viseron.domain_registry import DomainState
 from viseron.domains import (
     OptionalDomain,
     RequireDomain,
+    _handle_failed_domain,
     get_unload_order,
     reload_domain,
     unload_domain,
@@ -480,3 +482,119 @@ class TestReloadDomain:
             assert registry.get("camera", "cam1") is not None
             assert registry.get("motion_detector", "cam1") is not None
             assert registry.get("nvr", "cam1") is not None
+
+
+class TestHandleFailedDomain:
+    """Test _handle_failed_domain function."""
+
+    @pytest.mark.parametrize(
+        "state",
+        [DomainState.FAILED, DomainState.RETRYING],
+    )
+    def test_handle_failed_domain_sets_state(self, vis: MockViseron, state) -> None:
+        """Test _handle_failed_domain sets the correct state."""
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with patch("viseron.components.importlib.import_module") as mock_import:
+            mock_import.side_effect = ModuleNotFoundError("No domain module")
+            _handle_failed_domain(vis, entry, state, error="Test error")
+
+        updated_entry = vis.domain_registry.get("camera", "cam1")
+        assert updated_entry is not None
+        assert updated_entry.state == state
+        assert updated_entry.error == "Test error"
+
+    def test_handle_failed_domain_with_setup_failed_handler(
+        self, vis: MockViseron
+    ) -> None:
+        """Test _handle_failed_domain calls setup_failed handler."""
+        error_instance = Mock()
+
+        def setup_failed_handler(_vis_arg, _entry_arg) -> Mock:
+            return error_instance
+
+        mock_domain_module = Mock()
+        mock_domain_module.setup_failed = setup_failed_handler
+
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with patch(
+            "viseron.components.importlib.import_module",
+            return_value=mock_domain_module,
+        ):
+            _handle_failed_domain(vis, entry, DomainState.FAILED, error="Test error")
+
+        updated_entry = vis.domain_registry.get("camera", "cam1")
+        assert updated_entry is not None
+        assert updated_entry.error_instance == error_instance
+
+    def test_handle_failed_domain_no_handler(
+        self, vis: MockViseron, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test _handle_failed_domain when domain module doesn't exist."""
+        caplog.set_level(logging.DEBUG)
+
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="nonexistent_domain",  # type: ignore[arg-type]
+            identifier="id1",
+            config={},
+        )
+        entry = vis.domain_registry.get("nonexistent_domain", "id1")
+        assert entry is not None
+
+        # Domain module import will fail, triggering the exception handler
+        with patch(
+            "viseron.components.importlib.import_module",
+            side_effect=ModuleNotFoundError("No module"),
+        ):
+            _handle_failed_domain(vis, entry, DomainState.FAILED, error="Test error")
+
+        updated_entry = vis.domain_registry.get("nonexistent_domain", "id1")
+        assert updated_entry is not None
+        assert updated_entry.state == DomainState.FAILED
+        assert updated_entry.error_instance is None
+        assert "No setup_failed handler" in caplog.text
+
+    def test_handle_failed_domain_no_setup_failed_attr(self, vis: MockViseron) -> None:
+        """Test _handle_failed_domain when module exists but has no setup_failed."""
+        mock_domain_module = Mock(spec=[])
+
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with patch(
+            "viseron.components.importlib.import_module",
+            return_value=mock_domain_module,
+        ):
+            _handle_failed_domain(vis, entry, DomainState.FAILED, error="Test error")
+
+        updated_entry = vis.domain_registry.get("camera", "cam1")
+        assert updated_entry is not None
+        assert updated_entry.state == DomainState.FAILED
+        # No error instance since no handler was called
+        assert updated_entry.error_instance is None
