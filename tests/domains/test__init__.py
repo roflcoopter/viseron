@@ -1,15 +1,17 @@
 """Tests for domains module."""
 import logging
+from concurrent.futures import Future
 from logging import DEBUG
 from unittest.mock import Mock, patch
 
 import pytest
 
-from viseron.domain_registry import DomainState
+from viseron.domain_registry import DomainEntry, DomainState
 from viseron.domains import (
     OptionalDomain,
     RequireDomain,
     _handle_failed_domain,
+    _wait_for_dependencies,
     get_unload_order,
     reload_domain,
     unload_domain,
@@ -598,3 +600,152 @@ class TestHandleFailedDomain:
         assert updated_entry.state == DomainState.FAILED
         # No error instance since no handler was called
         assert updated_entry.error_instance is None
+
+
+class TestWaitForDependencies:
+    """Test _wait_for_dependencies function."""
+
+    def test_no_dependencies_returns_true(self, vis: MockViseron) -> None:
+        """Test that no dependencies returns True immediately."""
+        entry = DomainEntry(
+            component_name="test",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+            require_domains=[],
+            optional_domains=[],
+        )
+
+        result: bool = _wait_for_dependencies(vis, entry)
+        assert result is True
+
+    def test_required_dependency_already_loaded(self, vis: MockViseron) -> None:
+        """Test skips already loaded required dependencies."""
+        # Register and mark a dependency as loaded
+        vis.domain_registry.register(
+            component_name="dep_comp",
+            component_path="dep.path",
+            domain="object_detector",
+            identifier="detector1",
+            config={},
+        )
+        vis.domain_registry.set_state(
+            "object_detector", "detector1", DomainState.LOADED
+        )
+
+        entry = DomainEntry(
+            component_name="test",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+            require_domains=[RequireDomain("object_detector", "detector1")],
+            optional_domains=[],
+        )
+
+        result: bool = _wait_for_dependencies(vis, entry)
+        assert result is True
+
+    def test_required_dependency_future_success(self, vis: MockViseron) -> None:
+        """Test waits for required dependency future to complete."""
+        # Register dependency
+        vis.domain_registry.register(
+            component_name="dep_comp",
+            component_path="dep.path",
+            domain="object_detector",
+            identifier="detector1",
+            config={},
+        )
+
+        # Create a completed future
+        future: Future[bool] = Future()
+        future.set_result(True)
+        vis.domain_registry.set_future("object_detector", "detector1", future)
+
+        entry = DomainEntry(
+            component_name="test",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+            require_domains=[RequireDomain("object_detector", "detector1")],
+            optional_domains=[],
+        )
+
+        result: bool = _wait_for_dependencies(vis, entry)
+        assert result is True
+
+    def test_required_dependency_future_failure(
+        self, vis: MockViseron, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test returns False when required dependency fails."""
+        vis.domain_registry.register(
+            component_name="dep_comp",
+            component_path="dep.path",
+            domain="object_detector",
+            identifier="detector1",
+            config={},
+        )
+
+        future: Future[bool] = Future()
+        future.set_result(False)  # Dependency failed
+        vis.domain_registry.set_future("object_detector", "detector1", future)
+
+        entry = DomainEntry(
+            component_name="test",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+            require_domains=[RequireDomain("object_detector", "detector1")],
+            optional_domains=[],
+        )
+
+        result: bool = _wait_for_dependencies(vis, entry)
+        assert result is False
+        assert "Unable to setup dependencies for domain camera" in caplog.text
+
+    def test_optional_dependency_not_configured_skipped(self, vis: MockViseron) -> None:
+        """Test optional dependency not configured is skipped."""
+        entry = DomainEntry(
+            component_name="test",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+            require_domains=[],
+            optional_domains=[OptionalDomain("motion_detector", "motion1")],
+        )
+
+        # Motion detector is not registered, so it should be skipped
+        result: bool = _wait_for_dependencies(vis, entry)
+        assert result is True
+
+    def test_optional_dependency_configured_awaited(self, vis: MockViseron) -> None:
+        """Test optional dependency that is configured is awaited."""
+        # Register optional dependency
+        vis.domain_registry.register(
+            component_name="opt_comp",
+            component_path="opt.path",
+            domain="motion_detector",
+            identifier="motion1",
+            config={},
+        )
+
+        future: Future[bool] = Future()
+        future.set_result(True)
+        vis.domain_registry.set_future("motion_detector", "motion1", future)
+
+        entry = DomainEntry(
+            component_name="test",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+            require_domains=[],
+            optional_domains=[OptionalDomain("motion_detector", "motion1")],
+        )
+
+        result: bool = _wait_for_dependencies(vis, entry)
+        assert result is True
