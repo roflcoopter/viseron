@@ -165,7 +165,8 @@ class States:
 
             if entity_id in self._registry:
                 LOGGER.error(
-                    f"Component {component.name} does not generate unique entity IDs"
+                    f"Component {component.name} does not generate unique entity IDs: "
+                    f"{entity_id}"
                 )
                 suffix_number = 1
                 while True:
@@ -262,7 +263,9 @@ class States:
                     entity.unload()
                     LOGGER.debug(f"Unloaded entity {entity_id}")
                 except Exception as ex:  # pylint: disable=broad-except
-                    LOGGER.error(f"Error unloading entity {entity_id}: {ex}")
+                    LOGGER.error(
+                        f"Error unloading entity {entity_id}: {ex}", exc_info=True
+                    )
             else:
                 development_warning(LOGGER, f"Entity {entity_id} has no unload method")
 
