@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import copy
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from ruamel.yaml import YAML
@@ -119,6 +119,151 @@ class IdentifierChange:
             return False
 
         return self.old_config != self.new_config
+
+
+@dataclass
+class DomainChange:
+    """Represents a change to a domain configuration."""
+
+    component_name: str
+    domain: SupportedDomains
+    old_config: dict[str, Any] | None
+    new_config: dict[str, Any] | None
+    identifier_changes: list[IdentifierChange] = field(default_factory=list)
+
+    @property
+    def is_added(self) -> bool:
+        """Return True if this domain was added."""
+        return self.old_config is None and self.new_config is not None
+
+    @property
+    def is_removed(self) -> bool:
+        """Return True if this domain was removed."""
+        return self.old_config is not None and self.new_config is None
+
+    @property
+    def is_domain_level_change(self) -> bool:
+        """Return True if domain-level config changed."""
+        if self.is_added or self.is_removed:
+            return True
+
+        if self.old_config is None or self.new_config is None:
+            return False
+
+        if self.domain == "camera":
+            # For the camera domain, the identifiers are directly under the domain key,
+            # and there are no domain-level settings.
+            return False
+
+        old_non_identifier_config = copy.deepcopy(self.old_config)
+        new_non_identifier_config = copy.deepcopy(self.new_config)
+        old_non_identifier_config.pop("cameras", None)
+        new_non_identifier_config.pop("cameras", None)
+        return old_non_identifier_config != new_non_identifier_config
+
+    def get_identifier_configs(
+        self,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Return old and new identifier configurations as dictionaries.
+
+        The camera domain is a special case where the identifiers are under the
+        'camera' key directly and therefore the domain-level config is empty::
+        ffmpeg:
+          camera:
+            camera1:
+              host: ...
+
+        For other domains, the identifiers are under the 'cameras' key:
+        darknet:
+          object_detector:
+            some_object_detector_config: ...
+            cameras:
+              camera1:
+                some_camera_specific_config: ...
+        In this case, the domain-level config is everything except the 'cameras' key,
+        and the identifier-level config is the contents of the 'cameras' key.
+        """
+        old_identifiers: dict[str, Any] = {}
+        new_identifiers: dict[str, Any] = {}
+
+        if self.old_config is not None:
+            if self.domain == "camera":
+                cameras = self.old_config
+            else:
+                cameras = self.old_config.get("cameras", {})
+            for identifier in cameras:
+                old_identifiers[identifier] = cameras[identifier]
+
+        if self.new_config is not None:
+            cameras = self.new_config.get("cameras", {})
+            if self.domain == "camera":
+                cameras = self.new_config
+            else:
+                cameras = self.new_config.get("cameras", {})
+            for identifier in cameras:
+                new_identifiers[identifier] = cameras[identifier]
+
+        return old_identifiers, new_identifiers
+
+
+def diff_domain_config(
+    component_name: str,
+    old_config: dict[SupportedDomains, Any],
+    new_config: dict[SupportedDomains, Any],
+) -> list[DomainChange]:
+    """Compare domain configurations within a component and return the differences.
+
+    Args:
+        old_config: The previous component configuration dictionary
+        new_config: The new component configuration dictionary
+        component_change: The ComponentChange object these domains belong to
+    Returns:
+        List of DomainChange containing all changes between domain configurations
+    """
+    result = []
+
+    # Get all domain names from both configs
+    old_domains = set(old_config.keys())
+    new_domains = set(new_config.keys())
+
+    # Added domains
+    for domain_name in new_domains - old_domains:
+        result.append(
+            DomainChange(
+                component_name=component_name,
+                domain=domain_name,
+                old_config=None,
+                new_config=copy.deepcopy(new_config[domain_name]),
+            )
+        )
+
+    # Removed domains
+    for domain_name in old_domains - new_domains:
+        result.append(
+            DomainChange(
+                component_name=component_name,
+                domain=domain_name,
+                old_config=copy.deepcopy(old_config[domain_name]),
+                new_config=None,
+            )
+        )
+
+    # Modified domains (present in both)
+    for domain_name in old_domains & new_domains:
+        old_domain_config = old_config[domain_name]
+        new_domain_config = new_config[domain_name]
+
+        if old_domain_config != new_domain_config:
+            result.append(
+                DomainChange(
+                    component_name=component_name,
+                    domain=domain_name,
+                    old_config=copy.deepcopy(old_domain_config),
+                    new_config=copy.deepcopy(new_domain_config),
+                )
+            )
+
+    return result
 
 
 def diff_identifier_config(

@@ -7,12 +7,15 @@ from unittest.mock import patch
 import pytest
 
 from viseron.config import (
+    DomainChange,
     IdentifierChange,
     create_default_config,
+    diff_domain_config,
     diff_identifier_config,
     load_config,
     load_secrets,
 )
+from viseron.types import SupportedDomains
 
 
 class TestLoadSecrets:
@@ -456,3 +459,259 @@ class TestDiffIdentifierConfig:
         result = diff_identifier_config("ffmpeg", "camera", old_config, new_config)
         assert len(result) == 1
         assert result[0].identifier == "cam2"
+
+
+class TestDomainChange:
+    """Test DomainChange dataclass."""
+
+    def test_domain_added(self) -> None:
+        """Test is_added/is_removed/is_domain_level_change for added domain."""
+        change = DomainChange(
+            component_name="darknet",
+            domain="object_detector",
+            old_config=None,
+            new_config={"threshold": 0.5, "cameras": {"cam1": {}}},
+        )
+        assert change.is_added is True
+        assert change.is_removed is False
+        assert change.is_domain_level_change is True
+
+    def test_domain_removed(self) -> None:
+        """Test is_added/is_removed/is_domain_level_change for removed domain."""
+        change = DomainChange(
+            component_name="darknet",
+            domain="object_detector",
+            old_config={"threshold": 0.5},
+            new_config=None,
+        )
+        assert change.is_added is False
+        assert change.is_removed is True
+        assert change.is_domain_level_change is True
+
+    def test_domain_both_none(self) -> None:
+        """Test all properties return False when both configs are None."""
+        change = DomainChange(
+            component_name="darknet",
+            domain="object_detector",
+            old_config=None,
+            new_config=None,
+        )
+        assert change.is_added is False
+        assert change.is_removed is False
+        assert change.is_domain_level_change is False
+
+    def test_is_domain_level_change_only_cameras_differ(self) -> None:
+        """Test domain-level change is False when only cameras key differs."""
+        change = DomainChange(
+            component_name="darknet",
+            domain="object_detector",
+            old_config={"threshold": 0.5, "cameras": {"cam1": {}}},
+            new_config={"threshold": 0.5, "cameras": {"cam1": {}, "cam2": {}}},
+        )
+        assert change.is_domain_level_change is False
+
+    def test_is_domain_level_change_non_camera_key_differs(self) -> None:
+        """Test domain-level change is True when non-cameras config differs."""
+        change = DomainChange(
+            component_name="darknet",
+            domain="object_detector",
+            old_config={"threshold": 0.5, "cameras": {"cam1": {}}},
+            new_config={"threshold": 0.9, "cameras": {"cam1": {}}},
+        )
+        assert change.is_domain_level_change is True
+
+    def test_is_domain_level_change_camera_domain_always_false(self) -> None:
+        """Test camera domain never reports domain-level change (identifiers only)."""
+        change = DomainChange(
+            component_name="ffmpeg",
+            domain="camera",
+            old_config={"cam1": {"host": "192.168.1.1"}},
+            new_config={"cam1": {"host": "10.0.0.1"}, "cam2": {"host": "10.0.0.2"}},
+        )
+        assert change.is_domain_level_change is False
+
+    def test_get_identifier_configs_camera_domain(self) -> None:
+        """Test get_identifier_configs for camera domain (identifiers at top level)."""
+        change = DomainChange(
+            component_name="ffmpeg",
+            domain="camera",
+            old_config={"cam1": {"host": "192.168.1.1"}},
+            new_config={"cam1": {"host": "10.0.0.1"}, "cam2": {"host": "10.0.0.2"}},
+        )
+        old_ids, new_ids = change.get_identifier_configs()
+        assert old_ids == {"cam1": {"host": "192.168.1.1"}}
+        assert new_ids == {
+            "cam1": {"host": "10.0.0.1"},
+            "cam2": {"host": "10.0.0.2"},
+        }
+
+    def test_get_identifier_configs_non_camera_domain(self) -> None:
+        """Test get_identifier_configs for non-camera domain (under 'cameras' key)."""
+        change = DomainChange(
+            component_name="darknet",
+            domain="object_detector",
+            old_config={
+                "threshold": 0.5,
+                "cameras": {"cam1": {"labels": ["person"]}},
+            },
+            new_config={
+                "threshold": 0.5,
+                "cameras": {
+                    "cam1": {"labels": ["person"]},
+                    "cam2": {"labels": ["car"]},
+                },
+            },
+        )
+        old_ids, new_ids = change.get_identifier_configs()
+        assert old_ids == {"cam1": {"labels": ["person"]}}
+        assert new_ids == {
+            "cam1": {"labels": ["person"]},
+            "cam2": {"labels": ["car"]},
+        }
+
+    def test_get_identifier_configs_no_cameras_key(self) -> None:
+        """Test get_identifier_configs when non-camera domain has no cameras key."""
+        change = DomainChange(
+            component_name="darknet",
+            domain="object_detector",
+            old_config={"threshold": 0.5},
+            new_config={"threshold": 0.9},
+        )
+        old_ids, new_ids = change.get_identifier_configs()
+        assert not old_ids
+        assert not new_ids
+
+    def test_get_identifier_configs_both_none(self) -> None:
+        """Test get_identifier_configs when both configs are None."""
+        change = DomainChange(
+            component_name="ffmpeg",
+            domain="camera",
+            old_config=None,
+            new_config=None,
+        )
+        old_ids, new_ids = change.get_identifier_configs()
+        assert not old_ids
+        assert not new_ids
+
+    def test_get_identifier_configs_one_side_none(self) -> None:
+        """Test get_identifier_configs when only one config is None (added)."""
+        change = DomainChange(
+            component_name="ffmpeg",
+            domain="camera",
+            old_config=None,
+            new_config={"cam1": {"host": "192.168.1.1"}},
+        )
+        old_ids, new_ids = change.get_identifier_configs()
+        assert not old_ids
+        assert new_ids == {"cam1": {"host": "192.168.1.1"}}
+
+    def test_identifier_changes_default_empty(self) -> None:
+        """Test that identifier_changes defaults to an empty list."""
+        change = DomainChange(
+            component_name="darknet",
+            domain="object_detector",
+            old_config={},
+            new_config={},
+        )
+        assert not change.identifier_changes
+
+
+class TestDiffDomainConfig:
+    """Test diff_domain_config function."""
+
+    def test_no_changes(self) -> None:
+        """Test diff when old and new configs are identical."""
+        config: dict[SupportedDomains, Any] = {
+            "camera": {"cam1": {"host": "192.168.1.1"}}
+        }
+        result = diff_domain_config("ffmpeg", config, config.copy())
+        assert not result
+
+    def test_domain_added(self) -> None:
+        """Test diff detects a newly added domain."""
+        old: dict[SupportedDomains, Any] = {"camera": {"cam1": {"host": "192.168.1.1"}}}
+        new: dict[SupportedDomains, Any] = {
+            "camera": {"cam1": {"host": "192.168.1.1"}},
+            "object_detector": {"threshold": 0.5},
+        }
+        result = diff_domain_config("darknet", old, new)
+        assert len(result) == 1
+        assert result[0].domain == "object_detector"
+        assert result[0].is_added is True
+        assert result[0].component_name == "darknet"
+
+    def test_domain_removed(self) -> None:
+        """Test diff detects a removed domain."""
+        old: dict[SupportedDomains, Any] = {
+            "camera": {"cam1": {}},
+            "object_detector": {"threshold": 0.5},
+        }
+        new: dict[SupportedDomains, Any] = {"camera": {"cam1": {}}}
+        result = diff_domain_config("darknet", old, new)
+        assert len(result) == 1
+        assert result[0].domain == "object_detector"
+        assert result[0].is_removed is True
+
+    def test_domain_modified(self) -> None:
+        """Test diff detects a modified domain."""
+        old: dict[SupportedDomains, Any] = {"object_detector": {"threshold": 0.5}}
+        new: dict[SupportedDomains, Any] = {"object_detector": {"threshold": 0.9}}
+        result = diff_domain_config("darknet", old, new)
+        assert len(result) == 1
+        assert result[0].domain == "object_detector"
+        assert result[0].old_config == {"threshold": 0.5}
+        assert result[0].new_config == {"threshold": 0.9}
+
+    def test_multiple_changes(self) -> None:
+        """Test diff with added, removed, and modified domains simultaneously."""
+        old: dict[SupportedDomains, Any] = {
+            "camera": {"cam1": {}},
+            "object_detector": {"threshold": 0.5},
+        }
+        new: dict[SupportedDomains, Any] = {
+            "camera": {"cam1": {}, "cam2": {}},
+            "motion_detector": {"area": 100},
+        }
+        result = diff_domain_config("test_comp", old, new)
+        changes_by_domain = {c.domain: c for c in result}
+
+        assert len(result) == 3
+        assert (
+            changes_by_domain["camera"].old_config
+            != changes_by_domain["camera"].new_config
+        )
+        assert changes_by_domain["object_detector"].is_removed is True
+        assert changes_by_domain["motion_detector"].is_added is True
+
+    def test_both_empty(self) -> None:
+        """Test diff with empty old and new configs."""
+        result = diff_domain_config("ffmpeg", {}, {})
+        assert not result
+
+    def test_deep_copies_configs(self) -> None:
+        """Test that diff_domain_config deep copies config values."""
+        old: dict[SupportedDomains, Any] = {"camera": {"cam1": {"host": "192.168.1.1"}}}
+        new: dict[SupportedDomains, Any] = {"object_detector": {"threshold": 0.5}}
+        result = diff_domain_config("test", old, new)
+        changes_by_domain = {c.domain: c for c in result}
+
+        old["camera"]["cam1"]["host"] = "MUTATED"
+        new["object_detector"]["threshold"] = 999
+        assert changes_by_domain["camera"].old_config == {
+            "cam1": {"host": "192.168.1.1"}
+        }
+        assert changes_by_domain["object_detector"].new_config == {"threshold": 0.5}
+
+    def test_unchanged_domains_not_included(self) -> None:
+        """Test that domains with no changes are excluded from the result."""
+        old: dict[SupportedDomains, Any] = {
+            "camera": {"cam1": {}},
+            "object_detector": {"threshold": 0.5},
+        }
+        new: dict[SupportedDomains, Any] = {
+            "camera": {"cam1": {}},
+            "object_detector": {"threshold": 0.9},
+        }
+        result = diff_domain_config("darknet", old, new)
+        assert len(result) == 1
+        assert result[0].domain == "object_detector"
