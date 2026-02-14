@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import datetime
 from collections.abc import Callable, Generator
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock
 
@@ -42,6 +43,77 @@ class MockComponent(Component):
             vis.data[LOADED][component] = self
         else:
             self.setup_component: Callable = setup_component
+
+
+@dataclass
+class MockDomainModule:
+    """Configurable mock for a domain module.
+
+    Args:
+        setup_return: Return value for setup(). Can be True, False, or any value.
+        setup_exception: Exception to raise during setup() (e.g., DomainNotReady).
+        setup_num_params: Number of parameters for setup (3 or 4).
+        config_schema: A callable schema, or None to indicate no CONFIG_SCHEMA attr.
+        config_schema_exception: Exception to raise when CONFIG_SCHEMA is called.
+        setup_failed_handler: Optional setup_failed handler function.
+        setup_call_count: Track number of setup calls (for retry testing).
+        setup_side_effects: List of (return_value, exception) tuples for sequential
+            calls.
+    """
+
+    setup_return: Any = True
+    setup_exception: Exception | None = None
+    setup_num_params: int = 3
+    config_schema: Callable[[dict], dict] | None = None
+    config_schema_exception: Exception | None = None
+    setup_failed_handler: Callable | None = None
+    setup_call_count: int = field(default=0, init=False)
+    setup_side_effects: list[tuple[Any, Exception | None]] = field(default_factory=list)
+
+    def setup(  # pylint: disable=unused-argument
+        self, vis: Viseron, config: dict, identifier: str, tries: int = 1
+    ) -> Any:
+        """Mock setup function with configurable signature."""
+        self.setup_call_count += 1
+
+        # Handle sequential side effects for retry testing
+        if self.setup_side_effects:
+            idx = min(self.setup_call_count - 1, len(self.setup_side_effects) - 1)
+            return_val, exc = self.setup_side_effects[idx]
+            if exc:
+                raise exc
+            return return_val
+
+        if self.setup_exception:
+            raise self.setup_exception
+        return self.setup_return
+
+    @property
+    def CONFIG_SCHEMA(  # pylint: disable=invalid-name
+        self,
+    ) -> Callable[[dict], dict] | None:
+        """Return config schema if configured."""
+        if self.config_schema is None and self.config_schema_exception is None:
+            raise AttributeError("No CONFIG_SCHEMA")
+        if self.config_schema_exception:
+
+            def _raise(config):
+                raise self.config_schema_exception  # type: ignore[misc]
+
+            return _raise
+        return self.config_schema
+
+    def has_config_schema(self) -> bool:
+        """Check if module has CONFIG_SCHEMA."""
+        return (
+            self.config_schema is not None or self.config_schema_exception is not None
+        )
+
+    def setup_failed(self, vis: Viseron, entry) -> Any:
+        """Mock setup_failed handler."""
+        if self.setup_failed_handler:
+            return self.setup_failed_handler(vis, entry)
+        raise AttributeError("No setup_failed handler")
 
 
 class MockCamera(MagicMock):
