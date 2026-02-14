@@ -1,9 +1,17 @@
 """Create base configs for Viseron."""
+from __future__ import annotations
+
+import copy
 import logging
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 from ruamel.yaml import YAML
 
 from viseron.const import CONFIG_PATH, DEFAULT_CONFIG, DEFAULT_PORT, SECRETS_PATH
+
+if TYPE_CHECKING:
+    from viseron.types import SupportedDomains
 
 LOGGER = logging.getLogger(__name__)
 
@@ -79,3 +87,97 @@ def load_config(create_default=True):
     for key, value in yaml_config.items():
         yaml_config[key] = value or {}
     return yaml_config
+
+
+@dataclass
+class IdentifierChange:
+    """Represents a change to a domain identifier configuration."""
+
+    component_name: str
+    domain: SupportedDomains
+    identifier: str
+    old_config: dict[str, Any] | None
+    new_config: dict[str, Any] | None
+
+    @property
+    def is_added(self) -> bool:
+        """Return True if this identifier was added."""
+        return self.old_config is None and self.new_config is not None
+
+    @property
+    def is_removed(self) -> bool:
+        """Return True if this identifier was removed."""
+        return self.old_config is not None and self.new_config is None
+
+    @property
+    def is_identifier_level_change(self) -> bool:
+        """Return True if identifier-level config changed."""
+        if self.is_added or self.is_removed:
+            return True
+
+        if self.old_config is None or self.new_config is None:
+            return False
+
+        return self.old_config != self.new_config
+
+
+def diff_identifier_config(
+    component_name: str,
+    domain: SupportedDomains,
+    old_config: dict[str, Any],
+    new_config: dict[str, Any],
+) -> list[IdentifierChange]:
+    """Compare identifier configurations within a domain and return the differences.
+
+    Args:
+        old_config: The previous domain configuration dictionary
+        new_config: The new domain configuration dictionary
+    Returns:
+        List of IdentifierChange containing all changes between identifier configs
+    """
+    result = []
+
+    old_identifiers = set(old_config.keys())
+    new_identifiers = set(new_config.keys())
+
+    # Added identifiers
+    for identifier in new_identifiers - old_identifiers:
+        result.append(
+            IdentifierChange(
+                component_name=component_name,
+                domain=domain,
+                identifier=identifier,
+                old_config=None,
+                new_config=copy.deepcopy(new_config[identifier]),
+            )
+        )
+
+    # Removed identifiers
+    for identifier in old_identifiers - new_identifiers:
+        result.append(
+            IdentifierChange(
+                component_name=component_name,
+                domain=domain,
+                identifier=identifier,
+                old_config=copy.deepcopy(old_config[identifier]),
+                new_config=None,
+            )
+        )
+
+    # Modified identifiers (present in both)
+    for identifier in old_identifiers & new_identifiers:
+        old_identifier_config = old_config[identifier]
+        new_identifier_config = new_config[identifier]
+
+        if old_identifier_config != new_identifier_config:
+            result.append(
+                IdentifierChange(
+                    component_name=component_name,
+                    domain=domain,
+                    identifier=identifier,
+                    old_config=copy.deepcopy(old_identifier_config),
+                    new_config=copy.deepcopy(new_identifier_config),
+                )
+            )
+
+    return result

@@ -1,11 +1,18 @@
 """Test config loading functionality."""
 import tempfile
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import pytest
 
-from viseron.config import create_default_config, load_config, load_secrets
+from viseron.config import (
+    IdentifierChange,
+    create_default_config,
+    diff_identifier_config,
+    load_config,
+    load_secrets,
+)
 
 
 class TestLoadSecrets:
@@ -246,3 +253,206 @@ class TestCreateDefaultConfig:
         """Test creating default config in invalid path."""
         result = create_default_config("/invalid/nonexistent/path/config.yaml")
         assert result is False
+
+
+class TestIdentifierChange:
+    """Test IdentifierChange dataclass."""
+
+    def test_identifier_added(self) -> None:
+        """Test that is_added returns True when old_config is None."""
+        change = IdentifierChange(
+            component_name="ffmpeg",
+            domain="camera",
+            identifier="cam1",
+            old_config=None,
+            new_config={"host": "192.168.1.1"},
+        )
+        assert change.is_added is True
+        assert change.is_removed is False
+        assert change.is_identifier_level_change is True
+
+    def test_identifier_removed(self) -> None:
+        """Test that is_removed returns True when new_config is None."""
+        change = IdentifierChange(
+            component_name="ffmpeg",
+            domain="camera",
+            identifier="cam1",
+            old_config={"host": "192.168.1.1"},
+            new_config=None,
+        )
+        assert change.is_removed is True
+        assert change.is_added is False
+        assert change.is_identifier_level_change is True
+
+    def test_identifier_not_added_or_removed_when_both_present(self) -> None:
+        """Test that neither is_added nor is_removed when both configs present."""
+        change = IdentifierChange(
+            component_name="darknet",
+            domain="object_detector",
+            identifier="cam1",
+            old_config={"threshold": 0.5},
+            new_config={"threshold": 0.8},
+        )
+        assert change.is_added is False
+        assert change.is_removed is False
+        assert change.is_identifier_level_change is True
+
+    def test_identifier_not_added_or_removed_when_both_none(self) -> None:
+        """Test that neither is_added nor is_removed when both configs are None."""
+        change = IdentifierChange(
+            component_name="ffmpeg",
+            domain="camera",
+            identifier="cam1",
+            old_config=None,
+            new_config=None,
+        )
+        assert change.is_added is False
+        assert change.is_removed is False
+        assert change.is_identifier_level_change is False
+
+    def test_is_identifier_level_change_no_change(self) -> None:
+        """Test is_identifier_level_change returns False when configs are equal."""
+        config = {"threshold": 0.5, "labels": ["person", "car"]}
+        change = IdentifierChange(
+            component_name="darknet",
+            domain="object_detector",
+            identifier="cam1",
+            old_config=config.copy(),
+            new_config=config.copy(),
+        )
+        assert change.is_identifier_level_change is False
+
+    def test_is_identifier_level_change_both_empty(self) -> None:
+        """Test is_identifier_level_change returns False when both configs are empty."""
+        change = IdentifierChange(
+            component_name="ffmpeg",
+            domain="camera",
+            identifier="cam1",
+            old_config={},
+            new_config={},
+        )
+        assert change.is_identifier_level_change is False
+
+
+class TestDiffIdentifierConfig:
+    """Test diff_identifier_config function."""
+
+    def test_no_changes(self) -> None:
+        """Test diff when old and new configs are identical."""
+        config: dict[str, Any] = {
+            "cam1": {"host": "192.168.1.1"},
+            "cam2": {"host": "192.168.1.2"},
+        }
+        result = diff_identifier_config("ffmpeg", "camera", config, config.copy())
+        assert not result
+
+    def test_identifier_added(self) -> None:
+        """Test diff detects a newly added identifier."""
+        old_config: dict[str, Any] = {"cam1": {"host": "192.168.1.1"}}
+        new_config: dict[str, Any] = {
+            "cam1": {"host": "192.168.1.1"},
+            "cam2": {"host": "192.168.1.2"},
+        }
+        result = diff_identifier_config("ffmpeg", "camera", old_config, new_config)
+        assert len(result) == 1
+        assert result[0].identifier == "cam2"
+        assert result[0].is_added is True
+        assert result[0].new_config == {"host": "192.168.1.2"}
+        assert result[0].old_config is None
+
+    def test_identifier_removed(self) -> None:
+        """Test diff detects a removed identifier."""
+        old_config: dict[str, Any] = {
+            "cam1": {"host": "192.168.1.1"},
+            "cam2": {"host": "192.168.1.2"},
+        }
+        new_config: dict[str, Any] = {"cam1": {"host": "192.168.1.1"}}
+        result = diff_identifier_config("ffmpeg", "camera", old_config, new_config)
+        assert len(result) == 1
+        assert result[0].identifier == "cam2"
+        assert result[0].is_removed is True
+        assert result[0].old_config == {"host": "192.168.1.2"}
+        assert result[0].new_config is None
+
+    def test_identifier_modified(self) -> None:
+        """Test diff detects a modified identifier."""
+        old_config: dict[str, Any] = {"cam1": {"host": "192.168.1.1"}}
+        new_config: dict[str, Any] = {"cam1": {"host": "10.0.0.1"}}
+        result = diff_identifier_config("ffmpeg", "camera", old_config, new_config)
+        assert len(result) == 1
+        assert result[0].identifier == "cam1"
+        assert result[0].is_added is False
+        assert result[0].is_removed is False
+        assert result[0].is_identifier_level_change is True
+        assert result[0].old_config == {"host": "192.168.1.1"}
+        assert result[0].new_config == {"host": "10.0.0.1"}
+
+    def test_multiple_changes(self) -> None:
+        """Test diff detects added, removed, and modified identifiers at once."""
+        old_config: dict[str, Any] = {
+            "cam1": {"host": "192.168.1.1"},
+            "cam2": {"host": "192.168.1.2"},
+        }
+        new_config: dict[str, Any] = {
+            "cam1": {"host": "10.0.0.1"},
+            "cam3": {"host": "192.168.1.3"},
+        }
+        result = diff_identifier_config("ffmpeg", "camera", old_config, new_config)
+        changes_by_id = {c.identifier: c for c in result}
+
+        assert len(result) == 3
+        assert changes_by_id["cam1"].is_identifier_level_change is True
+        assert changes_by_id["cam2"].is_removed is True
+        assert changes_by_id["cam3"].is_added is True
+
+    def test_both_empty(self) -> None:
+        """Test diff with empty old and new configs."""
+        result = diff_identifier_config("ffmpeg", "camera", {}, {})
+        assert not result
+
+    def test_all_added(self) -> None:
+        """Test diff when going from empty to populated config."""
+        new_config: dict[str, Any] = {
+            "cam1": {"host": "192.168.1.1"},
+            "cam2": {"host": "192.168.1.2"},
+        }
+        result = diff_identifier_config("ffmpeg", "camera", {}, new_config)
+        assert len(result) == 2
+        assert all(c.is_added for c in result)
+
+    def test_all_removed(self) -> None:
+        """Test diff when going from populated to empty config."""
+        old_config: dict[str, Any] = {
+            "cam1": {"host": "192.168.1.1"},
+            "cam2": {"host": "192.168.1.2"},
+        }
+        result = diff_identifier_config("ffmpeg", "camera", old_config, {})
+        assert len(result) == 2
+        assert all(c.is_removed for c in result)
+
+    def test_deep_copies_configs(self) -> None:
+        """Test that diff_identifier_config deep copies config values."""
+        old_config: dict[str, Any] = {"cam1": {"host": "192.168.1.1"}}
+        new_config: dict[str, Any] = {"cam2": {"host": "192.168.1.2"}}
+        result = diff_identifier_config("ffmpeg", "camera", old_config, new_config)
+        changes_by_id = {c.identifier: c for c in result}
+
+        # Mutating original dicts should not affect the change objects
+        old_config["cam1"]["host"] = "MUTATED"
+        new_config["cam2"]["host"] = "MUTATED"
+        assert changes_by_id["cam1"].old_config == {"host": "192.168.1.1"}
+        assert changes_by_id["cam2"].new_config == {"host": "192.168.1.2"}
+
+    def test_unchanged_identifiers_not_included(self) -> None:
+        """Test that identifiers with no changes are excluded from the result."""
+        old_config: dict[str, Any] = {
+            "cam1": {"host": "192.168.1.1"},
+            "cam2": {"host": "192.168.1.2"},
+        }
+        new_config: dict[str, Any] = {
+            "cam1": {"host": "192.168.1.1"},
+            "cam2": {"host": "10.0.0.2"},
+        }
+        result = diff_identifier_config("ffmpeg", "camera", old_config, new_config)
+        assert len(result) == 1
+        assert result[0].identifier == "cam2"
