@@ -196,7 +196,6 @@ class DomainChange:
                 old_identifiers[identifier] = cameras[identifier]
 
         if self.new_config is not None:
-            cameras = self.new_config.get("cameras", {})
             if self.domain == "camera":
                 cameras = self.new_config
             else:

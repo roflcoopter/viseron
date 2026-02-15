@@ -288,7 +288,6 @@ class Viseron:
         # Store the current config for diffing during reload
         self._config: dict[str, Any] = {}
         self.reload_lock = threading.Lock()
-        self.reloading_event = threading.Event()
 
     @property
     def config(self) -> dict[str, Any]:
@@ -588,6 +587,7 @@ class Viseron:
         start = timer()
         LOGGER.info("Initiating shutdown")
         self.shutdown_event.set()
+        self.domain_registry.cancel_all_retries()
         if not self.initialized_event.is_set():
             LOGGER.debug("Waiting for Viseron to be initialized before shutdown")
             self.initialized_event.wait()
@@ -709,7 +709,7 @@ def wait_for_threads_and_processes_to_exit(
         for thread in threading.enumerate()
         if not thread.daemon
         and thread != threading.current_thread()
-        and "setup_domains" not in thread.name
+        and "MainThread" not in thread.name
     ]
     threads_and_processes += multiprocessing.active_children()
 

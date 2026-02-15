@@ -54,6 +54,7 @@ class DomainEntry:
     error: str | None = None
     error_instance: FailedCamera | None = None
     setup_future: Future | None = None
+    cancel_event: threading.Event = field(default_factory=threading.Event)
 
     def as_dict(self) -> dict[str, Any]:
         """Return as dict for serialization."""
@@ -409,6 +410,30 @@ class DomainRegistry:
                             failed.append(entry)
                             break
         return failed
+
+    def cancel_retry(self, domain: str, identifier: str) -> None:
+        """Cancel any ongoing retry for a domain.
+
+        Sets the domain's cancel_event, which wakes up
+        any blocking wait in _setup_single_domain immediately.
+        """
+        with self._lock:
+            entry = self._get_entry(domain, identifier)
+            if entry:
+                entry.cancel_event.set()
+
+    def cancel_all_retries(
+        self,
+    ) -> list[DomainEntry]:
+        """Cancel all domains that may be in a retry loop."""
+        cancelled: list[DomainEntry] = []
+        with self._lock:
+            for domain_entries in self._domains.values():
+                for entry in domain_entries.values():
+                    if entry.state == DomainState.RETRYING:
+                        cancelled.append(entry)
+                    entry.cancel_event.set()
+        return cancelled
 
     def clear_future(self, domain: str, identifier: str) -> None:
         """Clear the setup future after completion."""
