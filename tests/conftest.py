@@ -68,6 +68,13 @@ def camera() -> MockCamera:
 
 
 @pytest.fixture(scope="session", autouse=True)
+def patch_tier_check_worker() -> Iterator[None]:
+    """Patch TierCheckWorker to prevent real subprocesses from spawning in tests."""
+    with patch("viseron.components.storage.TierCheckWorker"):
+        yield
+
+
+@pytest.fixture(scope="session", autouse=True)
 def patch_enable_logging() -> Iterator[None]:
     """Patch enable_logging to avoid adding duplicate handlers."""
     with patch("viseron.enable_logging"):
