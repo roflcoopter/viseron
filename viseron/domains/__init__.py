@@ -184,7 +184,8 @@ def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bo
         + (f", attempt {tries}" if tries > 1 else "")
     )
 
-    registry.set_state(entry.domain, entry.identifier, DomainState.LOADING)
+    if entry.state != DomainState.RETRYING:
+        registry.set_state(entry.domain, entry.identifier, DomainState.LOADING)
 
     # Wait for dependencies
     if not _wait_for_dependencies(vis, entry):
@@ -256,9 +257,9 @@ def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bo
             f"with identifier {entry.identifier} "
             f"for component {entry.component_name} "
             "aborted due to "
-            f"{'shutdown' if vis.shutdown_event.is_set() else 'reload'}"
+            f"{'shutdown' if vis.shutdown_event.is_set() else 'cancellation'}"
         )
-        if vis.shutdown_event.is_set() or vis.reloading_event.is_set():
+        if vis.shutdown_event.is_set() or entry.cancel_event.is_set():
             LOGGER.warning(warning_text)
             _handle_failed_domain(vis, entry, DomainState.FAILED, error=str(error))
             slow_setup_warning.cancel()
@@ -276,15 +277,15 @@ def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bo
             f"Error: {str(error)}"
         )
 
-        elapsed = 0.0
-        interval = 0.2
-        while elapsed < wait_time:
-            if vis.shutdown_event.is_set() or vis.reloading_event.is_set():
-                LOGGER.warning(warning_text)
-                _handle_failed_domain(vis, entry, DomainState.FAILED, error=str(error))
-                return False
-            time.sleep(interval)
-            elapsed += interval
+        # Block until wait_time elapses or the domain is cancelled/shutdown.
+        # cancel_event.wait() returns True if the event was set (cancelled),
+        # False if it timed out (meaning we should retry).
+        cancelled = entry.cancel_event.wait(timeout=wait_time)
+        if cancelled or vis.shutdown_event.is_set():
+            LOGGER.warning(warning_text)
+            _handle_failed_domain(vis, entry, DomainState.FAILED, error=str(error))
+            return False
+
         # Running with ThreadPoolExecutor and awaiting the future does not
         # cause a max recursion error if we retry for a long time
         with ThreadPoolExecutor(
@@ -490,6 +491,9 @@ def unload_domain(
         return None
 
     LOGGER.info(f"Unloading domain {domain} with identifier {identifier}")
+
+    # Cancel any in-progress retry for this domain
+    registry.cancel_retry(domain, identifier)
 
     # Unload entities for this domain
     component_name = entry.component_name
