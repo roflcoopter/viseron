@@ -6,6 +6,7 @@ import os
 from unittest.mock import patch
 
 import yaml
+from filelock import FileLock
 
 from tests.components.webserver.common import TestAppBaseAuth
 
@@ -21,6 +22,9 @@ class TestTuneAPIHandler(TestAppBaseAuth):
         self.config_path = os.path.join(
             os.path.dirname(__file__), "test_tune_config.yaml"
         )
+        self.lock_path = f"{self.config_path}.lock"
+        self.config_lock = FileLock(self.lock_path)
+        self.config_lock.acquire()
 
         # Sample config structure in JSON
         self.sample_config = {
@@ -158,6 +162,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
         if os.path.exists(self.config_path):
             os.remove(self.config_path)
         super().tearDown()
+        self.config_lock.release()
 
     def test_get_all_camera_tune(self) -> None:
         """Test getting all camera tune settings."""

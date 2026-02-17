@@ -84,12 +84,12 @@ def patch_enable_logging() -> Iterator[None]:
 def _make_db_session(database) -> Generator[Session, Any, None]:
     """Create a DB session."""
     with DatabaseJanitor(
-        database.user,
-        database.host,
-        database.port,
-        database.dbname,
-        database.version,
-        database.password,
+        user=database.user,
+        host=database.host,
+        port=database.port,
+        dbname=database.dbname,
+        version=database.version,
+        password=database.password,
     ):
         connection_str = (
             "postgresql+psycopg2://"
@@ -106,12 +106,12 @@ def _make_db_session(database) -> Generator[Session, Any, None]:
 def _get_db_session(database) -> Generator[sessionmaker[Session], Any, None]:
     """Create a DB session."""
     with DatabaseJanitor(
-        database.user,
-        database.host,
-        database.port,
-        database.dbname,
-        database.version,
-        database.password,
+        user=database.user,
+        host=database.host,
+        port=database.port,
+        dbname=database.dbname,
+        version=database.version,
+        password=database.password,
     ):
         connection_str = (
             "postgresql+psycopg2://"
@@ -160,12 +160,12 @@ def alembic_config() -> dict[str, str]:
 def alembic_engine(test_db):
     """Return engine for pytest-alembic."""
     with DatabaseJanitor(
-        test_db.user,
-        test_db.host,
-        test_db.port,
-        test_db.dbname,
-        test_db.version,
-        test_db.password,
+        user=test_db.user,
+        host=test_db.host,
+        port=test_db.port,
+        dbname=test_db.dbname,
+        version=test_db.version,
+        password=test_db.password,
     ):
         connection_str = (
             "postgresql+psycopg2://"

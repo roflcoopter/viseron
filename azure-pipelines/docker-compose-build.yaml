@@ -171,7 +171,7 @@ services:
         chown -R abc:abc /src &&
         su abc -c '
           cd /src &&
-          pytest --cov=viseron/ --cov-report term-missing -s tests &&
+          pytest --cov=viseron/ --cov-report term-missing -s -n auto tests &&
           coverage xml
         '
       "
