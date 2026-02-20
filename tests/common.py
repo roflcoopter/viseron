@@ -46,6 +46,47 @@ class MockComponent(Component):
 
 
 @dataclass
+class MockComponentModule:
+    """Configurable mock for a component module.
+
+    Args:
+        setup_return: Return value for setup(). Can be True, False, or any value.
+        setup_exception: Exception to raise during setup() (e.g., ComponentNotReady).
+        config_schema: A callable schema, or None to indicate no CONFIG_SCHEMA attr.
+        config_schema_exception: Exception to raise when CONFIG_SCHEMA is called.
+    """
+
+    setup_return: Any = True
+    setup_exception: Exception | None = None
+    config_schema: Callable[[dict], dict] | None = None
+    config_schema_exception: BaseException | None = None
+
+    def setup(  # pylint: disable=unused-argument
+        self, vis: Viseron, config: dict
+    ) -> Any:
+        """Mock setup function."""
+        if self.setup_exception:
+            raise self.setup_exception
+        return self.setup_return
+
+    @property
+    def CONFIG_SCHEMA(  # pylint: disable=invalid-name
+        self,
+    ) -> Callable[[dict], dict] | None:
+        """Return config schema if configured."""
+        if self.config_schema is None and self.config_schema_exception is None:
+            # Simulate no CONFIG_SCHEMA attribute
+            raise AttributeError("No CONFIG_SCHEMA")
+        if self.config_schema_exception:
+
+            def _raise(config):
+                raise self.config_schema_exception  # type: ignore[misc]
+
+            return _raise
+        return self.config_schema
+
+
+@dataclass
 class MockDomainModule:
     """Configurable mock for a domain module.
 
@@ -102,12 +143,6 @@ class MockDomainModule:
 
             return _raise
         return self.config_schema
-
-    def has_config_schema(self) -> bool:
-        """Check if module has CONFIG_SCHEMA."""
-        return (
-            self.config_schema is not None or self.config_schema_exception is not None
-        )
 
     def setup_failed(self, vis: Viseron, entry) -> Any:
         """Mock setup_failed handler."""
