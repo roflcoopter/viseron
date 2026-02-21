@@ -7,13 +7,17 @@ from unittest.mock import MagicMock, call, patch
 from viseron.config import ComponentChange, ConfigDiff, DomainChange, IdentifierChange
 from viseron.domain_registry import DomainEntry
 from viseron.reload import (
+    ReloadChanges,
     SetupPlan,
     _get_changes,
+    _load_and_diff_config,
     _process_identifier_changes,
     _unload_domain_chain,
 )
 
 if TYPE_CHECKING:
+    import pytest
+
     from viseron.types import SupportedDomains
 
 
@@ -486,3 +490,86 @@ class TestGetChanges:
         assert result.components_to_reload[0].component_name == "ffmpeg"
         assert len(result.domains_to_reload) == 1
         assert result.domains_to_reload[0].component_name == "darknet"
+
+
+class TestLoadAndDiffConfig:
+    """Test _load_and_diff_config function."""
+
+    @patch("viseron.reload._get_changes")
+    @patch("viseron.reload.diff_config")
+    @patch("viseron.reload.load_config")
+    def test_returns_new_config_diff_and_changes(
+        self,
+        mock_load: MagicMock,
+        mock_diff: MagicMock,
+        mock_get_changes: MagicMock,
+    ) -> None:
+        """Test the return tuple structure."""
+        vis = MagicMock()
+        vis.config = {"ffmpeg": {"camera": {"cam1": {}}}}
+        new_cfg = {"ffmpeg": {"camera": {"cam1": {"host": "10.0.0.1"}}}}
+        mock_load.return_value = new_cfg
+        mock_diff.return_value = ConfigDiff()
+        mock_get_changes.return_value = ReloadChanges()
+
+        result_config, result_diff, result_changes = _load_and_diff_config(vis)
+
+        assert result_config is new_cfg
+        assert isinstance(result_diff, ConfigDiff)
+        assert isinstance(result_changes, ReloadChanges)
+        mock_load.assert_called_once()
+        mock_diff.assert_called_once_with(vis.config, new_cfg)
+        mock_get_changes.assert_called_once_with(mock_diff.return_value)
+
+    @patch("viseron.reload._get_changes")
+    @patch("viseron.reload.diff_config")
+    @patch("viseron.reload.load_config")
+    def test_logs_no_changes(
+        self,
+        mock_load: MagicMock,
+        mock_diff: MagicMock,
+        mock_get_changes: MagicMock,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Test that a log message is emitted when no changes."""
+        vis = MagicMock()
+        vis.config = {}
+        mock_load.return_value = {}
+        mock_diff.return_value = ConfigDiff()  # has_changes is False
+        mock_get_changes.return_value = ReloadChanges()
+
+        with caplog.at_level("INFO", logger="viseron.reload"):
+            _load_and_diff_config(vis)
+
+        assert "No configuration changes detected" in caplog.text
+
+    @patch("viseron.reload._get_changes")
+    @patch("viseron.reload.diff_config")
+    @patch("viseron.reload.load_config")
+    def test_no_log_when_changes_exist(
+        self,
+        mock_load: MagicMock,
+        mock_diff: MagicMock,
+        mock_get_changes: MagicMock,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Test no 'no changes' log when diff has changes."""
+        vis = MagicMock()
+        vis.config = {"old": {}}
+        mock_load.return_value = {"new": {}}
+        diff = ConfigDiff(
+            component_changes={
+                "new": ComponentChange(
+                    component_name="new",
+                    old_config=None,
+                    new_config={},
+                ),
+            }
+        )
+        mock_diff.return_value = diff
+        mock_get_changes.return_value = ReloadChanges()
+
+        with caplog.at_level("INFO", logger="viseron.reload"):
+            _load_and_diff_config(vis)
+
+        assert "No configuration changes detected" not in caplog.text
