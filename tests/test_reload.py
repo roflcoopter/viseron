@@ -11,6 +11,7 @@ from viseron.reload import (
     SetupPlan,
     _get_changes,
     _handle_added_components,
+    _handle_cancelled_retries,
     _handle_modified_components,
     _handle_modified_domains,
     _handle_modified_identifiers,
@@ -979,3 +980,39 @@ class TestHandleModifiedIdentifiers:
         assert plan.domain_components == {"darknet", "ffmpeg"}
         mock_chain.assert_called_once_with(vis, entry, plan)
         assert "cam2" in caplog.text
+
+
+class TestHandleCancelledRetries:
+    """Test _handle_cancelled_retries function."""
+
+    @patch("viseron.reload._unload_domain_chain")
+    def test_no_cancelled_retries(self, mock_chain: MagicMock) -> None:
+        """Test with an empty cancelled retries list."""
+        vis = MagicMock()
+        plan = SetupPlan()
+
+        _handle_cancelled_retries(vis, [], plan)
+
+        mock_chain.assert_not_called()
+
+    @patch("viseron.reload._unload_domain_chain")
+    def test_multiple_cancelled_retries(self, mock_chain: MagicMock) -> None:
+        """Test that each cancelled retry triggers its own chain unload."""
+        vis = MagicMock()
+        entry1 = _make_domain_entry(identifier="cam1")
+        entry2 = _make_domain_entry(
+            component_name="darknet",
+            domain="object_detector",
+            identifier="cam2",
+        )
+        plan = SetupPlan()
+
+        _handle_cancelled_retries(vis, [entry1, entry2], plan)
+
+        assert mock_chain.call_count == 2
+        mock_chain.assert_has_calls(
+            [
+                call(vis, entry1, plan),
+                call(vis, entry2, plan),
+            ]
+        )
