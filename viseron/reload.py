@@ -257,6 +257,10 @@ def _handle_cancelled_retries(
 
 def _apply_setup_plan(vis: Viseron, new_config: dict, plan: SetupPlan) -> None:
     """Set up all components and domains collected in the plan."""
+    if not plan.components and not plan.domain_components:
+        LOGGER.debug("No components or domains to set up after reload")
+        return
+
     LOGGER.debug(f"Components to setup: {plan.components}")
     setup_components(
         vis,

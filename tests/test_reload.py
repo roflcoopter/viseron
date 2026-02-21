@@ -9,6 +9,7 @@ from viseron.domain_registry import DomainEntry
 from viseron.reload import (
     ReloadChanges,
     SetupPlan,
+    _apply_setup_plan,
     _get_changes,
     _handle_added_components,
     _handle_cancelled_retries,
@@ -1016,3 +1017,56 @@ class TestHandleCancelledRetries:
                 call(vis, entry2, plan),
             ]
         )
+
+
+class TestApplySetupPlan:
+    """Test _apply_setup_plan function."""
+
+    @patch("viseron.reload.setup_domains")
+    @patch("viseron.reload.setup_components")
+    def test_calls_setup_in_correct_order(
+        self, mock_setup_components: MagicMock, mock_setup_domains: MagicMock
+    ) -> None:
+        """Test that components, domain components, and domains are set up in order."""
+        vis = MagicMock()
+        new_config: dict[str, dict[str, dict]] = {"ffmpeg": {"camera": {}}}
+        plan = SetupPlan(
+            components={"ffmpeg", "mqtt"},
+            domain_components={"darknet"},
+        )
+
+        _apply_setup_plan(vis, new_config, plan)
+
+        assert mock_setup_components.call_count == 2
+        mock_setup_components.assert_has_calls(
+            [
+                call(
+                    vis,
+                    new_config,
+                    reloading=True,
+                    components={"ffmpeg", "mqtt"},
+                ),
+                call(
+                    vis,
+                    new_config,
+                    reloading=True,
+                    domains_only=True,
+                    components={"darknet"},
+                ),
+            ]
+        )
+        mock_setup_domains.assert_called_once_with(vis)
+
+    @patch("viseron.reload.setup_domains")
+    @patch("viseron.reload.setup_components")
+    def test_empty_plan(
+        self, mock_setup_components: MagicMock, mock_setup_domains: MagicMock
+    ) -> None:
+        """Test that an empty plan returns early."""
+        vis = MagicMock()
+        plan = SetupPlan()
+
+        _apply_setup_plan(vis, {}, plan)
+
+        mock_setup_components.assert_not_called()
+        mock_setup_domains.assert_not_called()
