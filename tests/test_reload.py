@@ -12,6 +12,7 @@ from viseron.reload import (
     _get_changes,
     _handle_added_components,
     _handle_modified_components,
+    _handle_modified_identifiers,
     _handle_removed_components,
     _load_and_diff_config,
     _process_identifier_changes,
@@ -746,3 +747,110 @@ class TestHandleModifiedComponents:
         assert mock_unload.call_count == 2
         mock_unload.assert_any_call(vis, "ffmpeg")
         mock_unload.assert_any_call(vis, "mqtt")
+
+
+class TestHandleModifiedIdentifiers:
+    """Test _handle_modified_identifiers function."""
+
+    @patch("viseron.reload._unload_domain_chain")
+    def test_no_modified_identifiers(self, mock_chain: MagicMock) -> None:
+        """Test with empty identifiers_to_reload."""
+        vis = MagicMock()
+        changes = ReloadChanges()
+        plan = SetupPlan()
+
+        _handle_modified_identifiers(vis, changes, plan)
+
+        mock_chain.assert_not_called()
+        assert plan.domain_components == set()
+
+    @patch("viseron.reload._unload_domain_chain")
+    def test_identifier_found_unloads_chain(self, mock_chain: MagicMock) -> None:
+        """Test that a found identifier triggers chain unload and updates plan."""
+        vis = MagicMock()
+        entry = _make_domain_entry()
+        vis.domain_registry.get_by_identifier.return_value = entry
+        changes = ReloadChanges(
+            identifiers_to_reload=[
+                IdentifierChange(
+                    component_name="ffmpeg",
+                    domain="camera",
+                    identifier="cam1",
+                    old_config={"host": "192.168.1.1"},
+                    new_config={"host": "10.0.0.1"},
+                ),
+            ]
+        )
+        plan = SetupPlan()
+
+        _handle_modified_identifiers(vis, changes, plan)
+
+        assert "ffmpeg" in plan.domain_components
+        vis.domain_registry.get_by_identifier.assert_called_once_with("camera", "cam1")
+        mock_chain.assert_called_once_with(vis, entry, plan)
+
+    @patch("viseron.reload._unload_domain_chain")
+    def test_identifier_not_found_logs_error(
+        self, mock_chain: MagicMock, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test that a missing identifier logs an error and does not unload."""
+        vis = MagicMock()
+        vis.domain_registry.get_by_identifier.return_value = None
+        changes = ReloadChanges(
+            identifiers_to_reload=[
+                IdentifierChange(
+                    component_name="ffmpeg",
+                    domain="camera",
+                    identifier="cam1",
+                    old_config={"host": "192.168.1.1"},
+                    new_config={"host": "10.0.0.1"},
+                ),
+            ]
+        )
+        plan = SetupPlan()
+
+        with caplog.at_level("ERROR", logger="viseron.reload"):
+            _handle_modified_identifiers(vis, changes, plan)
+
+        assert "ffmpeg" in plan.domain_components
+        mock_chain.assert_not_called()
+        assert "no matching domain found to unload" in caplog.text
+
+    @patch("viseron.reload._unload_domain_chain")
+    def test_multiple_identifiers_mixed(
+        self, mock_chain: MagicMock, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test multiple identifiers with mixed found/not-found results."""
+        vis = MagicMock()
+        entry = _make_domain_entry(
+            component_name="darknet",
+            domain="object_detector",
+            identifier="cam1",
+        )
+        vis.domain_registry.get_by_identifier.side_effect = [entry, None]
+        changes = ReloadChanges(
+            identifiers_to_reload=[
+                IdentifierChange(
+                    component_name="darknet",
+                    domain="object_detector",
+                    identifier="cam1",
+                    old_config={"threshold": 0.5},
+                    new_config={"threshold": 0.8},
+                ),
+                IdentifierChange(
+                    component_name="ffmpeg",
+                    domain="camera",
+                    identifier="cam2",
+                    old_config={"host": "192.168.1.1"},
+                    new_config={"host": "10.0.0.1"},
+                ),
+            ]
+        )
+        plan = SetupPlan()
+
+        with caplog.at_level("ERROR", logger="viseron.reload"):
+            _handle_modified_identifiers(vis, changes, plan)
+
+        assert plan.domain_components == {"darknet", "ffmpeg"}
+        mock_chain.assert_called_once_with(vis, entry, plan)
+        assert "cam2" in caplog.text
