@@ -4,9 +4,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, call, patch
 
-from viseron.config import IdentifierChange
+from viseron.config import ComponentChange, ConfigDiff, DomainChange, IdentifierChange
 from viseron.domain_registry import DomainEntry
-from viseron.reload import SetupPlan, _process_identifier_changes, _unload_domain_chain
+from viseron.reload import (
+    SetupPlan,
+    _get_changes,
+    _process_identifier_changes,
+    _unload_domain_chain,
+)
 
 if TYPE_CHECKING:
     from viseron.types import SupportedDomains
@@ -170,7 +175,7 @@ class TestProcessIdentifierChanges:
     def test_no_changes_both_empty(self) -> None:
         """Test with both old and new configs empty."""
         result = _process_identifier_changes("ffmpeg", "camera", {}, {})
-        assert result == []
+        assert not result
 
     def test_no_changes_identical_configs(self) -> None:
         """Test with identical old and new configs."""
@@ -179,7 +184,7 @@ class TestProcessIdentifierChanges:
             "cam2": {"host": "192.168.1.2"},
         }
         result = _process_identifier_changes("ffmpeg", "camera", config, config.copy())
-        assert result == []
+        assert not result
 
     def test_single_identifier_added(self) -> None:
         """Test detection of a single newly added identifier."""
@@ -344,3 +349,140 @@ class TestProcessIdentifierChanges:
 
         assert old_config == old_copy
         assert new_config == new_copy
+
+
+class TestGetChanges:
+    """Test _get_changes function."""
+
+    def test_empty_diff(self) -> None:
+        """Test with no changes in the diff."""
+        diff = ConfigDiff()
+
+        result = _get_changes(diff)
+
+        assert not result.components_to_reload
+        assert not result.domains_to_reload
+        assert not result.identifiers_to_reload
+
+    def test_only_added_and_removed_components_ignored(self) -> None:
+        """Test that added/removed components are not returned as modified."""
+        diff = ConfigDiff(
+            component_changes={
+                "new_comp": ComponentChange(
+                    component_name="new_comp",
+                    old_config=None,
+                    new_config={"key": "val"},
+                ),
+                "old_comp": ComponentChange(
+                    component_name="old_comp",
+                    old_config={"key": "val"},
+                    new_config=None,
+                ),
+            }
+        )
+
+        result = _get_changes(diff)
+
+        assert not result.components_to_reload
+        assert not result.domains_to_reload
+        assert not result.identifiers_to_reload
+
+    def test_component_level_change(self) -> None:
+        """Test that a component-level change is classified correctly."""
+        change = ComponentChange(
+            component_name="ffmpeg",
+            old_config={"test": 2},
+            new_config={"test": 4},
+        )
+        diff = ConfigDiff(component_changes={"ffmpeg": change})
+
+        result = _get_changes(diff)
+
+        assert len(result.components_to_reload) == 1
+        assert result.components_to_reload[0].component_name == "ffmpeg"
+        assert not result.domains_to_reload
+        assert not result.identifiers_to_reload
+
+    @patch("viseron.reload._process_domain_changes")
+    def test_domain_level_change(self, mock_process: MagicMock) -> None:
+        """Test that domain-level changes are routed to domains_to_reload."""
+        domain_change = DomainChange(
+            component_name="darknet",
+            domain="object_detector",
+            old_config={"threshold": 0.5, "cameras": {}},
+            new_config={"threshold": 0.8, "cameras": {}},
+        )
+        mock_process.return_value = ([domain_change], [])
+
+        change = ComponentChange(
+            component_name="darknet",
+            old_config={"object_detector": {"threshold": 0.5, "cameras": {}}},
+            new_config={"object_detector": {"threshold": 0.8, "cameras": {}}},
+        )
+        diff = ConfigDiff(component_changes={"darknet": change})
+
+        result = _get_changes(diff)
+
+        assert not result.components_to_reload
+        assert len(result.domains_to_reload) == 1
+        assert result.domains_to_reload[0].component_name == "darknet"
+        assert not result.identifiers_to_reload
+
+    @patch("viseron.reload._process_domain_changes")
+    def test_identifier_level_change(self, mock_process: MagicMock) -> None:
+        """Test that identifier-level changes are routed to identifiers_to_reload."""
+        id_change = IdentifierChange(
+            component_name="ffmpeg",
+            domain="camera",
+            identifier="cam1",
+            old_config={"host": "192.168.1.1"},
+            new_config={"host": "10.0.0.1"},
+        )
+        mock_process.return_value = ([], [id_change])
+
+        change = ComponentChange(
+            component_name="ffmpeg",
+            old_config={"camera": {"cam1": {"host": "192.168.1.1"}}},
+            new_config={"camera": {"cam1": {"host": "10.0.0.1"}}},
+        )
+        diff = ConfigDiff(component_changes={"ffmpeg": change})
+
+        result = _get_changes(diff)
+
+        assert not result.components_to_reload
+        assert not result.domains_to_reload
+        assert len(result.identifiers_to_reload) == 1
+        assert result.identifiers_to_reload[0].identifier == "cam1"
+
+    @patch("viseron.reload._process_domain_changes")
+    def test_mixed_component_and_domain_changes(self, mock_process: MagicMock) -> None:
+        """Test mix of component-level and domain-level changes across components."""
+        domain_change = DomainChange(
+            component_name="darknet",
+            domain="object_detector",
+            old_config={"threshold": 0.5, "cameras": {}},
+            new_config={"threshold": 0.8, "cameras": {}},
+        )
+        mock_process.return_value = ([domain_change], [])
+
+        diff = ConfigDiff(
+            component_changes={
+                "ffmpeg": ComponentChange(
+                    component_name="ffmpeg",
+                    old_config={"test": 2},
+                    new_config={"test": 4},
+                ),
+                "darknet": ComponentChange(
+                    component_name="darknet",
+                    old_config={"object_detector": {"threshold": 0.5, "cameras": {}}},
+                    new_config={"object_detector": {"threshold": 0.8, "cameras": {}}},
+                ),
+            }
+        )
+
+        result = _get_changes(diff)
+
+        assert len(result.components_to_reload) == 1
+        assert result.components_to_reload[0].component_name == "ffmpeg"
+        assert len(result.domains_to_reload) == 1
+        assert result.domains_to_reload[0].component_name == "darknet"
