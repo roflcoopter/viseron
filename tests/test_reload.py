@@ -11,6 +11,7 @@ from viseron.reload import (
     SetupPlan,
     _get_changes,
     _handle_added_components,
+    _handle_modified_components,
     _handle_removed_components,
     _load_and_diff_config,
     _process_identifier_changes,
@@ -699,3 +700,49 @@ class TestHandleAddedComponents:
 
         assert plan.components == {"ffmpeg", "darknet"}
         assert plan.domain_components == set()
+
+
+class TestHandleModifiedComponents:
+    """Test _handle_modified_components function."""
+
+    @patch("viseron.reload.unload_component")
+    def test_no_modified_components(self, mock_unload: MagicMock) -> None:
+        """Test with empty components_to_reload."""
+        vis = MagicMock()
+        changes = ReloadChanges()
+        plan = SetupPlan()
+
+        _handle_modified_components(vis, changes, plan)
+
+        mock_unload.assert_not_called()
+        assert plan.components == set()
+        assert plan.domain_components == set()
+
+    @patch("viseron.reload.unload_component")
+    def test_modified_with_and_without_affected(self, mock_unload: MagicMock) -> None:
+        """Test modified components with and without affected dependents."""
+        vis = MagicMock()
+        mock_unload.side_effect = [{"nvr", "darknet"}, None]
+        changes = ReloadChanges(
+            components_to_reload=[
+                ComponentChange(
+                    component_name="ffmpeg",
+                    old_config={"test": 2},
+                    new_config={"test": 4},
+                ),
+                ComponentChange(
+                    component_name="mqtt",
+                    old_config={"host": "old"},
+                    new_config={"host": "new"},
+                ),
+            ]
+        )
+        plan = SetupPlan()
+
+        _handle_modified_components(vis, changes, plan)
+
+        assert plan.components == {"ffmpeg", "mqtt"}
+        assert plan.domain_components == {"nvr", "darknet"}
+        assert mock_unload.call_count == 2
+        mock_unload.assert_any_call(vis, "ffmpeg")
+        mock_unload.assert_any_call(vis, "mqtt")
