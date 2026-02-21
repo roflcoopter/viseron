@@ -12,6 +12,7 @@ from viseron.reload import (
     _get_changes,
     _handle_added_components,
     _handle_modified_components,
+    _handle_modified_domains,
     _handle_modified_identifiers,
     _handle_removed_components,
     _load_and_diff_config,
@@ -747,6 +748,130 @@ class TestHandleModifiedComponents:
         assert mock_unload.call_count == 2
         mock_unload.assert_any_call(vis, "ffmpeg")
         mock_unload.assert_any_call(vis, "mqtt")
+
+
+class TestHandleModifiedDomains:
+    """Test _handle_modified_domains function."""
+
+    @patch("viseron.reload._unload_domain_chain")
+    def test_no_modified_domains(self, mock_chain: MagicMock) -> None:
+        """Test with empty domains_to_reload."""
+        vis = MagicMock()
+        changes = ReloadChanges()
+        plan = SetupPlan()
+
+        _handle_modified_domains(vis, changes, plan)
+
+        mock_chain.assert_not_called()
+        assert plan.domain_components == set()
+
+    @patch("viseron.reload._unload_domain_chain")
+    def test_domain_no_entries_to_unload(self, mock_chain: MagicMock) -> None:
+        """Test domain change where registry returns no entries."""
+        vis = MagicMock()
+        vis.domain_registry.get_by_component.return_value = None
+        changes = ReloadChanges(
+            domains_to_reload=[
+                DomainChange(
+                    component_name="darknet",
+                    domain="object_detector",
+                    old_config={"threshold": 0.5, "cameras": {}},
+                    new_config={"threshold": 0.8, "cameras": {}},
+                ),
+            ]
+        )
+        plan = SetupPlan()
+
+        _handle_modified_domains(vis, changes, plan)
+
+        assert plan.domain_components == {"darknet"}
+        vis.domain_registry.get_by_component.assert_called_once_with("darknet")
+        mock_chain.assert_not_called()
+
+    @patch("viseron.reload._unload_domain_chain")
+    def test_domain_with_entries_unloads_all(self, mock_chain: MagicMock) -> None:
+        """Test domain change with multiple entries triggers chain unload for each."""
+        vis = MagicMock()
+        entry1 = _make_domain_entry(
+            component_name="darknet",
+            domain="object_detector",
+            identifier="cam1",
+        )
+        entry2 = _make_domain_entry(
+            component_name="darknet",
+            domain="object_detector",
+            identifier="cam2",
+        )
+        vis.domain_registry.get_by_component.return_value = [entry1, entry2]
+        changes = ReloadChanges(
+            domains_to_reload=[
+                DomainChange(
+                    component_name="darknet",
+                    domain="object_detector",
+                    old_config={"threshold": 0.5, "cameras": {}},
+                    new_config={"threshold": 0.8, "cameras": {}},
+                ),
+            ]
+        )
+        plan = SetupPlan()
+
+        _handle_modified_domains(vis, changes, plan)
+
+        assert "darknet" in plan.domain_components
+        assert mock_chain.call_count == 2
+        mock_chain.assert_has_calls(
+            [
+                call(vis, entry1, plan),
+                call(vis, entry2, plan),
+            ]
+        )
+
+    @patch("viseron.reload._unload_domain_chain")
+    def test_multiple_domain_changes(self, mock_chain: MagicMock) -> None:
+        """Test multiple domain changes accumulate components and unload all."""
+        vis = MagicMock()
+        entry_darknet = _make_domain_entry(
+            component_name="darknet",
+            domain="object_detector",
+            identifier="cam1",
+        )
+        entry_ffmpeg = _make_domain_entry(
+            component_name="ffmpeg",
+            domain="camera",
+            identifier="cam1",
+        )
+        vis.domain_registry.get_by_component.side_effect = [
+            [entry_darknet],
+            [entry_ffmpeg],
+        ]
+        changes = ReloadChanges(
+            domains_to_reload=[
+                DomainChange(
+                    component_name="darknet",
+                    domain="object_detector",
+                    old_config={"threshold": 0.5, "cameras": {}},
+                    new_config={"threshold": 0.8, "cameras": {}},
+                ),
+                DomainChange(
+                    component_name="ffmpeg",
+                    domain="camera",
+                    old_config={"width": 1920},
+                    new_config={"width": 1280},
+                ),
+            ]
+        )
+        plan = SetupPlan()
+
+        _handle_modified_domains(vis, changes, plan)
+
+        assert plan.domain_components == {"darknet", "ffmpeg"}
+        assert mock_chain.call_count == 2
+        mock_chain.assert_has_calls(
+            [
+                call(vis, entry_darknet, plan),
+                call(vis, entry_ffmpeg, plan),
+            ]
+        )
 
 
 class TestHandleModifiedIdentifiers:
