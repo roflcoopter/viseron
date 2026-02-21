@@ -394,7 +394,7 @@ class AbstractRecorder(ABC, RecorderBase):
         ]
         num_fragments = len(fragments)
         if num_fragments == 0:
-            self._logger.error("No fragments available.")
+            self._logger.error("No fragments available")
             return None
         event_clip = self._camera.fragmenter.concatenate_fragments(fragments)
         if not event_clip:

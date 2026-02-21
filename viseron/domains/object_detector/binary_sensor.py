@@ -31,11 +31,14 @@ class ObjectDetectedBinarySensor(CameraBinarySensor):
 
     def setup(self) -> None:
         """Set up event listener."""
-        self._vis.listen_event(
-            EVENT_SCAN_FRAMES.format(
-                camera_identifier=self._camera.identifier, scanner_name=OBJECT_DETECTOR
-            ),
-            self.handle_stop_scan,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_SCAN_FRAMES.format(
+                    camera_identifier=self._camera.identifier,
+                    scanner_name=OBJECT_DETECTOR,
+                ),
+                self.handle_stop_scan,
+            )
         )
 
     @property
@@ -77,9 +80,11 @@ class ObjectDetectedBinarySensorFoV(ObjectDetectedBinarySensor):
         self.object_id = f"{camera.identifier}_object_detected"
         self.name = f"{camera.name} Object Detected"
 
-        vis.listen_event(
-            EVENT_OBJECTS_IN_FOV.format(camera_identifier=camera.identifier),
-            self.handle_event,
+        self._event_listeners.append(
+            vis.listen_event(
+                EVENT_OBJECTS_IN_FOV.format(camera_identifier=camera.identifier),
+                self.handle_event,
+            )
         )
 
 
@@ -96,11 +101,13 @@ class ObjectDetectedBinarySensorZone(ObjectDetectedBinarySensor):
         self.object_id = f"{camera.identifier}_zone_{zone.name}_object_detected"
         self.name = f"{camera.name} Zone {zone.name} Object Detected"
 
-        vis.listen_event(
-            EVENT_OBJECTS_IN_ZONE.format(
-                camera_identifier=camera.identifier, zone_name=zone.name
-            ),
-            self.handle_event,
+        self._event_listeners.append(
+            vis.listen_event(
+                EVENT_OBJECTS_IN_ZONE.format(
+                    camera_identifier=camera.identifier, zone_name=zone.name
+                ),
+                self.handle_event,
+            )
         )
 
 
@@ -164,9 +171,11 @@ class ObjectDetectedBinarySensorFoVLabel(ObjectDetectedBinarySensorLabel):
         self.object_id = f"{camera.identifier}_object_detected_{label}"
         self.name = f"{camera.name} Object Detected {label.capitalize()}"
 
-        vis.listen_event(
-            EVENT_OBJECTS_IN_FOV.format(camera_identifier=camera.identifier),
-            self.handle_event,
+        self._event_listeners.append(
+            vis.listen_event(
+                EVENT_OBJECTS_IN_FOV.format(camera_identifier=camera.identifier),
+                self.handle_event,
+            )
         )
 
 
@@ -186,9 +195,11 @@ class ObjectDetectedBinarySensorZoneLabel(ObjectDetectedBinarySensorLabel):
             f"{camera.name} Zone {zone.name} Object Detected {label.capitalize()}"
         )
 
-        vis.listen_event(
-            EVENT_OBJECTS_IN_ZONE.format(
-                camera_identifier=camera.identifier, zone_name=zone.name
-            ),
-            self.handle_event,
+        self._event_listeners.append(
+            vis.listen_event(
+                EVENT_OBJECTS_IN_ZONE.format(
+                    camera_identifier=camera.identifier, zone_name=zone.name
+                ),
+                self.handle_event,
+            )
         )

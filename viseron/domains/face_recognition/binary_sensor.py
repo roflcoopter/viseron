@@ -28,17 +28,21 @@ class FaceDetectionBinarySensor(CameraBinarySensor):
 
     def setup(self) -> None:
         """Set up event listener."""
-        self._vis.listen_event(
-            EVENT_FACE_DETECTED.format(
-                camera_identifier=self._camera.identifier, face=self._face_name
-            ),
-            self.face_detected,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_FACE_DETECTED.format(
+                    camera_identifier=self._camera.identifier, face=self._face_name
+                ),
+                self.face_detected,
+            )
         )
-        self._vis.listen_event(
-            EVENT_FACE_EXPIRED.format(
-                camera_identifier=self._camera.identifier, face=self._face_name
-            ),
-            self.face_expired,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_FACE_EXPIRED.format(
+                    camera_identifier=self._camera.identifier, face=self._face_name
+                ),
+                self.face_expired,
+            )
         )
 
     @property

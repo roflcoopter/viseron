@@ -116,7 +116,7 @@ def detector(
     """
     # Set up required component and camera
     # Use resolution that matches our test detection data (640x480)
-    _ = MockComponent(COMPONENT, vis)
+    _ = MockComponent(vis, COMPONENT)
     _ = MockCamera(vis, identifier=CAMERA_IDENTIFIER, resolution=(640, 480))
 
     return od.ObjectDetector(vis, detector_config, CAMERA_IDENTIFIER)

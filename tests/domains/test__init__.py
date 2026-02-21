@@ -1,18 +1,31 @@
 """Tests for domains module."""
+from __future__ import annotations
+
+import logging
+from concurrent.futures import Future, ThreadPoolExecutor
 from logging import DEBUG
 from unittest.mock import Mock, patch
 
 import pytest
+import voluptuous as vol
 
-from viseron.domain_registry import DomainState
+from viseron.domain_registry import DomainEntry, DomainState
 from viseron.domains import (
     OptionalDomain,
     RequireDomain,
+    _handle_failed_domain,
+    _schedule_domain_setup,
+    _setup_single_domain,
+    _submit_domain_setup,
+    _wait_for_dependencies,
     get_unload_order,
     reload_domain,
+    setup_domains,
     unload_domain,
 )
+from viseron.exceptions import DomainNotReady
 
+from tests.common import MockDomainModule
 from tests.conftest import MockViseron
 
 
@@ -38,24 +51,6 @@ class TestGetUnloadOrder:
         assert len(result) == 1
         assert result[0].domain == "camera"
         assert result[0].identifier == "cam1"
-
-    def test_domain_not_loaded_excluded(self, vis: MockViseron):
-        """Test that domains not in LOADED state are excluded."""
-        registry = vis.domain_registry
-
-        # Register but don't load
-        registry.register(
-            component_name="test_comp",
-            component_path="test.path",
-            domain="camera",
-            identifier="cam1",
-            config={},
-        )
-        # Leave in PENDING state
-
-        result = get_unload_order(vis, "camera", "cam1")
-
-        assert len(result) == 0
 
     def test_domain_with_multiple_dependents(self, vis: MockViseron):
         """Test unload order with multiple dependent domains."""
@@ -146,37 +141,6 @@ class TestGetUnloadOrder:
         assert result[1].domain == "object_detector"
         assert result[2].domain == "camera"
 
-    def test_dependent_not_loaded_excluded(self, vis: MockViseron):
-        """Test that dependents not in LOADED state are excluded."""
-        registry = vis.domain_registry
-
-        # Register and load base domain
-        registry.register(
-            component_name="camera_comp",
-            component_path="camera.path",
-            domain="camera",
-            identifier="cam1",
-            config={},
-        )
-        registry.set_state("camera", "cam1", DomainState.LOADED)
-
-        # Register dependent but leave in FAILED state
-        registry.register(
-            component_name="nvr_comp",
-            component_path="nvr.path",
-            domain="nvr",
-            identifier="cam1",
-            config={},
-            require_domains=[RequireDomain("camera", "cam1")],
-        )
-        registry.set_state("nvr", "cam1", DomainState.FAILED)
-
-        result = get_unload_order(vis, "camera", "cam1")
-
-        # Only camera should be in the list
-        assert len(result) == 1
-        assert result[0].domain == "camera"
-
     def test_nonexistent_domain(self, vis: MockViseron):
         """Test unload order for a domain that doesn't exist."""
         result = get_unload_order(vis, "nonexistent", "id1")  # type: ignore[arg-type]
@@ -258,32 +222,6 @@ class TestGetUnloadOrder:
 
 class TestUnloadDomain:
     """Test unload_domain function."""
-
-    @pytest.mark.parametrize(
-        "state,expected_result",
-        [
-            (DomainState.PENDING, None),
-            (DomainState.FAILED, None),
-            (None, None),  # Domain not registered
-        ],
-    )
-    def test_unload_invalid_states(self, vis: MockViseron, state, expected_result):
-        """Test unload fails for invalid states."""
-        registry = vis.domain_registry
-        if state is not None:
-            # Register domain but don't set to LOADED
-            registry.register(
-                component_name="test_comp",
-                component_path="test.path",
-                domain="camera",
-                identifier="cam1",
-                config={},
-            )
-            if state != DomainState.PENDING:
-                registry.set_state("camera", "cam1", state)
-
-        result = unload_domain(vis, "camera", "cam1")
-        assert result == expected_result
 
     def test_unload_domain_success(self, vis: MockViseron):
         """Test successful domain unload."""
@@ -555,3 +493,714 @@ class TestReloadDomain:
             assert registry.get("camera", "cam1") is not None
             assert registry.get("motion_detector", "cam1") is not None
             assert registry.get("nvr", "cam1") is not None
+
+
+class TestHandleFailedDomain:
+    """Test _handle_failed_domain function."""
+
+    @pytest.mark.parametrize(
+        "state",
+        [DomainState.FAILED, DomainState.RETRYING],
+    )
+    def test_handle_failed_domain_sets_state(self, vis: MockViseron, state) -> None:
+        """Test _handle_failed_domain sets the correct state."""
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with patch("viseron.components.importlib.import_module") as mock_import:
+            mock_import.side_effect = ModuleNotFoundError("No domain module")
+            _handle_failed_domain(vis, entry, state, error="Test error")
+
+        updated_entry = vis.domain_registry.get("camera", "cam1")
+        assert updated_entry is not None
+        assert updated_entry.state == state
+        assert updated_entry.error == "Test error"
+
+    def test_handle_failed_domain_with_setup_failed_handler(
+        self, vis: MockViseron
+    ) -> None:
+        """Test _handle_failed_domain calls setup_failed handler."""
+        error_instance = Mock()
+
+        def setup_failed_handler(_vis_arg, _entry_arg) -> Mock:
+            return error_instance
+
+        mock_domain_module = Mock()
+        mock_domain_module.setup_failed = setup_failed_handler
+
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with patch(
+            "viseron.components.importlib.import_module",
+            return_value=mock_domain_module,
+        ):
+            _handle_failed_domain(vis, entry, DomainState.FAILED, error="Test error")
+
+        updated_entry = vis.domain_registry.get("camera", "cam1")
+        assert updated_entry is not None
+        assert updated_entry.error_instance == error_instance
+
+    def test_handle_failed_domain_no_handler(
+        self, vis: MockViseron, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test _handle_failed_domain when domain module doesn't exist."""
+        caplog.set_level(logging.DEBUG)
+
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="nonexistent_domain",  # type: ignore[arg-type]
+            identifier="id1",
+            config={},
+        )
+        entry = vis.domain_registry.get("nonexistent_domain", "id1")
+        assert entry is not None
+
+        # Domain module import will fail, triggering the exception handler
+        with patch(
+            "viseron.components.importlib.import_module",
+            side_effect=ModuleNotFoundError("No module"),
+        ):
+            _handle_failed_domain(vis, entry, DomainState.FAILED, error="Test error")
+
+        updated_entry = vis.domain_registry.get("nonexistent_domain", "id1")
+        assert updated_entry is not None
+        assert updated_entry.state == DomainState.FAILED
+        assert updated_entry.error_instance is None
+        assert "No setup_failed handler" in caplog.text
+
+    def test_handle_failed_domain_no_setup_failed_attr(self, vis: MockViseron) -> None:
+        """Test _handle_failed_domain when module exists but has no setup_failed."""
+        mock_domain_module = Mock(spec=[])
+
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with patch(
+            "viseron.components.importlib.import_module",
+            return_value=mock_domain_module,
+        ):
+            _handle_failed_domain(vis, entry, DomainState.FAILED, error="Test error")
+
+        updated_entry = vis.domain_registry.get("camera", "cam1")
+        assert updated_entry is not None
+        assert updated_entry.state == DomainState.FAILED
+        # No error instance since no handler was called
+        assert updated_entry.error_instance is None
+
+
+class TestWaitForDependencies:
+    """Test _wait_for_dependencies function."""
+
+    def test_no_dependencies_returns_true(self, vis: MockViseron) -> None:
+        """Test that no dependencies returns True immediately."""
+        entry = DomainEntry(
+            component_name="test",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+            require_domains=[],
+            optional_domains=[],
+        )
+
+        result: bool = _wait_for_dependencies(vis, entry)
+        assert result is True
+
+    def test_required_dependency_already_loaded(self, vis: MockViseron) -> None:
+        """Test skips already loaded required dependencies."""
+        # Register and mark a dependency as loaded
+        vis.domain_registry.register(
+            component_name="dep_comp",
+            component_path="dep.path",
+            domain="object_detector",
+            identifier="detector1",
+            config={},
+        )
+        vis.domain_registry.set_state(
+            "object_detector", "detector1", DomainState.LOADED
+        )
+
+        entry = DomainEntry(
+            component_name="test",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+            require_domains=[RequireDomain("object_detector", "detector1")],
+            optional_domains=[],
+        )
+
+        result: bool = _wait_for_dependencies(vis, entry)
+        assert result is True
+
+    def test_required_dependency_future_success(self, vis: MockViseron) -> None:
+        """Test waits for required dependency future to complete."""
+        # Register dependency
+        vis.domain_registry.register(
+            component_name="dep_comp",
+            component_path="dep.path",
+            domain="object_detector",
+            identifier="detector1",
+            config={},
+        )
+
+        # Create a completed future
+        future: Future[bool] = Future()
+        future.set_result(True)
+        vis.domain_registry.set_future("object_detector", "detector1", future)
+
+        entry = DomainEntry(
+            component_name="test",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+            require_domains=[RequireDomain("object_detector", "detector1")],
+            optional_domains=[],
+        )
+
+        result: bool = _wait_for_dependencies(vis, entry)
+        assert result is True
+
+    def test_required_dependency_future_failure(
+        self, vis: MockViseron, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test returns False when required dependency fails."""
+        vis.domain_registry.register(
+            component_name="dep_comp",
+            component_path="dep.path",
+            domain="object_detector",
+            identifier="detector1",
+            config={},
+        )
+
+        future: Future[bool] = Future()
+        future.set_result(False)  # Dependency failed
+        vis.domain_registry.set_future("object_detector", "detector1", future)
+
+        entry = DomainEntry(
+            component_name="test",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+            require_domains=[RequireDomain("object_detector", "detector1")],
+            optional_domains=[],
+        )
+
+        result: bool = _wait_for_dependencies(vis, entry)
+        assert result is False
+        assert "Unable to setup dependencies for domain camera" in caplog.text
+
+    def test_optional_dependency_not_configured_skipped(self, vis: MockViseron) -> None:
+        """Test optional dependency not configured is skipped."""
+        entry = DomainEntry(
+            component_name="test",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+            require_domains=[],
+            optional_domains=[OptionalDomain("motion_detector", "motion1")],
+        )
+
+        # Motion detector is not registered, so it should be skipped
+        result: bool = _wait_for_dependencies(vis, entry)
+        assert result is True
+
+    def test_optional_dependency_configured_awaited(self, vis: MockViseron) -> None:
+        """Test optional dependency that is configured is awaited."""
+        # Register optional dependency
+        vis.domain_registry.register(
+            component_name="opt_comp",
+            component_path="opt.path",
+            domain="motion_detector",
+            identifier="motion1",
+            config={},
+        )
+
+        future: Future[bool] = Future()
+        future.set_result(True)
+        vis.domain_registry.set_future("motion_detector", "motion1", future)
+
+        entry = DomainEntry(
+            component_name="test",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+            require_domains=[],
+            optional_domains=[OptionalDomain("motion_detector", "motion1")],
+        )
+
+        result: bool = _wait_for_dependencies(vis, entry)
+        assert result is True
+
+
+class TestSetupSingleDomain:
+    """Test _setup_single_domain function."""
+
+    def test_setup_domain_success(
+        self,
+        vis: MockViseron,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Test successful domain setup."""
+        caplog.set_level(DEBUG)
+        mock_domain = MockDomainModule(setup_return=True)
+
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="viseron.components.test_comp",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_domain
+        ):
+            result: bool = _setup_single_domain(vis, entry)
+
+            assert result is True
+            assert entry.state == DomainState.LOADED
+            assert "Setting up domain camera with identifier cam1" in caplog.text
+            assert "took" in caplog.text
+
+    def test_setup_domain_module_not_found(
+        self,
+        vis: MockViseron,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Test domain setup when module not found."""
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="viseron.components.test_comp",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with patch(
+            "viseron.components.importlib.import_module",
+            side_effect=ModuleNotFoundError("No module named camera"),
+        ):
+            result: bool = _setup_single_domain(vis, entry)
+
+            assert result is False
+            assert entry.state == DomainState.FAILED
+            assert "Failed to load domain module" in caplog.text
+
+    def test_setup_domain_config_vol_invalid(
+        self,
+        vis: MockViseron,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Test domain setup with vol.Invalid config error."""
+        mock_domain = MockDomainModule(
+            config_schema=lambda c: c,
+            config_schema_exception=vol.Invalid("Bad config"),
+        )
+
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="viseron.components.test_comp",
+            domain="camera",
+            identifier="cam1",
+            config={"bad": "config"},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_domain
+        ):
+            result: bool = _setup_single_domain(vis, entry)
+
+            assert result is False
+            assert entry.state == DomainState.FAILED
+            assert "Error validating config for domain camera" in caplog.text
+
+    def test_setup_domain_config_generic_exception(
+        self,
+        vis: MockViseron,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Test domain setup with generic config validation exception."""
+        mock_domain = MockDomainModule(
+            config_schema=lambda c: c,
+            config_schema_exception=RuntimeError("Schema crash"),
+        )
+
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="viseron.components.test_comp",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_domain
+        ):
+            result: bool = _setup_single_domain(vis, entry)
+
+            assert result is False
+            assert "Unknown error calling test_comp.camera CONFIG_SCHEMA" in caplog.text
+
+    def test_setup_domain_not_ready_retry_success(
+        self,
+        vis: MockViseron,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Test DomainNotReady triggers retry and eventually succeeds."""
+        # First call raises DomainNotReady, second succeeds
+        mock_domain = MockDomainModule(
+            setup_side_effects=[
+                (None, DomainNotReady("Not ready")),
+                (True, None),
+            ]
+        )
+
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="viseron.components.test_comp",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_domain
+        ), patch("viseron.domains.DOMAIN_RETRY_INTERVAL", 0):
+            result: bool = _setup_single_domain(vis, entry)
+
+            assert result is True
+            assert mock_domain.setup_call_count == 2
+            assert "is not ready" in caplog.text
+            assert "Retrying in" in caplog.text
+
+    def test_setup_domain_not_ready_shutdown_aborts(
+        self,
+        vis: MockViseron,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Test DomainNotReady aborts retry when shutdown is set."""
+        mock_domain = MockDomainModule(setup_exception=DomainNotReady("Not ready"))
+        # Set the shutdown event to simulate shutdown in progress
+        vis.shutdown_event.set()
+
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="viseron.components.test_comp",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_domain
+        ):
+            result: bool = _setup_single_domain(vis, entry)
+
+            assert result is False
+            assert "aborted due to shutdown" in caplog.text
+
+    def test_setup_domain_uncaught_exception(
+        self,
+        vis: MockViseron,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Test uncaught exception during domain setup."""
+        mock_domain = MockDomainModule(setup_exception=RuntimeError("Unexpected crash"))
+
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="viseron.components.test_comp",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_domain
+        ):
+            result: bool = _setup_single_domain(vis, entry)
+
+            assert result is False
+            assert entry.state == DomainState.FAILED
+            assert "Uncaught exception setting up domain camera" in caplog.text
+
+    def test_setup_domain_returns_false(
+        self,
+        vis: MockViseron,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Test domain setup returning False."""
+        mock_domain = MockDomainModule(setup_return=False)
+
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="viseron.components.test_comp",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_domain
+        ):
+            result: bool = _setup_single_domain(vis, entry)
+
+            assert result is False
+            assert entry.state == DomainState.FAILED
+            assert "failed" in caplog.text
+
+    def test_setup_domain_returns_non_boolean(
+        self,
+        vis: MockViseron,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Test domain setup returning non-boolean."""
+        mock_domain = MockDomainModule(setup_return="not a bool")
+
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="viseron.components.test_comp",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_domain
+        ):
+            result: bool = _setup_single_domain(vis, entry)
+
+            assert result is False
+            assert "did not return boolean" in caplog.text
+
+    def test_setup_domain_dependency_failure(
+        self,
+        vis: MockViseron,
+    ) -> None:
+        """Test domain setup fails when dependency fails."""
+        # Register dependency that will fail
+        vis.domain_registry.register(
+            component_name="dep_comp",
+            component_path="dep.path",
+            domain="object_detector",
+            identifier="detector1",
+            config={},
+        )
+        dep_future: Future[bool] = Future()
+        dep_future.set_result(False)
+        vis.domain_registry.set_future("object_detector", "detector1", dep_future)
+
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="viseron.components.test_comp",
+            domain="camera",
+            identifier="cam1",
+            config={},
+            require_domains=[RequireDomain("object_detector", "detector1")],
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        result: bool = _setup_single_domain(vis, entry)
+
+        assert result is False
+        assert entry.state == DomainState.FAILED
+        assert entry.error is not None and "Dependencies failed" in entry.error
+
+
+class TestDomainScheduling:
+    """Test domain scheduling functions."""
+
+    def test_submit_domain_setup_skips_if_future_exists(self, vis: MockViseron) -> None:
+        """Test _submit_domain_setup skips if future already exists."""
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        future: Future[bool] = Future()
+        vis.domain_registry.set_future("camera", "cam1", future)
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            _submit_domain_setup(vis, executor, entry)
+            assert vis.domain_registry.get_future("camera", "cam1") is future
+
+    def test_submit_domain_setup_creates_future(self, vis: MockViseron) -> None:
+        """Test _submit_domain_setup creates future when none exists."""
+        mock_domain = MockDomainModule(setup_return=True)
+
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_domain
+        ):
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                _submit_domain_setup(vis, executor, entry)
+                # Wait for completion
+                future = vis.domain_registry.get_future("camera", "cam1")
+                assert future is not None
+                future.result()
+
+    def test_schedule_domain_setup_schedules_dependencies_first(
+        self, vis: MockViseron
+    ) -> None:
+        """Test _schedule_domain_setup schedules required deps first."""
+        mock_domain = MockDomainModule(setup_return=True)
+
+        # Register dependency
+        vis.domain_registry.register(
+            component_name="dep_comp",
+            component_path="dep.path",
+            domain="object_detector",
+            identifier="detector1",
+            config={},
+        )
+
+        # Register main domain with dependency
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+            require_domains=[RequireDomain("object_detector", "detector1")],
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_domain
+        ):
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                _schedule_domain_setup(vis, executor, entry)
+
+                cam_future = vis.domain_registry.get_future("camera", "cam1")
+                det_future = vis.domain_registry.get_future(
+                    "object_detector", "detector1"
+                )
+
+                assert cam_future is not None
+                assert det_future is not None
+
+                det_future.result()
+                cam_future.result()
+
+
+class TestSetupDomains:
+    """Test setup_domains function."""
+
+    def test_setup_domains_validates_missing_dependencies(
+        self, vis: MockViseron, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test setup_domains validates and fails domains with missing deps."""
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+            require_domains=[
+                RequireDomain(
+                    "missing_domain",  # type: ignore[arg-type]
+                    "missing_id",
+                ),
+            ],
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        setup_domains(vis)
+
+        assert entry.state == DomainState.FAILED
+        assert "has missing dependencies" in caplog.text
+
+    def test_setup_domains_no_pending_returns_early(
+        self, vis: MockViseron, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test setup_domains returns early when no pending domains."""
+        setup_domains(vis)
+        assert "Setting up" not in caplog.text
+
+    def test_setup_domains_clears_futures_after_completion(
+        self, vis: MockViseron
+    ) -> None:
+        """Test setup_domains clears futures after all complete."""
+        mock_domain = MockDomainModule(setup_return=True)
+
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_domain
+        ):
+            setup_domains(vis)
+
+            future = vis.domain_registry.get_future("camera", "cam1")
+            assert future is None
+            assert entry.state == DomainState.LOADED

@@ -17,7 +17,7 @@ from viseron.components.storage import COMPONENT as STORAGE, Storage
 from viseron.components.storage.const import DEFAULT_TIER_CHECK_BATCH_SIZE
 from viseron.components.storage.models import Base
 from viseron.components.webserver import COMPONENT as WEBSERVER, Webserver
-from viseron.const import LOADED
+from viseron.const import FAILED, LOADED, LOADING
 
 from tests.common import MockCamera
 
@@ -39,6 +39,11 @@ class MockViseron(Viseron):
         self.listen_event: MagicMock = MagicMock(
             auto_spec=self.listen_event,
         )
+        self.initialized_event.set()
+        self._original_register_signal_handler = self.register_signal_handler
+        self.register_signal_handler: MagicMock = MagicMock(
+            side_effect=self._original_register_signal_handler
+        )
 
 
 @pytest.fixture
@@ -50,6 +55,8 @@ def vis() -> MockViseron:
     viseron.data[STORAGE].file_batch_size = DEFAULT_TIER_CHECK_BATCH_SIZE
     viseron.data[WEBSERVER] = MagicMock(spec=Webserver)
     viseron.data[LOADED] = {}
+    viseron.data[LOADING] = {}
+    viseron.data[FAILED] = {}
 
     return viseron
 
@@ -58,6 +65,13 @@ def vis() -> MockViseron:
 def camera() -> MockCamera:
     """Fixture to test camera."""
     return MockCamera()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def patch_tier_check_worker() -> Iterator[None]:
+    """Patch TierCheckWorker to prevent real subprocesses from spawning in tests."""
+    with patch("viseron.components.storage.TierCheckWorker"):
+        yield
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -70,12 +84,12 @@ def patch_enable_logging() -> Iterator[None]:
 def _make_db_session(database) -> Generator[Session, Any, None]:
     """Create a DB session."""
     with DatabaseJanitor(
-        database.user,
-        database.host,
-        database.port,
-        database.dbname,
-        database.version,
-        database.password,
+        user=database.user,
+        host=database.host,
+        port=database.port,
+        dbname=database.dbname,
+        version=database.version,
+        password=database.password,
     ):
         connection_str = (
             "postgresql+psycopg2://"
@@ -92,12 +106,12 @@ def _make_db_session(database) -> Generator[Session, Any, None]:
 def _get_db_session(database) -> Generator[sessionmaker[Session], Any, None]:
     """Create a DB session."""
     with DatabaseJanitor(
-        database.user,
-        database.host,
-        database.port,
-        database.dbname,
-        database.version,
-        database.password,
+        user=database.user,
+        host=database.host,
+        port=database.port,
+        dbname=database.dbname,
+        version=database.version,
+        password=database.password,
     ):
         connection_str = (
             "postgresql+psycopg2://"
@@ -146,12 +160,12 @@ def alembic_config() -> dict[str, str]:
 def alembic_engine(test_db):
     """Return engine for pytest-alembic."""
     with DatabaseJanitor(
-        test_db.user,
-        test_db.host,
-        test_db.port,
-        test_db.dbname,
-        test_db.version,
-        test_db.password,
+        user=test_db.user,
+        host=test_db.host,
+        port=test_db.port,
+        dbname=test_db.dbname,
+        version=test_db.version,
+        password=test_db.password,
     ):
         connection_str = (
             "postgresql+psycopg2://"

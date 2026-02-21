@@ -54,6 +54,7 @@ class DomainEntry:
     error: str | None = None
     error_instance: FailedCamera | None = None
     setup_future: Future | None = None
+    cancel_event: threading.Event = field(default_factory=threading.Event)
 
     def as_dict(self) -> dict[str, Any]:
         """Return as dict for serialization."""
@@ -126,12 +127,11 @@ class DomainRegistry:
         with self._lock:
             if domain in self._domains and identifier in self._domains[domain]:
                 existing = self._domains[domain][identifier]
-                if existing.state in (DomainState.LOADED, DomainState.LOADING):
-                    LOGGER.warning(
-                        f"Domain {domain} with identifier {identifier} already "
-                        f"registered (state: {existing.state.value}). Skipping",
-                    )
-                    return existing
+                LOGGER.warning(
+                    f"Domain {domain} with identifier {identifier} already "
+                    f"registered (state: {existing.state.value}). Skipping",
+                )
+                return existing
 
             entry = DomainEntry(
                 component_name=component_name,
@@ -344,6 +344,11 @@ class DomainRegistry:
         with self._lock:
             return self._get_entry(domain, identifier) is not None
 
+    def get_by_identifier(self, domain: str, identifier: str) -> DomainEntry | None:
+        """Get a domain entry by domain and identifier."""
+        with self._lock:
+            return self._get_entry(domain, identifier)
+
     def get_by_component(self, component_name: str) -> list[DomainEntry]:
         """Get all domains for a specific component."""
         with self._lock:
@@ -352,17 +357,6 @@ class DomainRegistry:
                 for domain_entries in self._domains.values()
                 for entry in domain_entries.values()
                 if entry.component_name == component_name
-            ]
-
-    def get_loaded_by_component(self, component_name: str) -> list[DomainEntry]:
-        """Get all loaded domains for a specific component."""
-        with self._lock:
-            return [
-                entry
-                for domain_entries in self._domains.values()
-                for entry in domain_entries.values()
-                if entry.component_name == component_name
-                and entry.state == DomainState.LOADED
             ]
 
     def get_dependents(
@@ -376,8 +370,6 @@ class DomainRegistry:
         with self._lock:
             for domain_entries in self._domains.values():
                 for entry in domain_entries.values():
-                    if entry.state != DomainState.LOADED:
-                        continue
                     # Check require_domains
                     for req in entry.require_domains:
                         if (
@@ -418,6 +410,30 @@ class DomainRegistry:
                             failed.append(entry)
                             break
         return failed
+
+    def cancel_retry(self, domain: str, identifier: str) -> None:
+        """Cancel any ongoing retry for a domain.
+
+        Sets the domain's cancel_event, which wakes up
+        any blocking wait in _setup_single_domain immediately.
+        """
+        with self._lock:
+            entry = self._get_entry(domain, identifier)
+            if entry:
+                entry.cancel_event.set()
+
+    def cancel_all_retries(
+        self,
+    ) -> list[DomainEntry]:
+        """Cancel all domains that may be in a retry loop."""
+        cancelled: list[DomainEntry] = []
+        with self._lock:
+            for domain_entries in self._domains.values():
+                for entry in domain_entries.values():
+                    if entry.state == DomainState.RETRYING:
+                        cancelled.append(entry)
+                    entry.cancel_event.set()
+        return cancelled
 
     def clear_future(self, domain: str, identifier: str) -> None:
         """Clear the setup future after completion."""

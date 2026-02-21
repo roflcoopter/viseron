@@ -23,7 +23,6 @@ from telegram.ext import (
 )
 from telegram.request import HTTPXRequest
 
-from viseron.components.nvr import COMPONENT as NVR_COMPONENT
 from viseron.components.storage.models import TriggerTypes
 from viseron.components.telegram.ptz_control import TelegramPTZ
 from viseron.components.telegram.utils import limit_user_access
@@ -38,6 +37,7 @@ from viseron.exceptions import ComponentNotReady, DomainNotRegisteredError
 from viseron.helpers import escape_string
 from viseron.helpers.logs import SensitiveInformationFilter
 from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
+from viseron.types import Domain
 
 from .const import (
     COMPONENT,
@@ -71,7 +71,6 @@ from .const import (
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
-    from viseron.components.nvr.nvr import NVR
 
 LOGGER = logging.getLogger(__name__)
 
@@ -443,8 +442,9 @@ class TelegramEventNotifier:
                 await update.message.reply_text("Camera not found.")
             return
 
-        nvr: NVR | None = self._vis.data[NVR_COMPONENT].get(cam.identifier, None)
-        if nvr is None:
+        try:
+            nvr = self._vis.get_registered_domain(Domain.NVR, cam.identifier)
+        except DomainNotRegisteredError:
             if update.message:
                 await update.message.reply_text("NVR component not enabled for camera.")
             return
@@ -491,8 +491,9 @@ class TelegramEventNotifier:
                 await update.message.reply_text("Camera not found.")
             return
 
-        nvr: NVR | None = self._vis.data[NVR_COMPONENT].get(cam.identifier, None)
-        if nvr is None:
+        try:
+            nvr = self._vis.get_registered_domain(Domain.NVR, cam.identifier)
+        except DomainNotRegisteredError:
             if update.message:
                 await update.message.reply_text("NVR component not enabled for camera.")
             return

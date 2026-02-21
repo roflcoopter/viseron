@@ -205,6 +205,7 @@ def setup_viseron(vis: Viseron):
         )
         activate_safe_mode(vis)
     else:
+        vis.set_config(config)
         setup_components(vis, config)
 
     vis.storage = vis.data[STORAGE_COMPONENT]
@@ -241,6 +242,7 @@ def setup_viseron(vis: Viseron):
     else:
         vis.critical_components_config_store.save(config)
 
+    vis.initialized_event.set()
     LOGGER.info("Viseron initialized in %.1f seconds", timer() - start)
 
 
@@ -280,7 +282,21 @@ class Viseron:
         self.safe_mode = False
         self.exit_code = 0
         self.shutdown_stage: Literal["shutdown", "last_write", "stopping"] | None = None
+        self.initialized_event = threading.Event()
         self.shutdown_event = threading.Event()
+
+        # Store the current config for diffing during reload
+        self._config: dict[str, Any] = {}
+        self.reload_lock = threading.Lock()
+
+    @property
+    def config(self) -> dict[str, Any]:
+        """Return the current configuration."""
+        return self._config
+
+    def set_config(self, config: dict[str, Any]) -> None:
+        """Set the current configuration."""
+        self._config = config
 
     @property
     def version(self) -> str:
@@ -305,7 +321,7 @@ class Viseron:
         """Return the domain registry."""
         return self._domain_registry
 
-    def register_signal_handler(self, viseron_signal, callback):
+    def register_signal_handler(self, viseron_signal, callback) -> Callable[[], None]:
         """Register a callback which gets called on signals emitted by Viseron.
 
         Signals currently available:
@@ -316,7 +332,7 @@ class Viseron:
                 f"Failed to register signal handler for {viseron_signal}: "
                 f"{DATA_STREAM_COMPONENT} is not loaded"
             )
-            return False
+            raise DataStreamNotLoaded
 
         try:
             SIGNAL_SCHEMA(viseron_signal)
@@ -324,7 +340,7 @@ class Viseron:
             LOGGER.error(
                 f"Failed to register signal handler for {viseron_signal}: {err}"
             )
-            return False
+            raise ValueError(f"Invalid signal {viseron_signal}") from err
 
         data_stream: DataStream = self.data[DATA_STREAM_COMPONENT]
         topic = VISERON_SIGNALS[viseron_signal]
@@ -571,6 +587,11 @@ class Viseron:
         start = timer()
         LOGGER.info("Initiating shutdown")
         self.shutdown_event.set()
+        self.domain_registry.cancel_all_retries()
+        if not self.initialized_event.is_set():
+            LOGGER.debug("Waiting for Viseron to be initialized before shutdown")
+            self.initialized_event.wait()
+            LOGGER.debug("Viseron initialized, continuing shutdown")
 
         if self.data.get(DATA_STREAM_COMPONENT, None):
             data_stream = self.data[DATA_STREAM_COMPONENT]
@@ -688,7 +709,7 @@ def wait_for_threads_and_processes_to_exit(
         for thread in threading.enumerate()
         if not thread.daemon
         and thread != threading.current_thread()
-        and "setup_domains" not in thread.name
+        and "MainThread" not in thread.name
     ]
     threads_and_processes += multiprocessing.active_children()
 

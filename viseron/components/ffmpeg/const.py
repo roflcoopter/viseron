@@ -48,7 +48,7 @@ FFMPEG_LOGLEVELS = {
 FFPROBE_LOGLEVELS = FFMPEG_LOGLEVELS
 FFPROBE_TIMEOUT = 15
 
-# Hardware acceleration constands
+# Hardware acceleration constants
 HWACCEL_VAAPI = ["-hwaccel", "vaapi", "-vaapi_device", "/dev/dri/renderD128"]
 HWACCEL_CUDA_DECODER_CODEC_MAP = {
     "h264": "h264_cuvid",

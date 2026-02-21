@@ -174,7 +174,12 @@ class AbstractMotionDetector(AbstractDomain):
         self._motion_contours: Contours | None = None
         self._motion_id: int | None = None
 
-        vis.add_entity(component, MotionDetectionBinarySensor(vis, self, self._camera))
+        vis.add_entity(
+            component,
+            MotionDetectionBinarySensor(vis, self, self._camera),
+            DOMAIN,
+            camera_identifier,
+        )
 
     def __post_init__(self, *args, **kwargs):
         """Post init hook."""

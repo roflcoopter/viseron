@@ -11,7 +11,6 @@ import numpy as np
 import pytest
 
 from viseron.components.nvr.const import (
-    COMPONENT,
     DATA_NO_DETECTOR_RESULT,
     MOTION_DETECTOR,
     NO_DETECTOR,
@@ -19,10 +18,12 @@ from viseron.components.nvr.const import (
 )
 from viseron.components.nvr.nvr import EVENT_MOTION_DETECTOR_RESULT, NVR
 from viseron.components.storage.models import TriggerTypes
+from viseron.domain_registry import DomainState
 from viseron.domains.camera import EventFrameBytesData
 from viseron.domains.camera.recorder import ManualRecording
 from viseron.events import Event
 from viseron.helpers import utcnow
+from viseron.types import Domain
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from tests.common import MockCamera, MockMotionDetector, MockObjectDetector
@@ -109,7 +110,7 @@ def feed_frame_to_nvr(nvr) -> None:
 
 
 def make_nvr(
-    vis,
+    vis: MockViseron,
     *,
     camera_output_fps=10,
     object_detector=None,
@@ -134,6 +135,22 @@ def make_nvr(
             object_detector=object_detector or False,
             motion_detector=motion_detector or False,
         )
+    vis._domain_registry.register(
+        component_name="test",
+        component_path="test",
+        domain=Domain.NVR.value,
+        identifier=camera.identifier,
+        config={},
+        require_domains=None,
+        optional_domains=None,
+    )
+    vis.register_domain(Domain.NVR, camera.identifier, nvr)
+    vis._domain_registry.set_state(
+        domain=Domain.NVR,
+        identifier=camera.identifier,
+        state=DomainState.LOADED,
+        instance=nvr,
+    )
     nvr.stop_recorder = Mock(  # type: ignore[method-assign]
         side_effect=nvr.stop_recorder,
     )
@@ -143,7 +160,7 @@ def make_nvr(
 class TestNVRInit:
     """Init tests."""
 
-    def test_init_no_detectors_creates_no_detector_scanner(self, vis):
+    def test_init_no_detectors_creates_no_detector_scanner(self, vis: MockViseron):
         """No detectors -> NO_DETECTOR scanner."""
         nvr, cam = make_nvr(vis)
 
@@ -163,7 +180,7 @@ class TestNVRInit:
 
         # Camera started and NVR registered
         cam.start_camera.assert_called_once()
-        assert vis.data[COMPONENT][cam.identifier] is nvr
+        assert vis.get_registered_domain(Domain.NVR, cam.identifier) is nvr
 
     def test_init_object_only_scanner_enabled(self, vis):
         """Object only -> object scan on."""

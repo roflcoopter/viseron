@@ -8,6 +8,7 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
+from filelock import FileLock
 from tornado.httpclient import HTTPResponse
 from tornado.testing import AsyncHTTPTestCase
 from tornado.web import create_signed_value
@@ -109,7 +110,7 @@ class TestAppBase(AsyncHTTPTestCase):
     def tearDown(self) -> None:
         """Tear down the test."""
         super().tearDown()
-        self.vis.shutdown()
+        self.webserver.stop()
 
     def get_app(self):
         """Get the application.
@@ -134,16 +135,29 @@ class TestAppBaseAuth(TestAppBase):
 
     config = {"webserver": {"auth": None}}
 
+    def setUp(self) -> None:
+        """Set up the test."""
+        super().setUp()
+        self.auth_store_path = (
+            self.webserver.auth._auth_store.path  # pylint: disable=protected-access
+        )
+        auth_store_lock_path = f"{self.auth_store_path}.lock"
+        self._auth_store_lock = FileLock(auth_store_lock_path)
+        self._auth_store_lock.acquire()
+
+        self.onboarding_path = self.webserver.auth.onboarding_path()
+        onboarding_lock_path = f"{self.onboarding_path}.lock"
+        self._onboarding_lock = FileLock(onboarding_lock_path)
+        self._onboarding_lock.acquire()
+
     def tearDown(self) -> None:
         """Tear down the test."""
-        if os.path.exists(
-            self.webserver.auth._auth_store.path  # pylint: disable=protected-access
-        ):
-            os.remove(
-                self.webserver.auth._auth_store.path  # pylint: disable=protected-access
-            )
-        if os.path.exists(self.webserver.auth.onboarding_path()):
-            os.remove(self.webserver.auth.onboarding_path())
+        if os.path.exists(self.auth_store_path):
+            os.remove(self.auth_store_path)
+        if os.path.exists(self.onboarding_path):
+            os.remove(self.onboarding_path)
+        self._auth_store_lock.release()
+        self._onboarding_lock.release()
         return super().tearDown()
 
     def fetch_with_auth(

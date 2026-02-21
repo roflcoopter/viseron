@@ -5,7 +5,7 @@ import os
 from abc import abstractmethod
 from dataclasses import dataclass
 from threading import Timer
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 
@@ -43,6 +43,9 @@ from .const import (
     EVENT_FACE_EXPIRED,
     UNKNOWN_FACE,
 )
+
+if TYPE_CHECKING:
+    from viseron import Viseron
 
 BASE_CONFIG_SCHEMA = BASE_CONFIG_SCHEMA.extend(
     {
@@ -113,7 +116,12 @@ class AbstractFaceRecognition(AbstractPostProcessor):
     """Abstract face recognition."""
 
     def __init__(
-        self, vis, component, config, camera_identifier, generate_entities=True
+        self,
+        vis: Viseron,
+        component: str,
+        config: dict,
+        camera_identifier: str,
+        generate_entities: bool = True,
     ) -> None:
         super().__init__(vis, config, camera_identifier)
         self._faces: dict[str, FaceDict] = {}
@@ -122,7 +130,10 @@ class AbstractFaceRecognition(AbstractPostProcessor):
                 if face_dir == "unknown":
                     continue
                 vis.add_entity(
-                    component, FaceDetectionBinarySensor(vis, self._camera, face_dir)
+                    component,
+                    FaceDetectionBinarySensor(vis, self._camera, face_dir),
+                    DOMAIN,
+                    camera_identifier,
                 )
 
     def __post_init__(self, *args, **kwargs):

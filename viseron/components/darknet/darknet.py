@@ -17,7 +17,7 @@ from ctypes import (
 
 
 class BOX(Structure):
-    """Boudning box."""
+    """Bounding box."""
 
     _fields_ = [("x", c_float), ("y", c_float), ("w", c_float), ("h", c_float)]
 

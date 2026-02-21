@@ -23,6 +23,7 @@ from viseron.const import (
     VISERON_SIGNAL_SHUTDOWN,
 )
 from viseron.domain_registry import DomainEntry, DomainState
+from viseron.domains import get_unload_order, unload_domain
 from viseron.exceptions import ComponentNotReady
 from viseron.helpers.named_timer import NamedTimer
 from viseron.helpers.storage import Storage
@@ -49,6 +50,8 @@ LOGGER = logging.getLogger(__name__)
 
 class Component:
     """Represents a Viseron component."""
+
+    retry_timers: dict[str, NamedTimer] = {}
 
     def __init__(
         self,
@@ -80,8 +83,9 @@ class Component:
         """Return component module."""
         return importlib.import_module(self._path)
 
-    def validate_component_config(self, component_module) -> dict | bool | None:
+    def validate_component_config(self) -> dict | bool | None:
         """Validate component config."""
+        component_module = self.get_component()
         if hasattr(component_module, "CONFIG_SCHEMA"):
             try:
                 return component_module.CONFIG_SCHEMA(self._config)
@@ -96,7 +100,7 @@ class Component:
                 return None
         return True
 
-    def setup_component(self, tries: int = 1) -> bool:
+    def setup_component(self, tries: int = 1, domains_only=False) -> bool:
         """Set up component."""
         LOGGER.info(
             "Setting up component %s%s",
@@ -117,7 +121,7 @@ class Component:
         )
 
         component_module = self.get_component()
-        config = self.validate_component_config(component_module)
+        config = self.validate_component_config()
 
         start = timer()
         result: bool | Any = False
@@ -125,7 +129,7 @@ class Component:
             try:
                 slow_setup_warning.start()
                 # setup() is optional for stateless components
-                if hasattr(component_module, "setup"):
+                if hasattr(component_module, "setup") and not domains_only:
                     result = component_module.setup(self._vis, config)
                 else:
                     # No setup function, assume success if setup_domains exists
@@ -159,6 +163,7 @@ class Component:
                     name=f"{self.name}_retry_timer",
                     daemon=True,
                 )
+                self.retry_timers[self.name] = retry_timer
 
                 def cancel_retry_timer() -> None:
                     """Cancel retry timer."""
@@ -267,7 +272,9 @@ def get_component(
     raise ModuleNotFoundError(f"Component {component} not found")
 
 
-def setup_component(vis: Viseron, component: Component, tries: int = 1) -> None:
+def setup_component(
+    vis: Viseron, component: Component, tries: int = 1, domains_only=False
+) -> None:
     """Set up single component."""
     # When tries is larger than one, it means we are in a retry loop.
     if tries > 1:
@@ -276,7 +283,7 @@ def setup_component(vis: Viseron, component: Component, tries: int = 1) -> None:
 
     try:
         vis.data[LOADING][component.name] = component
-        if component.setup_component(tries=tries):
+        if component.setup_component(tries=tries, domains_only=domains_only):
             vis.data[LOADED][component.name] = component
             del vis.data[LOADING][component.name]
         else:
@@ -287,6 +294,59 @@ def setup_component(vis: Viseron, component: Component, tries: int = 1) -> None:
         LOGGER.error(f"Failed to load component {component.name}: {err}")
         vis.data[FAILED][component.name] = component
         del vis.data[LOADING][component.name]
+
+
+def unload_component(vis: Viseron, component: str) -> set[str] | None:
+    """Unload a component."""
+    # Cancel any ComponentNotReady retries to allow reload
+    if retry_timer := Component.retry_timers.pop(component, None):
+        LOGGER.debug(f"Cancelling retry timer {retry_timer.name}")
+        retry_timer.cancel()
+
+    component_instance: Component | None = vis.data[LOADED].get(component, None)
+    if component_instance is None:
+        LOGGER.debug(f"Component {component} not found for unload")
+        return None
+
+    # Keep track of other components that are affected by this unload
+    affected_components = set()
+    # Unload any domains that were registered by this component
+    domains_to_unload = vis.domain_registry.get_by_component(component)
+    if domains_to_unload:
+        LOGGER.debug(
+            "Component %s has %d domains to unload: %s",
+            component,
+            len(domains_to_unload),
+            [(e.domain, e.identifier) for e in domains_to_unload],
+        )
+
+        for entry in domains_to_unload:
+            unload_order = get_unload_order(vis, entry.domain, entry.identifier)
+            for e in unload_order:
+                unload_domain(vis, e.domain, e.identifier)
+                if e.component_name != component:
+                    affected_components.add(e.component_name)
+
+    # Unload component-level entities
+    entity_owner = vis.states.entity_owner.get(component, None)
+    if entity_owner:
+        for entity_id in list(vis.states.get_entities().keys()):
+            # Need to use copy since unload_entity mutates the array
+            if entity_id in entity_owner.get("entities", []).copy():
+                vis.states.unload_entity(entity_id)
+
+    # Call component's unload method
+    component_module = component_instance.get_component()
+    if hasattr(component_module, "unload"):
+        try:
+            component_module.unload()
+        except Exception as ex:  # pylint: disable=broad-except
+            LOGGER.error(f"Error unloading component {component}: {ex}")
+    else:
+        LOGGER.debug(f"Component {component} has no unload method")
+
+    del vis.data[LOADED][component]
+    return affected_components
 
 
 STORAGE_KEY = "critical_components_config"
@@ -345,23 +405,35 @@ def activate_safe_mode(vis: Viseron) -> None:
         setup_component(vis, get_component(vis, component, critical_components_config))
 
 
-def setup_components(vis: Viseron, config: dict[str, Any]) -> None:
+def setup_components(
+    vis: Viseron,
+    config: dict[str, Any],
+    reloading: bool = False,
+    domains_only=False,
+    components: set[str] | None = None,
+) -> None:
     """Set up configured components."""
-    components_in_config = {key.split(" ")[0] for key in config}
-    # Setup logger first
-    for component in components_in_config & LOGGING_COMPONENTS:
+    if components is None:
+        components_to_setup = {key.split(" ")[0] for key in config}
+    else:
+        components_to_setup = components
+
+    # Setup logger first if present in config
+    for component in components_to_setup & LOGGING_COMPONENTS:
         setup_component(vis, get_component(vis, component, config))
 
     # Setup core components
-    for component in CORE_COMPONENTS:
-        setup_component(vis, get_component(vis, component, config))
+    if not reloading:
+        for component in CORE_COMPONENTS:
+            setup_component(vis, get_component(vis, component, config))
 
-    # Small delay to ensure core components are fully initialized
-    # before setting up default components (especially storage)
-    time.sleep(0.5)
-
-    # Setup default components
-    for component in DEFAULT_COMPONENTS:
+    # Setup all default components, even if they are not present in config.
+    # When reloading, only setup default components that are being reloaded.
+    for component in (
+        DEFAULT_COMPONENTS
+        if not reloading
+        else components_to_setup & DEFAULT_COMPONENTS
+    ):
         setup_component(vis, get_component(vis, component, config))
 
     if vis.safe_mode:
@@ -376,7 +448,7 @@ def setup_components(vis: Viseron, config: dict[str, Any]) -> None:
     # Setup components in parallel
     setup_threads = []
     for component in (
-        components_in_config
+        components_to_setup
         - set(LOGGING_COMPONENTS)
         - set(CORE_COMPONENTS)
         - set(DEFAULT_COMPONENTS)
@@ -385,6 +457,7 @@ def setup_components(vis: Viseron, config: dict[str, Any]) -> None:
             RestartableThread(
                 target=setup_component,
                 args=(vis, get_component(vis, component, config)),
+                kwargs={"domains_only": domains_only},
                 name=f"{component}_setup",
                 daemon=True,
                 register=False,

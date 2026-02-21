@@ -17,6 +17,7 @@ from voluptuous.humanize import humanize_error
 from viseron.const import (
     DOMAIN_RETRY_INTERVAL,
     DOMAIN_RETRY_INTERVAL_MAX,
+    LOADED,
     LOADING,
     SLOW_DEPENDENCY_WARNING,
     SLOW_SETUP_WARNING,
@@ -90,7 +91,9 @@ def setup_domain(
     optional_domains: list[OptionalDomain] | None = None,
 ) -> None:
     """Set up single domain."""
-    component_instance = vis.data[LOADING][component]
+    component_instance = vis.data[LOADING].get(
+        component, vis.data[LOADED].get(component, None)
+    )
     component_instance.add_domain_to_setup(
         domain, config, identifier, require_domains, optional_domains
     )
@@ -181,7 +184,8 @@ def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bo
         + (f", attempt {tries}" if tries > 1 else "")
     )
 
-    registry.set_state(entry.domain, entry.identifier, DomainState.LOADING)
+    if entry.state != DomainState.RETRYING:
+        registry.set_state(entry.domain, entry.identifier, DomainState.LOADING)
 
     # Wait for dependencies
     if not _wait_for_dependencies(vis, entry):
@@ -248,12 +252,16 @@ def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bo
         else:
             result = domain_module.setup(vis, config, entry.identifier)
     except DomainNotReady as error:
-        if vis.shutdown_event.is_set():
-            LOGGER.warning(
-                f"Domain {entry.domain} with identifier {entry.identifier} "
-                f"for component {entry.component_name} "
-                "setup aborted due to shutdown"
-            )
+        warning_text = (
+            f"Setup retry for domain {entry.domain} "
+            f"with identifier {entry.identifier} "
+            f"for component {entry.component_name} "
+            "aborted due to "
+            f"{'shutdown' if vis.shutdown_event.is_set() else 'cancellation'}"
+        )
+        if vis.shutdown_event.is_set() or entry.cancel_event.is_set():
+            LOGGER.warning(warning_text)
+            _handle_failed_domain(vis, entry, DomainState.FAILED, error=str(error))
             slow_setup_warning.cancel()
             return False
 
@@ -269,14 +277,15 @@ def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bo
             f"Error: {str(error)}"
         )
 
-        elapsed = 0.0
-        interval = 0.2
-        while elapsed < wait_time:
-            if vis.shutdown_event.is_set():
-                LOGGER.warning("Domain setup retry aborted due to shutdown")
-                return False
-            time.sleep(interval)
-            elapsed += interval
+        # Block until wait_time elapses or the domain is cancelled/shutdown.
+        # cancel_event.wait() returns True if the event was set (cancelled),
+        # False if it timed out (meaning we should retry).
+        cancelled = entry.cancel_event.wait(timeout=wait_time)
+        if cancelled or vis.shutdown_event.is_set():
+            LOGGER.warning(warning_text)
+            _handle_failed_domain(vis, entry, DomainState.FAILED, error=str(error))
+            return False
+
         # Running with ThreadPoolExecutor and awaiting the future does not
         # cause a max recursion error if we retry for a long time
         with ThreadPoolExecutor(
@@ -459,7 +468,7 @@ def get_unload_order(
 
         # Then add this domain
         entry = registry.get(_domain, _identifier)
-        if entry and entry.state == DomainState.LOADED:
+        if entry:
             unload_order.append(entry)
 
     traverse(domain, identifier)
@@ -475,13 +484,16 @@ def unload_domain(
     registry = vis.domain_registry
     entry = registry.get(domain, identifier)
 
-    if not entry or entry.state != DomainState.LOADED:
+    if not entry:
         LOGGER.error(
-            f"Domain {domain} with identifier {identifier} not loaded, cannot unload"
+            f"Domain {domain} with identifier {identifier} not found, cannot unload"
         )
         return None
 
     LOGGER.info(f"Unloading domain {domain} with identifier {identifier}")
+
+    # Cancel any in-progress retry for this domain
+    registry.cancel_retry(domain, identifier)
 
     # Unload entities for this domain
     component_name = entry.component_name
@@ -492,7 +504,8 @@ def unload_domain(
     identifiers = domain_info.get("identifiers") if domain_info else None
     entities_to_remove = identifiers.get(identifier, []) if identifiers else []
 
-    for entity_id in entities_to_remove:
+    # Need to use copy since unload_entity mutates the array
+    for entity_id in entities_to_remove.copy():
         vis.states.unload_entity(entity_id)
 
     # Call domain's unload method

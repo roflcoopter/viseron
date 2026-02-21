@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from abc import ABC
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -40,6 +41,9 @@ class Entity(ABC):
     entity_category: str | None = None
     icon: str | None = None
 
+    def __init__(self, _vis: Viseron) -> None:
+        self._event_listeners: list[Callable] = []
+
     @property
     def state(self):
         """Return entity state."""
@@ -72,6 +76,11 @@ class Entity(ABC):
         Safe to override. Use this to add extra attributes to the entity.
         """
         return {}
+
+    def unload(self):
+        """Unload entity."""
+        for unsubscribe in self._event_listeners:
+            unsubscribe()
 
     def update(self):
         """Update entity."""
