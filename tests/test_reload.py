@@ -10,6 +10,7 @@ from viseron.reload import (
     ReloadChanges,
     SetupPlan,
     _get_changes,
+    _handle_removed_components,
     _load_and_diff_config,
     _process_identifier_changes,
     _unload_domain_chain,
@@ -573,3 +574,86 @@ class TestLoadAndDiffConfig:
             _load_and_diff_config(vis)
 
         assert "No configuration changes detected" not in caplog.text
+
+
+class TestHandleRemovedComponents:
+    """Test _handle_removed_components function."""
+
+    @patch("viseron.reload.unload_component")
+    def test_no_removed_components(self, mock_unload: MagicMock) -> None:
+        """Test with no removed components in the diff."""
+        vis = MagicMock()
+        diff = ConfigDiff()
+        plan = SetupPlan()
+
+        _handle_removed_components(vis, diff, plan)
+
+        mock_unload.assert_not_called()
+        assert plan.domain_components == set()
+
+    @patch("viseron.reload.unload_component", return_value=None)
+    def test_removed_no_affected(self, mock_unload: MagicMock) -> None:
+        """Test removed component with no affected components."""
+        vis = MagicMock()
+        diff = ConfigDiff(
+            component_changes={
+                "ffmpeg": ComponentChange(
+                    component_name="ffmpeg",
+                    old_config={"camera": {}},
+                    new_config=None,
+                ),
+            }
+        )
+        plan = SetupPlan()
+
+        _handle_removed_components(vis, diff, plan)
+
+        mock_unload.assert_called_once_with(vis, "ffmpeg")
+        assert plan.domain_components == set()
+
+    @patch("viseron.reload.unload_component")
+    def test_removed_with_affected_components(self, mock_unload: MagicMock) -> None:
+        """Test removed component that returns affected components."""
+        vis = MagicMock()
+        mock_unload.return_value = {"darknet", "nvr"}
+        diff = ConfigDiff(
+            component_changes={
+                "ffmpeg": ComponentChange(
+                    component_name="ffmpeg",
+                    old_config={"camera": {}},
+                    new_config=None,
+                ),
+            }
+        )
+        plan = SetupPlan()
+
+        _handle_removed_components(vis, diff, plan)
+
+        mock_unload.assert_called_once_with(vis, "ffmpeg")
+        assert plan.domain_components == {"darknet", "nvr"}
+
+    @patch("viseron.reload.unload_component")
+    def test_multiple_removed_components(self, mock_unload: MagicMock) -> None:
+        """Test multiple removed components accumulate affected."""
+        vis = MagicMock()
+        mock_unload.side_effect = [{"darknet"}, {"mqtt"}]
+        diff = ConfigDiff(
+            component_changes={
+                "ffmpeg": ComponentChange(
+                    component_name="ffmpeg",
+                    old_config={"camera": {}},
+                    new_config=None,
+                ),
+                "gstreamer": ComponentChange(
+                    component_name="gstreamer",
+                    old_config={"camera": {}},
+                    new_config=None,
+                ),
+            }
+        )
+        plan = SetupPlan()
+
+        _handle_removed_components(vis, diff, plan)
+
+        assert mock_unload.call_count == 2
+        assert plan.domain_components == {"darknet", "mqtt"}
