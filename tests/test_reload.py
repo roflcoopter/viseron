@@ -10,6 +10,7 @@ from viseron.reload import (
     ReloadChanges,
     SetupPlan,
     _get_changes,
+    _handle_added_components,
     _handle_removed_components,
     _load_and_diff_config,
     _process_identifier_changes,
@@ -657,3 +658,44 @@ class TestHandleRemovedComponents:
 
         assert mock_unload.call_count == 2
         assert plan.domain_components == {"darknet", "mqtt"}
+
+
+class TestHandleAddedComponents:
+    """Test _handle_added_components function."""
+
+    def test_no_added_components(self) -> None:
+        """Test with no added components in the diff."""
+        diff = ConfigDiff()
+        plan = SetupPlan()
+
+        _handle_added_components(diff, plan)
+
+        assert plan.components == set()
+
+    def test_multiple_added_components(self) -> None:
+        """Test that all added components are marked for setup."""
+        diff = ConfigDiff(
+            component_changes={
+                "ffmpeg": ComponentChange(
+                    component_name="ffmpeg",
+                    old_config=None,
+                    new_config={"camera": {}},
+                ),
+                "darknet": ComponentChange(
+                    component_name="darknet",
+                    old_config=None,
+                    new_config={"object_detector": {}},
+                ),
+                "mqtt": ComponentChange(
+                    component_name="mqtt",
+                    old_config={"host": "old"},
+                    new_config={"host": "new"},
+                ),
+            }
+        )
+        plan = SetupPlan()
+
+        _handle_added_components(diff, plan)
+
+        assert plan.components == {"ffmpeg", "darknet"}
+        assert plan.domain_components == set()
