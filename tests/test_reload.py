@@ -20,6 +20,7 @@ from viseron.reload import (
     _load_and_diff_config,
     _process_identifier_changes,
     _unload_domain_chain,
+    _validate_config,
 )
 
 if TYPE_CHECKING:
@@ -1070,3 +1071,102 @@ class TestApplySetupPlan:
 
         mock_setup_components.assert_not_called()
         mock_setup_domains.assert_not_called()
+
+
+class TestValidateConfig:
+    """Test _validate_config function."""
+
+    @patch("viseron.reload.get_component")
+    def test_no_changes_returns_true(self, mock_get: MagicMock) -> None:
+        """Test that an empty changes object validates successfully."""
+        vis = MagicMock()
+
+        result = _validate_config(vis, {}, ReloadChanges())
+
+        assert result is True
+        mock_get.assert_not_called()
+
+    @patch("viseron.reload.get_component")
+    def test_all_change_types_collected(self, mock_get: MagicMock) -> None:
+        """Test components from all change types are validated and deduplicated."""
+        vis = MagicMock()
+        mock_instance = MagicMock()
+        mock_instance.validate_component_config.return_value = True
+        mock_get.return_value = mock_instance
+        new_config: dict[str, dict] = {"ffmpeg": {}, "darknet": {}}
+        changes = ReloadChanges(
+            components_to_reload=[
+                ComponentChange(
+                    component_name="ffmpeg",
+                    old_config={"test": 2},
+                    new_config={"test": 4},
+                ),
+            ],
+            domains_to_reload=[
+                DomainChange(
+                    component_name="darknet",
+                    domain="object_detector",
+                    old_config={"threshold": 0.5},
+                    new_config={"threshold": 0.8},
+                ),
+            ],
+            identifiers_to_reload=[
+                IdentifierChange(
+                    component_name="ffmpeg",
+                    domain="camera",
+                    identifier="cam1",
+                    old_config={"host": "192.168.1.1"},
+                    new_config={"host": "10.0.0.1"},
+                ),
+            ],
+        )
+
+        result = _validate_config(vis, new_config, changes)
+
+        assert result is True
+        # ffmpeg appears in both components and identifiers but should be deduplicated
+        assert mock_get.call_count == 2
+        validated = {c.args[1] for c in mock_get.call_args_list}
+        assert validated == {"ffmpeg", "darknet"}
+
+    @patch("viseron.reload.get_component")
+    def test_validation_returns_false(self, mock_get: MagicMock) -> None:
+        """Test that False from validate_component_config fails validation."""
+        vis = MagicMock()
+        mock_instance = MagicMock()
+        mock_instance.validate_component_config.return_value = False
+        mock_get.return_value = mock_instance
+        changes = ReloadChanges(
+            components_to_reload=[
+                ComponentChange(
+                    component_name="ffmpeg",
+                    old_config={"test": 2},
+                    new_config={"test": 4},
+                ),
+            ],
+        )
+
+        result = _validate_config(vis, {}, changes)
+
+        assert result is False
+
+    @patch("viseron.reload.get_component")
+    def test_validation_exception_returns_false(self, mock_get: MagicMock) -> None:
+        """Test that an exception during validation fails gracefully."""
+        vis = MagicMock()
+        mock_instance = MagicMock()
+        mock_instance.validate_component_config.side_effect = RuntimeError("boom")
+        mock_get.return_value = mock_instance
+        changes = ReloadChanges(
+            components_to_reload=[
+                ComponentChange(
+                    component_name="ffmpeg",
+                    old_config={"test": 2},
+                    new_config={"test": 4},
+                ),
+            ],
+        )
+
+        result = _validate_config(vis, {}, changes)
+
+        assert result is False
