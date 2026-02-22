@@ -19,6 +19,7 @@ from viseron.reload import (
     _handle_removed_components,
     _load_and_diff_config,
     _process_identifier_changes,
+    _reload_config,
     _unload_domain_chain,
     _validate_config,
 )
@@ -1170,3 +1171,89 @@ class TestValidateConfig:
         result = _validate_config(vis, {}, changes)
 
         assert result is False
+
+
+class TestReloadConfig:
+    """Test _reload_config function."""
+
+    @patch("viseron.reload._load_and_diff_config")
+    def test_load_failure_returns_error(self, mock_load: MagicMock) -> None:
+        """Test that an exception during config loading returns a failed result."""
+        vis = MagicMock()
+        mock_load.side_effect = RuntimeError("parse error")
+
+        result = _reload_config(vis, [])
+
+        assert result.success is False
+        assert len(result.errors) == 1
+        assert "parse error" in result.errors[0]
+
+    @patch("viseron.reload._apply_setup_plan")
+    @patch("viseron.reload._validate_config")
+    @patch("viseron.reload._handle_added_components")
+    @patch("viseron.reload._handle_removed_components")
+    @patch("viseron.reload._load_and_diff_config")
+    def test_validation_failure_aborts(
+        self,
+        mock_load: MagicMock,
+        mock_removed: MagicMock,
+        mock_added: MagicMock,
+        mock_validate: MagicMock,
+        mock_apply: MagicMock,
+    ) -> None:
+        """Test that failed validation aborts before modifying components."""
+        vis = MagicMock()
+        mock_load.return_value = ({}, ConfigDiff(), ReloadChanges())
+        mock_validate.return_value = False
+
+        result = _reload_config(vis, [])
+
+        assert result.success is False
+        assert "Config validation failed" in result.errors[0]
+        mock_removed.assert_called_once()
+        mock_added.assert_called_once()
+        mock_apply.assert_not_called()
+        vis.set_config.assert_not_called()
+
+    @patch("viseron.reload._apply_setup_plan")
+    @patch("viseron.reload._handle_cancelled_retries")
+    @patch("viseron.reload._handle_modified_identifiers")
+    @patch("viseron.reload._handle_modified_domains")
+    @patch("viseron.reload._handle_modified_components")
+    @patch("viseron.reload._validate_config", return_value=True)
+    @patch("viseron.reload._handle_added_components")
+    @patch("viseron.reload._handle_removed_components")
+    @patch("viseron.reload._load_and_diff_config")
+    def test_successful_reload(
+        self,
+        mock_load: MagicMock,
+        mock_removed: MagicMock,
+        mock_added: MagicMock,
+        mock_validate: MagicMock,
+        mock_modified_comp: MagicMock,
+        mock_modified_dom: MagicMock,
+        mock_modified_id: MagicMock,
+        mock_cancelled: MagicMock,
+        mock_apply: MagicMock,
+    ) -> None:
+        """Test a successful reload calls all steps and updates config."""
+        vis = MagicMock()
+        new_config: dict[str, dict] = {"ffmpeg": {}}
+        diff = ConfigDiff()
+        changes = ReloadChanges()
+        mock_load.return_value = (new_config, diff, changes)
+        cancelled = [_make_domain_entry()]
+
+        result = _reload_config(vis, cancelled)
+
+        assert result.success is True
+        assert not result.errors
+        mock_removed.assert_called_once()
+        mock_added.assert_called_once()
+        mock_validate.assert_called_once()
+        mock_modified_comp.assert_called_once()
+        mock_modified_dom.assert_called_once()
+        mock_modified_id.assert_called_once()
+        mock_cancelled.assert_called_once()
+        mock_apply.assert_called_once()
+        vis.set_config.assert_called_once_with(new_config)
