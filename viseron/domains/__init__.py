@@ -177,11 +177,9 @@ def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bo
     component_path = entry.component_path
 
     LOGGER.info(
-        (
-            f"Setting up domain {entry.domain} with identifier {entry.identifier} "
-            f"for component {entry.component_name}"
-        )
-        + (f", attempt {tries}" if tries > 1 else "")
+        f"Setting up domain {entry.domain} with identifier {entry.identifier} "
+        f"for component {entry.component_name}"
+        f"{', attempt ' + str(tries) if tries > 1 else ''}"
     )
 
     if entry.state != DomainState.RETRYING:

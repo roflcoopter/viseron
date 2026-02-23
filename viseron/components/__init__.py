@@ -408,8 +408,9 @@ def activate_safe_mode(vis: Viseron) -> None:
 def setup_components(
     vis: Viseron,
     config: dict[str, Any],
+    *,
     reloading: bool = False,
-    domains_only=False,
+    domains_only: bool = False,
     components: set[str] | None = None,
 ) -> None:
     """Set up configured components."""

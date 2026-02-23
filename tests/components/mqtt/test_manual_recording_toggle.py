@@ -36,7 +36,7 @@ def make_message(payload) -> DummyMessage:
 
 
 @pytest.fixture
-def nvr(vis):
+def nvr():
     """Mock NVR with a camera and start/stop methods."""
     camera = MockCamera(vis=None, identifier="cam-1")
     camera.is_recording = False

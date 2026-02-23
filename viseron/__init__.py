@@ -593,8 +593,7 @@ class Viseron:
             self.initialized_event.wait()
             LOGGER.debug("Viseron initialized, continuing shutdown")
 
-        if self.data.get(DATA_STREAM_COMPONENT, None):
-            data_stream = self.data[DATA_STREAM_COMPONENT]
+        data_stream = self.data[DATA_STREAM_COMPONENT]
 
         if (
             self._thread_watchdog

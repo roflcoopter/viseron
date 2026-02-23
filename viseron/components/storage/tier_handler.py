@@ -1112,7 +1112,6 @@ def move_file(
                 EventEmptyData(),
                 store=False,
             )
-            return
 
     storage.tier_check_worker_send_command(
         DataItemMoveFile(

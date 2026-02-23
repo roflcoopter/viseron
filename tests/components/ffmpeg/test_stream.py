@@ -195,7 +195,7 @@ class TestStream:
         ],
     )
     def test_get_encoder_audio_codec(
-        self, vis, config_audio_codec, stream_audio_codec, expected_audio_cmd
+        self, config_audio_codec, stream_audio_codec, expected_audio_cmd
     ) -> None:
         """Test that the correct audio codec is returned."""
         mocked_camera = MockCamera(identifier="test_camera_identifier")

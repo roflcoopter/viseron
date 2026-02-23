@@ -28,9 +28,7 @@ from tests.conftest import MockViseron
 class TestSetupComponents:
     """Test setup_components function."""
 
-    def test_setup_core_default(
-        self, vis: MockViseron, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_setup_core_default(self, vis: MockViseron) -> None:
         """Test setup of core and default components."""
         setup_components(vis, {"logger": {}})
         for component in CORE_COMPONENTS:
@@ -41,7 +39,8 @@ class TestSetupComponents:
         vis.shutdown()
 
     def test_setup_components(
-        self, vis: MockViseron, caplog: pytest.LogCaptureFixture
+        self,
+        vis: MockViseron,
     ) -> None:
         """Test setup of component."""
         with patch("viseron.components.setup_component") as mock_setup_component, patch(
@@ -554,9 +553,7 @@ class TestActivateSafeMode:
 class TestSetupComponentsSafeMode:
     """Test setup_components safe mode."""
 
-    def test_returns_early_when_already_safe_mode(
-        self, vis: MockViseron, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_returns_early_when_already_safe_mode(self, vis: MockViseron) -> None:
         """Test returns early when vis.safe_mode is already True."""
         vis.safe_mode = True
 

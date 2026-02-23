@@ -216,8 +216,7 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
         return True
 
     def _segment_hook_mp4box(self, file: str):
-        """
-        Perform per fragment tasks before moving fragment to storage.
+        """Perform per fragment tasks before moving fragment to storage.
 
         Currently only used for extracting timelapse frames from fragments.
         """
@@ -244,8 +243,7 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
         )
 
     def _segment_hook(self, file: str):
-        """
-        Perform per fragment tasks before moving fragment to storage.
+        """Perform per fragment tasks before moving fragment to storage.
 
         Currently only used for extracting timelapse frames from fragments.
         """

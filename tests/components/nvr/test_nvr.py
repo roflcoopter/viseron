@@ -904,7 +904,7 @@ class TestNVRRunBoth:
 class TestNVRRunManualRecording:
     """_run tests (manual recording)."""
 
-    def test_manual_recording_start_when_idle(self, vis, monkeypatch, caplog):
+    def test_manual_recording_start_when_idle(self, vis, monkeypatch):
         """Start manual recording when idle."""
         nvr, camera = make_nvr(vis, camera_output_fps=5)
         fake_time = FakeTime()

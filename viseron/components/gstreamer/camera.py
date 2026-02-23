@@ -231,9 +231,9 @@ RECORDER_SCHEMA = BASE_RECORDER_SCHEMA.extend(
 
 GSTREAMER_LOGLEVEL_SCHEMA = vol.Schema(vol.In(CONFIG_LOGLEVEL_TO_GSTREAMER.keys()))
 
-CAMERA_SCHEMA = BASE_CAMERA_CONFIG_SCHEMA.extend(STREAM_SCEHMA_DICT)
+_camera_schema_with_stream = BASE_CAMERA_CONFIG_SCHEMA.extend(STREAM_SCEHMA_DICT)
 
-CAMERA_SCHEMA = CAMERA_SCHEMA.extend(
+CAMERA_SCHEMA = _camera_schema_with_stream.extend(
     {
         vol.Required(CONFIG_HOST, description=DESC_HOST): str,
         vol.Optional(

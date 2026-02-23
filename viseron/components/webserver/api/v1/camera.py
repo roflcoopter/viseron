@@ -121,7 +121,7 @@ class CameraAPIHandler(BaseAPIHandler):
             camera.still_image[CONFIG_URL],
             auth=auth,
         )
-        if response.status_code == 200:
+        if response.status_code == HTTPStatus.OK.value:
             img_array = np.asarray(bytearray(response.content), dtype=np.uint8)
             img = cv2.imdecode(img_array, -1)
             if self.request_arguments["width"] and self.request_arguments["height"]:
