@@ -8,6 +8,7 @@ from viseron.config import ComponentChange, ConfigDiff, DomainChange, Identifier
 from viseron.domain_registry import DomainEntry
 from viseron.reload import (
     ReloadChanges,
+    ReloadResult,
     SetupPlan,
     _apply_setup_plan,
     _get_changes,
@@ -22,6 +23,7 @@ from viseron.reload import (
     _reload_config,
     _unload_domain_chain,
     _validate_config,
+    reload_config,
 )
 
 if TYPE_CHECKING:
@@ -1257,3 +1259,23 @@ class TestReloadConfig:
         mock_cancelled.assert_called_once()
         mock_apply.assert_called_once()
         vis.set_config.assert_called_once_with(new_config)
+
+
+class TestReloadConfigPublic:
+    """Test reload_config function."""
+
+    @patch("viseron.reload._reload_config")
+    def test_cancels_retries_and_delegates(self, mock_inner: MagicMock) -> None:
+        """Test that retries are cancelled, lock is acquired, and result returned."""
+        vis = MagicMock()
+        cancelled = [_make_domain_entry()]
+        vis.domain_registry.cancel_all_retries.return_value = cancelled
+        expected = ReloadResult(success=True)
+        mock_inner.return_value = expected
+
+        result = reload_config(vis)
+
+        assert result is expected
+        vis.domain_registry.cancel_all_retries.assert_called_once()
+        vis.initialized_event.wait.assert_called_once()
+        mock_inner.assert_called_once_with(vis, cancelled)
