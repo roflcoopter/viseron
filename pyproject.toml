@@ -69,14 +69,14 @@ select = [
 
 ignore = [
     # Real ignores
+    "PTH",     ##  https://docs.astral.sh/ruff/rules/#flake8-use-pathlib-pth Disabled since we prefer os.path for path handling
     "COM812",  ##  https://docs.astral.sh/ruff/rules/missing-trailing-comma/
-    "G004",    ##  https://docs.astral.sh/ruff/rules/logging-f-string/
+    "G004",    ##  https://docs.astral.sh/ruff/rules/logging-f-string/ Disabled since we prefer f-strings for logging, except for certain log messages that are very frequent
     "PLR0913", ##  https://docs.astral.sh/ruff/rules/too-many-arguments/
     "D107",    ##  https://docs.astral.sh/ruff/rules/undocumented-public-init/
     # To be attended to
     "ANN001",  ##   795   https://docs.astral.sh/ruff/rules/missing-type-function-argument/
     "ANN201",  ##   617   https://docs.astral.sh/ruff/rules/missing-return-type-undocumented-public-function/
-    "PTH118",  ##    91   https://docs.astral.sh/ruff/rules/os-path-join/
     "ANN202",  ##    89   https://docs.astral.sh/ruff/rules/missing-return-type-private-function/
     "TRY400",  ##    87   https://docs.astral.sh/ruff/rules/error-instead-of-exception/
     "TRY003",  ##    77   https://docs.astral.sh/ruff/rules/raise-vanilla-args/
@@ -85,8 +85,6 @@ ignore = [
     "EM102",   ##    48   https://docs.astral.sh/ruff/rules/f-string-in-exception/
     "TC003",   ##    47   https://docs.astral.sh/ruff/rules/typing-only-standard-library-import/
     "FBT002",  ##    45   https://docs.astral.sh/ruff/rules/boolean-default-value-positional-argument/
-    "PTH123",  ##    43   https://docs.astral.sh/ruff/rules/builtin-open/
-    "PTH110",  ##    39   https://docs.astral.sh/ruff/rules/os-path-exists/
     "FBT001",  ##    37   https://docs.astral.sh/ruff/rules/boolean-type-hint-positional-argument/
     "S108",    ##    37   https://docs.astral.sh/ruff/rules/hardcoded-temp-file/
     "TC002",   ##    35   https://docs.astral.sh/ruff/rules/typing-only-third-party-import/
@@ -100,7 +98,6 @@ ignore = [
     "ANN003",  ##    26   https://docs.astral.sh/ruff/rules/missing-type-kwargs/
     "C901",    ##    26   https://docs.astral.sh/ruff/rules/complex-structure/
     "PERF401", ##    25   https://docs.astral.sh/ruff/rules/manual-list-comprehension/
-    "PTH107",  ##    23   https://docs.astral.sh/ruff/rules/os-remove/
     "RET502",  ##    23 * https://docs.astral.sh/ruff/rules/implicit-return-value/
     "ANN002",  ##    21   https://docs.astral.sh/ruff/rules/missing-type-args/
     "FBT003",  ##    20   https://docs.astral.sh/ruff/rules/boolean-positional-value-in-call/
@@ -117,9 +114,7 @@ ignore = [
     "PT006",   ##    14   https://docs.astral.sh/ruff/rules/pytest-parametrize-names-wrong-type/
     "RUF010",  ##    14 * https://docs.astral.sh/ruff/rules/explicit-f-string-type-conversion/
     "SIM105",  ##    13   https://docs.astral.sh/ruff/rules/suppressible-exception/
-    "PTH103",  ##    12   https://docs.astral.sh/ruff/rules/os-makedirs/
     "PLC0207", ##    11 * https://docs.astral.sh/ruff/rules/missing-maxsplit-arg/
-    "PTH119",  ##    11   https://docs.astral.sh/ruff/rules/os-path-basename/
     "TRY300",  ##    11   https://docs.astral.sh/ruff/rules/try-consider-else/
     "G201",    ##    10   https://docs.astral.sh/ruff/rules/logging-exc-info/
     "PERF203", ##    10   https://docs.astral.sh/ruff/rules/try-except-in-loop/
@@ -129,14 +124,12 @@ ignore = [
     "PLR0915", ##     9   https://docs.astral.sh/ruff/rules/too-many-statements/
     "TC006",   ##     9 * https://docs.astral.sh/ruff/rules/runtime-cast-value/
     "TRY201",  ##     9   https://docs.astral.sh/ruff/rules/verbose-raise/
-    "PTH208",  ##     8   https://docs.astral.sh/ruff/rules/os-listdir/
     "SIM103",  ##     8   https://docs.astral.sh/ruff/rules/needless-bool/
     "TID252",  ##     8   https://docs.astral.sh/ruff/rules/relative-imports/
     "ASYNC240", ##     7   https://docs.astral.sh/ruff/rules/blocking-path-method-in-async-function/
     "B010",    ##     7 * https://docs.astral.sh/ruff/rules/set-attr-with-constant/
     "PLR0911", ##     7   https://docs.astral.sh/ruff/rules/too-many-return-statements/
     "PT003",   ##     7   https://docs.astral.sh/ruff/rules/pytest-extraneous-scope-function/
-    "PTH120",  ##     7   https://docs.astral.sh/ruff/rules/os-path-dirname/
     "ANN205",  ##     6   https://docs.astral.sh/ruff/rules/missing-return-type-static-method/
     "ASYNC110", ##     6   https://docs.astral.sh/ruff/rules/async-busy-wait/
     "EXE002",  ##     6   https://docs.astral.sh/ruff/rules/shebang-missing-executable-file/
@@ -149,9 +142,6 @@ ignore = [
     "PLC0415", ##     5   https://docs.astral.sh/ruff/rules/import-outside-top-level/
     "PLR5501", ##     5 * https://docs.astral.sh/ruff/rules/collapsible-else-if/
     "PT018",   ##     5   https://docs.astral.sh/ruff/rules/pytest-composite-assertion/
-    "PTH112",  ##     5   https://docs.astral.sh/ruff/rules/os-path-isdir/
-    "PTH122",  ##     5   https://docs.astral.sh/ruff/rules/os-path-splitext/
-    "PTH202",  ##     5   https://docs.astral.sh/ruff/rules/os-path-getsize/
     "RSE102",  ##     5   https://docs.astral.sh/ruff/rules/unnecessary-paren-on-raise-exception/
     "RUF046",  ##     5   https://docs.astral.sh/ruff/rules/unnecessary-cast-to-int/
     "SIM108",  ##     5   https://docs.astral.sh/ruff/rules/if-else-block-instead-of-if-exp/
@@ -184,7 +174,6 @@ ignore = [
     "PERF102", ##     2   https://docs.astral.sh/ruff/rules/incorrect-dict-iterator/
     "PT011",   ##     2   https://docs.astral.sh/ruff/rules/pytest-raises-too-broad/
     "PT019",   ##     2   https://docs.astral.sh/ruff/rules/pytest-fixture-param-without-value/
-    "PTH211",  ##     2   https://docs.astral.sh/ruff/rules/os-symlink/
     "PYI024",  ##     2   https://docs.astral.sh/ruff/rules/collections-named-tuple/
     "RUF006",  ##     2   https://docs.astral.sh/ruff/rules/asyncio-dangling-task/
     "RUF043",  ##     2   https://docs.astral.sh/ruff/rules/pytest-raises-ambiguous-pattern/
@@ -209,13 +198,6 @@ ignore = [
     "PT013",   ##     1   https://docs.astral.sh/ruff/rules/pytest-incorrect-pytest-import/
     "PT017",   ##     1   https://docs.astral.sh/ruff/rules/pytest-assert-in-except/
     "PT022",   ##     1 * https://docs.astral.sh/ruff/rules/pytest-useless-yield-fixture/
-    "PTH102",  ##     1   https://docs.astral.sh/ruff/rules/os-mkdir/
-    "PTH105",  ##     1   https://docs.astral.sh/ruff/rules/os-replace/
-    "PTH106",  ##     1   https://docs.astral.sh/ruff/rules/os-rmdir/
-    "PTH111",  ##     1   https://docs.astral.sh/ruff/rules/os-path-expanduser/
-    "PTH113",  ##     1   https://docs.astral.sh/ruff/rules/os-path-isfile/
-    "PTH204",  ##     1   https://docs.astral.sh/ruff/rules/os-path-getmtime/
-    "PTH206",  ##     1   https://docs.astral.sh/ruff/rules/os-sep-split/
     "RUF037",  ##     1 * https://docs.astral.sh/ruff/rules/unnecessary-empty-iterable-within-deque-call/
     "S310",    ##     1   https://docs.astral.sh/ruff/rules/suspicious-url-open-usage/
     "S602",    ##     1   https://docs.astral.sh/ruff/rules/subprocess-popen-with-shell-equals-true/
