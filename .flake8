@@ -11,8 +11,9 @@ doctests = True
 # D202 No blank lines allowed after function docstring
 # W504 line break after binary operator
 
-# D107 Missing docstring in init 
+# D107 Missing docstring in init
 ignore =
+    NQA102,
     E501,
     W503,
     E203,

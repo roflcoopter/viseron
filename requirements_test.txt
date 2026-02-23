@@ -4,6 +4,7 @@ filelock==3.24.2
 pre-commit==2.20.0
 pylint==4.0.5
 pylint-strict-informational==0.1
+ruff==0.15.1
 pytest==9.0.2
 pytest-alembic==0.12.1
 pytest-cov==7.0.0

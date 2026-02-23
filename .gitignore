@@ -131,6 +131,7 @@
 !/codecov.yaml
 !/LICENSE
 !/netlify.toml
+!/pyproject.toml
 !/README.md
 !tox.ini
 !/config
