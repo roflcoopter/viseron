@@ -72,8 +72,11 @@ ignore = [
     "PTH",     ##  https://docs.astral.sh/ruff/rules/#flake8-use-pathlib-pth Disabled since we prefer os.path for path handling
     "COM812",  ##  https://docs.astral.sh/ruff/rules/missing-trailing-comma/
     "G004",    ##  https://docs.astral.sh/ruff/rules/logging-f-string/ Disabled since we prefer f-strings for logging, except for certain log messages that are very frequent
-    "PLR0913", ##  https://docs.astral.sh/ruff/rules/too-many-arguments/
-    "D107",    ##  https://docs.astral.sh/ruff/rules/undocumented-public-init/
+    "PLR0911", ##  https://docs.astral.sh/ruff/rules/too-many-return-statements/ # Disabled for readability
+    "PLR0912", ##  https://docs.astral.sh/ruff/rules/too-many-branches/ # Disabled for readability
+    "PLR0913", ##  https://docs.astral.sh/ruff/rules/too-many-arguments/ # Disabled for readability
+    "PLR0915", ##  https://docs.astral.sh/ruff/rules/too-many-statements/ # Disabled for readability
+    "D107",    ##  https://docs.astral.sh/ruff/rules/undocumented-public-init/ Disabled since we document the class instead of the __init__ method
     # To be attended to
     "ANN001",  ##   795   https://docs.astral.sh/ruff/rules/missing-type-function-argument/
     "ANN201",  ##   617   https://docs.astral.sh/ruff/rules/missing-return-type-undocumented-public-function/
@@ -106,7 +109,6 @@ ignore = [
     "D202",    ##    19 * https://docs.astral.sh/ruff/rules/blank-line-after-function/
     "FURB110", ##    19   https://docs.astral.sh/ruff/rules/if-exp-instead-of-or-operator/
     "ARG002",  ##    17   https://docs.astral.sh/ruff/rules/unused-method-argument/
-    "PLR0912", ##    17   https://docs.astral.sh/ruff/rules/too-many-branches/
     "RET504",  ##    17   https://docs.astral.sh/ruff/rules/unnecessary-assign/
     "T201",    ##    17   https://docs.astral.sh/ruff/rules/print/
     "E501",    ##    16   https://docs.astral.sh/ruff/rules/line-too-long/
@@ -121,14 +123,12 @@ ignore = [
     "PYI030",  ##    10 * https://docs.astral.sh/ruff/rules/unnecessary-literal-union/
     "SLF001",  ##    10   https://docs.astral.sh/ruff/rules/private-member-access/
     "PGH005",  ##     9   https://docs.astral.sh/ruff/rules/invalid-mock-access/
-    "PLR0915", ##     9   https://docs.astral.sh/ruff/rules/too-many-statements/
     "TC006",   ##     9 * https://docs.astral.sh/ruff/rules/runtime-cast-value/
     "TRY201",  ##     9   https://docs.astral.sh/ruff/rules/verbose-raise/
     "SIM103",  ##     8   https://docs.astral.sh/ruff/rules/needless-bool/
     "TID252",  ##     8   https://docs.astral.sh/ruff/rules/relative-imports/
     "ASYNC240", ##     7   https://docs.astral.sh/ruff/rules/blocking-path-method-in-async-function/
     "B010",    ##     7 * https://docs.astral.sh/ruff/rules/set-attr-with-constant/
-    "PLR0911", ##     7   https://docs.astral.sh/ruff/rules/too-many-return-statements/
     "PT003",   ##     7   https://docs.astral.sh/ruff/rules/pytest-extraneous-scope-function/
     "ANN205",  ##     6   https://docs.astral.sh/ruff/rules/missing-return-type-static-method/
     "ASYNC110", ##     6   https://docs.astral.sh/ruff/rules/async-busy-wait/
@@ -226,3 +226,6 @@ forced-separate = ["tests"]
 quote-style = "double"
 indent-style = "space"
 line-ending = "auto"
+
+[tool.ruff.lint.flake8-import-conventions.extend-aliases]
+voluptuous = "vol"
