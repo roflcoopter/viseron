@@ -1,7 +1,8 @@
 [tool.ruff]
 target-version = "py310"
 line-length = 88
-src = [".", "viseron", "tests", "scripts"]
+src = ["viseron", "tests", "scripts"]
+include = ["viseron/**/*.py", "tests/**/*.py", "scripts/**/*.py"]
 
 [tool.ruff.lint]
 select = [
@@ -77,6 +78,7 @@ ignore = [
     "PLR0913", ##  https://docs.astral.sh/ruff/rules/too-many-arguments/ # Disabled for readability
     "PLR0915", ##  https://docs.astral.sh/ruff/rules/too-many-statements/ # Disabled for readability
     "D107",    ##  https://docs.astral.sh/ruff/rules/undocumented-public-init/ Disabled since we document the class instead of the __init__ method
+    "PERF203", ##  https://docs.astral.sh/ruff/rules/try-except-in-loop/ Disabled since it is used extensively with queue operations
     # To be attended to
     "ANN001",  ##   795   https://docs.astral.sh/ruff/rules/missing-type-function-argument/
     "ANN201",  ##   617   https://docs.astral.sh/ruff/rules/missing-return-type-undocumented-public-function/
@@ -119,7 +121,6 @@ ignore = [
     "PLC0207", ##    11 * https://docs.astral.sh/ruff/rules/missing-maxsplit-arg/
     "TRY300",  ##    11   https://docs.astral.sh/ruff/rules/try-consider-else/
     "G201",    ##    10   https://docs.astral.sh/ruff/rules/logging-exc-info/
-    "PERF203", ##    10   https://docs.astral.sh/ruff/rules/try-except-in-loop/
     "PYI030",  ##    10 * https://docs.astral.sh/ruff/rules/unnecessary-literal-union/
     "SLF001",  ##    10   https://docs.astral.sh/ruff/rules/private-member-access/
     "PGH005",  ##     9   https://docs.astral.sh/ruff/rules/invalid-mock-access/
