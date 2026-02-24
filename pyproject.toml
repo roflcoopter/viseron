@@ -73,28 +73,28 @@ ignore = [
     "PTH",     ##  https://docs.astral.sh/ruff/rules/#flake8-use-pathlib-pth Disabled since we prefer os.path for path handling
     "COM812",  ##  https://docs.astral.sh/ruff/rules/missing-trailing-comma/
     "G004",    ##  https://docs.astral.sh/ruff/rules/logging-f-string/ Disabled since we prefer f-strings for logging, except for certain log messages that are very frequent
+    "EM102",   ##  https://docs.astral.sh/ruff/rules/f-string-in-exception/ Disabled since we prefer f-strings
+    "EM101",   ##  https://docs.astral.sh/ruff/rules/raw-string-in-exception/ Disabled for simplicity
     "PLR0911", ##  https://docs.astral.sh/ruff/rules/too-many-return-statements/ # Disabled for readability
     "PLR0912", ##  https://docs.astral.sh/ruff/rules/too-many-branches/ # Disabled for readability
     "PLR0913", ##  https://docs.astral.sh/ruff/rules/too-many-arguments/ # Disabled for readability
     "PLR0915", ##  https://docs.astral.sh/ruff/rules/too-many-statements/ # Disabled for readability
     "D107",    ##  https://docs.astral.sh/ruff/rules/undocumented-public-init/ Disabled since we document the class instead of the __init__ method
     "PERF203", ##  https://docs.astral.sh/ruff/rules/try-except-in-loop/ Disabled since it is used extensively with queue operations
+    "TRY003",  ##  https://docs.astral.sh/ruff/rules/raise-vanilla-args/ Disabled for simplicity
     # To be attended to
     "ANN001",  ##   795   https://docs.astral.sh/ruff/rules/missing-type-function-argument/
     "ANN201",  ##   617   https://docs.astral.sh/ruff/rules/missing-return-type-undocumented-public-function/
     "ANN202",  ##    89   https://docs.astral.sh/ruff/rules/missing-return-type-private-function/
     "TRY400",  ##    87   https://docs.astral.sh/ruff/rules/error-instead-of-exception/
-    "TRY003",  ##    77   https://docs.astral.sh/ruff/rules/raise-vanilla-args/
     "ANN204",  ##    57   https://docs.astral.sh/ruff/rules/missing-return-type-special-method/
     "TC001",   ##    57   https://docs.astral.sh/ruff/rules/typing-only-first-party-import/
-    "EM102",   ##    48   https://docs.astral.sh/ruff/rules/f-string-in-exception/
     "TC003",   ##    47   https://docs.astral.sh/ruff/rules/typing-only-standard-library-import/
     "FBT002",  ##    45   https://docs.astral.sh/ruff/rules/boolean-default-value-positional-argument/
     "FBT001",  ##    37   https://docs.astral.sh/ruff/rules/boolean-type-hint-positional-argument/
     "S108",    ##    37   https://docs.astral.sh/ruff/rules/hardcoded-temp-file/
     "TC002",   ##    35   https://docs.astral.sh/ruff/rules/typing-only-third-party-import/
     "D212",    ##    33 * https://docs.astral.sh/ruff/rules/multi-line-summary-first-line/
-    "EM101",   ##    31   https://docs.astral.sh/ruff/rules/raw-string-in-exception/
     "RUF012",  ##    31   https://docs.astral.sh/ruff/rules/mutable-class-default/
     "INP001",  ##    30   https://docs.astral.sh/ruff/rules/implicit-namespace-package/
     "ANN401",  ##    29   https://docs.astral.sh/ruff/rules/any-type/
@@ -140,7 +140,6 @@ ignore = [
     "S603",    ##     6   https://docs.astral.sh/ruff/rules/subprocess-without-shell-equals-true/
     "SIM910",  ##     6 * https://docs.astral.sh/ruff/rules/dict-get-with-none-default/
     "B904",    ##     5   https://docs.astral.sh/ruff/rules/raise-without-from-inside-except/
-    "PLC0415", ##     5   https://docs.astral.sh/ruff/rules/import-outside-top-level/
     "PLR5501", ##     5 * https://docs.astral.sh/ruff/rules/collapsible-else-if/
     "PT018",   ##     5   https://docs.astral.sh/ruff/rules/pytest-composite-assertion/
     "RSE102",  ##     5   https://docs.astral.sh/ruff/rules/unnecessary-paren-on-raise-exception/
@@ -219,7 +218,9 @@ forced-separate = ["tests"]
 "tests/**" = [
     "S101",    ##  https://docs.astral.sh/ruff/rules/assert/
     "PLR2004", ##  https://docs.astral.sh/ruff/rules/magic-value-comparison/
+    "ANN201",  ##  https://docs.astral.sh/ruff/rules/missing-return-type-undocumented-public-function/
 ]
+
 # Relax rules in scripts
 "scripts/**" = ["D"]
 
