@@ -6,11 +6,10 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from http import HTTPStatus
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import cv2
 import imutils
-import numpy as np
 import tornado.ioloop
 import tornado.web
 from tornado.queues import Queue
@@ -36,8 +35,11 @@ from .request_handler import ViseronRequestHandler
 LOGGER = logging.getLogger(__name__)
 
 BOUNDARY = "--jpgboundary"
+MAX_CAMERA_LOOKUP_TRIES = 60
 
 if TYPE_CHECKING:
+    import numpy as np
+
     from viseron.components.nvr.nvr import NVR, EventProcessedFrame
     from viseron.events import Event
 
@@ -92,13 +94,13 @@ class StreamHandler(ViseronRequestHandler):
         """Set the headers and write the jpg data."""
         self.write(f"{BOUNDARY}\r\n")
         self.write("Content-type: image/jpeg\r\n")
-        self.write("Content-length: %s\r\n\r\n" % len(jpg))
+        self.write(f"Content-length: {len(jpg)}\r\n\r\n")
         self.write(jpg.tobytes())
         await self.flush()
 
     @staticmethod
     def process_frame(
-        nvr: NVR, processed_frame: EventProcessedFrame, mjpeg_stream_config
+        nvr: NVR, processed_frame: EventProcessedFrame, mjpeg_stream_config: dict
     ) -> tuple[bool, np.ndarray]:
         """Return JPG with drawn objects, zones etc."""
         _frame = processed_frame.frame.copy()
@@ -168,14 +170,14 @@ class StreamHandler(ViseronRequestHandler):
 class DynamicStreamHandler(StreamHandler):
     """Represents a dynamic stream using query parameters."""
 
-    async def get(self, camera) -> None:
+    async def get(self, camera: str) -> None:
         """Handle a GET request."""
         request_arguments = {k: self.get_argument(k) for k in self.request.arguments}
         mjpeg_stream_config = MJPEG_STREAM_SCHEMA(request_arguments)
 
         tries = 0
         while True:
-            if tries == 60:
+            if tries == MAX_CAMERA_LOOKUP_TRIES:
                 self.set_status(404)
                 self.write(f"Camera {camera} not found.")
                 self.finish()
@@ -226,10 +228,14 @@ class EventStaticStreamFrame(EventData):
 class StaticStreamHandler(StreamHandler):
     """Represents a static stream defined in config.yaml."""
 
-    active_streams: dict[tuple[str, str], int] = {}
+    active_streams: ClassVar[dict[tuple[str, str], int]] = {}
 
     async def stream(
-        self, nvr, mjpeg_stream, mjpeg_stream_config, publish_frame_topic
+        self,
+        nvr: NVR,
+        mjpeg_stream: str,
+        mjpeg_stream_config: dict,
+        publish_frame_topic: str,
     ) -> None:
         """Subscribe to frames, draw on them, then publish processed frame."""
         frame_queue: Queue[Event[EventProcessedFrame]] = Queue(maxsize=1)
@@ -255,11 +261,11 @@ class StaticStreamHandler(StreamHandler):
         unsub()
         LOGGER.debug(f"Closing stream {mjpeg_stream}")
 
-    async def get(self, camera, mjpeg_stream) -> None:
+    async def get(self, camera: str, mjpeg_stream: str) -> None:
         """Handle GET request."""
         tries = 0
         while True:
-            if tries == 60:
+            if tries == MAX_CAMERA_LOOKUP_TRIES:
                 self.set_status(404)
                 self.write(f"Camera {camera} not found.")
                 self.finish()
