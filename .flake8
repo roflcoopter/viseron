@@ -19,5 +19,6 @@ ignore =
     E203,
     D202,
     W504,
-    D107
+    D107,
+    E704
 noqa-require-code = True
