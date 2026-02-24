@@ -1,4 +1,5 @@
 """License plate recognition module."""
+
 from __future__ import annotations
 
 from abc import abstractmethod
@@ -14,7 +15,7 @@ from viseron.domains.license_plate_recognition.binary_sensor import (
 from viseron.domains.post_processor import BASE_CONFIG_SCHEMA, AbstractPostProcessor
 from viseron.events import EventData
 from viseron.helpers.schemas import FLOAT_MIN_ZERO, FLOAT_MIN_ZERO_MAX_ONE
-from viseron.types import SnapshotDomain
+from viseron.viseron_types import SnapshotDomain
 
 from .const import (
     CONFIG_EXPIRE_AFTER,

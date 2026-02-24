@@ -1,4 +1,5 @@
 """Face recognition module."""
+
 from __future__ import annotations
 
 import os
@@ -20,7 +21,7 @@ from viseron.events import EventData
 from viseron.helpers import calculate_relative_coords
 from viseron.helpers.schemas import FLOAT_MIN_ZERO
 from viseron.helpers.validators import Deprecated
-from viseron.types import SnapshotDomain
+from viseron.viseron_types import SnapshotDomain
 
 from .binary_sensor import FaceDetectionBinarySensor
 from .const import (

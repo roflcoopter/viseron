@@ -1,4 +1,5 @@
 """Create base configs for Viseron."""
+
 from __future__ import annotations
 
 import copy
@@ -9,23 +10,23 @@ from typing import TYPE_CHECKING, Any
 from ruamel.yaml import YAML
 
 from viseron.const import CONFIG_PATH, DEFAULT_CONFIG, DEFAULT_PORT, SECRETS_PATH
-from viseron.types import Domain
+from viseron.viseron_types import Domain
 
 if TYPE_CHECKING:
-    from viseron.types import SupportedDomains
+    from viseron.viseron_types import SupportedDomains
 
 LOGGER = logging.getLogger(__name__)
 
 UNSUPPORTED = object()
 
 
-def create_default_config(config_path) -> bool:
+def create_default_config(config_path: str) -> bool:
     """Create default configuration."""
     try:
         with open(config_path, "w", encoding="utf-8") as config_file:
             config_file.write(DEFAULT_CONFIG)
     except OSError:
-        LOGGER.error(
+        LOGGER.exception(
             f"Unable to create default configuration file in path {config_path}"
         )
         return False

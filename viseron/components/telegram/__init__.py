@@ -25,7 +25,6 @@ from viseron.components.storage.models import TriggerTypes
 from viseron.components.telegram.ptz_control import TelegramPTZ
 from viseron.components.telegram.utils import limit_user_access
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
-from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.const import (
     DOMAIN as CAMERA_DOMAIN,
     EVENT_RECORDER_COMPLETE,
@@ -35,7 +34,7 @@ from viseron.exceptions import ComponentNotReady, DomainNotRegisteredError
 from viseron.helpers import escape_string
 from viseron.helpers.logs import SensitiveInformationFilter
 from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
-from viseron.types import Domain
+from viseron.viseron_types import Domain
 
 from .const import (
     COMPONENT,
@@ -69,6 +68,7 @@ from .const import (
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
+    from viseron.domains.camera import AbstractCamera
 
 LOGGER = logging.getLogger(__name__)
 

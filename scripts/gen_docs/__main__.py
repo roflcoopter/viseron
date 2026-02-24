@@ -1,4 +1,5 @@
 """Generate docs skeleton."""
+
 # pylint: disable=wrong-import-position
 # flake8: noqa: E402
 import argparse
@@ -27,7 +28,7 @@ from viseron.helpers.validators import (
     Url,
     jinja2_template,
 )
-from viseron.types import SupportedDomains
+from viseron.viseron_types import SupportedDomains
 
 from .const import (
     DOCS_CONTENTS,

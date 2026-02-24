@@ -27,12 +27,12 @@ from viseron.domains import get_unload_order, unload_domain
 from viseron.exceptions import ComponentNotReady
 from viseron.helpers.named_timer import NamedTimer
 from viseron.helpers.storage import Storage
-from viseron.types import SupportedDomains
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.domains import OptionalDomain, RequireDomain
+    from viseron.viseron_types import SupportedDomains
 
 
 LOGGING_COMPONENTS = {"logger"}

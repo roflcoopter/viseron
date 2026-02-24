@@ -1,4 +1,5 @@
 """Viseron states registry."""
+
 from __future__ import annotations
 
 import logging
@@ -11,12 +12,12 @@ from viseron.const import EVENT_ENTITY_ADDED, EVENT_STATE_CHANGED
 from viseron.events import EventData
 from viseron.helpers import slugify
 from viseron.helpers.logs import development_warning
-from viseron.types import SupportedDomains
 
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.components import Component
     from viseron.helpers.entity import Entity
+    from viseron.viseron_types import SupportedDomains
 
 LOGGER = logging.getLogger(__name__)
 

@@ -1,4 +1,5 @@
 """Configuration reload functionality for Viseron."""
+
 from __future__ import annotations
 
 import logging
@@ -22,7 +23,7 @@ from viseron.domains import get_unload_order, setup_domains, unload_domain
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.domain_registry import DomainEntry
-    from viseron.types import SupportedDomains
+    from viseron.viseron_types import SupportedDomains
 
 LOGGER = logging.getLogger(__name__)
 

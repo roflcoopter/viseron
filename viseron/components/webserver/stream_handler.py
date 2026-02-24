@@ -1,4 +1,5 @@
 """Handles different kind of browser streams."""
+
 from __future__ import annotations
 
 import asyncio
@@ -28,7 +29,7 @@ from viseron.helpers import (
     draw_post_processor_mask,
     draw_zones,
 )
-from viseron.types import Domain
+from viseron.viseron_types import Domain
 
 from .request_handler import ViseronRequestHandler
 

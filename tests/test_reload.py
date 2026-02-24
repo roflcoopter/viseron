@@ -1,4 +1,5 @@
 """Test reload functionality."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
@@ -29,7 +30,7 @@ from viseron.reload import (
 if TYPE_CHECKING:
     import pytest
 
-    from viseron.types import SupportedDomains
+    from viseron.viseron_types import SupportedDomains
 
 
 def _make_domain_entry(

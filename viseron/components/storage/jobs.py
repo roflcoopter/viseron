@@ -1,4 +1,5 @@
 """Cleanup jobs for removing orphaned files and database records."""
+
 from __future__ import annotations
 
 import datetime
@@ -32,7 +33,7 @@ from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import DomainNotRegisteredError
 from viseron.helpers import utcnow
-from viseron.types import SnapshotDomain
+from viseron.viseron_types import SnapshotDomain
 from viseron.watchdog.process_watchdog import RestartableProcess
 from viseron.watchdog.thread_watchdog import RestartableThread
 

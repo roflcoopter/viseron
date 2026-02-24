@@ -1,4 +1,5 @@
 """Post processing of detected objects."""
+
 from __future__ import annotations
 
 import logging
@@ -7,7 +8,6 @@ from dataclasses import dataclass
 from queue import Empty, Queue
 from typing import TYPE_CHECKING, Any
 
-import numpy as np
 import voluptuous as vol
 from sqlalchemy import insert
 
@@ -20,14 +20,9 @@ from viseron.domains.object_detector.const import (
     EVENT_OBJECTS_IN_FOV,
     EVENT_OBJECTS_IN_ZONE,
 )
-from viseron.domains.object_detector.detected_object import (
-    DetectedObject,
-    EventDetectedObjectsData,
-)
 from viseron.helpers import apply_mask, generate_mask, generate_mask_image
 from viseron.helpers.schemas import COORDINATES_SCHEMA
 from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
-from viseron.types import SupportedDomains
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
@@ -44,9 +39,16 @@ from .const import (
 )
 
 if TYPE_CHECKING:
+    import numpy as np
+
     from viseron import Event, Viseron
     from viseron.domains.camera.shared_frames import SharedFrame
+    from viseron.domains.object_detector.detected_object import (
+        DetectedObject,
+        EventDetectedObjectsData,
+    )
     from viseron.domains.object_detector.zone import Zone
+    from viseron.viseron_types import SupportedDomains
 
 
 LABEL_SCHEMA = vol.Schema([str])

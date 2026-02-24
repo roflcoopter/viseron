@@ -1,4 +1,5 @@
 """Viseron init file."""
+
 from __future__ import annotations
 
 import concurrent.futures
@@ -68,7 +69,7 @@ from viseron.helpers.logs import (
     ViseronLogFormat,
 )
 from viseron.states import States
-from viseron.types import Domain, SupportedDomains
+from viseron.viseron_types import Domain, SupportedDomains
 from viseron.watchdog.process_watchdog import ProcessWatchDog
 from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
 from viseron.watchdog.thread_watchdog import ThreadWatchDog

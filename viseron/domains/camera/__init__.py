@@ -1,4 +1,5 @@
 """Camera domain."""
+
 from __future__ import annotations
 
 import logging
@@ -46,7 +47,7 @@ from viseron.helpers import (
     zoom_boundingbox,
 )
 from viseron.helpers.logs import SensitiveInformationFilter
-from viseron.types import SnapshotDomain
+from viseron.viseron_types import SnapshotDomain
 
 from .const import (
     CONFIG_MJPEG_STREAMS,

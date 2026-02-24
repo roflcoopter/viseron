@@ -3,20 +3,19 @@
 from __future__ import annotations
 
 import enum
-from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Literal, TypedDict
 
-import voluptuous as vol
-
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
+    import voluptuous as vol
     from sklearn.neighbors import KNeighborsClassifier
 
     from viseron.components import Component
     from viseron.components.compreface.face_recognition import CompreFaceService
     from viseron.components.darknet import BaseDarknet
     from viseron.components.data_stream import DataStream
-    from viseron.components.edgetpu.types import EdgeTPUViseronData
+    from viseron.components.edgetpu.edgetpu_types import EdgeTPUViseronData
     from viseron.components.go2rtc import Go2RTC
     from viseron.components.hailo import Hailo8Detector
     from viseron.components.mqtt import MQTT

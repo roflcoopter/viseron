@@ -1,4 +1,5 @@
 """Viseron domains."""
+
 from __future__ import annotations
 
 import importlib
@@ -28,7 +29,7 @@ from viseron.helpers.named_timer import NamedTimer
 
 if TYPE_CHECKING:
     from viseron import Viseron
-    from viseron.types import SupportedDomains
+    from viseron.viseron_types import SupportedDomains
 
 
 LOGGER = logging.getLogger(__name__)

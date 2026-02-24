@@ -1,4 +1,5 @@
 """General helper functions."""
+
 from __future__ import annotations
 
 import datetime
@@ -6,7 +7,6 @@ import inspect
 import linecache
 import logging
 import math
-import multiprocessing as mp
 import os
 import re
 import socket
@@ -25,10 +25,12 @@ import supervision as sv
 import tornado.queues as tq
 
 from viseron.const import FONT, FONT_SIZE, FONT_THICKNESS
-from viseron.types import Domain
 
 if TYPE_CHECKING:
+    import multiprocessing as mp
+
     from viseron.domains.object_detector.detected_object import DetectedObject
+    from viseron.viseron_types import Domain
 
 LOGGER = logging.getLogger(__name__)
 
@@ -545,8 +547,7 @@ def convert_letterboxed_bbox(
     model_height: int,
     bbox: tuple[int, int, int, int],
     return_absolute: Literal[False] = ...,
-) -> tuple[float, float, float, float]:
-    ...
+) -> tuple[float, float, float, float]: ...
 
 
 @overload
@@ -557,8 +558,7 @@ def convert_letterboxed_bbox(
     model_height: int,
     bbox: tuple[int, int, int, int],
     return_absolute: Literal[True],
-) -> tuple[int, int, int, int]:
-    ...
+) -> tuple[int, int, int, int]: ...
 
 
 def convert_letterboxed_bbox(

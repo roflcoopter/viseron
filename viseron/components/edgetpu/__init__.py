@@ -1,4 +1,5 @@
 """EdgeTPU object detection."""
+
 from __future__ import annotations
 
 import ast
@@ -7,11 +8,10 @@ import multiprocessing as mp
 import subprocess as sp
 import threading
 from abc import abstractmethod
-from queue import Queue
+from typing import TYPE_CHECKING
 
 import voluptuous as vol
 
-from viseron import Viseron
 from viseron.domains import OptionalDomain, RequireDomain, setup_domain
 from viseron.domains.image_classification import (
     BASE_CONFIG_SCHEMA as IMAGE_CLASSIFICATION_BASE_CONFIG_SCHEMA,
@@ -48,6 +48,11 @@ from .const import (
     DESC_OBJECT_DETECTOR,
     DEVICE_CPU,
 )
+
+if TYPE_CHECKING:
+    from queue import Queue
+
+    from viseron import Viseron
 
 LOGGER = logging.getLogger(__name__)
 
