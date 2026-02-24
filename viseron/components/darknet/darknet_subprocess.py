@@ -1,13 +1,12 @@
 """Run OpenCV Darknet in a separate shell since OpenCV does not cope with forking."""
 
-
 import argparse
 import logging
 import sys
 
 import cv2
 
-from manager import connect
+from viseron.manager import connect
 
 LOGGER = logging.getLogger(__name__)
 
@@ -23,7 +22,7 @@ class DarknetDNN:
         model_config: str,
         backend: int,
         target: int,
-    ):
+    ) -> None:
         LOGGER.debug("Using OpenCV DNN Darknet")
         self.model_width = model_width
         self.model_height = model_height
@@ -59,7 +58,7 @@ class DarknetDNN:
             size=(self.model_width, self.model_height), scale=1 / 255
         )
 
-    def work_input(self, item):
+    def work_input(self, item) -> None:
         """Perform object detection."""
         objs = self._model.detect(
             cv2.UMat(item["frame"]),
@@ -108,7 +107,7 @@ def get_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main():
+def main() -> None:
     """Run Darknet in a subprocess."""
     parser = get_parser()
     args = parser.parse_args()
@@ -127,7 +126,7 @@ def main():
             target=args.target,
         )
     except Exception:  # pylint: disable=broad-except
-        LOGGER.error("Failed to initialize Darknet", exc_info=True)
+        LOGGER.exception("Failed to initialize Darknet")
         output_queue.put("init_failed")
         sys.exit(1)
 
