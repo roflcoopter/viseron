@@ -1,4 +1,5 @@
 """GStreamer constants."""
+
 # pyright: reportMissingModuleSource=false
 from __future__ import annotations
 
@@ -12,6 +13,7 @@ COMPONENT = "gstreamer"
 DESC_COMPONENT = "GStreamer Configuration."
 
 ENV_GSTREAMER_PATH = "VISERON_GSTREAMER_PATH"
+MAX_EMPTY_FRAMES = 10
 
 RECORDER = "recorder"
 
@@ -185,7 +187,7 @@ CONFIG_CAMERA = "camera"
 
 CONFIG_HOST = "host"
 CONFIG_USERNAME = "username"
-CONFIG_PASSWORD = "password"
+CONFIG_PASSWORD = "password"  # noqa: S105
 CONFIG_GSTREAMER_LOGLEVEL = "gstreamer_loglevel"
 CONFIG_GSTREAMER_RECOVERABLE_ERRORS = "gstreamer_recoverable_errors"
 CONFIG_FFPROBE_LOGLEVEL = "ffprobe_loglevel"
@@ -210,7 +212,7 @@ DEFAULT_FFPROBE_LOGLEVEL = "error"
 DESC_CAMERA = "Camera domain config."
 DESC_HOST = "IP or hostname of camera."
 DESC_USERNAME = "Username for the camera stream."
-DESC_PASSWORD = "Password for the camera stream."
+DESC_PASSWORD = "Password for the camera stream."  # noqa: S105
 DESC_GSTREAMER_LOGLEVEL = (
     "Sets the loglevel for GStreamer.<br>Should only be used in debugging purposes."
 )
