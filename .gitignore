@@ -124,7 +124,6 @@
 !/.coveragerc
 !/.flake8
 !/.gitignore
-!/.isort.cfg
 !/.mypy.ini
 !/.pre-commit-config.yaml
 !/.pylintrc

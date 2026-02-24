@@ -38,7 +38,7 @@
       "extensions": [
         "ms-python.python",
         "ms-python.vscode-pylance",
-        "ms-python.isort",
+        "charliermarsh.ruff",
         "ms-python.flake8",
         "ms-python.black-formatter",
         "ms-python.pylint",
@@ -58,10 +58,9 @@
       "settings": {
         "python.pythonPath": "/usr/local/bin/python",
         "python.testing.pytestArgs": ["--no-cov"],
-        "isort.check": true,
         "editor.rulers": [80],
         "[python]": {
-          "editor.defaultFormatter": "ms-python.black-formatter",
+          "editor.defaultFormatter": "charliermarsh.ruff",
           "editor.rulers": [88],
           "editor.codeActionsOnSave": {
             "source.organizeImports": "explicit"
@@ -71,7 +70,6 @@
         "pylint.importStrategy": "fromEnvironment",
         "black-formatter.importStrategy": "fromEnvironment",
         "flake8.importStrategy": "fromEnvironment",
-        "isort.importStrategy": "fromEnvironment",
         "editor.formatOnPaste": false,
         "editor.formatOnSave": true,
         "editor.formatOnType": true,

@@ -30,11 +30,6 @@ repos:
           - --in-place
           - --remove-all-unused-imports
         files: ^(viseron|tests)/.+\.py$
-  - repo: https://github.com/PyCQA/isort
-    rev: 5.11.5
-    hooks:
-      - id: isort
-        files: ^(viseron|tests)/.+\.py$
   - repo: https://github.com/psf/black
     rev: 22.10.0
     hooks:

@@ -102,46 +102,6 @@ jobs:
           command: |
             pre-commit install-hooks
 
-  run-isort:
-    name: Run isort
-    runs-on: ubuntu-22.04
-    needs: [prepare-python-venv, prepare-pre-commit]
-    steps:
-      - name: Check out code from GitHub
-        uses: actions/checkout@v3.5.2
-      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
-        uses: actions/setup-python@v4.3.0
-        id: python
-        with:
-          python-version: ${{ env.DEFAULT_PYTHON }}
-      - name: Restore base Python virtual environment
-        id: cache-venv
-        uses: actions/cache@v4
-        with:
-          path: venv
-          key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
-      - name: Fail job if Python cache restore failed
-        if: steps.cache-venv.outputs.cache-hit != 'true'
-        run: |
-          echo "Failed to restore Python virtual environment from cache"
-          exit 1
-      - name: Restore pre-commit environment from cache
-        id: cache-pre-commit
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.PRE_COMMIT_CACHE }}
-          key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
-      - name: Fail job if pre-commit cache restore failed
-        if: steps.cache-pre-commit.outputs.cache-hit != 'true'
-        run: |
-          echo "Failed to restore pre-commit environment from cache"
-          exit 1
-      - name: Run isort
-        uses: ./.github/templates/run_in_venv
-        with:
-          command: |
-            pre-commit run --hook-stage manual isort --all-files --show-diff-on-failure
-
   run-black:
     name: Run black
     runs-on: ubuntu-22.04
