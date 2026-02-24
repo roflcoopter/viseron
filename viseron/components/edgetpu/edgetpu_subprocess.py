@@ -26,6 +26,8 @@ from manager import connect
 
 LOGGER = logging.getLogger(__name__)
 
+QUANTIZATION_TOLERANCE = 1e-5
+
 
 class MakeInterpreterError(Exception):
     """Error raised on all failures to make interpreter."""
@@ -69,7 +71,7 @@ class EdgeTPU:
         return model_width, model_height
 
     @abstractmethod
-    def work_input(self, item):
+    def work_input(self, item) -> None:
         """Perform work on input."""
 
 
@@ -101,7 +103,7 @@ class EdgeTPUDetection(EdgeTPU):
 class EdgeTPUClassification(EdgeTPU):
     """EdgeTPU image classification interface."""
 
-    def work_input(self, item):
+    def work_input(self, item) -> None:
         """Perform image classification.
 
         Some models have unique input quantization values and require additional
@@ -112,7 +114,10 @@ class EdgeTPUClassification(EdgeTPU):
         zero_point = params["zero_points"]
         mean = 128.0
         std = 128.0
-        if abs(scale * std - 1) < 1e-5 and abs(mean - zero_point) < 1e-5:
+        if (
+            abs(scale * std - 1) < QUANTIZATION_TOLERANCE
+            and abs(mean - zero_point) < QUANTIZATION_TOLERANCE
+        ):
             # Input data does not require preprocessing.
             common.set_input(self.interpreter, item["frame"])
         else:
