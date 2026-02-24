@@ -1,6 +1,8 @@
 """FFmpeg camera."""
+
 from __future__ import annotations
 
+import contextlib
 import multiprocessing as mp
 import os
 import signal
@@ -12,7 +14,6 @@ import cv2
 import setproctitle
 import voluptuous as vol
 
-from viseron import Viseron
 from viseron.const import ENV_CUDA_SUPPORTED, ENV_VAAPI_SUPPORTED
 from viseron.domains.camera import AbstractCamera, EventFrameBytesData
 from viseron.domains.camera.config import (
@@ -132,12 +133,14 @@ from .const import (
     DESC_WIDTH,
     FFMPEG_LOGLEVELS,
     HWACCEL_VAAPI,
+    MAX_EMPTY_FRAMES,
     STREAM_FORMAT_MAP,
 )
 from .recorder import Recorder
 from .stream import Stream
 
 if TYPE_CHECKING:
+    from viseron import Viseron
     from viseron.components.nvr.nvr import FrameIntervalCalculator
     from viseron.components.storage.models import TriggerTypes
     from viseron.domains.object_detector.detected_object import DetectedObject
@@ -356,7 +359,7 @@ class Camera(AbstractCamera):
 
         self.initialize_camera()
 
-    def _create_frame_reader(self):
+    def _create_frame_reader(self) -> tuple[RestartableProcess, RestartableThread]:
         """Return a frame reader thread."""
         if self._frame_queue:
             self._frame_queue.close()
@@ -379,7 +382,7 @@ class Camera(AbstractCamera):
             restart_method=self.start_camera,
         )
 
-    def _start_recording_only(self):
+    def _start_recording_only(self) -> None:
         """Record segments only.
 
         Used when output_frames is False which means we are only using the camera for
@@ -387,7 +390,7 @@ class Camera(AbstractCamera):
         """
         self._logger.debug("Starting recording only mode")
 
-        def check_segment_process():
+        def check_segment_process() -> None:
             while self.is_on:
                 time.sleep(1)
                 if (
@@ -445,10 +448,8 @@ class Camera(AbstractCamera):
             if frame_bytes:
                 empty_frames = 0
                 # Dont queue frames if consumer is not ready
-                try:
+                with contextlib.suppress(Full):
                     frame_queue.put_nowait(frame_bytes)
-                except Full:
-                    pass
                 continue
 
             if self._thread_stuck:
@@ -460,7 +461,7 @@ class Camera(AbstractCamera):
                 continue
 
             empty_frames += 1
-            if empty_frames >= 10:
+            if empty_frames >= MAX_EMPTY_FRAMES:
                 self._logger.error("Did not receive a frame")
                 self.decode_error.set()
 
@@ -469,7 +470,7 @@ class Camera(AbstractCamera):
         self._logger.debug("Frame reader stopped")
         os.kill(os.getpid(), signal.SIGKILL)
 
-    def relay_frame(self):
+    def relay_frame(self) -> None:
         """Read from the frame queue and create a SharedFrame."""
         self._poll_timer = utcnow().timestamp()
         while self._capture_frames.is_set():
@@ -528,9 +529,7 @@ class Camera(AbstractCamera):
         if not self.connected:
             return False
 
-        if now - self._poll_timer > self._config[CONFIG_FRAME_TIMEOUT]:
-            return True
-        return False
+        return now - self._poll_timer > self._config[CONFIG_FRAME_TIMEOUT]
 
     def calculate_output_fps(self, scanners: list[FrameIntervalCalculator]) -> None:
         """Calculate the camera output fps based on registered frame scanners.
@@ -540,7 +539,7 @@ class Camera(AbstractCamera):
         """
         if self._config[CONFIG_RAW_COMMAND]:
             self.output_fps = self.stream.fps
-            return
+            return None
 
         return super().calculate_output_fps(scanners)
 
@@ -583,21 +582,19 @@ class Camera(AbstractCamera):
         trigger_type: TriggerTypes,
     ) -> None:
         """Start camera recorder."""
-        self._recorder.start(
-            shared_frame, objects_in_fov if objects_in_fov else [], trigger_type
-        )
+        self._recorder.start(shared_frame, objects_in_fov or [], trigger_type)
 
     def stop_recorder(self) -> None:
         """Stop camera recorder."""
         self._recorder.stop(self.recorder.active_recording)
 
     @property
-    def output_fps(self):
+    def output_fps(self) -> int:
         """Set stream output fps."""
         return self.stream.output_fps
 
     @output_fps.setter
-    def output_fps(self, fps) -> None:
+    def output_fps(self, fps: int) -> None:
         self.stream.output_fps = fps
 
     @property
@@ -607,7 +604,7 @@ class Camera(AbstractCamera):
 
     @resolution.setter
     def resolution(self, resolution) -> None:
-        """Return stream resolution."""
+        """Set stream resolution."""
         self._resolution = resolution
 
     @property
@@ -621,6 +618,6 @@ class Camera(AbstractCamera):
         return self._recorder
 
     @property
-    def is_recording(self):
+    def is_recording(self) -> bool:
         """Return recording status."""
         return self._recorder.is_recording
