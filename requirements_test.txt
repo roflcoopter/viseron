@@ -4,7 +4,6 @@ filelock==3.24.2
 pre-commit==2.20.0
 pylint==4.0.5
 pylint-strict-informational==0.1
-ruff==0.15.1
 pytest==9.0.2
 pytest-alembic==0.12.1
 pytest-cov==7.0.0
@@ -16,8 +15,8 @@ pytest-xdist==3.8.0
 vulture==2.14
 
 # The following libraries has to be kept in sync with .pre-commit-config.yaml
+ruff==0.15.2
 autoflake==2.0.0
-black==22.10.0
 codespell==2.2.2
 flake8==6.0.0
 flake8-comprehensions==3.10.1
