@@ -11,11 +11,11 @@ from abc import ABC, abstractmethod
 from queue import Empty, Queue
 from typing import TYPE_CHECKING
 
+from manager import QueueManager, start, stop
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.helpers import get_free_port, pop_if_full
 from viseron.helpers.logs import LogPipe
 from viseron.helpers.storage import Storage
-from viseron.manager import QueueManager, start, stop
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:

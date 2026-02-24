@@ -22,7 +22,7 @@ import tflite_runtime.interpreter as tflite
 from pycoral.adapters import classify, common, detect
 from pycoral.utils.edgetpu import make_interpreter
 
-from viseron.manager import connect
+from manager import connect
 
 LOGGER = logging.getLogger(__name__)
 

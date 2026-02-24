@@ -6,7 +6,7 @@ import sys
 
 import cv2
 
-from viseron.manager import connect
+from manager import connect
 
 LOGGER = logging.getLogger(__name__)
 

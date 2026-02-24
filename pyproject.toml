@@ -2,7 +2,7 @@
 target-version = "py310"
 line-length = 88
 src = ["viseron", "tests", "scripts"]
-include = ["viseron/**/*.py", "tests/**/*.py", "scripts/**/*.py"]
+include = ["viseron/**/*.py", "tests/**/*.py", "scripts/**/*.py", "manager.py"]
 
 [tool.ruff.lint]
 select = [

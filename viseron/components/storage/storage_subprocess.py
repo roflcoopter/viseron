@@ -15,9 +15,9 @@ import psutil
 import setproctitle
 from apscheduler.schedulers.background import BackgroundScheduler
 
+from manager import connect
 from viseron.components.storage.check_tier import Worker
 from viseron.helpers.subprocess_worker import SubProcessWorker
-from viseron.manager import connect
 from viseron.watchdog.subprocess_watchdog import RestartablePopen
 from viseron.watchdog.thread_watchdog import RestartableThread, ThreadWatchDog
 
