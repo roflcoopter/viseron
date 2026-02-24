@@ -80,6 +80,7 @@
 !/requirements.txt
 !/requirements-3.9.txt
 !setup.py
+!manager.py
 
 # Frontend
 !/frontend

@@ -162,6 +162,7 @@ COPY --from=gpac /gpac/bin/gcc /usr/bin
 COPY --from=go2rtc /usr/local/bin/go2rtc /usr/local/bin/go2rtc
 COPY rootfs/ /
 COPY --from=frontend /frontend/dist /src/viseron/frontend/
+COPY manager.py /src/manager.py
 COPY viseron /src/viseron/
 
 ARG VISERON_VERSION="dev"

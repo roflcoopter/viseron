@@ -6,6 +6,7 @@
 !tests/*
 !viseron/
 !viseron/*
+!manager.py
 !docker/ffmpeg_wrapper
 !docker/ffprobe_wrapper
 !requirements.txt
