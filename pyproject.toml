@@ -82,11 +82,14 @@ ignore = [
     "D107",    ##  https://docs.astral.sh/ruff/rules/undocumented-public-init/ Disabled since we document the class instead of the __init__ method
     "PERF203", ##  https://docs.astral.sh/ruff/rules/try-except-in-loop/ Disabled since it is used extensively with queue operations
     "TRY003",  ##  https://docs.astral.sh/ruff/rules/raise-vanilla-args/ Disabled for simplicity
+    "TRY400",  ##  https://docs.astral.sh/ruff/rules/error-instead-of-exception/ Disabled because most of the time logger.error is enough
+    "SIM105",  ##  https://docs.astral.sh/ruff/rules/suppressible-exception/ Disabled for performance reasons
+    "S603",    ##  https://docs.astral.sh/ruff/rules/subprocess-without-shell-equals-true/ Contradicts S602
+    "ASYNC110", ##  https://docs.astral.sh/ruff/rules/async-busy-wait/ Disabled because we dont use it to wait for events
     # To be attended to
     "ANN001",  ##   795   https://docs.astral.sh/ruff/rules/missing-type-function-argument/
     "ANN201",  ##   617   https://docs.astral.sh/ruff/rules/missing-return-type-undocumented-public-function/
     "ANN202",  ##    89   https://docs.astral.sh/ruff/rules/missing-return-type-private-function/
-    "TRY400",  ##    87   https://docs.astral.sh/ruff/rules/error-instead-of-exception/
     "ANN204",  ##    57   https://docs.astral.sh/ruff/rules/missing-return-type-special-method/
     "TC001",   ##    57   https://docs.astral.sh/ruff/rules/typing-only-first-party-import/
     "TC003",   ##    47   https://docs.astral.sh/ruff/rules/typing-only-standard-library-import/
@@ -97,7 +100,6 @@ ignore = [
     "D212",    ##    33 * https://docs.astral.sh/ruff/rules/multi-line-summary-first-line/
     "RUF012",  ##    31   https://docs.astral.sh/ruff/rules/mutable-class-default/
     "INP001",  ##    30   https://docs.astral.sh/ruff/rules/implicit-namespace-package/
-    "ANN401",  ##    29   https://docs.astral.sh/ruff/rules/any-type/
     "BLE001",  ##    28   https://docs.astral.sh/ruff/rules/blind-except/
     "ERA001",  ##    28   https://docs.astral.sh/ruff/rules/commented-out-code/
     "ANN003",  ##    26   https://docs.astral.sh/ruff/rules/missing-type-kwargs/
@@ -113,11 +115,9 @@ ignore = [
     "ARG002",  ##    17   https://docs.astral.sh/ruff/rules/unused-method-argument/
     "RET504",  ##    17   https://docs.astral.sh/ruff/rules/unnecessary-assign/
     "T201",    ##    17   https://docs.astral.sh/ruff/rules/print/
-    "E501",    ##    16   https://docs.astral.sh/ruff/rules/line-too-long/
     "SIM102",  ##    15   https://docs.astral.sh/ruff/rules/collapsible-if/
     "PT006",   ##    14   https://docs.astral.sh/ruff/rules/pytest-parametrize-names-wrong-type/
     "RUF010",  ##    14 * https://docs.astral.sh/ruff/rules/explicit-f-string-type-conversion/
-    "SIM105",  ##    13   https://docs.astral.sh/ruff/rules/suppressible-exception/
     "PLC0207", ##    11 * https://docs.astral.sh/ruff/rules/missing-maxsplit-arg/
     "TRY300",  ##    11   https://docs.astral.sh/ruff/rules/try-consider-else/
     "G201",    ##    10   https://docs.astral.sh/ruff/rules/logging-exc-info/
@@ -132,12 +132,10 @@ ignore = [
     "B010",    ##     7 * https://docs.astral.sh/ruff/rules/set-attr-with-constant/
     "PT003",   ##     7   https://docs.astral.sh/ruff/rules/pytest-extraneous-scope-function/
     "ANN205",  ##     6   https://docs.astral.sh/ruff/rules/missing-return-type-static-method/
-    "ASYNC110", ##     6   https://docs.astral.sh/ruff/rules/async-busy-wait/
     "EXE002",  ##     6   https://docs.astral.sh/ruff/rules/shebang-missing-executable-file/
     "G001",    ##     6   https://docs.astral.sh/ruff/rules/logging-string-format/
     "N818",    ##     6   https://docs.astral.sh/ruff/rules/error-suffix-on-exception-name/
     "S106",    ##     6   https://docs.astral.sh/ruff/rules/hardcoded-password-func-arg/
-    "S603",    ##     6   https://docs.astral.sh/ruff/rules/subprocess-without-shell-equals-true/
     "SIM910",  ##     6 * https://docs.astral.sh/ruff/rules/dict-get-with-none-default/
     "B904",    ##     5   https://docs.astral.sh/ruff/rules/raise-without-from-inside-except/
     "PLR5501", ##     5 * https://docs.astral.sh/ruff/rules/collapsible-else-if/
@@ -217,9 +215,14 @@ forced-separate = ["tests"]
 # Relax rules in tests
 "tests/**" = [
     "S101",    ##  https://docs.astral.sh/ruff/rules/assert/
+    "S105",    ##  https://docs.astral.sh/ruff/rules/hardcoded-password-string/
+    "SLF001",  ##  https://docs.astral.sh/ruff/rules/private-member-access/
     "PLR2004", ##  https://docs.astral.sh/ruff/rules/magic-value-comparison/
     "ANN201",  ##  https://docs.astral.sh/ruff/rules/missing-return-type-undocumented-public-function/
 ]
+
+# Generation of docs use many long lines, so we disable line length rule for scripts/gen_docs
+"scripts/gen_docs/**" = ["E501"]
 
 # Relax rules in scripts
 "scripts/**" = ["D"]
