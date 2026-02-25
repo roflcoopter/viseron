@@ -10,6 +10,7 @@ UPDATE_TOKEN_INTERVAL_MINUTES: Final = 5
 MAX_ACCESS_TOKENS = 2
 
 VIDEO_CONTAINER = "mp4"
+MP4BOX_PATH = "/usr/bin/MP4Box"
 
 # Event topic constants
 EVENT_CAMERA_STATUS = "{camera_identifier}/camera/status"

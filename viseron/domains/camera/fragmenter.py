@@ -29,7 +29,11 @@ from viseron.components.storage.const import (
 from viseron.components.storage.models import FilesMeta
 from viseron.components.storage.queries import get_time_period_fragments
 from viseron.const import CAMERA_SEGMENT_DURATION, TEMP_DIR, VISERON_SIGNAL_SHUTDOWN
-from viseron.domains.camera.const import CONFIG_FFMPEG_LOGLEVEL, CONFIG_RECORDER
+from viseron.domains.camera.const import (
+    CONFIG_FFMPEG_LOGLEVEL,
+    CONFIG_RECORDER,
+    MP4BOX_PATH,
+)
 from viseron.events import EventEmptyData
 from viseron.helpers import get_utc_offset
 from viseron.helpers.child_process_worker import ChildProcessWorker
@@ -194,7 +198,7 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
         try:
             sp.run(  # type: ignore[call-overload]
                 [
-                    "/usr/bin/MP4Box",
+                    MP4BOX_PATH,
                     "-logs",
                     "dash@error:ncl",
                     "-noprog",
