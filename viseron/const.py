@@ -1,4 +1,5 @@
 """Constants."""
+
 import os
 from typing import Final
 
@@ -109,6 +110,7 @@ FONT = cv2.FONT_HERSHEY_SIMPLEX
 FONT_SIZE = 0.6
 FONT_THICKNESS = 1
 
+MIN_LABEL_Y_POSITION = 10
 
 TOPIC_STATIC_MJPEG_STREAMS = "static_mjepg_streams"
 

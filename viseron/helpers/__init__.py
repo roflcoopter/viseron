@@ -24,7 +24,7 @@ import slugify as unicode_slug
 import supervision as sv
 import tornado.queues as tq
 
-from viseron.const import FONT, FONT_SIZE, FONT_THICKNESS
+from viseron.const import FONT, FONT_SIZE, FONT_THICKNESS, MIN_LABEL_Y_POSITION
 
 if TYPE_CHECKING:
     import multiprocessing as mp
@@ -150,7 +150,7 @@ def put_object_label_relative(frame, obj, frame_res, color=(255, 0, 0)) -> None:
     )
 
     # If label is outside the top of the frame, put it below the bounding box
-    if coordinates[1] < 10:
+    if coordinates[1] < MIN_LABEL_Y_POSITION:
         coordinates = (
             math.floor(obj.rel_x1 * frame_res[0]),
             (math.floor(obj.rel_y2 * frame_res[1])) + 5,
