@@ -52,7 +52,7 @@ TYPES_MAP = {
 DOCS_PATH = "./docs/src/pages/components-explorer/components/{component}"
 
 
-# This function is copied and adapted from https://github.com/home-assistant-libs/voluptuous-serialize/blob/2.4.0/voluptuous_serialize/__init__.py # pylint: disable=line-too-long
+# This function is copied and adapted from https://github.com/home-assistant-libs/voluptuous-serialize/blob/2.4.0/voluptuous_serialize/__init__.py # pylint: disable=line-too-long  # noqa: E501
 def convert(schema, custom_convert=None):  # noqa: C901
     """Convert a voluptuous schema to a dictionary."""
     if isinstance(schema, vol.Schema):

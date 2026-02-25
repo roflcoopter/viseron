@@ -6,14 +6,13 @@ import logging
 import multiprocessing as mp
 from functools import partial
 from queue import Empty, Queue
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import voluptuous as vol
 from hailo_platform import HEF, FormatType, HailoSchedulingAlgorithm, VDevice
 from hailo_platform.pyhailort.pyhailort import AsyncInferJob, FormatOrder
 
-from viseron import Viseron
 from viseron.components.hailo.utils import (
     get_hailo_arch,
     get_model,
@@ -50,6 +49,9 @@ from .const import (
     DESC_MULTI_PROCESS_SERVICE,
     DESC_OBJECT_DETECTOR,
 )
+
+if TYPE_CHECKING:
+    from viseron import Viseron
 
 LOGGER = logging.getLogger(__name__)
 
@@ -306,7 +308,7 @@ class HailoInfer:
     """Helper around Hailo SDK to perform asynchronous inference.
 
     Based on https://raw.githubusercontent.com/hailo-ai/Hailo-Application-Code-Examples/refs/heads/main/runtime/hailo-8/python/common/hailo_inference.py #pylint: disable=line-too-long
-    """
+    """  # noqa: E501
 
     def __init__(
         self,
