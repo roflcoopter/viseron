@@ -1,23 +1,26 @@
 """Used to publish/subscribe to data between different parts of Viseron."""
+
 from __future__ import annotations
 
 import fnmatch
 import inspect
 import logging
-import multiprocessing as mp
 import subprocess
 import threading
 import time
 import uuid
-from collections.abc import Callable
 from queue import Empty, Queue
-from typing import Any, Final, TypedDict
+from typing import TYPE_CHECKING, Any, Final, TypedDict
 
 from tornado.ioloop import IOLoop
-from tornado.queues import Queue as tornado_queue
+from tornado.queues import Queue as TornadoQueue
 
 from viseron import helpers
 from viseron.watchdog.thread_watchdog import RestartableThread
+
+if TYPE_CHECKING:
+    import multiprocessing as mp
+    from collections.abc import Callable
 
 COMPONENT: Final = "data_stream"
 
@@ -27,7 +30,7 @@ LOGGER = logging.getLogger(__name__)
 class DataSubscriber(TypedDict):
     """Data subscriber type."""
 
-    callback: Callable | Queue | tornado_queue
+    callback: Callable | Queue | TornadoQueue
     ioloop: IOLoop | None
     stage: str | None
 
@@ -99,9 +102,8 @@ class DataStream:
             return 999999
 
     @staticmethod
-    def publish_data(data_topic: str, data: Any = None) -> None:
+    def publish_data(data_topic: str, data: Any = None) -> None:  # noqa: ANN401
         """Publish data to topic."""
-        # LOGGER.debug(f"Publishing to data topic {data_topic}, {data}")
         helpers.pop_if_full(
             DataStream._data_queue, {"data_topic": data_topic, "data": data}
         )
@@ -109,9 +111,9 @@ class DataStream:
     @staticmethod
     def subscribe_data(
         data_topic: str,
-        callback: Callable | Queue | tornado_queue,
-        ioloop=None,
-        stage=None,
+        callback: Callable | Queue | TornadoQueue,
+        ioloop: IOLoop | None = None,
+        stage: str | None = None,
     ) -> uuid.UUID:
         """Subscribe to data on a topic.
 
@@ -121,12 +123,12 @@ class DataStream:
         unique_id = uuid.uuid4()
 
         if "*" in data_topic:
-            DataStream._wildcard_subscribers.setdefault(data_topic, {})[
-                unique_id
-            ] = DataSubscriber(
-                callback=callback,
-                ioloop=ioloop,
-                stage=stage,
+            DataStream._wildcard_subscribers.setdefault(data_topic, {})[unique_id] = (
+                DataSubscriber(
+                    callback=callback,
+                    ioloop=ioloop,
+                    stage=stage,
+                )
             )
             return unique_id
 
@@ -154,7 +156,10 @@ class DataStream:
         DataStream._wildcard_subscribers.clear()
 
     async def run_callback_in_ioloop(
-        self, callback: Callable, data: Any, ioloop: IOLoop
+        self,
+        callback: Callable,
+        data: Any,  # noqa: ANN401
+        ioloop: IOLoop,
     ) -> None:
         """Run callback in IOLoop."""
 
@@ -176,7 +181,7 @@ class DataStream:
     def run_callbacks(
         self,
         callbacks: dict[uuid.UUID, DataSubscriber],
-        data: Any,
+        data: Any,  # noqa: ANN401
     ) -> None:
         """Run callbacks or put to queues."""
         for callback in callbacks.copy().values():
@@ -237,7 +242,7 @@ class DataStream:
                 continue
 
             if callback["ioloop"] is not None and isinstance(
-                callback["callback"], tornado_queue
+                callback["callback"], TornadoQueue
             ):
                 callback["ioloop"].add_callback(
                     helpers.pop_if_full,
