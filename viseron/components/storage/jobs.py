@@ -126,7 +126,7 @@ class BaseTableCleanupJob(BaseCleanupJob):
         self,
         session: Session,
         table: type[PostProcessorResults | Motion | Objects],
-        path_column: Any,  # noqa: ANN401
+        path_column: Any,
     ) -> None:
         """Delete orphaned records in batches using cursor-based pagination.
 

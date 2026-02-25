@@ -85,6 +85,7 @@ ignore = [
     "TRY400",  ##  https://docs.astral.sh/ruff/rules/error-instead-of-exception/ Disabled because most of the time logger.error is enough
     "SIM105",  ##  https://docs.astral.sh/ruff/rules/suppressible-exception/ Disabled for performance reasons
     "S603",    ##  https://docs.astral.sh/ruff/rules/subprocess-without-shell-equals-true/ Contradicts S602
+    "ANN401",  ##  https://docs.astral.sh/ruff/rules/any-type/ Disabled since Any is useful in some cases
     "ASYNC110", ##  https://docs.astral.sh/ruff/rules/async-busy-wait/ Disabled because we dont use it to wait for events
     # To be attended to
     "ANN001",  ##   795   https://docs.astral.sh/ruff/rules/missing-type-function-argument/

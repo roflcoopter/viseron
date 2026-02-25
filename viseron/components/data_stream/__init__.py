@@ -102,7 +102,7 @@ class DataStream:
             return 999999
 
     @staticmethod
-    def publish_data(data_topic: str, data: Any = None) -> None:  # noqa: ANN401
+    def publish_data(data_topic: str, data: Any = None) -> None:
         """Publish data to topic."""
         helpers.pop_if_full(
             DataStream._data_queue, {"data_topic": data_topic, "data": data}
@@ -158,7 +158,7 @@ class DataStream:
     async def run_callback_in_ioloop(
         self,
         callback: Callable,
-        data: Any,  # noqa: ANN401
+        data: Any,
         ioloop: IOLoop,
     ) -> None:
         """Run callback in IOLoop."""
@@ -181,7 +181,7 @@ class DataStream:
     def run_callbacks(
         self,
         callbacks: dict[uuid.UUID, DataSubscriber],
-        data: Any,  # noqa: ANN401
+        data: Any,
     ) -> None:
         """Run callbacks or put to queues."""
         for callback in callbacks.copy().values():
