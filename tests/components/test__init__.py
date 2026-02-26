@@ -1,4 +1,5 @@
 """Test component module."""
+
 from __future__ import annotations
 
 import logging
@@ -43,11 +44,11 @@ class TestSetupComponents:
         vis: MockViseron,
     ) -> None:
         """Test setup of component."""
-        with patch("viseron.components.setup_component") as mock_setup_component, patch(
-            "threading.Thread.is_alive"
-        ) as mock_is_alive, patch(
-            "viseron.components.get_component"
-        ) as mock_get_component:
+        with (
+            patch("viseron.components.setup_component") as mock_setup_component,
+            patch("threading.Thread.is_alive") as mock_is_alive,
+            patch("viseron.components.get_component") as mock_get_component,
+        ):
             mock_is_alive.return_value = True
             setup_components(vis, {"mqtt": {}})
             assert (
@@ -72,16 +73,18 @@ class TestSetupComponents:
         def mock_setup(
             vis_arg,
             component,
-            tries=1,  # pylint: disable=unused-argument
-            domains_only=False,  # pylint: disable=unused-argument
+            tries=1,  # pylint: disable=unused-argument  # noqa: ARG001
+            domains_only=False,  # pylint: disable=unused-argument  # noqa: ARG001
         ) -> None:
             vis_arg.data[LOADED][component.name] = component
             if component.name in vis_arg.data.get(LOADING, {}):
                 del vis_arg.data[LOADING][component.name]
 
-        with patch("viseron.components.setup_component", side_effect=mock_setup), patch(
-            "threading.Thread.is_alive", return_value=True
-        ), patch("viseron.components.RestartableThread") as mock_thread_class:
+        with (
+            patch("viseron.components.setup_component", side_effect=mock_setup),
+            patch("threading.Thread.is_alive", return_value=True),
+            patch("viseron.components.RestartableThread") as mock_thread_class,
+        ):
             mock_thread = Mock()
             mock_thread.is_alive.return_value = True
             mock_thread.name = "mqtt_setup"
@@ -329,9 +332,12 @@ class TestComponentSetup:
             setup_exception=ComponentNotReady("Not ready yet")
         )
 
-        with patch(
-            "viseron.components.importlib.import_module", return_value=mock_module
-        ), patch("viseron.components.NamedTimer") as mock_named_timer:
+        with (
+            patch(
+                "viseron.components.importlib.import_module", return_value=mock_module
+            ),
+            patch("viseron.components.NamedTimer") as mock_named_timer,
+        ):
             component = Component(vis, "viseron.components.test", "test", {})
             result: bool = component.setup_component(tries=1)
 
@@ -484,8 +490,9 @@ class TestActivateSafeMode:
         vis.critical_components_config_store = Mock()
         vis.critical_components_config_store.load.return_value = {}
 
-        with patch("viseron.components.setup_component"), patch(
-            "viseron.components.get_component"
+        with (
+            patch("viseron.components.setup_component"),
+            patch("viseron.components.get_component"),
         ):
             activate_safe_mode(vis)
 
@@ -498,8 +505,9 @@ class TestActivateSafeMode:
         vis.critical_components_config_store = Mock()
         vis.critical_components_config_store.load.return_value = {}
 
-        with patch("viseron.components.setup_component"), patch(
-            "viseron.components.get_component"
+        with (
+            patch("viseron.components.setup_component"),
+            patch("viseron.components.get_component"),
         ):
             activate_safe_mode(vis)
 
@@ -511,9 +519,10 @@ class TestActivateSafeMode:
         vis.critical_components_config_store.load.return_value = {"logger": {}}
         vis.data[LOADED] = {"logger": Mock()}  # Already loaded
 
-        with patch("viseron.components.setup_component"), patch(
-            "viseron.components.get_component"
-        ) as mock_get:
+        with (
+            patch("viseron.components.setup_component"),
+            patch("viseron.components.get_component") as mock_get,
+        ):
             activate_safe_mode(vis)
 
             # Logger should not be set up again
@@ -533,15 +542,18 @@ class TestActivateSafeMode:
             vis_arg.data[LOADED][component.name] = component
 
         def make_mock_component(
-            vis, comp_name, config  # pylint: disable=unused-argument
+            vis,  # pylint: disable=unused-argument  # noqa: ARG001
+            comp_name,
+            config,  # pylint: disable=unused-argument  # noqa: ARG001
         ) -> Mock:
             mock_comp = Mock()
             mock_comp.name = comp_name
             return mock_comp
 
-        with patch(
-            "viseron.components.setup_component", side_effect=track_setup
-        ), patch("viseron.components.get_component", side_effect=make_mock_component):
+        with (
+            patch("viseron.components.setup_component", side_effect=track_setup),
+            patch("viseron.components.get_component", side_effect=make_mock_component),
+        ):
             activate_safe_mode(vis)
 
         # All critical components should have been set up
@@ -575,8 +587,8 @@ class TestSetupComponentsSafeMode:
         def mock_setup(
             vis_arg,
             component,
-            tries=1,  # pylint: disable=unused-argument
-            domains_only=False,  # pylint: disable=unused-argument
+            tries=1,  # pylint: disable=unused-argument  # noqa: ARG001
+            domains_only=False,  # pylint: disable=unused-argument  # noqa: ARG001
         ) -> None:
             if component.name == "storage":
                 vis_arg.data[FAILED][component.name] = component

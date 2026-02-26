@@ -1,4 +1,5 @@
 """Common mocks for Viseron tests."""
+
 from __future__ import annotations
 
 import datetime
@@ -79,7 +80,7 @@ class MockComponentModule:
             raise AttributeError("No CONFIG_SCHEMA")
         if self.config_schema_exception:
 
-            def _raise(config):
+            def _raise(config):  # noqa: ARG001
                 raise self.config_schema_exception  # type: ignore[misc]
 
             return _raise
@@ -138,7 +139,7 @@ class MockDomainModule:
             raise AttributeError("No CONFIG_SCHEMA")
         if self.config_schema_exception:
 
-            def _raise(config):
+            def _raise(config):  # noqa: ARG001
                 raise self.config_schema_exception  # type: ignore[misc]
 
             return _raise
