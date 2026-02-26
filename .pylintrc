@@ -24,7 +24,8 @@ init-hook=import gi; gi.require_version('Gst', '1.0'); from gi.repository import
 # List of plugins (as comma separated values of python modules names) to load,
 # usually to register additional checkers.
 load-plugins=pylint.extensions.typing,
-      pylint_strict_informational
+      pylint_strict_informational,
+      pylint_per_file_ignores
 
 
 # Pickle collected data for later comparisons.
@@ -91,6 +92,8 @@ enable=c-extension-no-member,
       line-too-long,
       useless-suppression
 
+per-file-ignores =
+  tests/**/**:redefined-outer-name,protected-access
 
 [REPORTS]
 
