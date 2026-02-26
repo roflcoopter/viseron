@@ -621,7 +621,7 @@ class Viseron:
         entity: Entity,
         domain: SupportedDomains | None = None,
         identifier: str | None = None,
-    ) -> Entity | None:
+    ) -> Entity:
         """Add entity to states registry."""
         component_instance = self.data[LOADED].get(component, None)
         if not component_instance:

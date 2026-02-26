@@ -33,7 +33,7 @@ from viseron.const import TEMP_DIR
 from viseron.domain_registry import DomainEntry, DomainState
 from viseron.domains import AbstractDomain
 from viseron.domains.camera.const import DOMAIN
-from viseron.domains.camera.entity.sensor import CamerAccessTokenSensor
+from viseron.domains.camera.entity.sensor import CameraAccessTokenSensor
 from viseron.domains.camera.fragmenter import Fragmenter
 from viseron.domains.camera.recorder import FailedCameraRecorder
 from viseron.events import EventData, EventEmptyData
@@ -147,7 +147,7 @@ class AbstractCamera(AbstractDomain):
         vis.add_entity(component, StillImageAvailableBinarySensor(vis, self))
         vis.add_entity(component, CameraConnectionToggle(vis, self))
         self._access_token_entity = vis.add_entity(
-            component, CamerAccessTokenSensor(vis, self)
+            component, CameraAccessTokenSensor(vis, self)
         )
 
         self.update_token()
