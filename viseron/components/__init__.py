@@ -262,7 +262,8 @@ def get_component(
     config: dict[str, Any],
 ) -> Component:
     """Get configured component."""
-    from viseron import (  # pylint: disable=import-outside-toplevel,import-self
+    # pylint: disable-next=import-outside-toplevel,import-self
+    from viseron import (  # noqa: PLC0415
         components,
     )
 
