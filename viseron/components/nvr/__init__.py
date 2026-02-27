@@ -1,4 +1,5 @@
 """NVR component."""
+
 from __future__ import annotations
 
 import logging
@@ -8,7 +9,7 @@ import voluptuous as vol
 
 from viseron.domains import OptionalDomain, RequireDomain, setup_domain
 from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
-from viseron.types import Domain
+from viseron.viseron_types import Domain
 
 from .const import CAMERA, COMPONENT, DESC_COMPONENT, DOMAIN
 

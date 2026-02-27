@@ -1,21 +1,24 @@
 """Common mocks for Viseron webserver tests."""
+
 from __future__ import annotations
 
 import json
 import logging
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
 import pytest
 from filelock import FileLock
-from tornado.httpclient import HTTPResponse
 from tornado.testing import AsyncHTTPTestCase
 from tornado.web import create_signed_value
 
 from viseron import Viseron, setup_viseron
 from viseron.components.webserver import Webserver, create_application
 from viseron.components.webserver.const import COMPONENT
+
+if TYPE_CHECKING:
+    from tornado.httpclient import HTTPResponse
 
 USER_ID = "ffa448c2623b45ba8be62bfc6b0ae859"
 USER_NAME = "asd"
@@ -36,7 +39,7 @@ AUTH_STORAGE_DATA = {
             USER_ID: {
                 "name": "Asd",
                 "username": USER_NAME,
-                "password": "JDJiJDEyJFJsNm9HeVVKcEx5cXlXSlFsaFBVNWVhVlJ3TWJaRlR4d3U4YUo0Y2JwaC4uU0VMbjliWlUy",  # pylint: disable=line-too-long
+                "password": "JDJiJDEyJFJsNm9HeVVKcEx5cXlXSlFsaFBVNWVhVlJ3TWJaRlR4d3U4YUo0Y2JwaC4uU0VMbjliWlUy",  # pylint: disable=line-too-long  # noqa: E501
                 "role": "admin",
                 "id": USER_ID,
                 "enabled": True,
@@ -44,7 +47,7 @@ AUTH_STORAGE_DATA = {
             READ_USER_ID: {
                 "name": "Read User",
                 "username": READ_USER_NAME,
-                "password": "JDJiJDEyJFJsNm9HeVVKcEx5cXlXSlFsaFBVNWVhVlJ3TWJaRlR4d3U4YUo0Y2JwaC4uU0VMbjliWlUy",  # pylint: disable=line-too-long
+                "password": "JDJiJDEyJFJsNm9HeVVKcEx5cXlXSlFsaFBVNWVhVlJ3TWJaRlR4d3U4YUo0Y2JwaC4uU0VMbjliWlUy",  # pylint: disable=line-too-long  # noqa: E501
                 "role": "read",
                 "id": READ_USER_ID,
                 "enabled": True,
@@ -90,7 +93,7 @@ class TestAppBase(AsyncHTTPTestCase):
     config: dict[str, Any] = {}
 
     @pytest.fixture(autouse=True)
-    def inject_caplog(self, caplog):
+    def inject_caplog(self, caplog: pytest.LogCaptureFixture) -> None:
         """Inject caplog fixture."""
         self._caplog = caplog  # pylint: disable=attribute-defined-outside-init
         self._caplog.set_level(logging.DEBUG)
@@ -98,8 +101,9 @@ class TestAppBase(AsyncHTTPTestCase):
     def setUp(self) -> None:
         """Set up the test."""
         # Mock the real application so we dont listen on the same port twice
-        with patch("viseron.load_config") as mocked_load_config, patch(
-            "viseron.components.webserver.create_application"
+        with (
+            patch("viseron.load_config") as mocked_load_config,
+            patch("viseron.components.webserver.create_application"),
         ):
             mocked_load_config.return_value = self.config
             self.vis = Viseron(start_background_scheduler=False)
@@ -118,10 +122,9 @@ class TestAppBase(AsyncHTTPTestCase):
         Required override for AsyncHTTPTestCase.
         AsyncHTTPTestCase does not support xsrf_cookies, so we disable it here.
         """
-        app = create_application(
+        return create_application(
             self.vis, {"debug": False}, "dummy_secret", xsrf_cookies=False
         )
-        return app
 
 
 class TestAppBaseNoAuth(TestAppBase):
@@ -191,9 +194,9 @@ class TestAppBaseAuth(TestAppBase):
             "refresh_token",
             "token",
         ).decode()
-        kwargs["headers"][
-            "Cookie"
-        ] = f"refresh_token={refresh_token_cookie};user={USER_ID};"
+        kwargs["headers"]["Cookie"] = (
+            f"refresh_token={refresh_token_cookie};user={USER_ID};"
+        )
 
         # Create access token
         access_token = self.webserver.auth.generate_access_token(
@@ -221,8 +224,7 @@ class TestAppBaseAuth(TestAppBase):
                 signature,
             ).decode()
             kwargs["headers"]["Cookie"] += f"signature_cookie={signature_token_cookie};"
-        else:
-            if not kwargs["headers"].get("Authorization", False):
-                kwargs["headers"]["Authorization"] = "Bearer " + access_token
+        elif not kwargs["headers"].get("Authorization", False):
+            kwargs["headers"]["Authorization"] = "Bearer " + access_token
 
         return self.fetch(path, raise_error, **kwargs)

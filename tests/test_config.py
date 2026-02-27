@@ -1,7 +1,8 @@
 """Test config loading functionality."""
+
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
 import pytest
@@ -18,7 +19,9 @@ from viseron.config import (
     load_config,
     load_secrets,
 )
-from viseron.types import SupportedDomains
+
+if TYPE_CHECKING:
+    from viseron.viseron_types import SupportedDomains
 
 
 class TestLoadSecrets:
@@ -141,12 +144,12 @@ class TestLoadConfig:
             with (
                 patch("viseron.config.SECRETS_PATH", secrets_file.name),
                 patch("viseron.config.CONFIG_PATH", config_file.name),
-            ):
-                with pytest.raises(
+                pytest.raises(
                     ValueError,
-                    match="secret nonexistent_secret does not exist in secrets.yaml",
-                ):
-                    load_config(create_default=False)
+                    match=r"secret nonexistent_secret does not exist in secrets.yaml",
+                ),
+            ):
+                load_config(create_default=False)
 
             Path(secrets_file.name).unlink()
             Path(config_file.name).unlink()
@@ -164,12 +167,12 @@ class TestLoadConfig:
             with (
                 patch("viseron.config.SECRETS_PATH", "/nonexistent/secrets.yaml"),
                 patch("viseron.config.CONFIG_PATH", config_file.name),
-            ):
-                with pytest.raises(
+                pytest.raises(
                     ValueError,
-                    match="!secret found in config.yaml, but no secrets.yaml exists",
-                ):
-                    load_config(create_default=False)
+                    match=r"!secret found in config.yaml, but no secrets.yaml exists",
+                ),
+            ):
+                load_config(create_default=False)
 
             Path(config_file.name).unlink()
 
@@ -972,11 +975,11 @@ class TestDiffConfig:
         old["ffmpeg"]["camera"]["cam1"]["host"] = "MUTATED"
         new["mqtt"]["broker"] = "MUTATED"
         ffmpeg = result.get_component_change("ffmpeg")
-        assert ffmpeg and ffmpeg.old_config == {
-            "camera": {"cam1": {"host": "192.168.1.1"}}
-        }
+        assert ffmpeg
+        assert ffmpeg.old_config == {"camera": {"cam1": {"host": "192.168.1.1"}}}
         mqtt = result.get_component_change("mqtt")
-        assert mqtt and mqtt.new_config == {"broker": "localhost"}
+        assert mqtt
+        assert mqtt.new_config == {"broker": "localhost"}
 
     def test_unchanged_components_not_included(self) -> None:
         """Test that components with no changes are excluded from the result."""

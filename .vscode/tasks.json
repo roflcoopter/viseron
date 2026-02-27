@@ -49,6 +49,24 @@
       "problemMatcher": []
     },
     {
+      "label": "Python: Ruff",
+      "type": "shell",
+      "command": "ruff check viseron && ruff format --check viseron",
+      "dependsOn": [
+        "Install all Requirements",
+        "Install all Test Requirements"
+      ],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "Python: Pytest Code Coverage",
       "type": "shell",
       "command": "pytest tests/ --cov=viseron/ --cov-report term-missing --durations-min=1 --durations=0",

@@ -1,4 +1,5 @@
 """Viseron states registry."""
+
 from __future__ import annotations
 
 import logging
@@ -11,12 +12,12 @@ from viseron.const import EVENT_ENTITY_ADDED, EVENT_STATE_CHANGED
 from viseron.events import EventData
 from viseron.helpers import slugify
 from viseron.helpers.logs import development_warning
-from viseron.types import SupportedDomains
 
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.components import Component
     from viseron.helpers.entity import Entity
+    from viseron.viseron_types import SupportedDomains
 
 LOGGER = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ class EventStateChangedData(EventData):
 
     _as_dict: dict[str, Any] | None = None
 
-    def as_dict(self):
+    def as_dict(self) -> dict[str, Any]:
         """Return state changed event as dict."""
         if not self._as_dict:
             self._as_dict = {
@@ -81,7 +82,7 @@ class State:
 
         self._as_dict: dict[str, Any] | None = None
 
-    def as_dict(self):
+    def as_dict(self) -> dict[str, Any]:
         """Return state as dict."""
         if not self._as_dict:
             self._as_dict = {
@@ -146,7 +147,7 @@ class States:
         entity: Entity,
         domain: SupportedDomains | None = None,
         identifier: str | None = None,
-    ) -> Entity | None:
+    ) -> Entity:
         """Add entity to states registry."""
         with self._registry_lock:
             if not entity.name:
@@ -154,14 +155,11 @@ class States:
                     f"Component {component.name} is adding entities without name. "
                     "name is required for all entities"
                 )
-                return None
+                raise ValueError("Entity name is required")
 
             LOGGER.debug(f"Adding entity {entity.name} from component {component.name}")
 
-            if entity.entity_id:
-                entity_id = entity.entity_id
-            else:
-                entity_id = self._generate_entity_id(entity)
+            entity_id = entity.entity_id or self._generate_entity_id(entity)
 
             if entity_id in self._registry:
                 LOGGER.error(
@@ -243,7 +241,7 @@ class States:
                 domains[domain]["identifiers"][identifier] = []
             domains[domain]["identifiers"][identifier].append(entity_id)
 
-    def get_entities(self):
+    def get_entities(self) -> dict[str, Entity]:
         """Return all registered entities."""
         with self._registry_lock:
             return dict(sorted(self._registry.items()))
@@ -262,10 +260,8 @@ class States:
                 try:
                     entity.unload()
                     LOGGER.debug(f"Unloaded entity {entity_id}")
-                except Exception as ex:  # pylint: disable=broad-except
-                    LOGGER.error(
-                        f"Error unloading entity {entity_id}: {ex}", exc_info=True
-                    )
+                except Exception:  # pylint: disable=broad-except
+                    LOGGER.exception(f"Error unloading entity {entity_id}")
             else:
                 development_warning(LOGGER, f"Entity {entity_id} has no unload method")
 

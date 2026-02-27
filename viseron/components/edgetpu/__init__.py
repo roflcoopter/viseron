@@ -1,4 +1,5 @@
 """EdgeTPU object detection."""
+
 from __future__ import annotations
 
 import ast
@@ -7,11 +8,10 @@ import multiprocessing as mp
 import subprocess as sp
 import threading
 from abc import abstractmethod
-from queue import Queue
+from typing import TYPE_CHECKING
 
 import voluptuous as vol
 
-from viseron import Viseron
 from viseron.domains import OptionalDomain, RequireDomain, setup_domain
 from viseron.domains.image_classification import (
     BASE_CONFIG_SCHEMA as IMAGE_CLASSIFICATION_BASE_CONFIG_SCHEMA,
@@ -35,6 +35,7 @@ from .const import (
     CONFIG_LABEL_PATH,
     CONFIG_MODEL_PATH,
     CONFIG_OBJECT_DETECTOR,
+    CONSECUTIVE_FAILURE_THRESHOLD,
     DEFAULT_CLASSIFIER_CPU_MODEL,
     DEFAULT_CLASSIFIER_EDGETPU_MODEL,
     DEFAULT_DETECTOR_CPU_MODEL,
@@ -48,6 +49,11 @@ from .const import (
     DESC_OBJECT_DETECTOR,
     DEVICE_CPU,
 )
+
+if TYPE_CHECKING:
+    from queue import Queue
+
+    from viseron import Viseron
 
 LOGGER = logging.getLogger(__name__)
 
@@ -85,7 +91,7 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config) -> bool:
+def setup(vis: Viseron, config: dict) -> bool:
     """Set up the edgetpu component."""
     LOGGER.debug(f"Available devices: {available_devices()}")
     config = config[COMPONENT]
@@ -93,12 +99,12 @@ def setup(vis: Viseron, config) -> bool:
     return True
 
 
-def setup_domains(vis: Viseron, config) -> None:
+def setup_domains(vis: Viseron, config: dict) -> None:
     """Set up edgetpu domains."""
     config = config[COMPONENT]
 
     if config.get(CONFIG_OBJECT_DETECTOR, None):
-        for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS].keys():
+        for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS]:
             setup_domain(
                 vis,
                 COMPONENT,
@@ -113,9 +119,7 @@ def setup_domains(vis: Viseron, config) -> None:
                 ],
             )
     if config.get(CONFIG_IMAGE_CLASSIFICATION, None):
-        for camera_identifier in config[CONFIG_IMAGE_CLASSIFICATION][
-            CONFIG_CAMERAS
-        ].keys():
+        for camera_identifier in config[CONFIG_IMAGE_CLASSIFICATION][CONFIG_CAMERAS]:
             setup_domain(
                 vis,
                 COMPONENT,
@@ -248,7 +252,12 @@ class MakeInterpreterError(ViseronError):
 class EdgeTPU(SubProcessWorker):
     """EdgeTPU interface."""
 
-    def __init__(self, vis, config, domain) -> None:
+    def __init__(
+        self,
+        vis: Viseron,
+        config: dict,
+        domain: str,
+    ) -> None:
         self._config = config
         self._domain = domain
         self._device = get_default_device(config[CONFIG_DEVICE])
@@ -287,17 +296,17 @@ class EdgeTPU(SubProcessWorker):
         if not self._model_size_event.is_set():
             LOGGER.error("Failed to get model size")
             self.stop()
-            raise MakeInterpreterError("Failed to get model size")
+            raise MakeInterpreterError
 
     @abstractmethod
-    def post_process(self, item):
+    def post_process(self, item) -> None:
         """Post process after invoke."""
 
-    def reload_if_needed(self):
+    def reload_if_needed(self) -> None:
         """Reload the interpreter if it fails 10 times in a row."""
         with self._reload_lock:
             self._consecutive_failures += 1
-            if self._consecutive_failures >= 10:
+            if self._consecutive_failures >= CONSECUTIVE_FAILURE_THRESHOLD:
                 try:
                     LOGGER.warning(
                         "Reloading EdgeTPU interpreter after "
@@ -305,8 +314,8 @@ class EdgeTPU(SubProcessWorker):
                     )
                     self.stop()
                     self.start()
-                except Exception as e:  # pylint: disable=broad-except
-                    LOGGER.error(f"Failed to reload EdgeTPU interpreter: {e}")
+                except Exception:  # pylint: disable=broad-except
+                    LOGGER.exception("Failed to reload EdgeTPU interpreter")
                 finally:
                     self._consecutive_failures = 0
 
@@ -382,22 +391,21 @@ class EdgeTPU(SubProcessWorker):
 class EdgeTPUDetection(EdgeTPU):
     """EdgeTPU object detector interface."""
 
-    def post_process(self, item):
+    def post_process(self, item) -> None:
         """Post process detections."""
-        processed_objects = []
-        for obj in item["result"]:
-            processed_objects.append(
-                DetectedObject.from_absolute(
-                    self.labels.get(obj["label"], obj["label"]),
-                    float(obj["score"]),
-                    obj["bbox"]["xmin"],
-                    obj["bbox"]["ymin"],
-                    obj["bbox"]["xmax"],
-                    obj["bbox"]["ymax"],
-                    frame_res=item["frame_resolution"],
-                    model_res=(self.model_width, self.model_height),
-                )
+        processed_objects = [
+            DetectedObject.from_absolute(
+                self.labels.get(obj["label"], obj["label"]),
+                float(obj["score"]),
+                obj["bbox"]["xmin"],
+                obj["bbox"]["ymin"],
+                obj["bbox"]["xmax"],
+                obj["bbox"]["ymax"],
+                frame_res=item["frame_resolution"],
+                model_res=(self.model_width, self.model_height),
             )
+            for obj in item["result"]
+        ]
         item["result"] = processed_objects
 
 
@@ -406,15 +414,12 @@ class EdgeTPUClassification(EdgeTPU):
 
     def post_process(self, item) -> None:
         """Post process classifications."""
-        processed_classes = []
-        for classification in item["result"]:
-            processed_classes.append(
-                ImageClassificationResult(
-                    item["camera_identifier"],
-                    self.labels.get(
-                        classification["label"], int(classification["label"])
-                    ),
-                    classification["score"],
-                )
+        processed_classes = [
+            ImageClassificationResult(
+                item["camera_identifier"],
+                self.labels.get(classification["label"], int(classification["label"])),
+                classification["score"],
             )
+            for classification in item["result"]
+        ]
         item["result"] = processed_classes

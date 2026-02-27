@@ -1,4 +1,5 @@
 """CodeProjectAI object detector tests."""
+
 from unittest.mock import Mock, patch
 
 import numpy as np
@@ -181,7 +182,8 @@ def test_return_objects_exception(mock_detect, vis: Viseron, config):
         vis (Viseron): The Viseron instance.
         config (dict): The configuration dictionary.
     """
-    from codeprojectai.core import (  # pylint: disable=import-outside-toplevel
+    # pylint: disable-next=import-outside-toplevel
+    from codeprojectai.core import (  # noqa: PLC0415
         CodeProjectAIException,
     )
 

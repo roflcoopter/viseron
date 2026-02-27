@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import threading
-from concurrent.futures import Future
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Generic
@@ -18,12 +17,14 @@ from viseron.const import (
 )
 from viseron.events import EventData, EventEmptyData
 from viseron.exceptions import DomainNotRegisteredError
-from viseron.types import SupportedDomains
 
 if TYPE_CHECKING:
+    from concurrent.futures import Future
+
     from viseron import Viseron
     from viseron.domains import AbstractDomain, OptionalDomain, RequireDomain
     from viseron.domains.camera import FailedCamera
+    from viseron.viseron_types import SupportedDomains
 
 LOGGER = logging.getLogger(__name__)
 

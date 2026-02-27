@@ -1,7 +1,10 @@
 """EdgeTPU constants."""
+
 from typing import Final
 
 COMPONENT: Final = "edgetpu"
+
+CONSECUTIVE_FAILURE_THRESHOLD = 10
 
 DEVICE_CPU = "cpu"
 DEFAULT_DETECTOR_CPU_MODEL = (

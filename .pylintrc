@@ -23,9 +23,9 @@ init-hook=import gi; gi.require_version('Gst', '1.0'); from gi.repository import
 
 # List of plugins (as comma separated values of python modules names) to load,
 # usually to register additional checkers.
-load-plugins=pylint_pytest,
-      pylint.extensions.typing,
-      pylint_strict_informational
+load-plugins=pylint.extensions.typing,
+      pylint_strict_informational,
+      pylint_per_file_ignores
 
 
 # Pickle collected data for later comparisons.
@@ -34,9 +34,6 @@ persistent=yes
 # Specify a configuration file.
 #rcfile=
 
-# When enabled, pylint would attempt to guess common misconfiguration and emit
-# user-friendly hints instead of false-positive error messages
-suggestion-mode=yes
 
 # Allow loading of arbitrary C extensions. Extensions are imported into the
 # active Python interpreter and may run arbitrary code.
@@ -73,6 +70,7 @@ disable=format,
       too-few-public-methods,
       too-many-ancestors,
       too-many-arguments,
+      too-many-positional-arguments,
       too-many-branches,
       too-many-instance-attributes,
       too-many-lines,
@@ -94,6 +92,8 @@ enable=c-extension-no-member,
       line-too-long,
       useless-suppression
 
+per-file-ignores =
+  tests/**/**:redefined-outer-name,protected-access
 
 [REPORTS]
 

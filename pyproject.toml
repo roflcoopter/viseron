@@ -1,0 +1,237 @@
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+src = ["viseron", "tests", "scripts"]
+include = ["viseron/**/*.py", "tests/**/*.py", "scripts/**/*.py", "manager.py"]
+
+[tool.ruff.lint]
+select = [
+    "AIR",    ## Airflow
+    "ERA",    ## eradicate
+    "FAST",   ## FastAPI
+    "YTT",    ## flake8-2020
+    "ANN",    ## flake8-annotations
+    "ASYNC",  ## flake8-async
+    "S",      ## flake8-bandit
+    "BLE",    ## flake8-blind-except
+    "FBT",    ## flake8-boolean-trap
+    "B",      ## flake8-bugbear
+    "A",      ## flake8-builtins
+    "COM",    ## flake8-commas
+    "C4",     ## flake8-comprehensions
+    "CPY",    ## flake8-copyright
+    "DTZ",    ## flake8-datetimez
+    "T10",    ## flake8-debugger
+    "DJ",     ## flake8-django
+    "EM",     ## flake8-errmsg
+    "EXE",    ## flake8-executable
+    "FIX",    ## flake8-fixme
+    "FA",     ## flake8-future-annotations
+    "INT",    ## flake8-gettext
+    "ISC",    ## flake8-implicit-str-concat
+    "ICN",    ## flake8-import-conventions
+    "LOG",    ## flake8-logging
+    "G",      ## flake8-logging-format
+    "INP",    ## flake8-no-pep420
+    "PIE",    ## flake8-pie
+    "T20",    ## flake8-print
+    "PYI",    ## flake8-pyi
+    "PT",     ## flake8-pytest-style
+    "Q",      ## flake8-quotes
+    "RSE",    ## flake8-raise
+    "RET",    ## flake8-return
+    "SLF",    ## flake8-self
+    "SIM",    ## flake8-simplify
+    "SLOT",   ## flake8-slots
+    "TID",    ## flake8-tidy-imports
+    "TD",     ## flake8-todos
+    "TC",     ## flake8-type-checking
+    "ARG",    ## flake8-unused-arguments
+    "PTH",    ## flake8-use-pathlib
+    "FLY",    ## flynt
+    "I",      ## isort
+    "C90",    ## mccabe
+    "NPY",    ## NumPy-specific rules
+    "PD",     ## pandas-vet
+    "N",      ## pep8-naming
+    "PERF",   ## Perflint
+    "E", "W", ## pycodestyle
+    "DOC",    ## pydoclint
+    "D",      ## pydocstyle
+    "F",      ## Pyflakes
+    "PGH",    ## pygrep-hooks
+    "PL",     ## Pylint
+    "UP",     ## pyupgrade
+    "FURB",   ## refurb
+    "RUF",    ## Ruff-specific rules
+    "TRY",    ## tryceratops
+]
+
+
+ignore = [
+    # Real ignores
+    "PTH",     ##  https://docs.astral.sh/ruff/rules/#flake8-use-pathlib-pth Disabled since we prefer os.path for path handling
+    "COM812",  ##  https://docs.astral.sh/ruff/rules/missing-trailing-comma/
+    "G004",    ##  https://docs.astral.sh/ruff/rules/logging-f-string/ Disabled since we prefer f-strings for logging, except for certain log messages that are very frequent
+    "EM102",   ##  https://docs.astral.sh/ruff/rules/f-string-in-exception/ Disabled since we prefer f-strings
+    "EM101",   ##  https://docs.astral.sh/ruff/rules/raw-string-in-exception/ Disabled for simplicity
+    "PLR0911", ##  https://docs.astral.sh/ruff/rules/too-many-return-statements/ # Disabled for readability
+    "PLR0912", ##  https://docs.astral.sh/ruff/rules/too-many-branches/ # Disabled for readability
+    "PLR0913", ##  https://docs.astral.sh/ruff/rules/too-many-arguments/ # Disabled for readability
+    "PLR0915", ##  https://docs.astral.sh/ruff/rules/too-many-statements/ # Disabled for readability
+    "D107",    ##  https://docs.astral.sh/ruff/rules/undocumented-public-init/ Disabled since we document the class instead of the __init__ method
+    "PERF203", ##  https://docs.astral.sh/ruff/rules/try-except-in-loop/ Disabled since it is used extensively with queue operations
+    "TRY003",  ##  https://docs.astral.sh/ruff/rules/raise-vanilla-args/ Disabled for simplicity
+    "TRY400",  ##  https://docs.astral.sh/ruff/rules/error-instead-of-exception/ Disabled because most of the time logger.error is enough
+    "SIM105",  ##  https://docs.astral.sh/ruff/rules/suppressible-exception/ Disabled for performance reasons
+    "S603",    ##  https://docs.astral.sh/ruff/rules/subprocess-without-shell-equals-true/ Contradicts S602
+    "ANN401",  ##  https://docs.astral.sh/ruff/rules/any-type/ Disabled since Any is useful in some cases
+    "ASYNC110", ##  https://docs.astral.sh/ruff/rules/async-busy-wait/ Disabled because we dont use it to wait for events
+    # To be attended to
+    "ANN001",  ##   795   https://docs.astral.sh/ruff/rules/missing-type-function-argument/
+    "ANN201",  ##   617   https://docs.astral.sh/ruff/rules/missing-return-type-undocumented-public-function/
+    "ANN202",  ##    89   https://docs.astral.sh/ruff/rules/missing-return-type-private-function/
+    "ANN204",  ##    57   https://docs.astral.sh/ruff/rules/missing-return-type-special-method/
+    "TC001",   ##    57   https://docs.astral.sh/ruff/rules/typing-only-first-party-import/
+    "TC003",   ##    47   https://docs.astral.sh/ruff/rules/typing-only-standard-library-import/
+    "FBT002",  ##    45   https://docs.astral.sh/ruff/rules/boolean-default-value-positional-argument/
+    "FBT001",  ##    37   https://docs.astral.sh/ruff/rules/boolean-type-hint-positional-argument/
+    "S108",    ##    37   https://docs.astral.sh/ruff/rules/hardcoded-temp-file/
+    "TC002",   ##    35   https://docs.astral.sh/ruff/rules/typing-only-third-party-import/
+    "D212",    ##    33 * https://docs.astral.sh/ruff/rules/multi-line-summary-first-line/
+    "RUF012",  ##    31   https://docs.astral.sh/ruff/rules/mutable-class-default/
+    "INP001",  ##    30   https://docs.astral.sh/ruff/rules/implicit-namespace-package/
+    "BLE001",  ##    28   https://docs.astral.sh/ruff/rules/blind-except/
+    "ERA001",  ##    28   https://docs.astral.sh/ruff/rules/commented-out-code/
+    "ANN003",  ##    26   https://docs.astral.sh/ruff/rules/missing-type-kwargs/
+    "C901",    ##    26   https://docs.astral.sh/ruff/rules/complex-structure/
+    "PERF401", ##    25   https://docs.astral.sh/ruff/rules/manual-list-comprehension/
+    "RET502",  ##    23 * https://docs.astral.sh/ruff/rules/implicit-return-value/
+    "ANN002",  ##    21   https://docs.astral.sh/ruff/rules/missing-type-args/
+    "FBT003",  ##    20   https://docs.astral.sh/ruff/rules/boolean-positional-value-in-call/
+    "S105",    ##    20   https://docs.astral.sh/ruff/rules/hardcoded-password-string/
+    "SIM118",  ##    20   https://docs.astral.sh/ruff/rules/in-dict-keys/
+    "D202",    ##    19 * https://docs.astral.sh/ruff/rules/blank-line-after-function/
+    "FURB110", ##    19   https://docs.astral.sh/ruff/rules/if-exp-instead-of-or-operator/
+    "ARG002",  ##    17   https://docs.astral.sh/ruff/rules/unused-method-argument/
+    "RET504",  ##    17   https://docs.astral.sh/ruff/rules/unnecessary-assign/
+    "T201",    ##    17   https://docs.astral.sh/ruff/rules/print/
+    "SIM102",  ##    15   https://docs.astral.sh/ruff/rules/collapsible-if/
+    "PT006",   ##    14   https://docs.astral.sh/ruff/rules/pytest-parametrize-names-wrong-type/
+    "RUF010",  ##    14 * https://docs.astral.sh/ruff/rules/explicit-f-string-type-conversion/
+    "PLC0207", ##    11 * https://docs.astral.sh/ruff/rules/missing-maxsplit-arg/
+    "TRY300",  ##    11   https://docs.astral.sh/ruff/rules/try-consider-else/
+    "G201",    ##    10   https://docs.astral.sh/ruff/rules/logging-exc-info/
+    "PYI030",  ##    10 * https://docs.astral.sh/ruff/rules/unnecessary-literal-union/
+    "SLF001",  ##    10   https://docs.astral.sh/ruff/rules/private-member-access/
+    "PGH005",  ##     9   https://docs.astral.sh/ruff/rules/invalid-mock-access/
+    "TC006",   ##     9 * https://docs.astral.sh/ruff/rules/runtime-cast-value/
+    "TRY201",  ##     9   https://docs.astral.sh/ruff/rules/verbose-raise/
+    "SIM103",  ##     8   https://docs.astral.sh/ruff/rules/needless-bool/
+    "TID252",  ##     8   https://docs.astral.sh/ruff/rules/relative-imports/
+    "ASYNC240", ##     7   https://docs.astral.sh/ruff/rules/blocking-path-method-in-async-function/
+    "B010",    ##     7 * https://docs.astral.sh/ruff/rules/set-attr-with-constant/
+    "PT003",   ##     7   https://docs.astral.sh/ruff/rules/pytest-extraneous-scope-function/
+    "ANN205",  ##     6   https://docs.astral.sh/ruff/rules/missing-return-type-static-method/
+    "EXE002",  ##     6   https://docs.astral.sh/ruff/rules/shebang-missing-executable-file/
+    "G001",    ##     6   https://docs.astral.sh/ruff/rules/logging-string-format/
+    "N818",    ##     6   https://docs.astral.sh/ruff/rules/error-suffix-on-exception-name/
+    "S106",    ##     6   https://docs.astral.sh/ruff/rules/hardcoded-password-func-arg/
+    "SIM910",  ##     6 * https://docs.astral.sh/ruff/rules/dict-get-with-none-default/
+    "B904",    ##     5   https://docs.astral.sh/ruff/rules/raise-without-from-inside-except/
+    "PLR5501", ##     5 * https://docs.astral.sh/ruff/rules/collapsible-else-if/
+    "PT018",   ##     5   https://docs.astral.sh/ruff/rules/pytest-composite-assertion/
+    "RSE102",  ##     5   https://docs.astral.sh/ruff/rules/unnecessary-paren-on-raise-exception/
+    "RUF046",  ##     5   https://docs.astral.sh/ruff/rules/unnecessary-cast-to-int/
+    "SIM108",  ##     5   https://docs.astral.sh/ruff/rules/if-else-block-instead-of-if-exp/
+    "SIM114",  ##     5 * https://docs.astral.sh/ruff/rules/if-with-same-arms/
+    "SIM117",  ##     5   https://docs.astral.sh/ruff/rules/multiple-with-statements/
+    "TRY401",  ##     5   https://docs.astral.sh/ruff/rules/verbose-log-message/
+    "UP031",   ##     5   https://docs.astral.sh/ruff/rules/printf-string-formatting/
+    "UP032",   ##     5 * https://docs.astral.sh/ruff/rules/f-string/
+    "B905",    ##     4   https://docs.astral.sh/ruff/rules/zip-without-explicit-strict/
+    "N802",    ##     4   https://docs.astral.sh/ruff/rules/invalid-function-name/
+    "PYI041",  ##     4 * https://docs.astral.sh/ruff/rules/redundant-numeric-union/
+    "RET503",  ##     4   https://docs.astral.sh/ruff/rules/implicit-return/
+    "RUF005",  ##     4   https://docs.astral.sh/ruff/rules/collection-literal-concatenation/
+    "RUF015",  ##     4   https://docs.astral.sh/ruff/rules/unnecessary-iterable-allocation-for-first-element/
+    "S607",    ##     4   https://docs.astral.sh/ruff/rules/start-process-with-partial-path/
+    "B006",    ##     3   https://docs.astral.sh/ruff/rules/mutable-argument-default/
+    "D417",    ##     3   https://docs.astral.sh/ruff/rules/undocumented-param/
+    "PERF403", ##     3   https://docs.astral.sh/ruff/rules/manual-dict-comprehension/
+    "RUF100",  ##     3 * https://docs.astral.sh/ruff/rules/unused-noqa/
+    "ASYNC230", ##     2   https://docs.astral.sh/ruff/rules/blocking-open-call-in-async-function/
+    "B019",    ##     2   https://docs.astral.sh/ruff/rules/cached-instance-method/
+    "B027",    ##     2   https://docs.astral.sh/ruff/rules/empty-method-without-abstract-decorator/
+    "D411",    ##     2 * https://docs.astral.sh/ruff/rules/no-blank-line-before-section/
+    "DTZ001",  ##     2   https://docs.astral.sh/ruff/rules/call-datetime-without-tzinfo/
+    "DTZ005",  ##     2   https://docs.astral.sh/ruff/rules/call-datetime-now-without-tzinfo/
+    "DTZ006",  ##     2   https://docs.astral.sh/ruff/rules/call-datetime-fromtimestamp/
+    "FIX002",  ##     2   https://docs.astral.sh/ruff/rules/line-contains-todo/
+    "ISC001",  ##     2   https://docs.astral.sh/ruff/rules/single-line-implicit-string-concatenation/
+    "N813",    ##     2   https://docs.astral.sh/ruff/rules/camelcase-imported-as-lowercase/
+    "PERF102", ##     2   https://docs.astral.sh/ruff/rules/incorrect-dict-iterator/
+    "PT011",   ##     2   https://docs.astral.sh/ruff/rules/pytest-raises-too-broad/
+    "PT019",   ##     2   https://docs.astral.sh/ruff/rules/pytest-fixture-param-without-value/
+    "PYI024",  ##     2   https://docs.astral.sh/ruff/rules/collections-named-tuple/
+    "RUF006",  ##     2   https://docs.astral.sh/ruff/rules/asyncio-dangling-task/
+    "RUF043",  ##     2   https://docs.astral.sh/ruff/rules/pytest-raises-ambiguous-pattern/
+    "S110",    ##     2   https://docs.astral.sh/ruff/rules/try-except-pass/
+    "S701",    ##     2   https://docs.astral.sh/ruff/rules/jinja2-autoescape-false/
+    "TD002",   ##     2   https://docs.astral.sh/ruff/rules/missing-todo-author/
+    "TD003",   ##     2   https://docs.astral.sh/ruff/rules/missing-todo-link/
+    "A005",    ##     1   https://docs.astral.sh/ruff/rules/stdlib-module-shadowing/
+    "B018",    ##     1   https://docs.astral.sh/ruff/rules/useless-expression/
+    "B024",    ##     1   https://docs.astral.sh/ruff/rules/abstract-base-class-without-abstract-method/
+    "D405",    ##     1 * https://docs.astral.sh/ruff/rules/non-capitalized-section-name/
+    "FURB167", ##     1 * https://docs.astral.sh/ruff/rules/regex-flag-alias/
+    "G003",    ##     1   https://docs.astral.sh/ruff/rules/logging-string-concat/
+    "I001",    ##     1 * https://docs.astral.sh/ruff/rules/unsorted-imports/
+    "PERF402", ##     1   https://docs.astral.sh/ruff/rules/manual-list-copy/
+    "PIE796",  ##     1   https://docs.astral.sh/ruff/rules/non-unique-enums/
+    "PIE800",  ##     1 * https://docs.astral.sh/ruff/rules/unnecessary-spread/
+    "PIE810",  ##     1   https://docs.astral.sh/ruff/rules/multiple-starts-ends-with/
+    "PLC0206", ##     1   https://docs.astral.sh/ruff/rules/dict-index-missing-items/
+    "PLW1641", ##     1   https://docs.astral.sh/ruff/rules/eq-without-hash/
+    "PLW2901", ##     1   https://docs.astral.sh/ruff/rules/redefined-loop-name/
+    "PT013",   ##     1   https://docs.astral.sh/ruff/rules/pytest-incorrect-pytest-import/
+    "PT017",   ##     1   https://docs.astral.sh/ruff/rules/pytest-assert-in-except/
+    "PT022",   ##     1 * https://docs.astral.sh/ruff/rules/pytest-useless-yield-fixture/
+    "RUF037",  ##     1 * https://docs.astral.sh/ruff/rules/unnecessary-empty-iterable-within-deque-call/
+    "S310",    ##     1   https://docs.astral.sh/ruff/rules/suspicious-url-open-usage/
+    "S602",    ##     1   https://docs.astral.sh/ruff/rules/subprocess-popen-with-shell-equals-true/
+    "S604",    ##     1   https://docs.astral.sh/ruff/rules/call-with-shell-equals-true/
+    "SIM115",  ##     1   https://docs.astral.sh/ruff/rules/open-file-with-context-handler/
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+known-first-party = ["viseron","tests","manager"]
+combine-as-imports = true
+forced-separate = ["tests"]
+
+[tool.ruff.lint.per-file-ignores]
+# Relax rules in tests
+"tests/**" = [
+    "S101",    ##  https://docs.astral.sh/ruff/rules/assert/
+    "S105",    ##  https://docs.astral.sh/ruff/rules/hardcoded-password-string/
+    "SLF001",  ##  https://docs.astral.sh/ruff/rules/private-member-access/
+    "PLR2004", ##  https://docs.astral.sh/ruff/rules/magic-value-comparison/
+    "ANN201",  ##  https://docs.astral.sh/ruff/rules/missing-return-type-undocumented-public-function/
+]
+
+# Generation of docs use many long lines, so we disable line length rule for scripts/gen_docs
+"scripts/gen_docs/**" = ["E501"]
+
+# Relax rules in scripts
+"scripts/**" = ["D"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[tool.ruff.lint.flake8-import-conventions.extend-aliases]
+voluptuous = "vol"

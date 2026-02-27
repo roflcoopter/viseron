@@ -1,4 +1,5 @@
 """Tests for fragmenter."""
+
 from __future__ import annotations
 
 import datetime
@@ -7,6 +8,7 @@ import shutil
 import tempfile
 from unittest.mock import MagicMock, Mock, patch
 
+from viseron.domains.camera.const import MP4BOX_PATH
 from viseron.domains.camera.fragmenter import (
     Fragment,
     Fragmenter,
@@ -100,7 +102,7 @@ class TestFragmenter:
         )
         mock_sp_run.assert_called_once_with(
             [
-                "MP4Box",
+                MP4BOX_PATH,
                 "-logs",
                 "dash@error:ncl",
                 "-noprog",

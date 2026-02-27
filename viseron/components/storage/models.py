@@ -201,7 +201,9 @@ class Recordings(Base):
         Local import to avoid circular imports.
         """
         # pylint: disable-next=import-outside-toplevel
-        from viseron.components.storage.queries import get_recording_fragments
+        from viseron.components.storage.queries import (  # noqa: PLC0415
+            get_recording_fragments,
+        )
 
         return get_recording_fragments(self.id, lookback, get_session, now)
 

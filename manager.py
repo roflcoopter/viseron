@@ -1,8 +1,11 @@
 """Manager for communication between python shells."""
+
 from collections.abc import Callable
-from multiprocessing.managers import dispatch  # type: ignore[attr-defined]
-from multiprocessing.managers import listener_client  # type: ignore[attr-defined]
-from multiprocessing.managers import BaseManager
+from multiprocessing.managers import (  # type: ignore[attr-defined]
+    BaseManager,
+    dispatch,
+    listener_client,
+)
 from queue import Queue
 
 
@@ -30,8 +33,7 @@ def start(
     _QueueManager.register("get_output_queue", callable=lambda: output_queue)
 
     # Start server
-    manager = _QueueManager(address=(address, port), authkey=authkey.encode("utf-8"))
-    return manager
+    return _QueueManager(address=(address, port), authkey=authkey.encode("utf-8"))
 
 
 def stop(address: str, port: int, authkey: str) -> None:

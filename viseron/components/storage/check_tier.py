@@ -76,6 +76,7 @@ class Worker:
         self._checks_in_progress: dict[str, bool] = {}
 
     def _check_tier(self, item: DataItem) -> None:
+        files = np.empty(0, dtype=FILES_DTYPE)
         if item.cmd == "check_tier" and item.files_enabled:
             LOGGER.debug(
                 "Received check_tier command for files "
@@ -87,6 +88,7 @@ class Worker:
             )
             files = self.check_tier_files(item)
 
+        recordings = np.empty(0, dtype=RECORDINGS_DTYPE)
         if item.cmd == "check_tier" and item.events_enabled:
             LOGGER.debug(
                 "Received check_tier command for recordings "

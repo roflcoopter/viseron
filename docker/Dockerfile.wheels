@@ -49,15 +49,15 @@ RUN apt-get -yqq update && apt-get install -yq --no-install-recommends \
 
 # Pip does not find our OpenCV built from source so we fake it here
 ARG OPENCV_VERSION
-ADD docker/opencv-python-headless-setup.py /opencv-python-headless/setup.py
-ADD requirements.txt requirements.txt
+COPY docker/opencv-python-headless-setup.py /opencv-python-headless/setup.py
+COPY requirements.txt requirements.txt
 # Set OpenCV Version
-RUN sed -i "s/OPENCV_VERSION=/OPENCV_VERSION=\"$OPENCV_VERSION\"/" /opencv-python-headless/setup.py
+RUN sed -i "s/OPENCV_VERSION = \"TBD\"/OPENCV_VERSION = \"$OPENCV_VERSION\"/" /opencv-python-headless/setup.py
 RUN echo "opencv-python-headless==$OPENCV_VERSION" >> /requirements.txt
 
 # We need to setup Rust compiler for bcrypt
 # A tmpfs is needed: https://github.com/rust-lang/cargo/issues/8719
-ADD requirements-3.9.txt requirements-3.9.txt
+COPY requirements-3.9.txt requirements-3.9.txt
 RUN --mount=type=tmpfs,target=/root/.cargo curl https://sh.rustup.rs -sSf | bash -s -- -y \
   && . $HOME/.cargo/env \
   && mkdir -p /wheels /wheels-3.9 \

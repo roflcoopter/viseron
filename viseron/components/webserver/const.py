@@ -12,6 +12,7 @@ AUTH_STORAGE_KEY = "auth"
 ONBOARDING_STORAGE_KEY = "onboarding"
 
 ACCESS_TOKEN_EXPIRATION = timedelta(minutes=30)
+MAX_FILE_SEARCH_TRIES = 10
 
 DOWNLOAD_PATH = "/tmp/downloads"
 PUBLIC_IMAGES_PATH = f"{CONFIG_DIR}/public_images"

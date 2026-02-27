@@ -4,18 +4,16 @@ This domain is NOT meant to be subclassed or implemented by other components.
 The reason for using a domain instead of a component is to use the domain dependencies
 built into domain setup.
 """
+
 from __future__ import annotations
 
 import datetime
 import logging
 import threading
 import time
-from collections.abc import Callable
 from dataclasses import dataclass
 from queue import Empty, Queue
 from typing import TYPE_CHECKING, Literal
-
-import numpy as np
 
 from viseron.components.nvr.const import COMPONENT
 from viseron.components.nvr.sensor import OperationStateSensor
@@ -33,11 +31,10 @@ from viseron.domains.object_detector.const import (
     EVENT_OBJECT_DETECTOR_RESULT,
     EVENT_OBJECT_DETECTOR_SCAN,
 )
-from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.events import EventData
 from viseron.exceptions import DomainNotRegisteredError
 from viseron.helpers import utcnow
-from viseron.types import Domain
+from viseron.viseron_types import Domain
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
@@ -55,12 +52,17 @@ from .const import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    import numpy as np
+
     from viseron import Viseron
     from viseron.domains.camera import AbstractCamera, EventFrameBytesData
     from viseron.domains.camera.recorder import ManualRecording
     from viseron.domains.camera.shared_frames import SharedFrame
     from viseron.domains.motion_detector import AbstractMotionDetector, Contours
     from viseron.domains.object_detector import AbstractObjectDetector
+    from viseron.domains.object_detector.detected_object import DetectedObject
     from viseron.domains.post_processor import AbstractPostProcessor
     from viseron.events import Event
     from viseron.helpers.filter import Filter
@@ -326,7 +328,7 @@ class NVR(AbstractNVR):
                 self._frame_scanners[MOTION_DETECTOR].scan = True
                 self._frame_scanners[OBJECT_DETECTOR].scan = False
 
-            case _ if (self._object_detector and self._motion_detector):
+            case _ if self._object_detector and self._motion_detector:
                 self._frame_scanners[OBJECT_DETECTOR].scan = True
                 self._frame_scanners[
                     MOTION_DETECTOR
