@@ -37,6 +37,7 @@ from .const import (
     CONFIG_SAVE_TO_DISK,
     CONFIG_THUMBNAIL,
     DEFAULT_LOOKBACK,
+    DOMAIN,
     EVENT_RECORDER_COMPLETE,
     EVENT_RECORDER_START,
     EVENT_RECORDER_STOP,
@@ -219,8 +220,18 @@ class AbstractRecorder(ABC, RecorderBase):
         create_directory(self._camera.temp_segments_folder)
         create_directory(self._camera.thumbnails_folder)
 
-        vis.add_entity(component, RecorderBinarySensor(vis, self._camera))
-        vis.add_entity(component, ThumbnailImage(vis, self._camera))
+        vis.add_entity(
+            component,
+            RecorderBinarySensor(vis, self._camera),
+            DOMAIN,
+            camera.identifier,
+        )
+        vis.add_entity(
+            component,
+            ThumbnailImage(vis, self._camera),
+            DOMAIN,
+            camera.identifier,
+        )
 
     def as_dict(self) -> dict[str, dict[int, RecordingDict]]:
         """Return recorder information as dict."""

@@ -503,7 +503,7 @@ class Fragmenter:
         )
 
         self._fragment_job_id = f"fragment_{self._camera.identifier}"
-        self._vis.background_scheduler.add_job(
+        self._fragment_job = self._vis.background_scheduler.add_job(
             self._fragment_command,
             "interval",
             seconds=1,
@@ -511,7 +511,10 @@ class Fragmenter:
             max_instances=1,
             coalesce=True,
         )
-        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self._shutdown)
+        self._event_listeners = []
+        self._event_listeners.append(
+            vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self._shutdown)
+        )
 
     def _on_metadata_from_worker(self, item) -> None:
         """Update temporary_files_meta with metadata from subprocess."""
@@ -535,6 +538,18 @@ class Fragmenter:
         if not self._camera.stopped.is_set():
             self._camera.stopped.wait(timeout=5)
         self._log_pipe_ffmpeg.close()
+
+    def unload(self) -> None:
+        """Unload fragmenter."""
+        self._logger.debug("Unloading fragmenter")
+        try:
+            self._fragment_job.remove()
+        except Exception:  # pylint: disable=broad-except
+            self._logger.exception("Failed to remove fragment job.")
+        self._fragment_worker.stop()
+        self._shutdown()
+        for unsubscribe in self._event_listeners:
+            unsubscribe()
 
     def concatenate_fragments(
         self, fragments: list[Fragment], media_sequence: int = 0

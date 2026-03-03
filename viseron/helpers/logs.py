@@ -1,4 +1,5 @@
 """Logging helpers Viseron."""
+
 from __future__ import annotations
 
 import io
@@ -7,13 +8,15 @@ import os
 import re
 import threading
 import typing
-from collections.abc import Callable, Iterable, Iterator
-from types import TracebackType
-from typing import Any, AnyStr, Literal, TextIO
+from typing import Any, AnyStr, ClassVar, Literal, TextIO
 
 from colorlog import ColoredFormatter
 
 from viseron.const import ENV_DEV_WARNINGS
+
+if typing.TYPE_CHECKING:
+    from collections.abc import Callable, Iterable, Iterator
+    from types import TracebackType
 
 LOG_FORMAT = "%(asctime)s.%(msecs)03d [%(levelname)-8s] [%(name)s] - %(message)s"
 STREAM_LOG_FORMAT = "%(log_color)s" + LOG_FORMAT
@@ -51,19 +54,23 @@ class DuplicateFilter(logging.Filter):
 class SensitiveInformationFilter(logging.Filter):
     """Redacts sensitive information from logs."""
 
-    sensitive_strings: list[str] = []
+    sensitive_strings: ClassVar[list[str]] = []
 
     @classmethod
-    def add_sensitive_string(cls, sensitive_string: str) -> None:
+    def add_sensitive_string(cls, sensitive_string: str) -> bool:
         """Add a sensitive string to the list of strings to redact."""
-        if sensitive_string not in cls.sensitive_strings:
+        if sensitive_string and sensitive_string not in cls.sensitive_strings:
             cls.sensitive_strings.append(sensitive_string)
+            return True
+        return False
 
     @classmethod
-    def remove_sensitive_string(cls, sensitive_string: str) -> None:
+    def remove_sensitive_string(cls, sensitive_string: str) -> bool:
         """Remove a sensitive string from the list of strings to redact."""
         if sensitive_string in cls.sensitive_strings:
             cls.sensitive_strings.remove(sensitive_string)
+            return True
+        return False
 
     def filter(self, record: logging.LogRecord) -> bool:
         """Filter log record."""
@@ -85,6 +92,32 @@ class SensitiveInformationFilter(logging.Filter):
             for sensitive_string in self.sensitive_strings:
                 record.msg = record.msg.replace(sensitive_string, "*****")
         return True
+
+
+class SensitiveInformationFilterTracker:
+    """Keeps track of sensitive information strings.
+
+    Provide helpers to add strings and clear them when needed.
+    """
+
+    def __init__(self) -> None:
+        self._sensitive_strings: list[str] = []
+
+    def add_sensitive_string(self, sensitive_string: str) -> None:
+        """Add a sensitive string to the list of strings to redact."""
+        if SensitiveInformationFilter.add_sensitive_string(sensitive_string):
+            self._sensitive_strings.append(sensitive_string)
+
+    def remove_sensitive_string(self, sensitive_string: str) -> None:
+        """Remove a sensitive string from the list of strings to redact."""
+        if SensitiveInformationFilter.remove_sensitive_string(sensitive_string):
+            self._sensitive_strings.remove(sensitive_string)
+
+    def clear_sensitive_strings(self) -> None:
+        """Clear all sensitive strings from the filter."""
+        for sensitive_string in self._sensitive_strings:
+            SensitiveInformationFilter.remove_sensitive_string(sensitive_string)
+        self._sensitive_strings.clear()
 
 
 class UnhelpfullLogFilter(logging.Filter):

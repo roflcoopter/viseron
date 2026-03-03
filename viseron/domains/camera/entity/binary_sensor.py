@@ -1,27 +1,27 @@
 """Binary sensor for a camera."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from viseron.helpers.entity.binary_sensor import BinarySensorEntity
-
-from ..const import (
+from viseron.domains.camera.const import (
     EVENT_CAMERA_STATUS,
     EVENT_CAMERA_STILL_IMAGE_AVAILABLE,
     EVENT_RECORDER_START,
     EVENT_RECORDER_STOP,
 )
+from viseron.helpers.entity.binary_sensor import BinarySensorEntity
+
 from . import CameraEntity
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
     from viseron.domains.camera import (
+        AbstractCamera,
         EventCameraStatusData,
         EventCameraStillImageAvailable,
     )
     from viseron.domains.camera.recorder import EventRecorderData, Recording
-
-    from .. import AbstractCamera
 
 
 class CameraBinarySensor(CameraEntity, BinarySensorEntity):
@@ -40,9 +40,11 @@ class ConnectionStatusBinarySensor(CameraBinarySensor):
 
     def setup(self) -> None:
         """Set up event listener."""
-        self._vis.listen_event(
-            EVENT_CAMERA_STATUS.format(camera_identifier=self._camera.identifier),
-            self.handle_event,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_CAMERA_STATUS.format(camera_identifier=self._camera.identifier),
+                self.handle_event,
+            )
         )
 
     @property
@@ -67,17 +69,21 @@ class RecorderBinarySensor(CameraBinarySensor):
 
     def setup(self) -> None:
         """Set up event listener."""
-        self._vis.listen_event(
-            EVENT_RECORDER_START.format(camera_identifier=self._camera.identifier),
-            self.handle_start_event,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_RECORDER_START.format(camera_identifier=self._camera.identifier),
+                self.handle_start_event,
+            )
         )
-        self._vis.listen_event(
-            EVENT_RECORDER_STOP.format(camera_identifier=self._camera.identifier),
-            self.handle_stop_event,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_RECORDER_STOP.format(camera_identifier=self._camera.identifier),
+                self.handle_stop_event,
+            )
         )
 
     @property
-    def extra_attributes(self):
+    def extra_attributes(self) -> dict:
         """Return extra attributes."""
         if self._recording:
             return self._recording.as_dict()
@@ -107,11 +113,13 @@ class StillImageAvailableBinarySensor(CameraBinarySensor):
 
     def setup(self) -> None:
         """Set up event listener."""
-        self._vis.listen_event(
-            EVENT_CAMERA_STILL_IMAGE_AVAILABLE.format(
-                camera_identifier=self._camera.identifier
-            ),
-            self.handle_event,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_CAMERA_STILL_IMAGE_AVAILABLE.format(
+                    camera_identifier=self._camera.identifier
+                ),
+                self.handle_event,
+            )
         )
 
     @property

@@ -1,4 +1,5 @@
 """Base binary sensor entity class."""
+
 from __future__ import annotations
 
 from typing import Final
@@ -24,6 +25,6 @@ class BinarySensorEntity(Entity):
         return self._is_on
 
     @property
-    def state(self):
+    def state(self) -> str:
         """Return the state of the binary sensor."""
         return STATE_ON if self.is_on else STATE_OFF
