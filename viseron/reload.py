@@ -18,6 +18,7 @@ from viseron.config import (
     diff_identifier_config,
     load_config,
 )
+from viseron.domain_registry import DomainState
 from viseron.domains import get_unload_order, setup_domains, unload_domain
 
 if TYPE_CHECKING:
@@ -33,6 +34,7 @@ class ReloadResult:
     """Result of a config reload operation."""
 
     success: bool
+    diff: ConfigDiff | None = None
     errors: list[str] = field(default_factory=list)
 
 
@@ -154,8 +156,6 @@ def _load_and_diff_config(
     old_config = vis.config
 
     diff = diff_config(old_config, new_config)
-    if not diff.has_changes:
-        LOGGER.info("No configuration changes detected")
 
     LOGGER.debug(
         f"Configuration changes detected: "
@@ -224,6 +224,34 @@ def _handle_modified_domains(
                 _unload_domain_chain(vis, entry, plan)
 
 
+def _unload_failed_dependents(
+    vis: Viseron,
+    domain: SupportedDomains,
+    identifier: str,
+    plan: SetupPlan,
+) -> None:
+    """Unload failed/retrying dependents of a domain identifier.
+
+    When an identifier is added (or re-added after removal), any dependents
+    that previously failed because this identifier was missing need to be
+    unloaded so they can be re-setup.
+    """
+    dependents = vis.domain_registry.get_dependents(domain, identifier)
+    failed_dependents = [
+        dep
+        for dep in dependents
+        if dep.state in (DomainState.FAILED, DomainState.RETRYING)
+    ]
+    for dep in failed_dependents:
+        LOGGER.debug(
+            f"Unloading failed domain {dep.domain} "
+            f"with identifier {dep.identifier} "
+            f"since its dependency domain {domain} "
+            f"with identifier {identifier} was added"
+        )
+        _unload_domain_chain(vis, dep, plan)
+
+
 def _handle_modified_identifiers(
     vis: Viseron, changes: ReloadChanges, plan: SetupPlan
 ) -> None:
@@ -235,12 +263,16 @@ def _handle_modified_identifiers(
         )
         if domain_to_unload:
             _unload_domain_chain(vis, domain_to_unload, plan)
-        else:
-            LOGGER.error(
-                f"Identifier-level change detected for "
-                f"domain {identifier_change.domain} "
-                f"with identifier {identifier_change.identifier} "
-                f"but no matching domain found to unload"
+
+        if identifier_change.is_added:
+            # When an identifier is added (or re-added after being removed),
+            # find any failed dependents that were waiting for this identifier
+            # and unload them so they can be re-setup.
+            _unload_failed_dependents(
+                vis,
+                identifier_change.domain,
+                identifier_change.identifier,
+                plan,
             )
 
 
@@ -326,6 +358,7 @@ def _reload_config(
         return result
 
     new_config, diff, changes = loaded
+    result.diff = diff
     plan = SetupPlan()
 
     _handle_removed_components(vis, diff, plan)
@@ -361,6 +394,12 @@ def reload_config(vis: Viseron) -> ReloadResult:
         vis.initialized_event.wait()
         result = _reload_config(vis, cancelled_retries)
 
-    end = time.time()
-    LOGGER.info(f"Config reload completed in {end - start:.2f} seconds")
+    if not result.success:
+        LOGGER.error(f"Config reload failed with errors: {result.errors}")
+    elif result.diff and result.diff.has_changes:
+        end = time.time()
+        LOGGER.info(f"Config reload completed in {end - start:.2f} seconds")
+    else:
+        LOGGER.info("No configuration changes detected")
+
     return result
