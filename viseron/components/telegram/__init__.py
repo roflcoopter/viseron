@@ -368,8 +368,8 @@ class TelegramEventNotifier:
         """Take a snapshot with the camera."""
         cam: AbstractCamera | None = self.get_camera(self.active_camera_identifier)
         if cam:
-            ret, snapshot = cam.get_snapshot(cam.current_frame)
-            if update.message and ret:
+            _ret, snapshot = cam.get_snapshot(cam.current_frame)
+            if update.message and snapshot:
                 await update.message.reply_photo(photo=snapshot)
         else:
             if update.message:

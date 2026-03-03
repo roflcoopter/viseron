@@ -1,4 +1,5 @@
 """Toggle entity for a camera."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -33,21 +34,29 @@ class CameraConnectionToggle(CameraToggle):
 
     def setup(self) -> None:
         """Set up event listener."""
-        self._vis.listen_event(
-            EVENT_CAMERA_START.format(camera_identifier=self._camera.identifier),
-            self.handle_start_event,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_CAMERA_START.format(camera_identifier=self._camera.identifier),
+                self.handle_start_event,
+            )
         )
-        self._vis.listen_event(
-            EVENT_CAMERA_STOP.format(camera_identifier=self._camera.identifier),
-            self.handle_stop_event,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_CAMERA_STOP.format(camera_identifier=self._camera.identifier),
+                self.handle_stop_event,
+            )
         )
-        self._vis.listen_event(
-            EVENT_CAMERA_STARTED.format(camera_identifier=self._camera.identifier),
-            self.handle_started_stopped_event,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_CAMERA_STARTED.format(camera_identifier=self._camera.identifier),
+                self.handle_started_stopped_event,
+            )
         )
-        self._vis.listen_event(
-            EVENT_CAMERA_STOPPED.format(camera_identifier=self._camera.identifier),
-            self.handle_started_stopped_event,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_CAMERA_STOPPED.format(camera_identifier=self._camera.identifier),
+                self.handle_started_stopped_event,
+            )
         )
 
     @property

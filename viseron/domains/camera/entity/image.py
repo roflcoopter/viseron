@@ -1,18 +1,18 @@
 """Image entity for a camera."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from viseron.domains.camera.const import EVENT_RECORDER_START
 from viseron.helpers.entity.image import ImageEntity
 
-from ..const import EVENT_RECORDER_START
 from . import CameraEntity
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
+    from viseron.domains.camera import AbstractCamera
     from viseron.domains.camera.recorder import EventRecorderData
-
-    from .. import AbstractCamera
 
 
 class CameraImage(CameraEntity, ImageEntity):
@@ -34,13 +34,15 @@ class ThumbnailImage(CameraImage):
 
     def setup(self) -> None:
         """Set up event listener."""
-        self._vis.listen_event(
-            EVENT_RECORDER_START.format(camera_identifier=self._camera.identifier),
-            self.handle_event,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_RECORDER_START.format(camera_identifier=self._camera.identifier),
+                self.handle_event,
+            )
         )
 
     @property
-    def extra_attributes(self):
+    def extra_attributes(self) -> dict:
         """Return extra attributes."""
         return {
             "start_time": self._attr_start_time,
