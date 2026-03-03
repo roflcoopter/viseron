@@ -1,4 +1,5 @@
 """Custom voluptuous validators."""
+
 import logging
 from collections.abc import Callable
 from typing import Any
@@ -56,7 +57,7 @@ def deprecated(key: str, replacement: str | None = None) -> Callable[[dict], dic
         """Warn if key is present. Replace it if a value is given."""
         if key in config:
             if replacement:
-                print(
+                print(  # noqa: T201
                     f"Config option {key} is deprecated. "
                     f"Replace it with {replacement}. "
                     "In the future this will produce an error"

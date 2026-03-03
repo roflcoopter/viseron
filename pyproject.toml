@@ -86,6 +86,7 @@ ignore = [
     "SIM105",  ##  https://docs.astral.sh/ruff/rules/suppressible-exception/ Disabled for performance reasons
     "S603",    ##  https://docs.astral.sh/ruff/rules/subprocess-without-shell-equals-true/ Contradicts S602
     "ANN401",  ##  https://docs.astral.sh/ruff/rules/any-type/ Disabled since Any is useful in some cases
+    "C901",    ##  https://docs.astral.sh/ruff/rules/complex-structure/ Disabled for readability
     "ASYNC110", ##  https://docs.astral.sh/ruff/rules/async-busy-wait/ Disabled because we dont use it to wait for events
     # To be attended to
     "ANN001",  ##   795   https://docs.astral.sh/ruff/rules/missing-type-function-argument/
@@ -104,7 +105,6 @@ ignore = [
     "BLE001",  ##    28   https://docs.astral.sh/ruff/rules/blind-except/
     "ERA001",  ##    28   https://docs.astral.sh/ruff/rules/commented-out-code/
     "ANN003",  ##    26   https://docs.astral.sh/ruff/rules/missing-type-kwargs/
-    "C901",    ##    26   https://docs.astral.sh/ruff/rules/complex-structure/
     "PERF401", ##    25   https://docs.astral.sh/ruff/rules/manual-list-comprehension/
     "RET502",  ##    23 * https://docs.astral.sh/ruff/rules/implicit-return-value/
     "ANN002",  ##    21   https://docs.astral.sh/ruff/rules/missing-type-args/
@@ -115,7 +115,6 @@ ignore = [
     "FURB110", ##    19   https://docs.astral.sh/ruff/rules/if-exp-instead-of-or-operator/
     "ARG002",  ##    17   https://docs.astral.sh/ruff/rules/unused-method-argument/
     "RET504",  ##    17   https://docs.astral.sh/ruff/rules/unnecessary-assign/
-    "T201",    ##    17   https://docs.astral.sh/ruff/rules/print/
     "SIM102",  ##    15   https://docs.astral.sh/ruff/rules/collapsible-if/
     "PT006",   ##    14   https://docs.astral.sh/ruff/rules/pytest-parametrize-names-wrong-type/
     "RUF010",  ##    14 * https://docs.astral.sh/ruff/rules/explicit-f-string-type-conversion/
@@ -226,7 +225,10 @@ forced-separate = ["tests"]
 "scripts/gen_docs/**" = ["E501"]
 
 # Relax rules in scripts
-"scripts/**" = ["D"]
+"scripts/**" = [
+    "D",
+    "T201",    ##  https://docs.astral.sh/ruff/rules/print/
+]
 
 [tool.ruff.format]
 quote-style = "double"
