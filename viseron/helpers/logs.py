@@ -8,7 +8,7 @@ import os
 import re
 import threading
 import typing
-from typing import Any, AnyStr, ClassVar, Literal, TextIO
+from typing import Any, AnyStr, ClassVar, Literal, NoReturn, TextIO
 
 from colorlog import ColoredFormatter
 
@@ -21,6 +21,17 @@ if typing.TYPE_CHECKING:
 LOG_FORMAT = "%(asctime)s.%(msecs)03d [%(levelname)-8s] [%(name)s] - %(message)s"
 STREAM_LOG_FORMAT = "%(log_color)s" + LOG_FORMAT
 LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+RE_FILTER_URL_CREDENTIALS = re.compile(r":\/\/(.*?)\@")
+# Based on this answer: https://stackoverflow.com/a/41307057
+RE_FILTER_PASSWORD = re.compile(
+    r"(\bpassword\W+)([a-zA-Z0-9_!\"#$%&'()*+,-.\/:;<=>?@[\]^_`{|}~]+)",
+    flags=re.IGNORECASE | re.MULTILINE,
+)
+RE_FILTER_ACCESS_TOKEN = re.compile(
+    r"(\b(access_token)\W+)(\w+)",
+    flags=re.IGNORECASE | re.MULTILINE,
+)
 
 
 class DuplicateFilter(logging.Filter):
@@ -43,8 +54,8 @@ class DuplicateFilter(logging.Filter):
             else:
                 self.current_count += 1
                 if self.current_count > 0:
-                    record.msg = "{}, message repeated {} times".format(
-                        record.msg, self.current_count + 1
+                    record.msg = (
+                        f"{record.msg}, message repeated {self.current_count + 1} times"
                     )
         except (ValueError, TypeError):
             pass
@@ -74,23 +85,19 @@ class SensitiveInformationFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
         """Filter log record."""
-        if isinstance(record.msg, str):
-            record.msg = re.sub(r":\/\/(.*?)\@", r"://*****:*****@", record.msg)
-            # Based on this answer: https://stackoverflow.com/a/41307057
-            record.msg = re.sub(
-                r"(\bpassword\W+)([a-zA-z0-9_!\"#$%&'()*+,-.\/:;<=>?@[\]^_`{|}~]+)",
-                r"\1*****",
-                record.msg,
-                flags=re.IGNORECASE | re.MULTILINE,
-            )
-            record.msg = re.sub(
-                r"(\b(access_token)\W+)(\w+)",
-                r"\1*****",
-                record.msg,
-                flags=re.IGNORECASE | re.MULTILINE,
-            )
+        # Use getMessage() to resolve lazy-formatted logs (e.g. %s args)
+        # before applying redaction, then clear args to prevent
+        # double-formatting.
+        msg = record.getMessage()
+
+        if isinstance(msg, str):
+            msg = RE_FILTER_URL_CREDENTIALS.sub(r"://*****:*****@", msg)
+            msg = RE_FILTER_PASSWORD.sub(r"\1*****", msg)
+            msg = RE_FILTER_ACCESS_TOKEN.sub(r"\1*****", msg)
             for sensitive_string in self.sensitive_strings:
-                record.msg = record.msg.replace(sensitive_string, "*****")
+                msg = msg.replace(sensitive_string, "*****")
+            record.msg = msg
+            record.args = None
         return True
 
 
@@ -127,7 +134,7 @@ class UnhelpfullLogFilter(logging.Filter):
         super().__init__(*args, **kwargs)
         self.errors_to_ignore = errors_to_ignore
 
-    def filter(self, record) -> bool:
+    def filter(self, record: logging.LogRecord) -> bool:
         """Filter log record."""
         if isinstance(record.msg, str) and (
             record.msg == ""
@@ -136,9 +143,7 @@ class UnhelpfullLogFilter(logging.Filter):
             or record.msg == "\n"
         ):
             return False
-        if any(error in record.msg for error in self.errors_to_ignore):
-            return False
-        return True
+        return not any(error in record.msg for error in self.errors_to_ignore)
 
 
 class ViseronLogFormat(ColoredFormatter):
@@ -172,17 +177,17 @@ class ViseronLogFormat(ColoredFormatter):
         """Format log record."""
         # Save the original format configured by the user
         # when the logger formatter was instantiated
-        format_orig = self._style._fmt
+        format_orig = self._style._fmt  # noqa: SLF001
 
         # Replace the original format with one customized by logging level
         if "message repeated" in str(record.msg):
-            self._style._fmt = self.overwrite_fmt
+            self._style._fmt = self.overwrite_fmt  # noqa: SLF001
 
         # Call the original formatter class to do the grunt work
         result = ColoredFormatter.format(self, record)
 
         # Restore the original format configured by the user
-        self._style._fmt = format_orig
+        self._style._fmt = format_orig  # noqa: SLF001
 
         return result
 
@@ -206,7 +211,7 @@ class LogPipe(threading.Thread):
         self._kill_received = False
         self.start()
 
-    def fileno(self):
+    def fileno(self) -> int:
         """Return the write file descriptor of the pipe."""
         return self._write_filedescriptor
 
@@ -256,8 +261,10 @@ class CTypesLogPipe(threading.Thread):
     Otherwise its logged at the requested loglevel.
     """
 
-    def __init__(self, logger, loglevel, fd: Literal[1, 2]) -> None:
-        super().__init__(name=f"{logger.name}.fd{str(fd)}", daemon=True)
+    def __init__(
+        self, logger: logging.Logger, loglevel: int, fd: Literal[1, 2]
+    ) -> None:
+        super().__init__(name=f"{logger.name}.fd{fd!s}", daemon=True)
         self._logger = logger
         self._loglevel = loglevel
         self._fd = fd
@@ -268,7 +275,7 @@ class CTypesLogPipe(threading.Thread):
         os.dup2(self._write_filedescriptor, fd)
         self.start()
 
-    def fileno(self):
+    def fileno(self) -> int:
         """Return the write file descriptor of the pipe."""
         return self._write_filedescriptor
 
@@ -318,7 +325,7 @@ class StreamToLogger(typing.TextIO):
         """Return if the stream is a tty."""
         raise io.UnsupportedOperation
 
-    def read(self, num: int = -1):
+    def read(self, num: int = -1) -> NoReturn:  # noqa: ARG002
         """Read from the stream."""
         raise io.UnsupportedOperation
 
@@ -326,15 +333,15 @@ class StreamToLogger(typing.TextIO):
         """Return if the stream is readable."""
         raise io.UnsupportedOperation
 
-    def readline(self, limit: int = -1):
+    def readline(self, limit: int = -1) -> NoReturn:  # noqa: ARG002
         """Read a line from the stream."""
         raise io.UnsupportedOperation
 
-    def readlines(self, hint: int = -1) -> list[AnyStr]:
+    def readlines(self, hint: int = -1) -> list[AnyStr]:  # noqa: ARG002
         """Read lines from the stream."""
         raise io.UnsupportedOperation
 
-    def seek(self, offset: int, whence: int = 0) -> int:
+    def seek(self, offset: int, whence: int = 0) -> int:  # noqa: ARG002
         """Seek in the stream."""
         raise io.UnsupportedOperation
 
@@ -346,7 +353,7 @@ class StreamToLogger(typing.TextIO):
         """Return the current position in the stream."""
         raise io.UnsupportedOperation
 
-    def truncate(self, size: int | None = None) -> int:
+    def truncate(self, size: int | None = None) -> int:  # noqa: ARG002
         """Truncate the stream."""
         raise io.UnsupportedOperation
 
@@ -354,11 +361,11 @@ class StreamToLogger(typing.TextIO):
         """Return if the stream is writable."""
         raise io.UnsupportedOperation
 
-    def writelines(self, lines: Iterable[AnyStr]) -> None:
+    def writelines(self, lines: Iterable[AnyStr]) -> None:  # noqa: ARG002
         """Write lines to the stream."""
         raise io.UnsupportedOperation
 
-    def __next__(self):
+    def __next__(self) -> NoReturn:
         """Return the next line from the stream."""
         raise io.UnsupportedOperation
 
