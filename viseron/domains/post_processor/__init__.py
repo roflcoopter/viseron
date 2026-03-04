@@ -39,6 +39,8 @@ from .const import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     import numpy as np
 
     from viseron import Event, Viseron
@@ -91,7 +93,9 @@ class PostProcessorFrame:
 class AbstractPostProcessor(AbstractDomain):
     """Abstract Post Processor."""
 
-    def __init__(self, vis: Viseron, config, camera_identifier) -> None:
+    def __init__(
+        self, vis: Viseron, config: dict[str, Any], camera_identifier: str
+    ) -> None:
         self._vis = vis
         self._storage = vis.data[STORAGE_COMPONENT]
         self._config = config
@@ -99,7 +103,7 @@ class AbstractPostProcessor(AbstractDomain):
         self._camera = vis.get_registered_domain(CAMERA_DOMAIN, camera_identifier)
         self._logger = logging.getLogger(f"{self.__module__}.{camera_identifier}")
 
-        self._labels = config.get(CONFIG_LABELS, None)
+        self._labels = config.get(CONFIG_LABELS)
         if config[CONFIG_CAMERAS][camera_identifier].get(CONFIG_LABELS, None):
             self._labels = config[CONFIG_CAMERAS][camera_identifier][CONFIG_LABELS]
 
@@ -121,25 +125,32 @@ class AbstractPostProcessor(AbstractDomain):
         self._post_processor_queue: Queue[Event[EventDetectedObjectsData]] = Queue(
             maxsize=1
         )
-        processor_thread = RestartableThread(
+        self._processor_thread = RestartableThread(
             name=__name__, target=self.post_process, daemon=True, register=True
         )
-        processor_thread.start()
-        self._vis.listen_event(
-            EVENT_OBJECTS_IN_FOV.format(camera_identifier=camera_identifier),
-            self._post_processor_queue,
+        self._processor_thread.start()
+        self._event_listeners: list[Callable] = []
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_OBJECTS_IN_FOV.format(camera_identifier=camera_identifier),
+                self._post_processor_queue,
+            )
         )
-        self._vis.listen_event(
-            EVENT_OBJECTS_IN_ZONE.format(
-                camera_identifier=camera_identifier,
-                zone_name="*",
-            ),
-            self._post_processor_queue,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_OBJECTS_IN_ZONE.format(
+                    camera_identifier=camera_identifier,
+                    zone_name="*",
+                ),
+                self._post_processor_queue,
+            )
         )
-        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
+        self._event_listeners.append(
+            vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
+        )
 
     @property
-    def mask(self):
+    def mask(self) -> None | list:
         """Return post processor mask."""
         return self._mask
 
@@ -206,7 +217,7 @@ class AbstractPostProcessor(AbstractDomain):
         """Perform preprocessing of frame before running post processor."""
 
     @abstractmethod
-    def process(self, post_processor_frame: PostProcessorFrame):
+    def process(self, post_processor_frame: PostProcessorFrame) -> None:
         """Process frame."""
 
     def _insert_result(
@@ -222,6 +233,15 @@ class AbstractPostProcessor(AbstractDomain):
             )
             session.execute(stmt)
             session.commit()
+
+    def unload(self) -> None:
+        """Unload post processor."""
+        self._logger.debug(f"Unloading post processor {self.__class__.__name__}")
+        for unsubscribe in self._event_listeners:
+            unsubscribe()
+
+        self._processor_thread.stop()
+        self.stop()
 
     def stop(self) -> None:
         """Stop post processor."""
