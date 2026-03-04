@@ -150,14 +150,21 @@ class AbstractLicensePlateRecognition(AbstractPostProcessor):
         super().__init__(vis, config, camera_identifier)
         self._expire_timer: Timer | None = None
         self._plates: dict[str, LicensePlateRecognitionResult] = {}
-        vis.add_entity(component, LicensePlateRecognitionSensor(vis, self._camera))
+        vis.add_entity(
+            component,
+            LicensePlateRecognitionSensor(vis, self._camera),
+            DOMAIN,
+            self._camera_identifier,
+        )
         for plate in self._config[CONFIG_KNOWN_PLATES]:
             vis.add_entity(
                 component,
                 LicensePlateRecognitionBinarySensor(vis, self._camera, plate),
+                DOMAIN,
+                self._camera_identifier,
             )
 
-    def __post_init__(self, *args, **kwargs):
+    def __post_init__(self, *args, **kwargs) -> None:
         """Post init hook."""
         self._vis.register_domain(DOMAIN, self._camera_identifier, self)
 
@@ -174,30 +181,27 @@ class AbstractLicensePlateRecognition(AbstractPostProcessor):
         if not result:
             return None
 
-        _result = []
-        for plate in result:
-            _result.append(
-                LicensePlateRecognitionResult(
-                    camera_identifier=self._camera.identifier,
-                    plate=plate.plate,
-                    confidence=plate.confidence,
-                    rel_coordinates=(
-                        plate.rel_x1,
-                        plate.rel_y1,
-                        plate.rel_x2,
-                        plate.rel_y2,
-                    ),
-                    known=plate.plate in self._config[CONFIG_KNOWN_PLATES],
-                    timer=Timer(
-                        self._config[CONFIG_EXPIRE_AFTER],
-                        self._expire_plate,
-                        [plate.plate],
-                    ),
-                    detected_object=plate.detected_object,
-                )
+        return [
+            LicensePlateRecognitionResult(
+                camera_identifier=self._camera.identifier,
+                plate=plate.plate,
+                confidence=plate.confidence,
+                rel_coordinates=(
+                    plate.rel_x1,
+                    plate.rel_y1,
+                    plate.rel_x2,
+                    plate.rel_y2,
+                ),
+                known=plate.plate in self._config[CONFIG_KNOWN_PLATES],
+                timer=Timer(
+                    self._config[CONFIG_EXPIRE_AFTER],
+                    self._expire_plate,
+                    [plate.plate],
+                ),
+                detected_object=plate.detected_object,
             )
-
-        return _result
+            for plate in result
+        ]
 
     def _save_plate(
         self, plate: LicensePlateRecognitionResult, shared_frame: SharedFrame
@@ -293,7 +297,7 @@ class AbstractLicensePlateRecognition(AbstractPostProcessor):
             ),
         )
 
-    def _expire_plate(self, plate) -> None:
+    def _expire_plate(self, plate: str) -> None:
         """Expire no longer found plate."""
         self._logger.debug(f"Expiring plate {plate}")
         self._vis.dispatch_event(
