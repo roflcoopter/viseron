@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, Literal, overload
 
 import voluptuous as vol
 from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.schedulers.base import SchedulerNotRunningError
+from apscheduler.schedulers.base import Job, SchedulerNotRunningError
 from jinja2 import BaseLoader, Environment, StrictUndefined
 from sqlalchemy import insert
 
@@ -637,9 +637,9 @@ class Viseron:
         """Return all registered entities."""
         return self.states.get_entities()
 
-    def schedule_periodic_update(self, entity: Entity, update_interval: int) -> None:
+    def schedule_periodic_update(self, entity: Entity, update_interval: int) -> Job:
         """Schedule entity update at a fixed interval."""
-        self.background_scheduler.add_job(
+        return self.background_scheduler.add_job(
             entity.update, "interval", seconds=update_interval
         )
 
