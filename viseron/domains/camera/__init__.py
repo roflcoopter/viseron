@@ -46,9 +46,7 @@ from viseron.helpers import (
     utcnow,
     zoom_boundingbox,
 )
-from viseron.helpers.logs import (
-    SensitiveInformationFilterTracker,
-)
+from viseron.helpers.logs import SensitiveInformationFilterTracker
 from viseron.viseron_types import SnapshotDomain
 
 from .const import (
@@ -214,6 +212,8 @@ class AbstractCamera(AbstractDomain):
         if self.still_image_configured:
             self._logger.debug("Still image is configured, setting availability.")
             self.still_image_available = True
+
+        self._ptz_support: str | None = None
 
     def __post_init__(self, *args, **kwargs) -> None:
         """Post init hook."""
@@ -593,8 +593,8 @@ class FailedCamera:
         """Initialize failed camera."""
         # Local import to avoid circular import
         # pylint: disable=import-outside-toplevel
-        from viseron.components.storage.tier_handler import (  # noqa: PLC0415
-            add_file_handler,
+        from viseron.components.storage.tier_handler import (
+            add_file_handler,  # noqa: PLC0415
         )
 
         self._vis = vis

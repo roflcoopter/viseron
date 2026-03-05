@@ -386,7 +386,11 @@ class TelegramEventNotifier:
         if cam:
             _ret, snapshot = cam.get_snapshot(cam.current_frame)
             if update.message and snapshot:
-                await update.message.reply_photo(photo=snapshot)
+                await update.message.reply_photo(
+                    photo=snapshot,
+                    caption=f"Snapshot from <b>{cam.name or cam.identifier}</b>",
+                    parse_mode=ParseMode.HTML,
+                )
         else:
             if update.message:
                 await update.message.reply_text("No active camera.")

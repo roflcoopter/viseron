@@ -16,6 +16,7 @@ import voluptuous as vol
 
 from viseron.components.storage.models import TriggerTypes
 from viseron.components.webserver.api.handlers import BaseAPIHandler
+from viseron.components.webserver.auth import Role
 from viseron.domains.camera.const import (
     AUTHENTICATION_BASIC,
     AUTHENTICATION_DIGEST,
