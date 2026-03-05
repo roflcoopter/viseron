@@ -1,4 +1,5 @@
 """Camera domain constants."""
+
 from __future__ import annotations
 
 from typing import Final
@@ -6,8 +7,10 @@ from typing import Final
 DOMAIN: Final = "camera"
 
 UPDATE_TOKEN_INTERVAL_MINUTES: Final = 5
+MAX_ACCESS_TOKENS = 2
 
 VIDEO_CONTAINER = "mp4"
+MP4BOX_PATH = "/usr/bin/MP4Box"
 
 # Event topic constants
 EVENT_CAMERA_STATUS = "{camera_identifier}/camera/status"
@@ -169,7 +172,7 @@ DESC_CONTINUOUS_RECORDING = (
 CONFIG_STILL_IMAGE = "still_image"
 CONFIG_URL = "url"
 CONFIG_USERNAME = "username"
-CONFIG_PASSWORD = "password"
+CONFIG_PASSWORD = "password"  # noqa: S105
 CONFIG_AUTHENTICATION = "authentication"
 CONFIG_REFRESH_INTERVAL = "refresh_interval"
 CONFIG_STILL_IMAGE_WIDTH = "width"
@@ -197,7 +200,8 @@ DESC_USERNAME = (
     "Username for authentication.<br>Only applicable if <code>url</code> is set."
 )
 DESC_PASSWORD = (
-    "Password for authentication.<br>Only applicable if <code>url</code> is set."
+    "Password for authentication."  # noqa: S105
+    "<br>Only applicable if <code>url</code> is set."
 )
 DESC_AUTHENTICATION = (
     "Authentication method to use.<br>Only applicable if <code>url</code> is set."
@@ -244,5 +248,4 @@ CONFIG_RECORDER_AUDIO_CODEC = "audio_codec"
 CONFIG_RECORDER_VIDEO_FILTERS = "video_filters"
 CONFIG_RECORDER_AUDIO_FILTERS = "audio_filters"
 CONFIG_RECORDER_OUPTUT_ARGS = "output_args"
-CONFIG_RECORDER = "recorder"
 CONFIG_FFMPEG_LOGLEVEL = "ffmpeg_loglevel"

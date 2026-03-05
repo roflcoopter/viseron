@@ -1,4 +1,5 @@
 """Viseron init file."""
+
 from __future__ import annotations
 
 import concurrent.futures
@@ -10,7 +11,6 @@ import sys
 import threading
 import time
 import tracemalloc
-from collections.abc import Callable
 from functools import partial
 from logging.handlers import RotatingFileHandler
 from timeit import default_timer as timer
@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, Literal, overload
 
 import voluptuous as vol
 from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.schedulers.base import SchedulerNotRunningError
+from apscheduler.schedulers.base import Job, SchedulerNotRunningError
 from jinja2 import BaseLoader, Environment, StrictUndefined
 from sqlalchemy import insert
 
@@ -37,7 +37,6 @@ from viseron.components.nvr.const import (
     COMPONENT as NVR_COMPONENT,
     DOMAIN as NVR_DOMAIN,
 )
-from viseron.components.storage import Storage
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import Events
 from viseron.config import load_config
@@ -68,17 +67,20 @@ from viseron.helpers.logs import (
     ViseronLogFormat,
 )
 from viseron.states import States
-from viseron.types import Domain, SupportedDomains
+from viseron.viseron_types import Domain, SupportedDomains
 from viseron.watchdog.process_watchdog import ProcessWatchDog
 from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
 from viseron.watchdog.thread_watchdog import ThreadWatchDog
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from queue import Queue
 
-    from tornado.queues import Queue as tornado_queue
+    from tornado.ioloop import IOLoop
+    from tornado.queues import Queue as TornadoQueue
 
     from viseron.components.nvr.nvr import NVR
+    from viseron.components.storage import Storage
     from viseron.domains.camera import AbstractCamera
     from viseron.domains.face_recognition import AbstractFaceRecognition
     from viseron.domains.image_classification import AbstractImageClassification
@@ -189,12 +191,12 @@ def enable_logging() -> None:
     )
 
 
-def setup_viseron(vis: Viseron):
+def setup_viseron(vis: Viseron) -> None:
     """Set up and run Viseron."""
     start = timer()
     viseron_version = os.getenv("VISERON_VERSION")
     LOGGER.info("-------------------------------------------")
-    LOGGER.info(f"Initializing Viseron {viseron_version if viseron_version else ''}")
+    LOGGER.info(f"Initializing Viseron {viseron_version or ''}")
 
     try:
         config = load_config()
@@ -249,7 +251,7 @@ def setup_viseron(vis: Viseron):
 class Viseron:
     """Viseron."""
 
-    def __init__(self, start_background_scheduler=True) -> None:
+    def __init__(self, *, start_background_scheduler: bool = True) -> None:
         self.logger = LOGGER
         self.states = States(self)
 
@@ -321,7 +323,9 @@ class Viseron:
         """Return the domain registry."""
         return self._domain_registry
 
-    def register_signal_handler(self, viseron_signal, callback) -> Callable[[], None]:
+    def register_signal_handler(
+        self, viseron_signal: str, callback: Callable
+    ) -> Callable[[], None]:
         """Register a callback which gets called on signals emitted by Viseron.
 
         Signals currently available:
@@ -352,7 +356,10 @@ class Viseron:
         return unsubscribe
 
     def listen_event(
-        self, event: str, callback: Callable | Queue | tornado_queue, ioloop=None
+        self,
+        event: str,
+        callback: Callable | Queue | TornadoQueue,
+        ioloop: IOLoop | None = None,
     ) -> Callable[[], None]:
         """Register a listener to an event."""
         if DATA_STREAM_COMPONENT not in self.data:
@@ -394,7 +401,9 @@ class Viseron:
                 session.execute(stmt)
                 session.commit()
 
-    def dispatch_event(self, event: str, data: EventData, store: bool = True) -> None:
+    def dispatch_event(
+        self, event: str, data: EventData, *, store: bool = True
+    ) -> None:
         """Dispatch an event."""
         _event: Event[EventData] = Event(event, data, utcnow().timestamp())
         if store:
@@ -407,8 +416,7 @@ class Viseron:
     @overload
     def register_domain(
         self, domain: Literal["camera"], identifier: str, instance: AbstractCamera
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @overload
     def register_domain(
@@ -416,8 +424,7 @@ class Viseron:
         domain: Literal["face_recognition"],
         identifier: str,
         instance: AbstractFaceRecognition,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @overload
     def register_domain(
@@ -425,8 +432,7 @@ class Viseron:
         domain: Literal["image_classification"],
         identifier: str,
         instance: AbstractImageClassification,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @overload
     def register_domain(
@@ -434,8 +440,7 @@ class Viseron:
         domain: Literal["license_plate_recognition"],
         identifier: str,
         instance: AbstractLicensePlateRecognition,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @overload
     def register_domain(
@@ -443,8 +448,7 @@ class Viseron:
         domain: Literal["motion_detector"],
         identifier: str,
         instance: AbstractMotionDetector,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @overload
     def register_domain(
@@ -452,8 +456,7 @@ class Viseron:
         domain: Literal["object_detector"],
         identifier: str,
         instance: AbstractObjectDetector,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @overload
     def register_domain(
@@ -461,8 +464,7 @@ class Viseron:
         domain: Literal["nvr"],
         identifier: str,
         instance: AbstractNVR,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     def register_domain(
         self, domain: SupportedDomains, identifier: str, instance
@@ -488,56 +490,48 @@ class Viseron:
 
     @overload
     def get_registered_domain(
-        self, domain: Literal["camera"] | Literal[Domain.CAMERA], identifier: str
-    ) -> AbstractCamera:
-        ...
+        self, domain: Literal["camera", Domain.CAMERA], identifier: str
+    ) -> AbstractCamera: ...
 
     @overload
     def get_registered_domain(
         self,
-        domain: Literal["face_recognition"] | Literal[Domain.FACE_RECOGNITION],
+        domain: Literal["face_recognition", Domain.FACE_RECOGNITION],
         identifier: str,
-    ) -> AbstractFaceRecognition:
-        ...
+    ) -> AbstractFaceRecognition: ...
 
     @overload
     def get_registered_domain(
         self,
-        domain: Literal["image_classification"] | Literal[Domain.IMAGE_CLASSIFICATION],
+        domain: Literal["image_classification", Domain.IMAGE_CLASSIFICATION],
         identifier: str,
-    ) -> AbstractImageClassification:
-        ...
+    ) -> AbstractImageClassification: ...
 
     @overload
     def get_registered_domain(
         self,
-        domain: Literal["license_plate_recognition"]
-        | Literal[Domain.LICENSE_PLATE_RECOGNITION],
+        domain: Literal["license_plate_recognition", Domain.LICENSE_PLATE_RECOGNITION],
         identifier: str,
-    ) -> AbstractLicensePlateRecognition:
-        ...
+    ) -> AbstractLicensePlateRecognition: ...
 
     @overload
     def get_registered_domain(
         self,
-        domain: Literal["motion_detector"] | Literal[Domain.MOTION_DETECTOR],
+        domain: Literal["motion_detector", Domain.MOTION_DETECTOR],
         identifier: str,
-    ) -> AbstractMotionDetector:
-        ...
+    ) -> AbstractMotionDetector: ...
 
     @overload
     def get_registered_domain(
         self,
-        domain: Literal["object_detector"] | Literal[Domain.OBJECT_DETECTOR],
+        domain: Literal["object_detector", Domain.OBJECT_DETECTOR],
         identifier: str,
-    ) -> AbstractObjectDetector:
-        ...
+    ) -> AbstractObjectDetector: ...
 
     @overload
     def get_registered_domain(
-        self, domain: Literal["nvr"] | Literal[Domain.NVR], identifier: str
-    ) -> NVR:
-        ...
+        self, domain: Literal["nvr", Domain.NVR], identifier: str
+    ) -> NVR: ...
 
     def get_registered_domain(self, domain: SupportedDomains | Domain, identifier: str):
         """Return a registered domain with a specific identifier."""
@@ -547,36 +541,30 @@ class Viseron:
     @overload
     def get_registered_identifiers(
         self, domain: Literal["camera"]
-    ) -> dict[str, AbstractCamera]:
-        ...
+    ) -> dict[str, AbstractCamera]: ...
 
     @overload
     def get_registered_identifiers(
         self, domain: Literal["face_recognition"]
-    ) -> dict[str, AbstractFaceRecognition]:
-        ...
+    ) -> dict[str, AbstractFaceRecognition]: ...
 
     @overload
     def get_registered_identifiers(
         self, domain: Literal["image_classification"]
-    ) -> dict[str, AbstractImageClassification]:
-        ...
+    ) -> dict[str, AbstractImageClassification]: ...
 
     @overload
     def get_registered_identifiers(
         self, domain: Literal["motion_detector"]
-    ) -> dict[str, AbstractMotionDetector]:
-        ...
+    ) -> dict[str, AbstractMotionDetector]: ...
 
     @overload
     def get_registered_identifiers(
         self, domain: Literal["object_detector"]
-    ) -> dict[str, AbstractObjectDetector]:
-        ...
+    ) -> dict[str, AbstractObjectDetector]: ...
 
     @overload
-    def get_registered_identifiers(self, domain: Literal["nvr"]) -> dict[str, NVR]:
-        ...
+    def get_registered_identifiers(self, domain: Literal["nvr"]) -> dict[str, NVR]: ...
 
     def get_registered_identifiers(self, domain: SupportedDomains):
         """Return a dict of all registered identifiers and instances for a domain."""
@@ -593,8 +581,7 @@ class Viseron:
             self.initialized_event.wait()
             LOGGER.debug("Viseron initialized, continuing shutdown")
 
-        if self.data.get(DATA_STREAM_COMPONENT, None):
-            data_stream = self.data[DATA_STREAM_COMPONENT]
+        data_stream = self.data[DATA_STREAM_COMPONENT]
 
         if (
             self._thread_watchdog
@@ -634,7 +621,7 @@ class Viseron:
         entity: Entity,
         domain: SupportedDomains | None = None,
         identifier: str | None = None,
-    ):
+    ) -> Entity:
         """Add entity to states registry."""
         component_instance = self.data[LOADED].get(component, None)
         if not component_instance:
@@ -646,13 +633,13 @@ class Viseron:
         for entity in entities:
             self.add_entity(component, entity)
 
-    def get_entities(self):
+    def get_entities(self) -> dict[str, Entity]:
         """Return all registered entities."""
         return self.states.get_entities()
 
-    def schedule_periodic_update(self, entity: Entity, update_interval: int) -> None:
+    def schedule_periodic_update(self, entity: Entity, update_interval: int) -> Job:
         """Schedule entity update at a fixed interval."""
-        self.background_scheduler.add_job(
+        return self.background_scheduler.add_job(
             entity.update, "interval", seconds=update_interval
         )
 

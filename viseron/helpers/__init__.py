@@ -1,4 +1,5 @@
 """General helper functions."""
+
 from __future__ import annotations
 
 import datetime
@@ -6,7 +7,6 @@ import inspect
 import linecache
 import logging
 import math
-import multiprocessing as mp
 import os
 import re
 import socket
@@ -24,11 +24,13 @@ import slugify as unicode_slug
 import supervision as sv
 import tornado.queues as tq
 
-from viseron.const import FONT, FONT_SIZE, FONT_THICKNESS
-from viseron.types import Domain
+from viseron.const import FONT, FONT_SIZE, FONT_THICKNESS, MIN_LABEL_Y_POSITION
 
 if TYPE_CHECKING:
+    import multiprocessing as mp
+
     from viseron.domains.object_detector.detected_object import DetectedObject
+    from viseron.viseron_types import Domain
 
 LOGGER = logging.getLogger(__name__)
 
@@ -148,7 +150,7 @@ def put_object_label_relative(frame, obj, frame_res, color=(255, 0, 0)) -> None:
     )
 
     # If label is outside the top of the frame, put it below the bounding box
-    if coordinates[1] < 10:
+    if coordinates[1] < MIN_LABEL_Y_POSITION:
         coordinates = (
             math.floor(obj.rel_x1 * frame_res[0]),
             (math.floor(obj.rel_y2 * frame_res[1])) + 5,
@@ -545,8 +547,7 @@ def convert_letterboxed_bbox(
     model_height: int,
     bbox: tuple[int, int, int, int],
     return_absolute: Literal[False] = ...,
-) -> tuple[float, float, float, float]:
-    ...
+) -> tuple[float, float, float, float]: ...
 
 
 @overload
@@ -557,8 +558,7 @@ def convert_letterboxed_bbox(
     model_height: int,
     bbox: tuple[int, int, int, int],
     return_absolute: Literal[True],
-) -> tuple[int, int, int, int]:
-    ...
+) -> tuple[int, int, int, int]: ...
 
 
 def convert_letterboxed_bbox(

@@ -6,6 +6,7 @@ Revises: 620b4d1e5736
 Create Date: 2025-02-06 07:11:12.890722
 
 """
+
 from __future__ import annotations
 
 import os
@@ -50,7 +51,7 @@ def move_clip_to_new_folder(
     )
 
 
-def process_clip(old_subcategory: str, new_subcategory: str):
+def process_clip(old_subcategory: str, new_subcategory: str) -> None:
     """Move clips from old_subcategory to new_subcategory."""
     connection = op.get_bind()
     files = connection.execute(
@@ -59,12 +60,13 @@ def process_clip(old_subcategory: str, new_subcategory: str):
         .where(Files.subcategory == old_subcategory)
     )
     for file in files:
-        if file.path.startswith(f"/{old_subcategory}"):
-            if not os.path.exists(f"/{new_subcategory}"):
-                raise ValueError(
-                    f"The /{new_subcategory} folder does not exist. "
-                    "Please mount it to the container."
-                )
+        if file.path.startswith(f"/{old_subcategory}") and not os.path.exists(
+            f"/{new_subcategory}"
+        ):
+            raise ValueError(
+                f"The /{new_subcategory} folder does not exist. "
+                "Please mount it to the container."
+            )
 
         try:
             move_clip_to_new_folder(
@@ -73,9 +75,11 @@ def process_clip(old_subcategory: str, new_subcategory: str):
                 new_subcategory,
                 file,  # type: ignore[arg-type]
             )
-        except Exception as e:  # pylint: disable=broad-except
-            print(f"Failed to move {file.path} to {new_subcategory}. Error: {e}")
-            print("Skipping this file, database will not be updated.")
+        except Exception as e:  # pylint: disable=broad-except # noqa: BLE001
+            print(  # noqa: T201
+                f"Failed to move {file.path} to {new_subcategory}. Error: {e}",
+            )
+            print("Skipping this file, database will not be updated.")  # noqa: T201
 
 
 def upgrade() -> None:

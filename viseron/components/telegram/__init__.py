@@ -27,7 +27,6 @@ from viseron.components.storage.models import TriggerTypes
 from viseron.components.telegram.ptz_control import TelegramPTZ
 from viseron.components.telegram.utils import limit_user_access
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
-from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.const import (
     DOMAIN as CAMERA_DOMAIN,
     EVENT_RECORDER_COMPLETE,
@@ -37,7 +36,7 @@ from viseron.exceptions import ComponentNotReady, DomainNotRegisteredError
 from viseron.helpers import escape_string
 from viseron.helpers.logs import SensitiveInformationFilter
 from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
-from viseron.types import Domain
+from viseron.viseron_types import Domain
 
 from .const import (
     COMPONENT,
@@ -71,6 +70,7 @@ from .const import (
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
+    from viseron.domains.camera import AbstractCamera
 
 LOGGER = logging.getLogger(__name__)
 
@@ -384,13 +384,9 @@ class TelegramEventNotifier:
         """Take a snapshot with the camera."""
         cam: AbstractCamera | None = self.get_camera(self.active_camera_identifier)
         if cam:
-            ret, snapshot = cam.get_snapshot(cam.current_frame)
-            if update.message and ret:
-                await update.message.reply_photo(
-                    photo=snapshot,
-                    caption=f"Snapshot from <b>{cam.name or cam.identifier}</b>",
-                    parse_mode=ParseMode.HTML,
-                )
+            _ret, snapshot = cam.get_snapshot(cam.current_frame)
+            if update.message and snapshot:
+                await update.message.reply_photo(photo=snapshot)
         else:
             if update.message:
                 await update.message.reply_text("No active camera.")

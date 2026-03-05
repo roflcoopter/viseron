@@ -1,10 +1,12 @@
 """Camera API Handler."""
+
 from __future__ import annotations
 
 import asyncio
 import logging
 import time
 from http import HTTPStatus
+from typing import TYPE_CHECKING
 
 import cv2
 import httpx
@@ -14,8 +16,6 @@ import voluptuous as vol
 
 from viseron.components.storage.models import TriggerTypes
 from viseron.components.webserver.api.handlers import BaseAPIHandler
-from viseron.components.webserver.auth import Role
-from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.const import (
     AUTHENTICATION_BASIC,
     AUTHENTICATION_DIGEST,
@@ -27,6 +27,9 @@ from viseron.domains.camera.const import (
 )
 from viseron.domains.camera.recorder import ManualRecording
 from viseron.helpers.validators import request_argument_bool
+
+if TYPE_CHECKING:
+    from viseron.domains.camera import AbstractCamera
 
 LOGGER = logging.getLogger(__name__)
 
@@ -125,7 +128,7 @@ class CameraAPIHandler(BaseAPIHandler):
             camera.still_image[CONFIG_URL],
             auth=auth,
         )
-        if response.status_code == 200:
+        if response.status_code == HTTPStatus.OK.value:
             img_array = np.asarray(bytearray(response.content), dtype=np.uint8)
             img = cv2.imdecode(img_array, -1)
             if self.request_arguments["width"] and self.request_arguments["height"]:
@@ -156,13 +159,12 @@ class CameraAPIHandler(BaseAPIHandler):
         """Return snapshot from camera memory."""
         if camera.current_frame:
             with camera.current_frame:
-                ret, jpg = camera.get_snapshot(
+                _ret, jpg = camera.get_snapshot(
                     camera.current_frame,
                     self.request_arguments["width"],
                     self.request_arguments["height"],
                 )
-                if ret:
-                    return jpg
+                return jpg
         return None
 
     async def get_snapshot(self, camera_identifier: str) -> None:
@@ -280,7 +282,7 @@ class CameraAPIHandler(BaseAPIHandler):
                 HTTPStatus.NOT_FOUND,
                 reason=f"Camera {camera_identifier} not found",
             )
-            return
+            return None
 
         nvr = self.get_nvr(camera_identifier)
         if not nvr:
@@ -288,21 +290,21 @@ class CameraAPIHandler(BaseAPIHandler):
                 HTTPStatus.NOT_FOUND,
                 reason=f"NVR for camera {camera_identifier} not found",
             )
-            return
+            return None
 
         if not camera.is_on or not camera.connected:
             self.response_error(
                 HTTPStatus.BAD_REQUEST,
                 reason="Camera is off or disconnected",
             )
-            return
+            return None
 
         if nvr.operation_state == "idle":
             self.response_error(
                 HTTPStatus.BAD_REQUEST,
                 reason="NVR is idle",
             )
-            return
+            return None
 
         async def wait_for_recording_start(timeout=5) -> bool:
             """Wait for recording to start."""
@@ -340,7 +342,7 @@ class CameraAPIHandler(BaseAPIHandler):
             await self.run_in_executor(nvr.start_manual_recording, manual_recording)
             if await wait_for_recording_start():
                 await self.response_success()
-                return
+                return None
             return self.response_error(
                 HTTPStatus.INTERNAL_SERVER_ERROR,
                 reason="Failed to start manual recording",
@@ -350,7 +352,7 @@ class CameraAPIHandler(BaseAPIHandler):
             await self.run_in_executor(nvr.stop_manual_recording)
             if await wait_for_recording_stop():
                 await self.response_success()
-                return
+                return None
             return self.response_error(
                 HTTPStatus.INTERNAL_SERVER_ERROR,
                 reason="Failed to stop manual recording",
@@ -360,4 +362,4 @@ class CameraAPIHandler(BaseAPIHandler):
             HTTPStatus.BAD_REQUEST,
             reason="Invalid action specified",
         )
-        return
+        return None

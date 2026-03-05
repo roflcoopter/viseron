@@ -16,11 +16,11 @@ from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.helpers import get_free_port, pop_if_full
 from viseron.helpers.logs import LogPipe
 from viseron.helpers.storage import Storage
-from viseron.watchdog.subprocess_watchdog import RestartablePopen
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
     from viseron import Viseron
+    from viseron.watchdog.subprocess_watchdog import RestartablePopen
 
 BASE_MANAGER_AUTHKEY_STORAGE_KEY = "base_manager_authkey"
 
@@ -96,7 +96,7 @@ class SubProcessWorker(ABC):
 
     def get_loglevel(self, log_str: str) -> tuple[int, str]:
         """Return loglevel for log string from subprocess."""
-        loglevel_str = log_str.split(" ")[0]
+        loglevel_str = log_str.split(" ", maxsplit=1)[0]
         return logging.getLevelName(loglevel_str), log_str.split(" ", 1)[-1]
 
     def _process_input_queue(self) -> None:
@@ -113,7 +113,7 @@ class SubProcessWorker(ABC):
         """Spawn subprocess."""
 
     @abstractmethod
-    def work_output(self, item):
+    def work_output(self, item) -> None:
         """Perform work on output item from child process."""
 
     def _process_output_queue(self) -> None:
@@ -137,8 +137,7 @@ class SubProcessWorker(ABC):
             self._process_frames_proc.communicate(timeout=5)
         except sp.TimeoutExpired:
             LOGGER.debug(
-                f"Subprocess {self.subprocess_name} did not terminate, "
-                "killing instead."
+                f"Subprocess {self.subprocess_name} did not terminate, killing instead."
             )
             self._process_frames_proc.kill()
             self._process_frames_proc.communicate()
@@ -156,7 +155,7 @@ class Server:
         authkey: str,
         process_queue: Queue,
         output_queue: Queue,
-    ):
+    ) -> None:
         self.address = address
         self.port = port
         self.authkey = authkey
@@ -172,7 +171,7 @@ class Server:
         )
         self._server_thread.start()
 
-    def start_server(self):
+    def start_server(self) -> None:
         """Start the server."""
         LOGGER.debug(f"Starting queue manager server on {self.address}:{self.port}")
         self._manager = start(
@@ -187,7 +186,7 @@ class Server:
         except SystemExit:
             LOGGER.debug("Stopped serving queue manager server")
 
-    def stop_server(self):
+    def stop_server(self) -> None:
         """Stop the server."""
         self._server_thread.stop()
         LOGGER.debug("Stopping queue manager server")
@@ -208,7 +207,7 @@ class BaseManagerAuthkeyStore:
         self._data = self._store.load()
 
     @property
-    def authkey(self):
+    def authkey(self) -> str:
         """Return authkey."""
         if "authkey" not in self._data:
             self._data["authkey"] = secrets.token_hex(16)

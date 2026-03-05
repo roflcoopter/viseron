@@ -1,7 +1,9 @@
 """go2rtc component."""
+
 from __future__ import annotations
 
 import logging
+from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
 import requests
@@ -43,7 +45,7 @@ class Go2RTC:
         self._create_config()
         self.restart()
 
-    def _create_config(self):
+    def _create_config(self) -> None:
         yaml = YAML()
         with open(GO2RTC_CONFIG, "w", encoding="utf-8") as config_file:
             yaml.dump(self._config[COMPONENT], config_file)
@@ -53,8 +55,8 @@ class Go2RTC:
         try:
             response = requests.get("http://localhost:1984/api/streams", timeout=5)
             response.raise_for_status()
-        except requests.RequestException as exc:
-            LOGGER.error("Failed to fetch cameras from go2rtc: %s", exc)
+        except requests.RequestException:
+            LOGGER.exception("Failed to fetch cameras from go2rtc")
             return []
 
         cameras = response.json()
@@ -65,11 +67,11 @@ class Go2RTC:
         LOGGER.debug("Restarting go2rtc")
         try:
             response = requests.post("http://localhost:1984/api/restart", timeout=5)
-        except requests.RequestException as exc:
-            LOGGER.error("Failed to restart go2rtc: %s", exc)
+        except requests.RequestException:
+            LOGGER.exception("Failed to restart go2rtc")
             return
 
-        if response.status_code == 200:
+        if response.status_code == HTTPStatus.OK:
             LOGGER.debug("Go2RTC restarted successfully")
         else:
             LOGGER.error("Failed to restart go2rtc: %s", response.text)

@@ -161,6 +161,8 @@ services:
       args:
         ARCH: amd64
         VISERON_VERSION: dev
+      cache_from:
+        - roflcoopter/amd64-viseron-tests:dev
     image: roflcoopter/amd64-viseron-tests:dev
     container_name: amd64-viseron-tests
     environment:

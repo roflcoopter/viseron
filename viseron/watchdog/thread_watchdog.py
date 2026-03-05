@@ -3,13 +3,15 @@ from __future__ import annotations
 
 import logging
 import threading
-from collections.abc import Callable
-from typing import overload
-
-from apscheduler.schedulers.background import BackgroundScheduler
+from typing import TYPE_CHECKING, overload
 
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.watchdog import WatchDog
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from apscheduler.schedulers.background import BackgroundScheduler
 
 LOGGER = logging.getLogger(__name__)
 
@@ -127,7 +129,7 @@ class RestartableThread(threading.Thread):
         self._base_class = base_class
         self._base_class_args = base_class_args
         self._stage = stage
-        setattr(self, "__stage__", stage)
+        self.__stage__ = stage
 
     def __repr__(self):
         """Return string representation of the thread."""

@@ -100,7 +100,7 @@ def detector_config(tmp_path: Path) -> dict[str, dict[str, Any]]:
 
 @pytest.fixture
 def detector(
-    patch_yolo: None,
+    patch_yolo: None,  # pylint: disable=unused-argument # noqa: ARG001
     vis: MockViseron,
     detector_config: dict[str, dict[str, Any]],
 ) -> od.ObjectDetector:

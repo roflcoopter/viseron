@@ -1,4 +1,5 @@
 """GStreamer camera."""
+
 from __future__ import annotations
 
 import time
@@ -8,7 +9,6 @@ from typing import TYPE_CHECKING, Any
 import cv2
 import voluptuous as vol
 
-from viseron import Viseron
 from viseron.components.ffmpeg.camera import FFMPEG_LOGLEVEL_SCEHMA
 from viseron.components.ffmpeg.const import (
     CONFIG_FFMPEG_LOGLEVEL,
@@ -116,12 +116,14 @@ from .const import (
     DESC_STREAM_FORMAT,
     DESC_USERNAME,
     DESC_WIDTH,
+    MAX_EMPTY_FRAMES,
     STREAM_FORMAT_MAP,
 )
 from .recorder import Recorder
 from .stream import Stream
 
 if TYPE_CHECKING:
+    from viseron import Viseron
     from viseron.components.nvr.nvr import FrameIntervalCalculator
     from viseron.components.storage.models import TriggerTypes
     from viseron.domains.camera.shared_frames import SharedFrame
@@ -231,9 +233,9 @@ RECORDER_SCHEMA = BASE_RECORDER_SCHEMA.extend(
 
 GSTREAMER_LOGLEVEL_SCHEMA = vol.Schema(vol.In(CONFIG_LOGLEVEL_TO_GSTREAMER.keys()))
 
-CAMERA_SCHEMA = BASE_CAMERA_CONFIG_SCHEMA.extend(STREAM_SCEHMA_DICT)
+_camera_schema_with_stream = BASE_CAMERA_CONFIG_SCHEMA.extend(STREAM_SCEHMA_DICT)
 
-CAMERA_SCHEMA = CAMERA_SCHEMA.extend(
+CAMERA_SCHEMA = _camera_schema_with_stream.extend(
     {
         vol.Required(CONFIG_HOST, description=DESC_HOST): str,
         vol.Optional(
@@ -304,7 +306,7 @@ class Camera(AbstractCamera):
 
         self.initialize_camera()
 
-    def _create_frame_reader(self):
+    def _create_frame_reader(self) -> RestartableThread:
         """Return a frame reader thread."""
         return RestartableThread(
             name="viseron.camera." + self.identifier,
@@ -374,7 +376,7 @@ class Camera(AbstractCamera):
                 continue
 
             empty_frames += 1
-            if empty_frames >= 10:
+            if empty_frames >= MAX_EMPTY_FRAMES:
                 self._logger.error("Did not receive a frame")
                 self.decode_error.set()
 
@@ -399,9 +401,7 @@ class Camera(AbstractCamera):
         if not self.connected:
             return False
 
-        if now - self._poll_timer > self._config[CONFIG_FRAME_TIMEOUT]:
-            return True
-        return False
+        return now - self._poll_timer > self._config[CONFIG_FRAME_TIMEOUT]
 
     def calculate_output_fps(self, scanners: list[FrameIntervalCalculator]) -> None:
         """Calculate the camera output fps based on registered frame scanners.
@@ -411,7 +411,7 @@ class Camera(AbstractCamera):
         """
         if self._config[CONFIG_RAW_PIPELINE]:
             self.output_fps = self.stream.fps
-            return
+            return None
 
         return super().calculate_output_fps(scanners)
 
@@ -441,9 +441,7 @@ class Camera(AbstractCamera):
         trigger_type: TriggerTypes,
     ) -> None:
         """Start camera recorder."""
-        self._recorder.start(
-            shared_frame, objects_in_fov if objects_in_fov else [], trigger_type
-        )
+        self._recorder.start(shared_frame, objects_in_fov or [], trigger_type)
 
     def stop_recorder(self) -> None:
         """Stop camera recorder."""
@@ -483,6 +481,6 @@ class Camera(AbstractCamera):
         return self._recorder
 
     @property
-    def is_recording(self):
+    def is_recording(self) -> bool:
         """Return recording status."""
         return self._recorder.is_recording

@@ -1,4 +1,5 @@
 """Object detector domain."""
+
 from __future__ import annotations
 
 import logging
@@ -35,7 +36,7 @@ from viseron.helpers.schemas import (
     FLOAT_MIN_ZERO_MAX_ONE,
 )
 from viseron.helpers.validators import CameraIdentifier, Deprecated
-from viseron.types import SnapshotDomain
+from viseron.viseron_types import SnapshotDomain
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .binary_sensor import (

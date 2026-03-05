@@ -1,7 +1,7 @@
 """Dummy setup.py so that pip does not try to install opencv-python-headless."""
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
-OPENCV_VERSION=
+OPENCV_VERSION = "TBD"
 
 setup(
     name="opencv-python-headless",

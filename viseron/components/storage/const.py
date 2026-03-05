@@ -1,4 +1,5 @@
 """Storage component constants."""
+
 from __future__ import annotations
 
 import os
@@ -12,7 +13,12 @@ COMPONENT: Final = "storage"
 DATABASE_URL = os.getenv(
     "POSTGRES_DATABASE_URL", "postgresql://postgres@localhost/viseron"
 )
-ENGINE = create_engine(DATABASE_URL, connect_args={"options": "-c timezone=UTC"})
+ENGINE = create_engine(
+    DATABASE_URL,
+    connect_args={"options": "-c timezone=UTC"},
+    pool_size=10,
+    max_overflow=90,
+)
 
 
 class CleanupJobNames(Enum):
@@ -189,7 +195,7 @@ DESC_SNAPSHOTS_TIERS = (
     "Default tiers for all domains, unless overridden in the domain configuration.<br>"
     f"{DESC_RECORDER_TIERS} "
 )
-DESC_TIMELAPSE_TIERS = "Tiers for timelapse videos. " f"{DESC_RECORDER_TIERS} "
+DESC_TIMELAPSE_TIERS = f"Tiers for timelapse videos. {DESC_RECORDER_TIERS} "
 DESC_DOMAIN_TIERS = DESC_RECORDER_TIERS
 DESC_FACE_RECOGNITION = (
     "Override the default snapshot tiers for face recognition. "

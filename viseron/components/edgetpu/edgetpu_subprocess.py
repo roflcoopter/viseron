@@ -8,6 +8,7 @@ The reason for running it in a separate shell and not using multiprocessing is t
 the EdgeTPU library is only compatible with Python 3.9 and the main process is running
 a newer version of Python.
 """
+
 import argparse
 import logging
 import queue
@@ -25,6 +26,8 @@ from manager import connect
 
 LOGGER = logging.getLogger(__name__)
 
+QUANTIZATION_TOLERANCE = 1e-5
+
 
 class MakeInterpreterError(Exception):
     """Error raised on all failures to make interpreter."""
@@ -33,7 +36,7 @@ class MakeInterpreterError(Exception):
 class EdgeTPU:
     """EdgeTPU interface."""
 
-    def __init__(self, device: str, model: str):
+    def __init__(self, device: str, model: str) -> None:
         self._device = device
         self.interpreter = self.make_interpreter(
             device=device,
@@ -41,7 +44,7 @@ class EdgeTPU:
         )
         LOGGER.debug("EdgeTPU initialized")
 
-    def make_interpreter(self, device, model):
+    def make_interpreter(self, device: str, model: str) -> tflite.Interpreter:
         """Make interpreter."""
         LOGGER.debug(f"Loading interpreter with device {device}, model {model}")
         if device == "cpu":
@@ -55,7 +58,7 @@ class EdgeTPU:
                     device=self._device,
                 )
             except Exception as error:
-                LOGGER.error(f"Error when trying to load EdgeTPU: {error}")
+                LOGGER.exception("Error when trying to load EdgeTPU")
                 raise MakeInterpreterError from error
         interpreter.allocate_tensors()
         return interpreter
@@ -68,40 +71,39 @@ class EdgeTPU:
         return model_width, model_height
 
     @abstractmethod
-    def work_input(self, item):
+    def work_input(self, item) -> None:
         """Perform work on input."""
 
 
 class EdgeTPUDetection(EdgeTPU):
     """EdgeTPU object detector interface."""
 
-    def work_input(self, item):
+    def work_input(self, item) -> None:
         """Perform object detection."""
         common.set_input(self.interpreter, item["frame"])
         self.interpreter.invoke()
-        processed_objects = []
         objs = detect.get_objects(self.interpreter, 0.1)
-        for obj in objs:
-            processed_objects.append(
-                {
-                    "label": obj.id,
-                    "score": float(obj.score),
-                    "bbox": {
-                        "xmin": obj.bbox.xmin,
-                        "ymin": obj.bbox.ymin,
-                        "xmax": obj.bbox.xmax,
-                        "ymax": obj.bbox.ymax,
-                    },
-                    "relative": False,
-                }
-            )
+        processed_objects = [
+            {
+                "label": obj.id,
+                "score": float(obj.score),
+                "bbox": {
+                    "xmin": obj.bbox.xmin,
+                    "ymin": obj.bbox.ymin,
+                    "xmax": obj.bbox.xmax,
+                    "ymax": obj.bbox.ymax,
+                },
+                "relative": False,
+            }
+            for obj in objs
+        ]
         item["result"] = processed_objects
 
 
 class EdgeTPUClassification(EdgeTPU):
     """EdgeTPU image classification interface."""
 
-    def work_input(self, item):
+    def work_input(self, item) -> None:
         """Perform image classification.
 
         Some models have unique input quantization values and require additional
@@ -112,7 +114,10 @@ class EdgeTPUClassification(EdgeTPU):
         zero_point = params["zero_points"]
         mean = 128.0
         std = 128.0
-        if abs(scale * std - 1) < 1e-5 and abs(mean - zero_point) < 1e-5:
+        if (
+            abs(scale * std - 1) < QUANTIZATION_TOLERANCE
+            and abs(mean - zero_point) < QUANTIZATION_TOLERANCE
+        ):
             # Input data does not require preprocessing.
             common.set_input(self.interpreter, item["frame"])
         else:
@@ -124,14 +129,10 @@ class EdgeTPUClassification(EdgeTPU):
             common.set_input(self.interpreter, normalized_input.astype(np.uint8))
 
         self.interpreter.invoke()
-        classifications = []
-        for classification in classify.get_classes(self.interpreter, top_k=1):
-            classifications.append(
-                {
-                    "label": classification.id,
-                    "score": float(classification.score),
-                }
-            )
+        classifications = [
+            {"label": classification.id, "score": float(classification.score)}
+            for classification in classify.get_classes(self.interpreter, top_k=1)
+        ]
         item["result"] = classifications
 
 
@@ -180,7 +181,7 @@ def worker_thread(
     model_type: str,
     input_queue: queue.Queue,
     output_queue: queue.Queue,
-):
+) -> None:
     """Run EdgeTPU model in a thread."""
     edgetpu_type = (
         EdgeTPUDetection if model_type == "object_detector" else EdgeTPUClassification
@@ -188,7 +189,7 @@ def worker_thread(
     try:
         edgetpu = edgetpu_type(device=device, model=model)
     except MakeInterpreterError:
-        LOGGER.error(f"Failed to make interpreter for device {device}")
+        LOGGER.exception(f"Failed to make interpreter for device {device}")
         output_queue.put((device, "init_failed"))
         return
     output_queue.put((device, "init_done"))
@@ -212,7 +213,7 @@ def worker_thread(
         output_queue.put((device, job))
 
 
-def main():
+def main() -> None:
     """Run EdgeTPU in a Python 3.9 subprocess."""
     parser = get_parser()
     args = parser.parse_args()

@@ -1,4 +1,5 @@
 """Generate docs skeleton."""
+
 # pylint: disable=wrong-import-position
 # flake8: noqa: E402
 import argparse
@@ -27,7 +28,7 @@ from viseron.helpers.validators import (
     Url,
     jinja2_template,
 )
-from viseron.types import SupportedDomains
+from viseron.viseron_types import SupportedDomains
 
 from .const import (
     DOCS_CONTENTS,
@@ -51,7 +52,7 @@ TYPES_MAP = {
 DOCS_PATH = "./docs/src/pages/components-explorer/components/{component}"
 
 
-# This function is copied and adapted from https://github.com/home-assistant-libs/voluptuous-serialize/blob/2.4.0/voluptuous_serialize/__init__.py # pylint: disable=line-too-long
+# This function is copied and adapted from https://github.com/home-assistant-libs/voluptuous-serialize/blob/2.4.0/voluptuous_serialize/__init__.py # pylint: disable=line-too-long  # noqa: E501
 def convert(schema, custom_convert=None):  # noqa: C901
     """Convert a voluptuous schema to a dictionary."""
     if isinstance(schema, vol.Schema):

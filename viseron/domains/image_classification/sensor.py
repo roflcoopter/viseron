@@ -1,4 +1,5 @@
 """Binary sensor that represents image classification."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -11,7 +12,10 @@ from .const import EVENT_IMAGE_CLASSIFICATION_EXPIRED, EVENT_IMAGE_CLASSIFICATIO
 if TYPE_CHECKING:
     from viseron import Event, Viseron
     from viseron.domains.camera import AbstractCamera
-    from viseron.domains.image_classification import EventImageClassification
+    from viseron.domains.image_classification import (
+        EventImageClassification,
+        ImageClassificationResult,
+    )
 
 
 class ImageClassificationSensor(CameraSensor):
@@ -27,28 +31,32 @@ class ImageClassificationSensor(CameraSensor):
 
     def setup(self) -> None:
         """Set up event listener."""
-        self._vis.listen_event(
-            EVENT_IMAGE_CLASSIFICATION_RESULT.format(
-                camera_identifier=self._camera.identifier
-            ),
-            self.result,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_IMAGE_CLASSIFICATION_RESULT.format(
+                    camera_identifier=self._camera.identifier
+                ),
+                self.result,
+            )
         )
-        self._vis.listen_event(
-            EVENT_IMAGE_CLASSIFICATION_EXPIRED.format(
-                camera_identifier=self._camera.identifier
-            ),
-            self.result_expired,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_IMAGE_CLASSIFICATION_EXPIRED.format(
+                    camera_identifier=self._camera.identifier
+                ),
+                self.result_expired,
+            )
         )
 
     @property
-    def state(self):
+    def state(self) -> str:
         """Return entity state."""
         if self._image_classification_event and self._image_classification_event.result:
             return self._image_classification_event.result[0].label
         return STATE_UNKNOWN
 
     @property
-    def extra_attributes(self):
+    def extra_attributes(self) -> dict[str, list[ImageClassificationResult]]:
         """Return entity attributes."""
         if self._image_classification_event and self._image_classification_event.result:
             return {"result": self._image_classification_event.result}

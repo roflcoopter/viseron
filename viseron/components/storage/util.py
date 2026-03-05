@@ -1,11 +1,11 @@
 """Storage component utility functions."""
+
 from __future__ import annotations
 
 import os
 import threading
 from dataclasses import dataclass
 from datetime import timedelta
-from types import TracebackType
 from typing import TYPE_CHECKING, Any
 
 from viseron.components.storage.const import (
@@ -23,10 +23,12 @@ from viseron.components.storage.const import (
     TIER_SUBCATEGORY_TIMELAPSE,
 )
 from viseron.events import EventData
-from viseron.types import SnapshotDomain
 
 if TYPE_CHECKING:
+    from types import TracebackType
+
     from viseron.domains.camera import AbstractCamera, FailedCamera
+    from viseron.viseron_types import SnapshotDomain
 
 
 def calculate_age(age: dict[str, Any]) -> timedelta:
@@ -35,10 +37,10 @@ def calculate_age(age: dict[str, Any]) -> timedelta:
         return timedelta(seconds=0)
 
     return timedelta(
-        days=age[CONFIG_DAYS] if age[CONFIG_DAYS] else 0,
-        hours=age[CONFIG_HOURS] if age[CONFIG_HOURS] else 0,
-        minutes=age[CONFIG_MINUTES] if age[CONFIG_MINUTES] else 0,
-        seconds=age.get(CONFIG_SECONDS, None) if age.get(CONFIG_SECONDS, None) else 0,
+        days=age[CONFIG_DAYS] or 0,
+        hours=age[CONFIG_HOURS] or 0,
+        minutes=age[CONFIG_MINUTES] or 0,
+        seconds=age.get(CONFIG_SECONDS) or 0,
     )
 
 
@@ -144,7 +146,7 @@ class RequestedFilesCount:
         timer.start()
         return self
 
-    def __enter__(self):
+    def __enter__(self) -> int:
         """Increment the counter when entering the context."""
         self.count += 1
         return self.count

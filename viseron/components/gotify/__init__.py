@@ -8,6 +8,7 @@ import logging
 import os
 import uuid
 from datetime import timedelta
+from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 import cv2
@@ -22,7 +23,6 @@ from viseron.components.webserver.const import (
 from viseron.components.webserver.public_image_token import PublicImageToken
 from viseron.const import DEFAULT_PORT, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import EVENT_RECORDER_START
-from viseron.domains.camera.recorder import EventRecorderData
 from viseron.helpers import escape_string, utcnow
 from viseron.helpers.logs import SensitiveInformationFilter
 from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
@@ -60,6 +60,7 @@ from .const import (
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
+    from viseron.domains.camera.recorder import EventRecorderData
 
 LOGGER = logging.getLogger(__name__)
 
@@ -121,7 +122,7 @@ CONFIG_SCHEMA: vol.Schema = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config) -> bool:
+def setup(vis: Viseron, config: dict) -> bool:
     """Set up the Gotify component."""
     component_config = config[COMPONENT]
 
@@ -137,7 +138,7 @@ def setup(vis: Viseron, config) -> bool:
 class GotifyEventNotifier:
     """Gotify event notifier class that sends notifications to a Gotify server."""
 
-    def __init__(self, vis, config) -> None:
+    def __init__(self, vis: Viseron, config: dict) -> None:
         self._vis = vis
         self._config = config
         SensitiveInformationFilter.add_sensitive_string(
@@ -266,8 +267,8 @@ class GotifyEventNotifier:
                     ),
                     self._loop,
                 )
-            except (cv2.error, TypeError, ValueError) as exc:
-                LOGGER.error("Failed to prepare image notification: %s", exc)
+            except (cv2.error, TypeError, ValueError):
+                LOGGER.exception("Failed to prepare image notification")
                 # Fall back to text-only notification
                 asyncio.run_coroutine_threadsafe(
                     self._send_text_notification(title, message), self._loop
@@ -278,16 +279,16 @@ class GotifyEventNotifier:
                 self._send_text_notification(title, message), self._loop
             )
 
-    async def _send_text_notification(self, title, message):
+    async def _send_text_notification(self, title, message) -> None:
         """Send a text-only notification to Gotify."""
         try:
             self._send_gotify_message(title, message)
-        except requests.RequestException as exc:
-            LOGGER.error("Failed to send Gotify message: %s", exc)
+        except requests.RequestException:
+            LOGGER.exception("Failed to send Gotify message")
 
     async def _send_notification_with_image(
         self, title, message, image, use_public_url=False
-    ):
+    ) -> None:
         """Send a notification with image to Gotify."""
         if image is None:
             LOGGER.error("Cannot send image notification: image is None")
@@ -300,12 +301,12 @@ class GotifyEventNotifier:
                 self._send_gotify_message_with_public_url(title, message, image)
             else:
                 self._send_gotify_message_with_image(title, message, image)
-        except requests.RequestException as exc:
-            LOGGER.error("Failed to send Gotify message with image: %s", exc)
+        except requests.RequestException:
+            LOGGER.exception("Failed to send Gotify message with image")
             # Fall back to text-only notification
             await self._send_text_notification(title, message)
 
-    def _send_gotify_message(self, title, message):
+    def _send_gotify_message(self, title, message) -> None:
         """Send a simple text message to Gotify."""
         url = f"{self._gotify_url}/message"
         headers = {"X-Gotify-Key": self._gotify_token}
@@ -316,7 +317,7 @@ class GotifyEventNotifier:
         }
 
         response = requests.post(url, headers=headers, json=data, timeout=10)
-        if response.status_code != 200:
+        if response.status_code != HTTPStatus.OK:
             LOGGER.error(
                 "Failed to send Gotify message: %s - %s",
                 response.status_code,
@@ -325,7 +326,7 @@ class GotifyEventNotifier:
         else:
             pass
 
-    def _send_gotify_message_with_image(self, title, message, image):
+    def _send_gotify_message_with_image(self, title, message, image) -> None:
         """Send a message with an image attachment to Gotify."""
         if image is None:
             LOGGER.error("Cannot send image notification: image is None")
@@ -355,7 +356,7 @@ class GotifyEventNotifier:
         }
 
         response = requests.post(url, headers=headers, json=data, timeout=30)
-        if response.status_code != 200:
+        if response.status_code != HTTPStatus.OK:
             LOGGER.error(
                 "Failed to send Gotify message with image: %s - %s",
                 response.status_code,
@@ -364,7 +365,7 @@ class GotifyEventNotifier:
         else:
             pass
 
-    def _send_gotify_message_with_public_url(self, title, message, image):
+    def _send_gotify_message_with_public_url(self, title, message, image) -> None:
         """Send a message with a public URL to the image."""
         if image is None:
             LOGGER.error("Cannot send image notification: image is None")
@@ -435,7 +436,7 @@ class GotifyEventNotifier:
             }
 
             response = requests.post(url, headers=headers, json=data, timeout=30)
-            if response.status_code != 200:
+            if response.status_code != HTTPStatus.OK:
                 LOGGER.error(
                     "Failed to send Gotify message with public URL: %s - %s",
                     response.status_code,
@@ -445,8 +446,8 @@ class GotifyEventNotifier:
                 if os.path.exists(image_file):
                     os.remove(image_file)
                 del self._vis.data[PUBLIC_IMAGE_TOKENS][token]
-        except Exception as exc:
-            LOGGER.error("Failed to create public URL for image: %s", exc)
+        except Exception:
+            LOGGER.exception("Failed to create public URL for image")
             # Clean up on error
             if os.path.exists(image_file):
                 os.remove(image_file)
@@ -454,11 +455,11 @@ class GotifyEventNotifier:
                 del self._vis.data[PUBLIC_IMAGE_TOKENS][token]
             raise
 
-    async def _run_until_stopped(self):
+    async def _run_until_stopped(self) -> None:
         while not self._stop_event.is_set():
             await asyncio.sleep(1)
 
-    def run_async(self):
+    def run_async(self) -> None:
         """Run GotifyEventNotifier in a new event loop."""
         asyncio.set_event_loop(self._loop)
         self._loop.run_until_complete(self._run_until_stopped())

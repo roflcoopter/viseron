@@ -1,4 +1,5 @@
 """Static file handler that looks through tiers to find a potentially moved file."""
+
 from __future__ import annotations
 
 import asyncio
@@ -6,6 +7,7 @@ import logging
 import os
 from typing import TYPE_CHECKING
 
+from viseron.components.webserver.const import MAX_FILE_SEARCH_TRIES
 from viseron.components.webserver.static_file_handler import (
     AccessTokenStaticFileHandler,
 )
@@ -43,14 +45,13 @@ class TieredFileHandler(AccessTokenStaticFileHandler):
         first_tier_path = self.get_argument("first_tier_path", None, strip=True)
         actual_tier_path = self.get_argument("actual_tier_path", None, strip=True)
 
-        if first_tier_path and actual_tier_path:
-            if _path.startswith(first_tier_path):
-                _path = _path.replace(first_tier_path, actual_tier_path, 1)
-                LOGGER.debug(
-                    "first_tier_path and actual_tier_path found, adjusted path to %s",
-                    _path,
-                )
-                return _path
+        if first_tier_path and actual_tier_path and _path.startswith(first_tier_path):
+            _path = _path.replace(first_tier_path, actual_tier_path, 1)
+            LOGGER.debug(
+                "first_tier_path and actual_tier_path found, adjusted path to %s",
+                _path,
+            )
+            return _path
         return None
 
     def _search_file(self, path: str) -> str | None:
@@ -76,7 +77,11 @@ class TieredFileHandler(AccessTokenStaticFileHandler):
             return None
         return super().compute_etag()
 
-    async def get(self, path, include_body=True) -> None:
+    async def get(
+        self,
+        path: str,
+        include_body: bool = True,  # noqa: FBT001, FBT002
+    ) -> None:
         """Look through tiers to find a potentially moved file."""
         tier_hint_redirect_path = self.handle_tier_hint(path)
         if tier_hint_redirect_path:
@@ -85,7 +90,7 @@ class TieredFileHandler(AccessTokenStaticFileHandler):
             return
 
         if not self._failed:
-            while self._tries < 10:
+            while self._tries < MAX_FILE_SEARCH_TRIES:
                 self._tries += 1
                 redirect_path = await self.run_in_executor(self._search_file, path)
                 if redirect_path:

@@ -241,7 +241,7 @@ class DiscordNotifier:
                 )
         else:
             # We can send video, check file size
-            assert clip_path is not None  # For type checking
+            assert clip_path is not None  # For type checking  # noqa: S101
             file_size = os.path.getsize(clip_path)
 
             # Prepare caption for video

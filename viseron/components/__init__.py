@@ -27,12 +27,12 @@ from viseron.domains import get_unload_order, unload_domain
 from viseron.exceptions import ComponentNotReady
 from viseron.helpers.named_timer import NamedTimer
 from viseron.helpers.storage import Storage
-from viseron.types import SupportedDomains
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.domains import OptionalDomain, RequireDomain
+    from viseron.viseron_types import SupportedDomains
 
 
 LOGGING_COMPONENTS = {"logger"}
@@ -262,7 +262,8 @@ def get_component(
     config: dict[str, Any],
 ) -> Component:
     """Get configured component."""
-    from viseron import (  # pylint: disable=import-outside-toplevel,import-self
+    # pylint: disable-next=import-outside-toplevel,import-self
+    from viseron import (  # noqa: PLC0415
         components,
     )
 
@@ -408,8 +409,9 @@ def activate_safe_mode(vis: Viseron) -> None:
 def setup_components(
     vis: Viseron,
     config: dict[str, Any],
+    *,
     reloading: bool = False,
-    domains_only=False,
+    domains_only: bool = False,
     components: set[str] | None = None,
 ) -> None:
     """Set up configured components."""

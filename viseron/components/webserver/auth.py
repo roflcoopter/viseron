@@ -1,4 +1,5 @@
 """Authentication."""
+
 from __future__ import annotations
 
 import base64
@@ -186,7 +187,7 @@ class Auth:
             if self._users is None:
                 LOGGER.debug("Loading users")
                 self._load()
-                assert self._users is not None
+                assert self._users is not None  # noqa: S101
         return self._users
 
     @property
@@ -196,7 +197,7 @@ class Auth:
             if self._refresh_tokens is None:
                 LOGGER.debug("Loading refresh tokens")
                 self._load()
-                assert self._refresh_tokens is not None
+                assert self._refresh_tokens is not None  # noqa: S101
         return self._refresh_tokens
 
     @property

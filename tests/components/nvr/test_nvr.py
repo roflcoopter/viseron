@@ -23,7 +23,7 @@ from viseron.domains.camera import EventFrameBytesData
 from viseron.domains.camera.recorder import ManualRecording
 from viseron.events import Event
 from viseron.helpers import utcnow
-from viseron.types import Domain
+from viseron.viseron_types import Domain
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from tests.common import MockCamera, MockMotionDetector, MockObjectDetector
@@ -122,11 +122,14 @@ def make_nvr(
         output_fps=camera_output_fps,
     )
 
-    with patch(
-        "viseron.components.nvr.nvr.OperationStateSensor", return_value=MagicMock()
-    ), patch(
-        "viseron.components.nvr.nvr.RestartableThread",
-        return_value=MagicMock(spec=RestartableThread),
+    with (
+        patch(
+            "viseron.components.nvr.nvr.OperationStateSensor", return_value=MagicMock()
+        ),
+        patch(
+            "viseron.components.nvr.nvr.RestartableThread",
+            return_value=MagicMock(spec=RestartableThread),
+        ),
     ):
         nvr = NVR(
             vis=vis,
@@ -904,7 +907,7 @@ class TestNVRRunBoth:
 class TestNVRRunManualRecording:
     """_run tests (manual recording)."""
 
-    def test_manual_recording_start_when_idle(self, vis, monkeypatch, caplog):
+    def test_manual_recording_start_when_idle(self, vis, monkeypatch):
         """Start manual recording when idle."""
         nvr, camera = make_nvr(vis, camera_output_fps=5)
         fake_time = FakeTime()

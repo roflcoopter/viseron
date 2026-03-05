@@ -1,4 +1,5 @@
 """Binary sensor that represents a known license plate."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
@@ -38,17 +39,21 @@ class LicensePlateRecognitionBinarySensor(CameraBinarySensor):
 
     def setup(self) -> None:
         """Set up event listener."""
-        self._vis.listen_event(
-            EVENT_PLATE_DETECTED.format(
-                camera_identifier=self._camera.identifier, plate=self._plate
-            ),
-            self.plate_detected,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_PLATE_DETECTED.format(
+                    camera_identifier=self._camera.identifier, plate=self._plate
+                ),
+                self.plate_detected,
+            )
         )
-        self._vis.listen_event(
-            EVENT_PLATE_EXPIRED.format(
-                camera_identifier=self._camera.identifier, plate=self._plate
-            ),
-            self.plate_expired,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_PLATE_EXPIRED.format(
+                    camera_identifier=self._camera.identifier, plate=self._plate
+                ),
+                self.plate_expired,
+            )
         )
 
     @property

@@ -1,4 +1,5 @@
 """FFmpeg constants."""
+
 import logging
 from typing import Final
 
@@ -7,6 +8,7 @@ COMPONENT = "ffmpeg"
 DESC_COMPONENT = "FFmpeg Configuration."
 
 ENV_FFMPEG_PATH = "VISERON_FFMPEG_PATH"
+MAX_EMPTY_FRAMES = 10
 
 STREAM_FORMAT_MAP = {
     "rtsp": {"protocol": "rtsp", "timeout_option": ["-timeout", "5000000"]},
@@ -188,7 +190,7 @@ CONFIG_CAMERA = "camera"
 
 CONFIG_HOST = "host"
 CONFIG_USERNAME = "username"
-CONFIG_PASSWORD = "password"
+CONFIG_PASSWORD = "password"  # noqa: S105
 CONFIG_GLOBAL_ARGS = "global_args"
 CONFIG_SUBSTREAM = "substream"
 CONFIG_FFMPEG_LOGLEVEL = "ffmpeg_loglevel"
@@ -219,7 +221,7 @@ DEFAULT_RECORD_ONLY = False
 DESC_CAMERA = "Camera domain config."
 DESC_HOST = "IP or hostname of camera."
 DESC_USERNAME = "Username for the camera stream."
-DESC_PASSWORD = "Password for the camera stream."
+DESC_PASSWORD = "Password for the camera stream."  # noqa: S105
 DESC_GLOBAL_ARGS = (
     "A valid list of FFmpeg arguments. "
     "These are applied before the <code>input_args</code>."

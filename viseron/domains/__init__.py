@@ -1,4 +1,5 @@
 """Viseron domains."""
+
 from __future__ import annotations
 
 import importlib
@@ -26,9 +27,11 @@ from viseron.domain_registry import DomainEntry, DomainState
 from viseron.exceptions import DomainNotReady
 from viseron.helpers.named_timer import NamedTimer
 
+SETUP_WITH_TRIES_PARAM_COUNT = 4
+
 if TYPE_CHECKING:
     from viseron import Viseron
-    from viseron.types import SupportedDomains
+    from viseron.viseron_types import SupportedDomains
 
 
 LOGGER = logging.getLogger(__name__)
@@ -77,7 +80,7 @@ class AbstractDomain(metaclass=DomainMeta):
     """Abstract domain class."""
 
     @abstractmethod
-    def __post_init__(self, *args, **kwargs):
+    def __post_init__(self, *args, **kwargs) -> None:
         """Post init, called automatically after __init__."""
 
 
@@ -177,11 +180,9 @@ def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bo
     component_path = entry.component_path
 
     LOGGER.info(
-        (
-            f"Setting up domain {entry.domain} with identifier {entry.identifier} "
-            f"for component {entry.component_name}"
-        )
-        + (f", attempt {tries}" if tries > 1 else "")
+        f"Setting up domain {entry.domain} with identifier {entry.identifier} "
+        f"for component {entry.component_name}"
+        f"{', attempt ' + str(tries) if tries > 1 else ''}"
     )
 
     if entry.state != DomainState.RETRYING:
@@ -199,7 +200,7 @@ def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bo
         domain_module = importlib.import_module(f"{component_path}.{entry.domain}")
     except ModuleNotFoundError as err:
         LOGGER.error(
-            "Failed to load domain module " f"{component_path}.{entry.domain}: {err}"
+            f"Failed to load domain module {component_path}.{entry.domain}: {err}"
         )
         _handle_failed_domain(vis, entry, DomainState.FAILED, error=str(err))
         return False
@@ -246,7 +247,7 @@ def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bo
     try:
         slow_setup_warning.start()
         sig = signature(domain_module.setup)
-        if len(sig.parameters) == 4:
+        if len(sig.parameters) == SETUP_WITH_TRIES_PARAM_COUNT:
             # If the setup function has an attempt parameter, we pass it
             result = domain_module.setup(vis, config, entry.identifier, tries)
         else:
@@ -274,7 +275,7 @@ def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bo
             f"with identifier {entry.identifier} "
             f"for component {entry.component_name} is not ready. "
             f"Retrying in {wait_time} seconds. "
-            f"Error: {str(error)}"
+            f"Error: {error!s}"
         )
 
         # Block until wait_time elapses or the domain is cancelled/shutdown.
@@ -296,7 +297,7 @@ def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bo
     except Exception as error:  # pylint: disable=broad-except
         LOGGER.exception(
             f"Uncaught exception setting up domain {entry.domain} for"
-            f" component {entry.component_name}: {error}"
+            f" component {entry.component_name}"
         )
         _handle_failed_domain(vis, entry, DomainState.FAILED, error=str(error))
         return False
@@ -434,7 +435,7 @@ def _handle_failed_domain(
         domain_module = importlib.import_module(f"viseron.domains.{entry.domain}")
         if hasattr(domain_module, "setup_failed"):
             error_instance = domain_module.setup_failed(vis, entry)
-    except Exception:  # pylint: disable=broad-except
+    except Exception:  # pylint: disable=broad-except # noqa: BLE001
         LOGGER.debug(
             f"No setup_failed handler for domain {entry.domain} "
             f"for component {entry.component_name}"
@@ -512,7 +513,7 @@ def unload_domain(
     if entry.instance and hasattr(entry.instance, "unload"):
         try:
             entry.instance.unload()
-        except Exception as ex:  # pylint: disable=broad-except
+        except Exception as ex:  # pylint: disable=broad-except # noqa: BLE001
             LOGGER.error(
                 f"Error unloading domain {domain} with identifier {identifier}: {ex}"
             )

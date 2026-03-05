@@ -1,4 +1,5 @@
 """Camera domain."""
+
 from __future__ import annotations
 
 import logging
@@ -9,7 +10,7 @@ from collections import deque
 from dataclasses import dataclass
 from functools import lru_cache
 from threading import Event, Timer
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 from uuid import uuid4
 
 import cv2
@@ -32,7 +33,7 @@ from viseron.const import TEMP_DIR
 from viseron.domain_registry import DomainEntry, DomainState
 from viseron.domains import AbstractDomain
 from viseron.domains.camera.const import DOMAIN
-from viseron.domains.camera.entity.sensor import CamerAccessTokenSensor
+from viseron.domains.camera.entity.sensor import CameraAccessTokenSensor
 from viseron.domains.camera.fragmenter import Fragmenter
 from viseron.domains.camera.recorder import FailedCameraRecorder
 from viseron.events import EventData, EventEmptyData
@@ -45,8 +46,10 @@ from viseron.helpers import (
     utcnow,
     zoom_boundingbox,
 )
-from viseron.helpers.logs import SensitiveInformationFilter
-from viseron.types import SnapshotDomain
+from viseron.helpers.logs import (
+    SensitiveInformationFilterTracker,
+)
+from viseron.viseron_types import SnapshotDomain
 
 from .const import (
     CONFIG_MJPEG_STREAMS,
@@ -64,6 +67,7 @@ from .const import (
     EVENT_CAMERA_STATUS_DISCONNECTED,
     EVENT_CAMERA_STILL_IMAGE_AVAILABLE,
     EVENT_CAMERA_STOPPED,
+    MAX_ACCESS_TOKENS,
     UPDATE_TOKEN_INTERVAL_MINUTES,
     VIDEO_CONTAINER,
 )
@@ -75,6 +79,8 @@ from .entity.toggle import CameraConnectionToggle
 from .shared_frames import SharedFrames
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from viseron import Viseron
     from viseron.components.nvr.nvr import FrameIntervalCalculator
     from viseron.components.storage.models import TriggerTypes
@@ -116,7 +122,9 @@ EVENT_FRAME_BYTES_TOPIC = "{camera_identifier}/camera/frame_bytes"
 class AbstractCamera(AbstractDomain):
     """Represent a camera."""
 
-    def __init__(self, vis: Viseron, component: str, config, identifier: str) -> None:
+    def __init__(
+        self, vis: Viseron, component: str, config: dict, identifier: str
+    ) -> None:
         self._vis = vis
         self._config = config
         self._identifier = identifier
@@ -135,19 +143,40 @@ class AbstractCamera(AbstractDomain):
         self.frame_bytes_topic = EVENT_FRAME_BYTES_TOPIC.format(
             camera_identifier=self.identifier
         )
-        self.access_tokens: deque = deque([], 2)
-        self.access_tokens.append(self.generate_token())
+
+        self._sensitive_string_tracker = SensitiveInformationFilterTracker()
+        self.access_tokens: deque = deque(maxlen=MAX_ACCESS_TOKENS)
+        access_token = self.generate_token()
+        self._sensitive_string_tracker.add_sensitive_string(access_token)
+        self.access_tokens.append(access_token)
 
         self._clear_cache_timer: Timer | None = None
-        vis.add_entity(component, ConnectionStatusBinarySensor(vis, self))
-        vis.add_entity(component, StillImageAvailableBinarySensor(vis, self))
-        vis.add_entity(component, CameraConnectionToggle(vis, self))
+        vis.add_entity(
+            component,
+            ConnectionStatusBinarySensor(vis, self),
+            DOMAIN,
+            identifier=self.identifier,
+        )
+        vis.add_entity(
+            component,
+            StillImageAvailableBinarySensor(vis, self),
+            DOMAIN,
+            identifier=self.identifier,
+        )
+        vis.add_entity(
+            component,
+            CameraConnectionToggle(vis, self),
+            DOMAIN,
+            identifier=self.identifier,
+        )
         self._access_token_entity = vis.add_entity(
-            component, CamerAccessTokenSensor(vis, self)
+            component,
+            CameraAccessTokenSensor(vis, self),
+            DOMAIN,
+            identifier=self.identifier,
         )
 
-        self.update_token()
-        self._vis.background_scheduler.add_job(
+        self._update_token_job = self._vis.background_scheduler.add_job(
             self.update_token, "interval", minutes=UPDATE_TOKEN_INTERVAL_MINUTES
         )
 
@@ -175,10 +204,10 @@ class AbstractCamera(AbstractDomain):
 
         self.fragmenter: Fragmenter = Fragmenter(vis, self)
         if self.config[CONFIG_PASSWORD]:
-            SensitiveInformationFilter.add_sensitive_string(
+            self._sensitive_string_tracker.add_sensitive_string(
                 self.config[CONFIG_PASSWORD]
             )
-            SensitiveInformationFilter.add_sensitive_string(
+            self._sensitive_string_tracker.add_sensitive_string(
                 escape_string(self._config[CONFIG_PASSWORD])
             )
 
@@ -186,9 +215,7 @@ class AbstractCamera(AbstractDomain):
             self._logger.debug("Still image is configured, setting availability.")
             self.still_image_available = True
 
-        self._ptz_support: str | None = None
-
-    def __post_init__(self, *args, **kwargs):
+    def __post_init__(self, *args, **kwargs) -> None:
         """Post init hook."""
         self._vis.register_domain(DOMAIN, self._identifier, self)
 
@@ -217,23 +244,23 @@ class AbstractCamera(AbstractDomain):
             "ptz_support": self.ptz_support,
         }
 
-    def generate_token(self):
+    def generate_token(self) -> str:
         """Generate a new access token."""
         return secrets.token_hex(64)
 
     def update_token(self) -> None:
         """Update access token."""
         old_access_token = None
-        if len(self.access_tokens) == 2:
+        if len(self.access_tokens) == MAX_ACCESS_TOKENS:
             old_access_token = self.access_tokens[0]
 
         new_access_token = self.generate_token()
-        SensitiveInformationFilter.add_sensitive_string(new_access_token)
+        self._sensitive_string_tracker.add_sensitive_string(new_access_token)
 
         self.access_tokens.append(new_access_token)
 
         if old_access_token:
-            SensitiveInformationFilter.remove_sensitive_string(
+            self._sensitive_string_tracker.remove_sensitive_string(
                 old_access_token,
             )
         self._access_token_entity.set_state()
@@ -243,7 +270,7 @@ class AbstractCamera(AbstractDomain):
         highest_fps = max(scanner.scan_fps for scanner in scanners)
         self.output_fps = highest_fps
 
-    def start_camera(self):
+    def start_camera(self) -> None:
         """Start camera streaming."""
         self.stopped.clear()
         self._start_camera()
@@ -253,10 +280,10 @@ class AbstractCamera(AbstractDomain):
         )
 
     @abstractmethod
-    def _start_camera(self):
+    def _start_camera(self) -> None:
         """Start camera streaming."""
 
-    def stop_camera(self):
+    def stop_camera(self) -> None:
         """Stop camera streaming."""
         self._stop_camera()
         self.still_image_available = self.still_image_configured
@@ -270,7 +297,7 @@ class AbstractCamera(AbstractDomain):
         self.current_frame = None
 
     @abstractmethod
-    def _stop_camera(self):
+    def _stop_camera(self) -> None:
         """Stop camera streaming."""
 
     @abstractmethod
@@ -279,19 +306,17 @@ class AbstractCamera(AbstractDomain):
         shared_frame: SharedFrame,
         objects_in_fov: list[DetectedObject] | None,
         trigger_type: TriggerTypes,
-    ):
+    ) -> None:
         """Start camera recorder."""
 
     @abstractmethod
-    def stop_recorder(self):
+    def stop_recorder(self) -> None:
         """Stop camera recorder."""
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Return camera name."""
-        return (
-            self._config[CONFIG_NAME] if self._config[CONFIG_NAME] else self.identifier
-        )
+        return self._config[CONFIG_NAME] or self.identifier
 
     @property
     def identifier(self) -> str:
@@ -299,7 +324,7 @@ class AbstractCamera(AbstractDomain):
         return self._identifier
 
     @property
-    def mjpeg_streams(self):
+    def mjpeg_streams(self) -> dict[str, Any]:
         """Return mjpeg streams."""
         return self._config[CONFIG_MJPEG_STREAMS]
 
@@ -310,11 +335,11 @@ class AbstractCamera(AbstractDomain):
 
     @property
     @abstractmethod
-    def output_fps(self):
+    def output_fps(self) -> int:
         """Return stream output fps."""
 
     @output_fps.setter
-    def output_fps(self, fps) -> None:
+    def output_fps(self, fps: int) -> None:
         """Set stream output fps."""
 
     @property
@@ -342,11 +367,11 @@ class AbstractCamera(AbstractDomain):
 
     @property
     @abstractmethod
-    def is_recording(self):
+    def is_recording(self) -> bool:
         """Return recording status."""
 
     @property
-    def is_on(self):
+    def is_on(self) -> bool:
         """Return if camera is on.
 
         Not the same as self.connected below.
@@ -361,7 +386,7 @@ class AbstractCamera(AbstractDomain):
         return self._connected
 
     @connected.setter
-    def connected(self, connected) -> None:
+    def connected(self, connected: bool) -> None:
         if connected == self._connected:
             return
 
@@ -421,10 +446,8 @@ class AbstractCamera(AbstractDomain):
     @property
     def live_stream_available(self) -> bool:
         """Return if live stream is available."""
-        if go2rtc := self._vis.data.get(GO2RTC_COMPONENT, None):
-            if self.identifier in go2rtc.configured_cameras():
-                return True
-        return False
+        go2rtc = self._vis.data.get(GO2RTC_COMPONENT, None)
+        return bool(go2rtc and self.identifier in go2rtc.configured_cameras())
 
     @property
     def config(self) -> dict[str, Any]:
@@ -443,17 +466,17 @@ class AbstractCamera(AbstractDomain):
         ][subcategory].tier_base_path
 
     @staticmethod
-    def _clear_snapshot_cache(clear_cache) -> None:
+    def _clear_snapshot_cache(clear_cache: Callable[[], None]) -> None:
         """Clear snapshot cache."""
         clear_cache()
 
-    @lru_cache(maxsize=2)
+    @lru_cache(maxsize=2)  # noqa: B019
     def get_snapshot(
         self,
         current_frame: SharedFrame,
-        width=None,
-        height=None,
-    ):
+        width: int | None = None,
+        height: int | None = None,
+    ) -> tuple[Literal[True], bytes] | tuple[Literal[False], None]:
         """Return current frame as jpg bytes.
 
         current_frame is passed in instead of taken from self.current_frame to allow
@@ -485,7 +508,7 @@ class AbstractCamera(AbstractDomain):
 
         if ret:
             return ret, jpg.tobytes()
-        return ret, False
+        return ret, None
 
     def _get_folder(self, domain: SnapshotDomain) -> str:
         if domain is SnapshotDomain.OBJECT_DETECTOR:
@@ -533,13 +556,28 @@ class AbstractCamera(AbstractDomain):
         if subfolder:
             folder = os.path.join(folder, subfolder)
 
-        filename = f"{utcnow().strftime('%Y-%m-%d-%H-%M-%S-')}{str(uuid4())}.jpg"
+        filename = f"{utcnow().strftime('%Y-%m-%d-%H-%M-%S-')}{uuid4()!s}.jpg"
 
         path = os.path.join(folder, filename)
         self._logger.debug(f"Saving snapshot to {path}")
         create_directory(folder)
         cv2.imwrite(path, snapshot_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
         return path
+
+    def unload(self) -> None:
+        """Unload camera."""
+        if self._clear_cache_timer:
+            self._clear_cache_timer.cancel()
+
+        try:
+            self._update_token_job.remove()
+        except Exception:  # pylint: disable=broad-except
+            self._logger.exception("Failed to remove update token job.")
+        self.stop_camera()
+        self.fragmenter.unload()
+        self._sensitive_string_tracker.clear_sensitive_strings()
+
+        self.get_snapshot.cache_clear()
 
 
 class FailedCamera:
@@ -555,7 +593,9 @@ class FailedCamera:
         """Initialize failed camera."""
         # Local import to avoid circular import
         # pylint: disable=import-outside-toplevel
-        from viseron.components.storage.tier_handler import add_file_handler
+        from viseron.components.storage.tier_handler import (  # noqa: PLC0415
+            add_file_handler,
+        )
 
         self._vis = vis
         self._entry = entry
@@ -620,7 +660,7 @@ class FailedCamera:
                     file.subcategory,
                 )
 
-    def as_dict(self):
+    def as_dict(self) -> dict[str, Any]:
         """Return camera as dict."""
         return {
             "name": self.name,
@@ -642,7 +682,7 @@ class FailedCamera:
         return self._config
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Return camera name."""
         return self._config.get(CONFIG_NAME, self._entry.identifier)
 
@@ -667,12 +707,12 @@ class FailedCamera:
         return VIDEO_CONTAINER
 
     @property
-    def error(self):
+    def error(self) -> str | None:
         """Return error."""
         return self._entry.error
 
     @property
-    def retrying(self):
+    def retrying(self) -> bool:
         """Return retrying."""
         return self._entry.state == DomainState.RETRYING
 
@@ -699,6 +739,6 @@ class FailedCamera:
         return tier_base_path
 
 
-def setup_failed(vis: Viseron, entry: DomainEntry):
+def setup_failed(vis: Viseron, entry: DomainEntry) -> FailedCamera:
     """Handle failed setup."""
     return FailedCamera(vis, entry)

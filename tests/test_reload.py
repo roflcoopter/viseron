@@ -1,11 +1,12 @@
 """Test reload functionality."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, call, patch
 
 from viseron.config import ComponentChange, ConfigDiff, DomainChange, IdentifierChange
-from viseron.domain_registry import DomainEntry
+from viseron.domain_registry import DomainEntry, DomainState
 from viseron.reload import (
     ReloadChanges,
     ReloadResult,
@@ -22,6 +23,7 @@ from viseron.reload import (
     _process_identifier_changes,
     _reload_config,
     _unload_domain_chain,
+    _unload_failed_dependents,
     _validate_config,
     reload_config,
 )
@@ -29,7 +31,7 @@ from viseron.reload import (
 if TYPE_CHECKING:
     import pytest
 
-    from viseron.types import SupportedDomains
+    from viseron.viseron_types import SupportedDomains
 
 
 def _make_domain_entry(
@@ -532,59 +534,6 @@ class TestLoadAndDiffConfig:
         mock_diff.assert_called_once_with(vis.config, new_cfg)
         mock_get_changes.assert_called_once_with(mock_diff.return_value)
 
-    @patch("viseron.reload._get_changes")
-    @patch("viseron.reload.diff_config")
-    @patch("viseron.reload.load_config")
-    def test_logs_no_changes(
-        self,
-        mock_load: MagicMock,
-        mock_diff: MagicMock,
-        mock_get_changes: MagicMock,
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        """Test that a log message is emitted when no changes."""
-        vis = MagicMock()
-        vis.config = {}
-        mock_load.return_value = {}
-        mock_diff.return_value = ConfigDiff()  # has_changes is False
-        mock_get_changes.return_value = ReloadChanges()
-
-        with caplog.at_level("INFO", logger="viseron.reload"):
-            _load_and_diff_config(vis)
-
-        assert "No configuration changes detected" in caplog.text
-
-    @patch("viseron.reload._get_changes")
-    @patch("viseron.reload.diff_config")
-    @patch("viseron.reload.load_config")
-    def test_no_log_when_changes_exist(
-        self,
-        mock_load: MagicMock,
-        mock_diff: MagicMock,
-        mock_get_changes: MagicMock,
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        """Test no 'no changes' log when diff has changes."""
-        vis = MagicMock()
-        vis.config = {"old": {}}
-        mock_load.return_value = {"new": {}}
-        diff = ConfigDiff(
-            component_changes={
-                "new": ComponentChange(
-                    component_name="new",
-                    old_config=None,
-                    new_config={},
-                ),
-            }
-        )
-        mock_diff.return_value = diff
-        mock_get_changes.return_value = ReloadChanges()
-
-        with caplog.at_level("INFO", logger="viseron.reload"):
-            _load_and_diff_config(vis)
-
-        assert "No configuration changes detected" not in caplog.text
-
 
 class TestHandleRemovedComponents:
     """Test _handle_removed_components function."""
@@ -921,12 +870,11 @@ class TestHandleModifiedIdentifiers:
         mock_chain.assert_called_once_with(vis, entry, plan)
 
     @patch("viseron.reload._unload_domain_chain")
-    def test_identifier_not_found_logs_error(
-        self, mock_chain: MagicMock, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        """Test that a missing identifier logs an error and does not unload."""
+    def test_identifier_not_found_no_unload(self, mock_chain: MagicMock) -> None:
+        """Test that a missing identifier does not trigger chain unload."""
         vis = MagicMock()
         vis.domain_registry.get_by_identifier.return_value = None
+        vis.domain_registry.get_dependents.return_value = []
         changes = ReloadChanges(
             identifiers_to_reload=[
                 IdentifierChange(
@@ -940,17 +888,13 @@ class TestHandleModifiedIdentifiers:
         )
         plan = SetupPlan()
 
-        with caplog.at_level("ERROR", logger="viseron.reload"):
-            _handle_modified_identifiers(vis, changes, plan)
+        _handle_modified_identifiers(vis, changes, plan)
 
         assert "ffmpeg" in plan.domain_components
         mock_chain.assert_not_called()
-        assert "no matching domain found to unload" in caplog.text
 
     @patch("viseron.reload._unload_domain_chain")
-    def test_multiple_identifiers_mixed(
-        self, mock_chain: MagicMock, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_multiple_identifiers_mixed(self, mock_chain: MagicMock) -> None:
         """Test multiple identifiers with mixed found/not-found results."""
         vis = MagicMock()
         entry = _make_domain_entry(
@@ -959,6 +903,7 @@ class TestHandleModifiedIdentifiers:
             identifier="cam1",
         )
         vis.domain_registry.get_by_identifier.side_effect = [entry, None]
+        vis.domain_registry.get_dependents.return_value = []
         changes = ReloadChanges(
             identifiers_to_reload=[
                 IdentifierChange(
@@ -979,12 +924,142 @@ class TestHandleModifiedIdentifiers:
         )
         plan = SetupPlan()
 
-        with caplog.at_level("ERROR", logger="viseron.reload"):
-            _handle_modified_identifiers(vis, changes, plan)
+        _handle_modified_identifiers(vis, changes, plan)
 
         assert plan.domain_components == {"darknet", "ffmpeg"}
         mock_chain.assert_called_once_with(vis, entry, plan)
-        assert "cam2" in caplog.text
+
+    @patch("viseron.reload._unload_domain_chain")
+    def test_added_identifier_unloads_failed_dependents(
+        self, mock_chain: MagicMock
+    ) -> None:
+        """Test that re-adding an identifier unloads its failed dependents."""
+        vis = MagicMock()
+        vis.domain_registry.get_by_identifier.return_value = None
+        failed_dep = _make_domain_entry(
+            component_name="darknet",
+            domain="object_detector",
+            identifier="cam1",
+        )
+        failed_dep.state = DomainState.FAILED
+        vis.domain_registry.get_dependents.return_value = [failed_dep]
+        changes = ReloadChanges(
+            identifiers_to_reload=[
+                IdentifierChange(
+                    component_name="ffmpeg",
+                    domain="camera",
+                    identifier="cam1",
+                    old_config=None,
+                    new_config={"host": "10.0.0.1"},
+                ),
+            ]
+        )
+        plan = SetupPlan()
+
+        _handle_modified_identifiers(vis, changes, plan)
+
+        assert "ffmpeg" in plan.domain_components
+        vis.domain_registry.get_dependents.assert_called_once_with("camera", "cam1")
+        mock_chain.assert_called_once_with(vis, failed_dep, plan)
+
+    @patch("viseron.reload._unload_domain_chain")
+    def test_modified_identifier_does_not_check_dependents(
+        self, mock_chain: MagicMock
+    ) -> None:
+        """Test that modifying an identifier does not check failed dependents."""
+        vis = MagicMock()
+        entry = _make_domain_entry()
+        vis.domain_registry.get_by_identifier.return_value = entry
+        changes = ReloadChanges(
+            identifiers_to_reload=[
+                IdentifierChange(
+                    component_name="ffmpeg",
+                    domain="camera",
+                    identifier="cam1",
+                    old_config={"host": "192.168.1.1"},
+                    new_config={"host": "10.0.0.1"},
+                ),
+            ]
+        )
+        plan = SetupPlan()
+
+        _handle_modified_identifiers(vis, changes, plan)
+
+        # Should only call _unload_domain_chain for the entry itself,
+        # not check get_dependents since it's a modification, not addition.
+        mock_chain.assert_called_once_with(vis, entry, plan)
+        vis.domain_registry.get_dependents.assert_not_called()
+
+
+class TestUnloadFailedDependents:
+    """Test _unload_failed_dependents function."""
+
+    @patch("viseron.reload._unload_domain_chain")
+    def test_no_dependents(self, mock_chain: MagicMock) -> None:
+        """Test with no dependents."""
+        vis = MagicMock()
+        vis.domain_registry.get_dependents.return_value = []
+        plan = SetupPlan()
+
+        _unload_failed_dependents(vis, "camera", "cam1", plan)
+
+        mock_chain.assert_not_called()
+
+    @patch("viseron.reload._unload_domain_chain")
+    def test_only_failed_dependents_unloaded(self, mock_chain: MagicMock) -> None:
+        """Test that only failed/retrying dependents are unloaded."""
+        vis = MagicMock()
+        failed_dep = _make_domain_entry(
+            component_name="darknet",
+            domain="object_detector",
+            identifier="cam1",
+        )
+        failed_dep.state = DomainState.FAILED
+        retrying_dep = _make_domain_entry(
+            component_name="background_subtractor",
+            domain="motion_detector",
+            identifier="cam1",
+        )
+        retrying_dep.state = DomainState.RETRYING
+        loaded_dep = _make_domain_entry(
+            component_name="nvr",
+            domain="nvr",
+            identifier="cam1",
+        )
+        loaded_dep.state = DomainState.LOADED
+        vis.domain_registry.get_dependents.return_value = [
+            failed_dep,
+            retrying_dep,
+            loaded_dep,
+        ]
+        plan = SetupPlan()
+
+        _unload_failed_dependents(vis, "camera", "cam1", plan)
+
+        assert mock_chain.call_count == 2
+        mock_chain.assert_has_calls(
+            [
+                call(vis, failed_dep, plan),
+                call(vis, retrying_dep, plan),
+            ]
+        )
+
+    @patch("viseron.reload._unload_domain_chain")
+    def test_pending_dependents_not_unloaded(self, mock_chain: MagicMock) -> None:
+        """Test that pending dependents are not unloaded."""
+        vis = MagicMock()
+        pending_dep = _make_domain_entry(
+            component_name="darknet",
+            domain="object_detector",
+            identifier="cam1",
+        )
+        pending_dep.state = DomainState.PENDING
+        vis.domain_registry.get_dependents.return_value = [pending_dep]
+        plan = SetupPlan()
+
+        _unload_failed_dependents(vis, "camera", "cam1", plan)
+
+        mock_chain.assert_not_called()
 
 
 class TestHandleCancelledRetries:
@@ -1265,17 +1340,65 @@ class TestReloadConfigPublic:
     """Test reload_config function."""
 
     @patch("viseron.reload._reload_config")
-    def test_cancels_retries_and_delegates(self, mock_inner: MagicMock) -> None:
+    def test_cancels_retries_and_delegates(
+        self, mock_inner: MagicMock, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """Test that retries are cancelled, lock is acquired, and result returned."""
         vis = MagicMock()
         cancelled = [_make_domain_entry()]
         vis.domain_registry.cancel_all_retries.return_value = cancelled
-        expected = ReloadResult(success=True)
+        diff = ConfigDiff(
+            component_changes={
+                "new_comp": ComponentChange(
+                    component_name="new_comp",
+                    old_config=None,
+                    new_config={"key": "val"},
+                ),
+            }
+        )
+        expected = ReloadResult(success=True, diff=diff)
         mock_inner.return_value = expected
 
-        result = reload_config(vis)
+        with caplog.at_level("DEBUG", logger="viseron.reload"):
+            result = reload_config(vis)
 
         assert result is expected
         vis.domain_registry.cancel_all_retries.assert_called_once()
         vis.initialized_event.wait.assert_called_once()
         mock_inner.assert_called_once_with(vis, cancelled)
+        assert "Config reload completed in" in caplog.text
+
+    @patch("viseron.reload._reload_config")
+    def test_reload_config_no_changes(
+        self, mock_inner: MagicMock, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test that reload_config logs no changes when diff has no changes."""
+        vis = MagicMock()
+        diff = ConfigDiff()
+        expected = ReloadResult(success=True, diff=diff)
+        mock_inner.return_value = expected
+
+        with caplog.at_level("DEBUG", logger="viseron.reload"):
+            result = reload_config(vis)
+
+        assert result is expected
+        vis.domain_registry.cancel_all_retries.assert_called_once()
+        vis.initialized_event.wait.assert_called_once()
+        assert "No configuration changes detected" in caplog.text
+
+    @patch("viseron.reload._reload_config")
+    def test_reload_config_result_error(
+        self, mock_inner: MagicMock, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test that reload_config logs an error when the reload fails."""
+        vis = MagicMock()
+        expected = ReloadResult(success=False)
+        mock_inner.return_value = expected
+
+        with caplog.at_level("DEBUG", logger="viseron.reload"):
+            result = reload_config(vis)
+
+        assert result is expected
+        vis.domain_registry.cancel_all_retries.assert_called_once()
+        vis.initialized_event.wait.assert_called_once()
+        assert "Config reload failed with errors" in caplog.text
