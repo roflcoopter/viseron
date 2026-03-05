@@ -240,9 +240,10 @@ class AbstractPostProcessor(AbstractDomain):
         for unsubscribe in self._event_listeners:
             unsubscribe()
 
-        self._processor_thread.stop()
         self.stop()
 
     def stop(self) -> None:
         """Stop post processor."""
         self._kill_received = True
+        self._processor_thread.stop()
+        self._processor_thread.join()
