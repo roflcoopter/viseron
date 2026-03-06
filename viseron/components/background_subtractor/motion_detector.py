@@ -1,18 +1,23 @@
 """Background subtractor motion detection."""
+
 from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
 
-from viseron import Viseron
 from viseron.domains.motion_detector import AbstractMotionDetectorScanner
 from viseron.domains.motion_detector.const import CONFIG_CAMERAS, DOMAIN
 from viseron.domains.motion_detector.contours import Contours
 
 from .const import COMPONENT, CONFIG_ALPHA, CONFIG_THRESHOLD
 
+if TYPE_CHECKING:
+    from viseron import Viseron
 
-def setup(vis: Viseron, config, identifier) -> bool:
+
+def setup(vis: Viseron, config: dict, identifier: str) -> bool:
     """Set up the background_subtractor motion_detector domain."""
     MotionDetector(vis, config[DOMAIN], identifier)
 
@@ -22,14 +27,14 @@ def setup(vis: Viseron, config, identifier) -> bool:
 class MotionDetector(AbstractMotionDetectorScanner):
     """Perform motion detection."""
 
-    def __init__(self, vis: Viseron, config, camera_identifier) -> None:
+    def __init__(self, vis: Viseron, config: dict, camera_identifier: str) -> None:
         super().__init__(vis, COMPONENT, config, camera_identifier)
         self._camera_config = config[CONFIG_CAMERAS][camera_identifier]
 
         self._avg: np.ndarray | None = None
         self._empty_mat = cv2.Mat(np.empty((3, 3), np.uint8))
 
-    def preprocess(self, frame: np.ndarray):
+    def preprocess(self, frame: np.ndarray) -> np.ndarray:
         """Resize the frame to the desired width and height."""
         return cv2.resize(
             frame,
