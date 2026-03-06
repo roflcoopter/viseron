@@ -5,17 +5,17 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from threading import Lock, Thread
-from typing import TYPE_CHECKING
+from threading import Lock
+from typing import TYPE_CHECKING, Any
 
+import aiofiles.os
 import requests
 import voluptuous as vol
 
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
-from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.const import EVENT_RECORDER_COMPLETE, EVENT_RECORDER_START
-from viseron.domains.camera.recorder import EventRecorderData, Recording
 from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
+from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
     COMPONENT,
@@ -38,6 +38,8 @@ from .const import (
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
+    from viseron.domains.camera import AbstractCamera
+    from viseron.domains.camera.recorder import EventRecorderData, Recording
 
 LOGGER = logging.getLogger(__name__)
 
@@ -98,25 +100,30 @@ CONFIG_SCHEMA: vol.Schema = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config) -> bool:
+def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     """Set up the Discord component."""
     component_config = config[COMPONENT]
 
-    discord_notifier = DiscordNotifier(vis, component_config)
-    Thread(target=discord_notifier.run_async).start()
+    vis.data[COMPONENT] = DiscordNotifier(vis, component_config)
 
-    vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, discord_notifier.stop)
     return True
 
 
+def unload(vis: Viseron) -> None:
+    """Unload the Discord component."""
+    notifier = vis.data.get(COMPONENT)
+    if notifier:
+        notifier.stop()
+        del vis.data[COMPONENT]
+
+
 class DiscordNotifier:
-    """
-    Discord webhook notifier class.
+    """Discord webhook notifier class.
 
     This class sends notifications to a Discord webhook when an event occurs.
     """
 
-    def __init__(self, vis, config) -> None:
+    def __init__(self, vis: Viseron, config: dict[str, Any]) -> None:
         self._vis = vis
         self._config = config
         self._webhook_url = self._config[CONFIG_DISCORD_WEBHOOK_URL]
@@ -127,24 +134,35 @@ class DiscordNotifier:
         self._lock = Lock()
 
         # Register for recorder events for all configured cameras
+        self._event_listeners = []
         for camera_identifier in self._config[CONFIG_CAMERAS]:
-            self._vis.listen_event(
-                EVENT_RECORDER_START.format(camera_identifier=camera_identifier),
-                self._recorder_start_event,
+            self._event_listeners.append(
+                self._vis.listen_event(
+                    EVENT_RECORDER_START.format(camera_identifier=camera_identifier),
+                    self._recorder_start_event,
+                )
             )
-            self._vis.listen_event(
-                EVENT_RECORDER_COMPLETE.format(camera_identifier=camera_identifier),
-                self._recorder_complete_event,
+            self._event_listeners.append(
+                self._vis.listen_event(
+                    EVENT_RECORDER_COMPLETE.format(camera_identifier=camera_identifier),
+                    self._recorder_complete_event,
+                )
             )
 
-        self._vis.data[COMPONENT] = self
+        self._thread = RestartableThread(
+            name="DiscordNotifierThread", daemon=True, target=self.run_async
+        )
+        self._thread.start()
+        self._event_listeners.append(
+            vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
+        )
 
-    def _get_camera_config(self, camera_identifier: str, key: str, default=None):
+    def _get_camera_config(self, camera_identifier: str, key: str, default=None) -> Any:
         """Get camera-specific config or global default."""
         camera_config = self._config[CONFIG_CAMERAS].get(camera_identifier, {})
         return camera_config.get(key, self._config.get(key, default))
 
-    def _get_webhook_url(self, camera_identifier: str | None):
+    def _get_webhook_url(self, camera_identifier: str | None) -> Any:
         """Get webhook URL for a specific camera or global default."""
         camera_config = self._config[CONFIG_CAMERAS].get(camera_identifier, {})
         return camera_config.get(CONFIG_DISCORD_WEBHOOK_URL, self._webhook_url)
@@ -215,7 +233,7 @@ class DiscordNotifier:
             not already_sent
             and send_video
             and clip_path is not None
-            and os.path.exists(clip_path)
+            and await aiofiles.os.path.exists(clip_path)
         )
 
         # If we can't send video, send a message with thumbnail
@@ -231,7 +249,7 @@ class DiscordNotifier:
             if (
                 send_thumbnail
                 and thumbnail_path is not None
-                and os.path.exists(thumbnail_path)
+                and await aiofiles.os.path.exists(thumbnail_path)
             ):
                 self._send_discord_file(
                     thumbnail_path,
@@ -242,7 +260,7 @@ class DiscordNotifier:
         else:
             # We can send video, check file size
             assert clip_path is not None  # For type checking  # noqa: S101
-            file_size = os.path.getsize(clip_path)
+            file_size = await aiofiles.os.path.getsize(clip_path)
 
             # Prepare caption for video
             caption = f"Complete video from {camera.identifier}"
@@ -290,10 +308,10 @@ class DiscordNotifier:
         try:
             response = requests.post(webhook_url, json={"content": content}, timeout=30)
             response.raise_for_status()
-            return True
         except requests.RequestException as e:
             LOGGER.error(f"Failed to send Discord message: {e}")
             return False
+        return True
 
     def _send_discord_file(
         self, file_path: str, content: str, filename: str, camera_identifier: str
@@ -313,10 +331,10 @@ class DiscordNotifier:
                     timeout=60,
                 )
             response.raise_for_status()
-            return True
         except requests.RequestException as e:
             LOGGER.error(f"Failed to send Discord file {file_path}: {e}")
             return False
+        return True
 
     def _send_discord_file_partial(
         self,
@@ -343,23 +361,28 @@ class DiscordNotifier:
                 timeout=60,
             )
             response.raise_for_status()
-            return True
         except requests.RequestException as e:
             LOGGER.error(f"Failed to send partial Discord file {file_path}: {e}")
             return False
+        return True
 
-    async def _run_until_stopped(self):
+    async def _run_until_stopped(self) -> None:
         """Run until stopped."""
         while not self._stop_event.is_set():
             await asyncio.sleep(1)
 
-    def run_async(self):
+    def run_async(self) -> None:
         """Run DiscordNotifier in a new event loop."""
         asyncio.set_event_loop(self._loop)
         self._loop.run_until_complete(self._run_until_stopped())
-        LOGGER.info("DiscordNotifier done")
+        LOGGER.debug("DiscordNotifier done")
 
     def stop(self) -> None:
         """Stop DiscordNotifier component."""
+        LOGGER.debug("Stopping DiscordNotifier")
+        for unsubscribe in self._event_listeners:
+            unsubscribe()
         self._stop_event.set()
-        LOGGER.info("Stopping DiscordNotifier")
+        self._thread.stop()
+        self._thread.join()
+        LOGGER.debug("DiscordNotifier stopped")
