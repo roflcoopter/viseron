@@ -10,8 +10,6 @@ from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 
-from viseron.domains.camera.shared_frames import SharedFrame
-from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.domains.post_processor import (
     BASE_CONFIG_SCHEMA,
     AbstractPostProcessor,
@@ -47,6 +45,8 @@ from .const import (
 
 if TYPE_CHECKING:
     from viseron import Viseron
+    from viseron.domains.camera.shared_frames import SharedFrame
+    from viseron.domains.object_detector.detected_object import DetectedObject
 
 BASE_CONFIG_SCHEMA = BASE_CONFIG_SCHEMA.extend(
     {
@@ -122,6 +122,7 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         component: str,
         config: dict,
         camera_identifier: str,
+        *,
         generate_entities: bool = True,
     ) -> None:
         super().__init__(vis, config, camera_identifier)
@@ -137,7 +138,7 @@ class AbstractFaceRecognition(AbstractPostProcessor):
                     camera_identifier,
                 )
 
-    def __post_init__(self, *args, **kwargs):
+    def __post_init__(self, *args, **kwargs) -> None:
         """Post init hook."""
         self._vis.register_domain(DOMAIN, self._camera_identifier, self)
 
@@ -228,7 +229,7 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         if self._config[CONFIG_SAVE_UNKNOWN_FACES]:
             self._save_face(face_dict, coordinates, shared_frame)
 
-    def expire_face(self, face) -> None:
+    def expire_face(self, face: str) -> None:
         """Expire no longer found face."""
         self._logger.debug(f"Expiring face {face}")
         self._vis.dispatch_event(

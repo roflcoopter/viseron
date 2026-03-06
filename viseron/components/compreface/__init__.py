@@ -1,4 +1,5 @@
 """CompreFace face recognition."""
+
 import logging
 from typing import Any
 
@@ -134,7 +135,7 @@ def setup_domains(vis: Viseron, config: dict[str, Any]) -> None:
     if not config.get(CONFIG_FACE_RECOGNITION, None):
         return
 
-    for camera_identifier in config[CONFIG_FACE_RECOGNITION][CONFIG_CAMERAS].keys():
+    for camera_identifier in config[CONFIG_FACE_RECOGNITION][CONFIG_CAMERAS]:
         setup_domain(
             vis,
             COMPONENT,
@@ -148,3 +149,10 @@ def setup_domains(vis: Viseron, config: dict[str, Any]) -> None:
                 )
             ],
         )
+
+
+def unload(vis: Viseron) -> bool:
+    """Unload the compreface component."""
+    if COMPONENT in vis.data:
+        del vis.data[COMPONENT]
+    return True
