@@ -55,9 +55,11 @@ class SetupPlan:
     domain_components: set[str] = field(default_factory=set)
 
 
-def _unload_domain_chain(vis: Viseron, entry: DomainEntry, plan: SetupPlan) -> None:
+def _unload_domain_chain(
+    vis: Viseron, domain: SupportedDomains, identifier: str, plan: SetupPlan
+) -> None:
     """Unload a domain and all its dependents in the correct order."""
-    unload_order = get_unload_order(vis, entry.domain, entry.identifier)
+    unload_order = get_unload_order(vis, domain, identifier)
     for e in unload_order:
         plan.domain_components.add(e.component_name)
         unload_domain(vis, e.domain, e.identifier)
@@ -165,6 +167,8 @@ def _load_and_diff_config(
     )
 
     changes = _get_changes(diff)
+    LOGGER.debug(f"Components to add: {diff.get_added_components()}")
+    LOGGER.debug(f"Components to remove: {diff.get_removed_components()}")
     LOGGER.debug(f"Components to reload: {changes.components_to_reload}")
     LOGGER.debug(f"Domains to reload: {changes.domains_to_reload}")
     LOGGER.debug(f"Identifiers to reload: {changes.identifiers_to_reload}")
@@ -221,35 +225,7 @@ def _handle_modified_domains(
             )
 
             for entry in domains_to_unload:
-                _unload_domain_chain(vis, entry, plan)
-
-
-def _unload_failed_dependents(
-    vis: Viseron,
-    domain: SupportedDomains,
-    identifier: str,
-    plan: SetupPlan,
-) -> None:
-    """Unload failed/retrying dependents of a domain identifier.
-
-    When an identifier is added (or re-added after removal), any dependents
-    that previously failed because this identifier was missing need to be
-    unloaded so they can be re-setup.
-    """
-    dependents = vis.domain_registry.get_dependents(domain, identifier)
-    failed_dependents = [
-        dep
-        for dep in dependents
-        if dep.state in (DomainState.FAILED, DomainState.RETRYING)
-    ]
-    for dep in failed_dependents:
-        LOGGER.debug(
-            f"Unloading failed domain {dep.domain} "
-            f"with identifier {dep.identifier} "
-            f"since its dependency domain {domain} "
-            f"with identifier {identifier} was added"
-        )
-        _unload_domain_chain(vis, dep, plan)
+                _unload_domain_chain(vis, entry.domain, entry.identifier, plan)
 
 
 def _handle_modified_identifiers(
@@ -262,13 +238,18 @@ def _handle_modified_identifiers(
             identifier_change.domain, identifier_change.identifier
         )
         if domain_to_unload:
-            _unload_domain_chain(vis, domain_to_unload, plan)
+            _unload_domain_chain(
+                vis,
+                domain_to_unload.domain,
+                domain_to_unload.identifier,
+                plan,
+            )
 
         if identifier_change.is_added:
             # When an identifier is added (or re-added after being removed),
-            # find any failed dependents that were waiting for this identifier
+            # find any dependents of this identifier
             # and unload them so they can be re-setup.
-            _unload_failed_dependents(
+            _unload_domain_chain(
                 vis,
                 identifier_change.domain,
                 identifier_change.identifier,
@@ -285,7 +266,31 @@ def _handle_cancelled_retries(
             f"Unloading retrying domain {entry.domain} with identifier "
             f"{entry.identifier} that was cancelled during reload"
         )
-        _unload_domain_chain(vis, entry, plan)
+        _unload_domain_chain(vis, entry.domain, entry.identifier, plan)
+
+
+def _unload_dependents_of_pending_domains(vis: Viseron, plan: SetupPlan) -> None:
+    """Unload dependents of newly pending domains.
+
+    When new domains become available (e.g., adding a component which provides
+    object_detector), existing LOADED domains that have these new domains
+    as optional dependencies need to be unloaded and re-setup to incorporate
+    the new dependency.
+    """
+    pending = vis.domain_registry.get_pending()
+    for entry in pending:
+        dependents = vis.domain_registry.get_dependents(entry.domain, entry.identifier)
+        loaded_dependents = [
+            dep for dep in dependents if dep.state != DomainState.PENDING
+        ]
+        for dep in loaded_dependents:
+            LOGGER.debug(
+                f"Unloading loaded domain {dep.domain} "
+                f"with identifier {dep.identifier} "
+                f"because its dependency {entry.domain} "
+                f"with identifier {entry.identifier} is now available"
+            )
+            _unload_domain_chain(vis, dep.domain, dep.identifier, plan)
 
 
 def _apply_setup_plan(vis: Viseron, new_config: dict, plan: SetupPlan) -> None:
@@ -301,6 +306,10 @@ def _apply_setup_plan(vis: Viseron, new_config: dict, plan: SetupPlan) -> None:
         reloading=True,
         components=plan.components,
     )
+    # After new components register their domains as PENDING, unload any
+    # dependents so they can be re-setup with the new dependency.
+    _unload_dependents_of_pending_domains(vis, plan)
+
     LOGGER.debug(f"Components to setup domains for: {plan.domain_components}")
     setup_components(
         vis,
