@@ -1,4 +1,5 @@
 """Binary sensor that represents face recognition."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -50,7 +51,7 @@ class FaceDetectionBinarySensor(CameraBinarySensor):
         return self._detected
 
     @property
-    def extra_attributes(self):
+    def extra_attributes(self) -> dict:
         """Return entity attributes."""
         if self._face:
             return {
