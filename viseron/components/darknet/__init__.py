@@ -1,4 +1,5 @@
 """Darknet object detection."""
+
 from __future__ import annotations
 
 import configparser
@@ -8,13 +9,11 @@ import os
 import pwd
 from abc import ABC, abstractmethod
 from queue import Empty, Queue
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import cv2
-import numpy as np
 import voluptuous as vol
 
-from viseron import Viseron
 from viseron.const import ENV_CUDA_SUPPORTED, ENV_OPENCL_SUPPORTED
 from viseron.domains import OptionalDomain, RequireDomain, setup_domain
 from viseron.domains.motion_detector.const import DOMAIN as MOTION_DETECTOR_DOMAIN
@@ -63,6 +62,11 @@ from .const import (
     DNN_OPENCV,
     DNN_TARGETS,
 )
+
+if TYPE_CHECKING:
+    import numpy as np
+
+    from viseron import Viseron
 
 LOGGER = logging.getLogger(__name__)
 
@@ -140,7 +144,7 @@ def setup_domains(vis: Viseron, config: dict[str, Any]) -> None:
     """Set up darknet domains."""
     config = config[COMPONENT]
 
-    for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS].keys():
+    for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS]:
         setup_domain(
             vis,
             COMPONENT,
@@ -160,6 +164,13 @@ def setup_domains(vis: Viseron, config: dict[str, Any]) -> None:
                 ),
             ],
         )
+
+
+def unload(vis: Viseron) -> None:
+    """Unload the darknet component."""
+    if COMPONENT in vis.data:
+        vis.data[COMPONENT].stop()
+        del vis.data[COMPONENT]
 
 
 class LoadDarknetError(ViseronError):
@@ -210,12 +221,12 @@ class BaseDarknet(ABC):
         return self._model_height
 
     @property
-    def model_res(self):
+    def model_res(self) -> tuple[int, int]:
         """Return trained model resolution."""
         return self.model_width, self.model_height
 
     @abstractmethod
-    def preprocess(self, frame):
+    def preprocess(self, frame: np.ndarray) -> np.ndarray | bytes:
         """Pre process frame before detection."""
 
     @abstractmethod
@@ -223,8 +234,12 @@ class BaseDarknet(ABC):
         """Perform detection."""
 
     @abstractmethod
-    def post_process(self, detections, camera_resolution):
+    def post_process(self, detections, camera_resolution) -> list[DetectedObject]:
         """Post process detections."""
+
+    @abstractmethod
+    def stop(self) -> None:
+        """Stop Darknet."""
 
 
 class DarknetDNNError(ViseronError):
@@ -278,7 +293,7 @@ class DarknetDNN(BaseDarknet, SubProcessWorker):
             stderr=self._log_pipe,
         )
 
-    def preprocess(self, frame) -> np.ndarray:
+    def preprocess(self, frame: np.ndarray) -> np.ndarray:
         """Pre process frame before detection."""
         return cv2.resize(
             frame,
@@ -315,12 +330,10 @@ class DarknetDNN(BaseDarknet, SubProcessWorker):
             return
         pop_if_full(self._result_queues[item["camera_identifier"]], item)
 
-    def post_process(self, detections, camera_resolution):
+    def post_process(self, detections, camera_resolution) -> list[DetectedObject]:
         """Post process detections."""
         _detections = []
-        for (label, confidence, box) in zip(
-            detections[0], detections[1], detections[2]
-        ):
+        for label, confidence, box in zip(detections[0], detections[1], detections[2]):
             _detections.append(
                 DetectedObject.from_absolute(
                     self.labels[int(label)],
@@ -353,6 +366,10 @@ class DarknetDNN(BaseDarknet, SubProcessWorker):
         if os.getenv(ENV_OPENCL_SUPPORTED) == "true":
             return DNN_TARGETS[DNN_OPENCL]
         return DNN_TARGETS[DNN_CPU]
+
+    def stop(self) -> None:
+        """Stop Darknet."""
+        SubProcessWorker.stop(self)
 
 
 class DarknetNative(BaseDarknet, ChildProcessWorker):
@@ -454,7 +471,7 @@ class DarknetNative(BaseDarknet, ChildProcessWorker):
             return None
         return item["result"]
 
-    def post_process(self, detections, camera_resolution):
+    def post_process(self, detections, camera_resolution) -> list[DetectedObject]:
         """Post process detections."""
         _detections = []
         for label, confidence, box in detections:
@@ -493,3 +510,7 @@ class DarknetNative(BaseDarknet, ChildProcessWorker):
         """Return path to Darknet data file."""
         homedir = os.path.expanduser(f"~{pwd.getpwuid(os.geteuid())[0]}")
         return f"{homedir}/darknet_data.data"
+
+    def stop(self) -> None:
+        """Stop Darknet."""
+        ChildProcessWorker.stop(self)
