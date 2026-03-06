@@ -477,7 +477,7 @@ def test_constructor_adds_entities(
 
     ConcreteObjectDetector(vis, base_config, CAMERA_IDENTIFIER)
 
-    # Aleasys called: ObjectDetectedBinarySensorFoV + ObjectDetectorFPSSensor
+    # Always called: ObjectDetectedBinarySensorFoV + ObjectDetectorFPSSensor
     # Called once per label: ObjectDetectedBinarySensorFoVLabel
     assert vis.add_entity.call_count == 3
 
