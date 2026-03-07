@@ -375,6 +375,7 @@ class DiscordNotifier:
         """Run DiscordNotifier in a new event loop."""
         asyncio.set_event_loop(self._loop)
         self._loop.run_until_complete(self._run_until_stopped())
+        self._loop.close()
         LOGGER.debug("DiscordNotifier done")
 
     def stop(self) -> None:
@@ -382,6 +383,7 @@ class DiscordNotifier:
         LOGGER.debug("Stopping DiscordNotifier")
         for unsubscribe in self._event_listeners:
             unsubscribe()
+        self._event_listeners.clear()
         self._stop_event.set()
         self._thread.stop()
         self._thread.join()
