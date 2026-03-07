@@ -5,10 +5,9 @@ from __future__ import annotations
 import importlib
 import logging
 import time
-import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from timeit import default_timer as timer
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import voluptuous as vol
 from voluptuous.humanize import humanize_error
@@ -30,6 +29,8 @@ from viseron.helpers.storage import Storage
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
+    from types import ModuleType
+
     from viseron import Viseron
     from viseron.domains import OptionalDomain, RequireDomain
     from viseron.viseron_types import SupportedDomains
@@ -51,7 +52,7 @@ LOGGER = logging.getLogger(__name__)
 class Component:
     """Represents a Viseron component."""
 
-    retry_timers: dict[str, NamedTimer] = {}
+    retry_timers: ClassVar[dict[str, NamedTimer]] = {}
 
     def __init__(
         self,
@@ -79,7 +80,7 @@ class Component:
         """Return component path."""
         return self._path
 
-    def get_component(self):
+    def get_component(self) -> ModuleType:
         """Return component module."""
         return importlib.import_module(self._path)
 
@@ -92,7 +93,7 @@ class Component:
             except vol.Invalid as ex:
                 LOGGER.exception(
                     f"Error validating config for component {self.name}: "
-                    f"{humanize_error(self._config, ex)}"
+                    f"{humanize_error(self._config, ex)}"  # noqa: TRY401
                 )
                 return None
             except Exception:  # pylint: disable=broad-except
@@ -100,12 +101,13 @@ class Component:
                 return None
         return True
 
-    def setup_component(self, tries: int = 1, domains_only=False) -> bool:
+    def setup_component(self, tries: int = 1, *, domains_only: bool = False) -> bool:
         """Set up component."""
         LOGGER.info(
-            "Setting up component %s%s",
+            "Setting up component %s%s%s",
             self.name,
             (f", attempt {tries}" if tries > 1 else ""),
+            (" (domains only)" if domains_only else ""),
         )
         slow_setup_warning = NamedTimer(
             SLOW_SETUP_WARNING,
@@ -131,15 +133,13 @@ class Component:
                 # setup() is optional for stateless components
                 if hasattr(component_module, "setup") and not domains_only:
                     result = component_module.setup(self._vis, config)
+                # No setup function, assume success if setup_domains exists
+                elif hasattr(component_module, "setup_domains"):
+                    result = True
                 else:
-                    # No setup function, assume success if setup_domains exists
-                    if hasattr(component_module, "setup_domains"):
-                        result = True
-                    else:
-                        LOGGER.error(
-                            f"Component {self.name} has neither setup() "
-                            "nor setup_domains()"
-                        )
+                    LOGGER.error(
+                        f"Component {self.name} has neither setup() nor setup_domains()"
+                    )
             except ComponentNotReady as error:
                 if self._vis.shutdown_event.is_set():
                     LOGGER.warning(
@@ -153,7 +153,7 @@ class Component:
                 LOGGER.error(
                     f"Component {self.name} is not ready. "
                     f"Retrying in {wait_time} seconds in the background. "
-                    f"Error: {str(error)}"
+                    f"Error: {error!s}"
                 )
                 retry_timer = NamedTimer(
                     wait_time,
@@ -178,11 +178,8 @@ class Component:
                     VISERON_SIGNAL_SHUTDOWN, cancel_retry_timer
                 )
                 retry_timer.start()
-            except Exception as ex:  # pylint: disable=broad-except
-                LOGGER.error(
-                    f"Uncaught exception setting up component {self.name}: {ex}\n"
-                    f"{traceback.format_exc()}"
-                )
+            except Exception:  # pylint: disable=broad-except
+                LOGGER.exception(f"Uncaught exception setting up component {self.name}")
             finally:
                 slow_setup_warning.cancel()
 
@@ -192,10 +189,9 @@ class Component:
             if hasattr(component_module, "setup_domains"):
                 try:
                     component_module.setup_domains(self._vis, config)
-                except Exception as ex:  # pylint: disable=broad-except
-                    LOGGER.error(
-                        f"Uncaught exception in setup_domains for component "
-                        f"{self.name}: {ex}\n{traceback.format_exc()}"
+                except Exception:  # pylint: disable=broad-except
+                    LOGGER.exception(
+                        f"Uncaught exception in setup_domains for component {self.name}"
                     )
                     return False
             LOGGER.info(
@@ -238,11 +234,14 @@ class Component:
         # Check if already registered (any state)
         existing = registry.get(domain, identifier)
         if existing:
-            LOGGER.warning(
-                f"Domain {domain} with identifier {identifier} already in setup queue. "
-                f"Skipping setup of domain {domain} with identifier {identifier} for "
-                f"component {self.name}",
-            )
+            if existing.state == DomainState.PENDING:
+                LOGGER.warning(
+                    f"Domain {domain} with identifier {identifier} "
+                    "already pending setup. "
+                    f"Skipping setup of domain {domain} "
+                    f"with identifier {identifier} for "
+                    f"component {self.name}",
+                )
             return None
 
         return registry.register(
@@ -274,7 +273,7 @@ def get_component(
 
 
 def setup_component(
-    vis: Viseron, component: Component, tries: int = 1, domains_only=False
+    vis: Viseron, component: Component, tries: int = 1, *, domains_only: bool = False
 ) -> None:
     """Set up single component."""
     # When tries is larger than one, it means we are in a retry loop.
@@ -340,9 +339,9 @@ def unload_component(vis: Viseron, component: str) -> set[str] | None:
     component_module = component_instance.get_component()
     if hasattr(component_module, "unload"):
         try:
-            component_module.unload()
-        except Exception as ex:  # pylint: disable=broad-except
-            LOGGER.error(f"Error unloading component {component}: {ex}")
+            component_module.unload(vis)
+        except Exception:  # pylint: disable=broad-except
+            LOGGER.exception(f"Error unloading component {component}")
     else:
         LOGGER.debug(f"Component {component} has no unload method")
 
@@ -359,7 +358,7 @@ class CriticalComponentsConfigStore:
     Used to store the last known good config for critical components.
     """
 
-    def __init__(self, vis) -> None:
+    def __init__(self, vis: Viseron) -> None:
         self._vis = vis
         self._store = Storage(vis, STORAGE_KEY)
 
@@ -448,27 +447,26 @@ def setup_components(
         return
 
     # Setup components in parallel
-    setup_threads = []
-    for component in (
-        components_to_setup
-        - set(LOGGING_COMPONENTS)
-        - set(CORE_COMPONENTS)
-        - set(DEFAULT_COMPONENTS)
-    ):
-        setup_threads.append(
-            RestartableThread(
-                target=setup_component,
-                args=(vis, get_component(vis, component, config)),
-                kwargs={"domains_only": domains_only},
-                name=f"{component}_setup",
-                daemon=True,
-                register=False,
-            )
+    setup_threads = [
+        RestartableThread(
+            target=setup_component,
+            args=(vis, get_component(vis, component, config)),
+            kwargs={"domains_only": domains_only},
+            name=f"{component}_setup",
+            daemon=True,
+            register=False,
         )
+        for component in (
+            components_to_setup
+            - set(LOGGING_COMPONENTS)
+            - set(CORE_COMPONENTS)
+            - set(DEFAULT_COMPONENTS)
+        )
+    ]
     for thread in setup_threads:
         thread.start()
 
-    def join(thread) -> None:
+    def join(thread: RestartableThread) -> None:
         thread.join(timeout=30)
         time.sleep(0.5)  # Wait for thread to exit properly
         if thread.is_alive():

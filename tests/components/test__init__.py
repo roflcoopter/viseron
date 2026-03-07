@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Literal
+from typing import TYPE_CHECKING, Literal, cast
 from unittest.mock import ANY, Mock, call, patch
 
 import pytest
@@ -23,7 +23,11 @@ from viseron.const import FAILED, LOADED, LOADING
 from viseron.exceptions import ComponentNotReady
 
 from tests.common import MockComponent, MockComponentModule
-from tests.conftest import MockViseron
+
+if TYPE_CHECKING:
+    from types import ModuleType
+
+    from tests.conftest import MockViseron
 
 
 class TestSetupComponents:
@@ -163,6 +167,7 @@ class TestComponent:
         self, vis: MockViseron, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test add_domain_to_setup."""
+        caplog.set_level(logging.DEBUG)
         registry = vis.domain_registry
 
         component1 = Component(vis, "component1", "component1", {})
@@ -180,8 +185,8 @@ class TestComponent:
         assert entry is not None
         assert entry.component_name == "component1"
         assert (
-            "Domain object_detector with identifier identifier1 already in setup "
-            "queue. Skipping setup of domain object_detector with identifier "
+            "Domain object_detector with identifier identifier1 already pending setup. "
+            "Skipping setup of domain object_detector with identifier "
             "identifier1 for component component2" in caplog.text
         )
         caplog.clear()
@@ -196,7 +201,7 @@ class TestComponent:
             result = component.get_component()
 
             mock_import.assert_called_once_with("viseron.components.test")
-            assert result == mock_module
+            assert result == cast("ModuleType", mock_module)
 
 
 class TestComponentConfigValidation:
@@ -218,7 +223,7 @@ class TestComponentConfigValidation:
         """Test validation with valid CONFIG_SCHEMA."""
         validated_config: dict[str, bool] = {"validated": True}
 
-        def schema(_config) -> dict[str, bool]:
+        def schema(_config: dict[str, bool]) -> dict[str, bool]:
             return validated_config
 
         mock_module = MockComponentModule(config_schema=schema)

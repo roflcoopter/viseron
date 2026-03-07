@@ -62,7 +62,7 @@ ARG OPENCV_VERSION
 ADD docker/opencv-python-headless-setup.py /opencv-python-headless/setup.py
 ADD requirements.txt requirements.txt
 # Set OpenCV Version
-RUN sed -i "s/OPENCV_VERSION=/OPENCV_VERSION=\"$OPENCV_VERSION\"/" /opencv-python-headless/setup.py
+RUN sed -i "s/OPENCV_VERSION = \"TBD\"/OPENCV_VERSION = \"$OPENCV_VERSION\"/" /opencv-python-headless/setup.py
 RUN echo "opencv-python-headless==$OPENCV_VERSION" >> /requirements.txt
 
 ADD requirements.txt requirements.txt
