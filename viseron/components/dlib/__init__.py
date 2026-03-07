@@ -1,6 +1,8 @@
 """Dlib face recognition."""
+
 import logging
 import os
+from typing import Any
 
 import voluptuous as vol
 
@@ -54,18 +56,18 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, _config) -> bool:
+def setup(vis: Viseron, _config: dict[str, Any]) -> bool:
     """Set up the dlib component."""
     vis.data[COMPONENT] = {}
     return True
 
 
-def setup_domains(vis: Viseron, config) -> None:
+def setup_domains(vis: Viseron, config: dict[str, Any]) -> None:
     """Set up dlib domains."""
     config = config[COMPONENT]
 
     if config.get(CONFIG_FACE_RECOGNITION, None):
-        for camera_identifier in config[CONFIG_FACE_RECOGNITION][CONFIG_CAMERAS].keys():
+        for camera_identifier in config[CONFIG_FACE_RECOGNITION][CONFIG_CAMERAS]:
             setup_domain(
                 vis,
                 COMPONENT,
@@ -83,3 +85,9 @@ def setup_domains(vis: Viseron, config) -> None:
                     ),
                 ],
             )
+
+
+def unload(vis: Viseron) -> None:
+    """Unload dlib component."""
+    if COMPONENT in vis.data:
+        del vis.data[COMPONENT]
