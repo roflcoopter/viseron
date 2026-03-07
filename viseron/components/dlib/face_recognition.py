@@ -1,11 +1,10 @@
 """dlib face recognition."""
+
 from __future__ import annotations
 
 import logging
 import threading
-from typing import TYPE_CHECKING
-
-import numpy as np
+from typing import TYPE_CHECKING, Any
 
 from viseron.domains.face_recognition import AbstractFaceRecognition
 from viseron.domains.face_recognition.const import CONFIG_FACE_RECOGNITION_PATH
@@ -16,6 +15,9 @@ from .predict import predict
 from .train import train
 
 if TYPE_CHECKING:
+    import numpy as np
+    from sklearn.neighbors import KNeighborsClassifier
+
     from viseron import Viseron
     from viseron.domains.object_detector.detected_object import DetectedObject
     from viseron.domains.post_processor import PostProcessorFrame
@@ -25,7 +27,7 @@ LOGGER = logging.getLogger(__name__)
 TRAIN_LOCK = threading.Lock()
 
 
-def setup(vis: Viseron, config, identifier) -> bool:
+def setup(vis: Viseron, config: dict[str, Any], identifier: str) -> bool:
     """Set up the dlib face_recognition domain."""
     with TRAIN_LOCK:
         if not vis.data[COMPONENT].get(CLASSIFIER, None):
@@ -45,13 +47,19 @@ def setup(vis: Viseron, config, identifier) -> bool:
 class FaceRecognition(AbstractFaceRecognition):
     """dlib face recognition processor."""
 
-    def __init__(self, vis: Viseron, config, camera_identifier, classifier) -> None:
+    def __init__(
+        self,
+        vis: Viseron,
+        config: dict[str, Any],
+        camera_identifier: str,
+        classifier: KNeighborsClassifier,
+    ) -> None:
         super().__init__(
             vis, COMPONENT, config[CONFIG_FACE_RECOGNITION], camera_identifier
         )
         self._classifier = classifier
 
-    def preprocess(self, frame) -> np.ndarray:
+    def preprocess(self, frame: np.ndarray) -> np.ndarray:
         """Preprocess frame."""
         return frame
 
