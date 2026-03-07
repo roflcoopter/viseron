@@ -24,7 +24,9 @@ from viseron.components.webserver.public_image_token import PublicImageToken
 from viseron.const import DEFAULT_PORT, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import EVENT_RECORDER_START
 from viseron.helpers import escape_string, utcnow
-from viseron.helpers.logs import SensitiveInformationFilter
+from viseron.helpers.logs import (
+    SensitiveInformationFilterTracker,
+)
 from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
 from viseron.watchdog.thread_watchdog import RestartableThread
 
@@ -126,13 +128,17 @@ def setup(vis: Viseron, config: dict) -> bool:
     """Set up the Gotify component."""
     component_config = config[COMPONENT]
 
-    gotify_notifier = GotifyEventNotifier(vis, component_config)
-    RestartableThread(
-        target=gotify_notifier.run_async, name="gotify_event_notifier"
-    ).start()
+    vis.data[COMPONENT] = GotifyEventNotifier(vis, component_config)
 
-    vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, gotify_notifier.stop)
     return True
+
+
+def unload(vis: Viseron) -> None:
+    """Unload the Gotify component."""
+    notifier = vis.data.get(COMPONENT)
+    if notifier:
+        notifier.stop()
+        del vis.data[COMPONENT]
 
 
 class GotifyEventNotifier:
@@ -141,10 +147,11 @@ class GotifyEventNotifier:
     def __init__(self, vis: Viseron, config: dict) -> None:
         self._vis = vis
         self._config = config
-        SensitiveInformationFilter.add_sensitive_string(
+        self._sensitive_string_tracker = SensitiveInformationFilterTracker()
+        self._sensitive_string_tracker.add_sensitive_string(
             self._config[CONFIG_GOTIFY_TOKEN]
         )
-        SensitiveInformationFilter.add_sensitive_string(
+        self._sensitive_string_tracker.add_sensitive_string(
             escape_string(self._config[CONFIG_GOTIFY_TOKEN])
         )
         self._gotify_url = self._config[CONFIG_GOTIFY_URL].rstrip("/")
@@ -153,13 +160,23 @@ class GotifyEventNotifier:
         self._loop = asyncio.new_event_loop()
         self._stop_event = asyncio.Event()
 
+        self._event_listeners = []
         for camera_identifier in self._config[CONFIG_CAMERAS]:
             # Listen for recording start events
-            self._vis.listen_event(
-                EVENT_RECORDER_START.format(camera_identifier=camera_identifier),
-                self._recording_start_event_handler,
+            self._event_listeners.append(
+                self._vis.listen_event(
+                    EVENT_RECORDER_START.format(camera_identifier=camera_identifier),
+                    self._recording_start_event_handler,
+                )
             )
-        vis.data[COMPONENT] = self
+
+        self._thread = RestartableThread(
+            name="GotifyNotifierThread", daemon=True, target=self.run_async
+        )
+        self._thread.start()
+        self._event_listeners.append(
+            vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
+        )
 
     def _recording_start_event_handler(
         self, event_data: Event[EventRecorderData]
@@ -463,7 +480,16 @@ class GotifyEventNotifier:
         """Run GotifyEventNotifier in a new event loop."""
         asyncio.set_event_loop(self._loop)
         self._loop.run_until_complete(self._run_until_stopped())
+        self._loop.close()
 
     def stop(self) -> None:
         """Stop GotifyEventNotifier component."""
+        LOGGER.debug("Stopping GotifyEventNotifier")
+        for unsubscribe in self._event_listeners:
+            unsubscribe()
+        self._event_listeners.clear()
         self._stop_event.set()
+        self._thread.stop()
+        self._thread.join(timeout=5)
+        self._sensitive_string_tracker.clear_sensitive_strings()
+        LOGGER.debug("GotifyEventNotifier stopped")
