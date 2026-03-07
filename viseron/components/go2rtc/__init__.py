@@ -34,6 +34,11 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     return True
 
 
+def unload(vis: Viseron) -> None:
+    """Unload the go2rtc component."""
+    vis.data.pop(COMPONENT, None)
+
+
 class Go2RTC:
     """Go2RTC class."""
 
