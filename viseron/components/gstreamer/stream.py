@@ -1,4 +1,5 @@
 """Class to interact with a GStreamer stream."""
+
 # pyright: reportMissingModuleSource=false
 from __future__ import annotations
 
@@ -7,7 +8,6 @@ import logging
 import multiprocessing as mp
 import os
 import time
-from multiprocessing.synchronize import Event as EventClass
 from typing import TYPE_CHECKING, Any
 
 import gi
@@ -38,6 +38,8 @@ from .const import (
 from .pipeline import AbstractPipeline, BasePipeline, JetsonPipeline, RawPipeline
 
 if TYPE_CHECKING:
+    from multiprocessing.synchronize import Event as EventClass
+
     from viseron.components.gstreamer.camera import Camera
 
 # pylint: disable=useless-suppression
