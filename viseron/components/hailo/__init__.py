@@ -101,7 +101,7 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     try:
         vis.data[COMPONENT] = Hailo8Detector(vis, config)
     except Exception as error:
-        LOGGER.error("Failed to start Hailo 8 detector: %s", error, exc_info=True)
+        LOGGER.exception("Failed to start Hailo 8 detector")
         raise ComponentNotReady from error
 
     return True
@@ -112,7 +112,7 @@ def setup_domains(vis: Viseron, config: dict[str, Any]) -> None:
     config = config[COMPONENT]
 
     if config.get(CONFIG_OBJECT_DETECTOR, None):
-        for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS].keys():
+        for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS]:
             setup_domain(
                 vis,
                 COMPONENT,
@@ -128,6 +128,13 @@ def setup_domains(vis: Viseron, config: dict[str, Any]) -> None:
             )
 
 
+def unload(vis: Viseron) -> None:
+    """Unload hailo component."""
+    if COMPONENT in vis.data:
+        vis.data[COMPONENT].stop()
+        del vis.data[COMPONENT]
+
+
 class LoadHailo8Error(ViseronError):
     """Error raised on all failures to load Hailo8."""
 
@@ -135,7 +142,7 @@ class LoadHailo8Error(ViseronError):
 class Hailo8Detector(ChildProcessWorker):
     """Hailo 8 object detector."""
 
-    def __init__(self, vis: Viseron, config: dict[str, Any]):
+    def __init__(self, vis: Viseron, config: dict[str, Any]) -> None:
         self._config = config
         hailo_arch = get_hailo_arch()
         LOGGER.debug(f"Detected Hailo architecture: {hailo_arch}")
