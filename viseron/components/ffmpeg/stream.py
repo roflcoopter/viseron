@@ -19,6 +19,7 @@ from viseron.const import (
 from viseron.exceptions import FFprobeError, FFprobeTimeout, StreamInformationError
 from viseron.helpers import escape_string
 from viseron.helpers.logs import LogPipe, UnhelpfullLogFilter
+from viseron.helpers.validators import UNDEFINED
 from viseron.watchdog.subprocess_watchdog import RestartablePopen
 
 from .const import (
@@ -313,6 +314,15 @@ class Stream:
 
     def get_encoder_codec(self) -> list[str]:
         """Return encoder codec set in config."""
+        if self._config[CONFIG_RECORDER][CONFIG_RECORDER_CODEC] == UNDEFINED:
+            if self._config[CONFIG_STREAM_FORMAT] == "mjpeg":
+                self._logger.warning(
+                    "MJPEG stream detected. Defaulting to h264 encoder codec. "
+                    "Consider setting `codec: h264` under the cameras `recorder` "
+                    "section in your config.yaml to avoid this warning. "
+                )
+                return ["-c:v", "h264"]
+            return ["-c:v", "copy"]
         return ["-c:v", self._config[CONFIG_RECORDER][CONFIG_RECORDER_CODEC]]
 
     def stream_command(
@@ -390,6 +400,36 @@ class Stream:
             ]
         return []
 
+    def _encoder_tuning_args(self) -> list[str]:
+        """Return encoder tuning args for MJPEG streams.
+
+        The libx264 encoder sometimes buffers frames when encoding MJPEG streams,
+        causing a delay in the output.
+        Using -tune zerolatency eliminates this buffering delay.
+        """
+        if self._config[CONFIG_STREAM_FORMAT] == "mjpeg" and self._config[
+            CONFIG_RECORDER
+        ][CONFIG_RECORDER_CODEC].lower() in [
+            "libx264",
+            "h264",
+        ]:
+            return ["-tune", "zerolatency"]
+        return []
+
+    def _force_keyframe_args(self) -> list[str]:
+        """Return force keyframe args for MJPEG streams.
+
+        The HLS muxer never triggers segment splits based on hls_time for some
+        MJPEG streams. Force keyframes at the segment
+        duration interval to ensure segments are created.
+        """
+        if self._config[CONFIG_STREAM_FORMAT] == "mjpeg":
+            return [
+                "-force_key_frames",
+                f"expr:gte(t,n_forced*{CAMERA_SEGMENT_DURATION})",
+            ]
+        return []
+
     def segment_args(self) -> list[str]:
         """Generate FFmpeg segment args."""
         return (
@@ -413,6 +453,8 @@ class Stream:
                 ),
             ]
             + self.get_encoder_codec()
+            + self._encoder_tuning_args()
+            + self._force_keyframe_args()
             + self.recorder_video_filter_args()
             + self.get_encoder_audio_codec(self._mainstream.audio_codec)
             + self.recorder_audio_filter_args()

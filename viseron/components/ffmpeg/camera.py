@@ -26,6 +26,7 @@ from viseron.exceptions import DomainNotReady, FFprobeError, FFprobeTimeout
 from viseron.helpers import escape_string, utcnow
 from viseron.helpers.logs import SensitiveInformationFilter
 from viseron.helpers.validators import (
+    UNDEFINED,
     CameraIdentifier,
     CoerceNoneToDict,
     Deprecated,
@@ -87,7 +88,6 @@ from .const import (
     DEFAULT_RECORD_ONLY,
     DEFAULT_RECORDER_AUDIO_CODEC,
     DEFAULT_RECORDER_AUDIO_FILTERS,
-    DEFAULT_RECORDER_CODEC,
     DEFAULT_RECORDER_HWACCEL_ARGS,
     DEFAULT_RECORDER_OUTPUT_ARGS,
     DEFAULT_RECORDER_VIDEO_FILTERS,
@@ -225,9 +225,9 @@ RECORDER_SCHEMA = BASE_RECORDER_SCHEMA.extend(
         ): [str],
         vol.Optional(
             CONFIG_RECORDER_CODEC,
-            default=DEFAULT_RECORDER_CODEC,
+            default=UNDEFINED,
             description=DESC_RECORDER_CODEC,
-        ): str,
+        ): Maybe(str),
         vol.Optional(
             CONFIG_RECORDER_AUDIO_CODEC,
             default=DEFAULT_RECORDER_AUDIO_CODEC,
