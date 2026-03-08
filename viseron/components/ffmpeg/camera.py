@@ -403,6 +403,7 @@ class Camera(AbstractCamera):
                 time.sleep(1)
                 if (
                     self.stream.segment_process
+                    and self.stream.segment_process.subprocess
                     and self.stream.segment_process.subprocess.poll() is None
                 ):
                     self.connected = True
