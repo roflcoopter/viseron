@@ -153,7 +153,6 @@ CONFIG_SEGMENTS_FOLDER = "segments_folder"
 CONFIG_RECORDER_OUPTUT_ARGS = "output_args"
 
 DEFAULT_RECORDER_HWACCEL_ARGS: list[str] = []
-DEFAULT_RECORDER_CODEC = "copy"
 DEFAULT_RECORDER_AUDIO_CODEC = "unset"
 DEFAULT_RECORDER_VIDEO_FILTERS: list[str] = []
 DEFAULT_RECORDER_AUDIO_FILTERS: list[str] = []
@@ -161,7 +160,11 @@ DEFAULT_RECORDER_OUTPUT_ARGS: list[str] = []
 DEFAULT_SEGMENTS_FOLDER = "/segments"
 
 DESC_RECORDER_HWACCEL_ARGS = "FFmpeg encoder hardware acceleration arguments."
-DESC_RECORDER_CODEC = "FFmpeg video encoder codec, eg <code>h264_nvenc</code>."
+DESC_RECORDER_CODEC = (
+    "FFmpeg video encoder codec, eg <code>h264_nvenc</code>. "
+    "Defaults to <code>copy</code> except for MJPEG streams where the default is "
+    "<code>h264</code>."
+)
 DESC_RECORDER_AUDIO_CODEC = (
     "FFmpeg audio encoder codec, eg <code>aac</code>.<br>"
     "If your source has audio and you want to remove it, set this to <code>null</code>."
