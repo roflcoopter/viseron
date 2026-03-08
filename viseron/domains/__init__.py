@@ -154,14 +154,11 @@ def _wait_for_dependencies(
     )
 
     # Wait for all dependencies
-    failed = []
-    for future in as_completed(futures):
-        if future.result() is not True:
-            failed.append(future)
+    failed = [future for future in as_completed(futures) if future.result() is not True]
 
     try:
         slow_warning_job.remove()
-    except Exception:  # pylint: disable=broad-except
+    except Exception:  # pylint: disable=broad-except # noqa: BLE001, S110
         pass
 
     if failed:
