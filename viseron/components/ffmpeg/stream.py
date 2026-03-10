@@ -312,18 +312,23 @@ class Stream:
             return ["-c:v", codec]
         return []
 
-    def get_encoder_codec(self) -> list[str]:
+    @property
+    def encoder_codec(self) -> str:
         """Return encoder codec set in config."""
-        if self._config[CONFIG_RECORDER][CONFIG_RECORDER_CODEC] == UNDEFINED:
-            if self._config[CONFIG_STREAM_FORMAT] == "mjpeg":
-                self._logger.warning(
-                    "MJPEG stream detected. Defaulting to h264 encoder codec. "
-                    "Consider setting `codec: h264` under the cameras `recorder` "
-                    "section in your config.yaml to avoid this warning. "
-                )
-                return ["-c:v", "h264"]
-            return ["-c:v", "copy"]
-        return ["-c:v", self._config[CONFIG_RECORDER][CONFIG_RECORDER_CODEC]]
+        if self._config[CONFIG_RECORDER][CONFIG_RECORDER_CODEC] != UNDEFINED:
+            return self._config[CONFIG_RECORDER][CONFIG_RECORDER_CODEC]
+        if self._config[CONFIG_STREAM_FORMAT] == "mjpeg":
+            self._logger.warning(
+                "MJPEG stream detected. Defaulting to h264 encoder codec. "
+                "Consider setting `codec: h264` under the cameras `recorder` "
+                "section in your config.yaml to avoid this warning. "
+            )
+            return "h264"
+        return "copy"
+
+    def encoder_codec_args(self) -> list[str]:
+        """Return encoder codec set in config."""
+        return ["-c:v", self.encoder_codec]
 
     def stream_command(
         self, stream_config: dict[str, Any], stream_codec: str, stream_url: str
@@ -400,23 +405,23 @@ class Stream:
             ]
         return []
 
-    def _encoder_tuning_args(self) -> list[str]:
+    def encoder_tuning_args(self) -> list[str]:
         """Return encoder tuning args for MJPEG streams.
 
         The libx264 encoder sometimes buffers frames when encoding MJPEG streams,
         causing a delay in the output.
         Using -tune zerolatency eliminates this buffering delay.
         """
-        if self._config[CONFIG_STREAM_FORMAT] == "mjpeg" and self._config[
-            CONFIG_RECORDER
-        ][CONFIG_RECORDER_CODEC].lower() in [
+        if self._config[
+            CONFIG_STREAM_FORMAT
+        ] == "mjpeg" and self.encoder_codec.lower() in [
             "libx264",
             "h264",
         ]:
             return ["-tune", "zerolatency"]
         return []
 
-    def _force_keyframe_args(self) -> list[str]:
+    def force_keyframe_args(self) -> list[str]:
         """Return force keyframe args for MJPEG streams.
 
         The HLS muxer never triggers segment splits based on hls_time for some
@@ -452,9 +457,9 @@ class Stream:
                     "%s.m4s",
                 ),
             ]
-            + self.get_encoder_codec()
-            + self._encoder_tuning_args()
-            + self._force_keyframe_args()
+            + self.encoder_codec_args()
+            + self.encoder_tuning_args()
+            + self.force_keyframe_args()
             + self.recorder_video_filter_args()
             + self.get_encoder_audio_codec(self._mainstream.audio_codec)
             + self.recorder_audio_filter_args()
