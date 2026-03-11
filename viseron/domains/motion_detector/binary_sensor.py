@@ -40,11 +40,6 @@ class MotionDetectionBinarySensor(CameraBinarySensor):
             )
         )
 
-    def unload(self) -> None:
-        """Unload entity."""
-        for unsubscribe in self._event_listeners:
-            unsubscribe()
-
     @property
     def _is_on(self):
         return self._motion_detector.motion_detected

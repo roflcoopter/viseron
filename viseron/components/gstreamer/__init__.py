@@ -1,6 +1,7 @@
 """GStreamer component."""
 
 import logging
+from typing import Any
 
 import voluptuous as vol
 
@@ -22,7 +23,7 @@ CONFIG_SCHEMA = vol.Schema(
 LOGGER = logging.getLogger(__name__)
 
 
-def setup_domains(vis: Viseron, config) -> None:
+def setup_domains(vis: Viseron, config: dict[str, Any]) -> None:
     """Set up gstreamer domains."""
     config = config[COMPONENT]
 

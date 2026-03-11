@@ -22,7 +22,6 @@ from viseron.components.ffmpeg.const import (
     DEFAULT_FFMPEG_LOGLEVEL,
     DEFAULT_RECORDER_AUDIO_CODEC,
     DEFAULT_RECORDER_AUDIO_FILTERS,
-    DEFAULT_RECORDER_CODEC,
     DEFAULT_RECORDER_HWACCEL_ARGS,
     DEFAULT_RECORDER_OUTPUT_ARGS,
     DEFAULT_RECORDER_VIDEO_FILTERS,
@@ -43,6 +42,7 @@ from viseron.domains.camera.config import (
 from viseron.exceptions import DomainNotReady, FFprobeError, FFprobeTimeout
 from viseron.helpers import utcnow
 from viseron.helpers.validators import (
+    UNDEFINED,
     CameraIdentifier,
     CoerceNoneToDict,
     Deprecated,
@@ -193,9 +193,9 @@ RECORDER_SCHEMA = BASE_RECORDER_SCHEMA.extend(
         ): [str],
         vol.Optional(
             CONFIG_RECORDER_CODEC,
-            default=DEFAULT_RECORDER_CODEC,
+            default=UNDEFINED,
             description=DESC_RECORDER_CODEC,
-        ): str,
+        ): Maybe(str),
         vol.Optional(
             CONFIG_RECORDER_AUDIO_CODEC,
             default=DEFAULT_RECORDER_AUDIO_CODEC,

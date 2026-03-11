@@ -65,13 +65,13 @@ class DuplicateFilter(logging.Filter):
 class SensitiveInformationFilter(logging.Filter):
     """Redacts sensitive information from logs."""
 
-    sensitive_strings: ClassVar[list[str]] = []
+    sensitive_strings: ClassVar[set[str]] = set()
 
     @classmethod
     def add_sensitive_string(cls, sensitive_string: str) -> bool:
         """Add a sensitive string to the list of strings to redact."""
         if sensitive_string and sensitive_string not in cls.sensitive_strings:
-            cls.sensitive_strings.append(sensitive_string)
+            cls.sensitive_strings.add(sensitive_string)
             return True
         return False
 
@@ -79,7 +79,7 @@ class SensitiveInformationFilter(logging.Filter):
     def remove_sensitive_string(cls, sensitive_string: str) -> bool:
         """Remove a sensitive string from the list of strings to redact."""
         if sensitive_string in cls.sensitive_strings:
-            cls.sensitive_strings.remove(sensitive_string)
+            cls.sensitive_strings.discard(sensitive_string)
             return True
         return False
 
@@ -108,17 +108,17 @@ class SensitiveInformationFilterTracker:
     """
 
     def __init__(self) -> None:
-        self._sensitive_strings: list[str] = []
+        self._sensitive_strings: set[str] = set()
 
     def add_sensitive_string(self, sensitive_string: str) -> None:
         """Add a sensitive string to the list of strings to redact."""
-        if SensitiveInformationFilter.add_sensitive_string(sensitive_string):
-            self._sensitive_strings.append(sensitive_string)
+        SensitiveInformationFilter.add_sensitive_string(sensitive_string)
+        self._sensitive_strings.add(sensitive_string)
 
     def remove_sensitive_string(self, sensitive_string: str) -> None:
         """Remove a sensitive string from the list of strings to redact."""
-        if SensitiveInformationFilter.remove_sensitive_string(sensitive_string):
-            self._sensitive_strings.remove(sensitive_string)
+        SensitiveInformationFilter.remove_sensitive_string(sensitive_string)
+        self._sensitive_strings.discard(sensitive_string)
 
     def clear_sensitive_strings(self) -> None:
         """Clear all sensitive strings from the filter."""

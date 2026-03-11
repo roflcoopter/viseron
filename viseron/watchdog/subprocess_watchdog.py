@@ -1,4 +1,5 @@
-"""Watchdog for long-running threads."""
+"""Watchdog for long-running Popen instances."""
+
 from __future__ import annotations
 
 import logging
@@ -12,10 +13,14 @@ from viseron.watchdog import WatchDog
 if TYPE_CHECKING:
     from apscheduler.schedulers.background import BackgroundScheduler
 
+    _Base = sp.Popen[bytes]
+else:
+    _Base = object
+
 LOGGER = logging.getLogger(__name__)
 
 
-class RestartablePopen:
+class RestartablePopen(_Base):
     """A restartable subprocess.
 
     Like subprocess.Popen, but registers itself in a watchdog which monitors the
@@ -25,9 +30,9 @@ class RestartablePopen:
     def __init__(
         self,
         *args,
-        name=None,
-        grace_period=20,
-        register=True,
+        name: str | None = None,
+        grace_period: int = 20,
+        register: bool = True,
         stage: str | None = VISERON_SIGNAL_SHUTDOWN,
         start_new_session: bool = True,
         **kwargs,
@@ -50,7 +55,7 @@ class RestartablePopen:
             return getattr(self, attr)
         return getattr(self._subprocess, attr)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return string representation of the subprocess."""
         return (
             f"<RestartablePopen name={self._name} "
@@ -58,27 +63,27 @@ class RestartablePopen:
         )
 
     @property
-    def name(self):
+    def name(self) -> str | None:
         """Return subprocess name."""
         return self._name
 
     @property
-    def grace_period(self):
+    def grace_period(self) -> int:
         """Return subprocess grace period."""
         return self._grace_period
 
     @property
-    def subprocess(self):
+    def subprocess(self) -> sp.Popen | None:
         """Return subprocess."""
         return self._subprocess
 
     @property
-    def started(self):
+    def started(self) -> bool:
         """Return if subprocess has started."""
         return self._started
 
     @property
-    def start_time(self):
+    def start_time(self) -> float:
         """Return subprocess start time."""
         return self._start_time
 
@@ -139,7 +144,10 @@ class SubprocessWatchDog(WatchDog):
         for registered_process in self.registered_items:
             if not registered_process.started:
                 continue
-            if registered_process.subprocess.poll() is None:
+            if (
+                registered_process.subprocess
+                and registered_process.subprocess.poll() is None
+            ):
                 continue
             now = utcnow().timestamp()
             if now - registered_process.start_time < registered_process.grace_period:

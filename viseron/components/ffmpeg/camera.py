@@ -26,6 +26,7 @@ from viseron.exceptions import DomainNotReady, FFprobeError, FFprobeTimeout
 from viseron.helpers import escape_string, utcnow
 from viseron.helpers.logs import SensitiveInformationFilter
 from viseron.helpers.validators import (
+    UNDEFINED,
     CameraIdentifier,
     CoerceNoneToDict,
     Deprecated,
@@ -87,7 +88,6 @@ from .const import (
     DEFAULT_RECORD_ONLY,
     DEFAULT_RECORDER_AUDIO_CODEC,
     DEFAULT_RECORDER_AUDIO_FILTERS,
-    DEFAULT_RECORDER_CODEC,
     DEFAULT_RECORDER_HWACCEL_ARGS,
     DEFAULT_RECORDER_OUTPUT_ARGS,
     DEFAULT_RECORDER_VIDEO_FILTERS,
@@ -225,9 +225,9 @@ RECORDER_SCHEMA = BASE_RECORDER_SCHEMA.extend(
         ): [str],
         vol.Optional(
             CONFIG_RECORDER_CODEC,
-            default=DEFAULT_RECORDER_CODEC,
+            default=UNDEFINED,
             description=DESC_RECORDER_CODEC,
-        ): str,
+        ): Maybe(str),
         vol.Optional(
             CONFIG_RECORDER_AUDIO_CODEC,
             default=DEFAULT_RECORDER_AUDIO_CODEC,
@@ -329,7 +329,9 @@ class Camera(AbstractCamera):
     ) -> None:
         # Add password to SensitiveInformationFilter.
         # It is done in AbstractCamera but since we are calling Stream before
-        # super().__init__ we need to do it here as well
+        # super().__init__ we need to do it here as well.
+        # For this reason we dont have to clear the SensitiveInformationFilter
+        # on unload since AbstractCamera will do it in its unload method
         if config[CONFIG_PASSWORD]:
             SensitiveInformationFilter.add_sensitive_string(config[CONFIG_PASSWORD])
             SensitiveInformationFilter.add_sensitive_string(
@@ -350,14 +352,20 @@ class Camera(AbstractCamera):
         ] = mp.Queue(maxsize=2)
         self._capture_frames = mp.Event()
         self._thread_stuck = False
-        self.resolution = None
+        self.resolution = self.stream.width, self.stream.height
         self.decode_error = mp.Event()
 
         if cv2.ocl.haveOpenCL():
             cv2.ocl.setUseOpenCL(True)
         self._recorder = Recorder(vis, config, self)
 
-        self.initialize_camera()
+        self._check_segment_process_thread: RestartableThread | None = None
+
+        self._logger.debug(
+            f"Resolution: {self.resolution[0]}x{self.resolution[1]} "
+            f"@ {self.stream.fps} FPS"
+        )
+        self._logger.debug(f"Camera {self.name} initialized")
 
     def _create_frame_reader(self) -> tuple[RestartableProcess, RestartableThread]:
         """Return a frame reader thread."""
@@ -391,10 +399,11 @@ class Camera(AbstractCamera):
         self._logger.debug("Starting recording only mode")
 
         def check_segment_process() -> None:
-            while self.is_on:
+            while self._capture_frames.is_set():
                 time.sleep(1)
                 if (
                     self.stream.segment_process
+                    and self.stream.segment_process.subprocess
                     and self.stream.segment_process.subprocess.poll() is None
                 ):
                     self.connected = True
@@ -402,26 +411,14 @@ class Camera(AbstractCamera):
                 self.connected = False
             self.connected = False
 
-        RestartableThread(
+        self._check_segment_process_thread = RestartableThread(
             name="viseron.camera." + self.identifier + ".segment_check",
             target=check_segment_process,
             daemon=True,
             register=True,
-        ).start()
-
-        self.stream.record_only()
-
-    def initialize_camera(self) -> None:
-        """Start processing of camera frames."""
-        self._logger.debug(f"Initializing camera {self.name}")
-
-        self.resolution = self.stream.width, self.stream.height
-        self._logger.debug(
-            f"Resolution: {self.resolution[0]}x{self.resolution[1]} "
-            f"@ {self.stream.fps} FPS"
         )
-
-        self._logger.debug(f"Camera {self.name} initialized")
+        self._check_segment_process_thread.start()
+        self.stream.record_only()
 
     def read_frames(
         self,
@@ -545,12 +542,12 @@ class Camera(AbstractCamera):
 
     def _start_camera(self) -> None:
         """Start capturing frames from camera."""
+        self._capture_frames.set()
         if self._config[CONFIG_RECORD_ONLY]:
             self._start_recording_only()
             return
 
         self._logger.debug("Starting capture thread")
-        self._capture_frames.set()
         if not self._frame_reader or not self._frame_reader.is_alive():
             self._logger.debug("Creating new frame reader")
             self._frame_reader, self._frame_relay = self._create_frame_reader()
@@ -559,13 +556,14 @@ class Camera(AbstractCamera):
 
     def _stop_camera(self) -> None:
         """Release the connection to the camera."""
-        self._logger.debug("Stopping capture thread")
         self._capture_frames.clear()
         if self._frame_relay:
+            self._logger.debug("Stopping capture thread")
             self._frame_relay.stop()
             self._frame_relay.join(timeout=5)
 
         if self._frame_reader:
+            self._logger.debug("Stopping frame reader process")
             self._frame_reader.stop()
             self._frame_reader.join(timeout=5)
             if self._frame_reader.is_alive():
@@ -574,6 +572,13 @@ class Camera(AbstractCamera):
                 self._frame_reader.join(timeout=5)
                 self._frame_reader = None
                 self.stream.close_pipe()
+
+        if self._config[CONFIG_RECORD_ONLY] and self._check_segment_process_thread:
+            self._logger.debug("Stopping record-only process")
+            self._check_segment_process_thread.stop()
+            self._check_segment_process_thread.join(timeout=5)
+            self._check_segment_process_thread = None
+            self.stream.close_pipe()
 
     def start_recorder(
         self,
@@ -598,12 +603,12 @@ class Camera(AbstractCamera):
         self.stream.output_fps = fps
 
     @property
-    def resolution(self):
+    def resolution(self) -> tuple[int, int]:
         """Return stream resolution."""
         return self._resolution
 
     @resolution.setter
-    def resolution(self, resolution) -> None:
+    def resolution(self, resolution: tuple[int, int]) -> None:
         """Set stream resolution."""
         self._resolution = resolution
 
