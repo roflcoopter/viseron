@@ -1,6 +1,8 @@
 """Telegram-PTZ component constants."""
 
-COMPONENT = "ptz"
+from typing import Final
+
+COMPONENT: Final = "ptz"
 DESC_COMPONENT = "Telegram bot to control pan-tilt-zoom cameras."
 
 CONFIG_CAMERAS = "cameras"

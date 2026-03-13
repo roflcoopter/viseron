@@ -12,7 +12,6 @@ import numpy as np
 from telegram import Update
 from telegram.ext import CallbackContext, CommandHandler
 
-from viseron.components.ptz import PTZ
 from viseron.components.telegram.utils import limit_user_access
 
 from .const import COMPONENT, CONFIG_PTZ_COMPONENT
@@ -38,7 +37,7 @@ class TelegramPTZ:
         self._vis = vis
         self._config = config
         self._telegram = telegram
-        self._ptz: PTZ = self._vis.data[CONFIG_PTZ_COMPONENT]
+        self._ptz = self._vis.data[CONFIG_PTZ_COMPONENT]
         self._stop_event = asyncio.Event()
         vis.data[COMPONENT] = self
 

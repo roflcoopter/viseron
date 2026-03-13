@@ -21,7 +21,9 @@ if TYPE_CHECKING:
     from viseron.components.hailo import Hailo8Detector
     from viseron.components.mqtt import MQTT
     from viseron.components.nvr.nvr import NVR
+    from viseron.components.ptz import PTZ
     from viseron.components.storage import Storage
+    from viseron.components.telegram.ptz_control import TelegramPTZ
     from viseron.components.webserver import Webserver
     from viseron.components.webserver.download_token import DownloadToken
     from viseron.components.webserver.public_image_token import PublicImageToken
@@ -65,6 +67,8 @@ class ViseronData(TypedDict, total=False):
     hailo: Hailo8Detector
     mqtt: MQTT
     nvr: dict[str, NVR]
+    telegram: TelegramPTZ
+    ptz: PTZ
 
 
 SupportedDomains = Literal[
