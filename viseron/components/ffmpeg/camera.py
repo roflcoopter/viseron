@@ -469,6 +469,7 @@ class Camera(AbstractCamera):
 
     def relay_frame(self) -> None:
         """Read from the frame queue and create a SharedFrame."""
+        self._logger.debug("Starting frame relay")
         self._poll_timer = utcnow().timestamp()
         while self._capture_frames.is_set():
             if self.decode_error.is_set():
@@ -508,6 +509,7 @@ class Camera(AbstractCamera):
 
         self.connected = False
         self.still_image_available = self.still_image_configured
+        self._logger.debug("Frame relay stopped")
 
     def poll_target(self) -> None:
         """Close pipe when RestartableThread.poll_timeout has been reached."""

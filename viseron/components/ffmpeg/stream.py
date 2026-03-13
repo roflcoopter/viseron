@@ -554,6 +554,7 @@ class Stream:
             self.segment_process = RestartablePopen(
                 self.build_segment_command(),
                 name=f"viseron.camera.{self._camera.identifier}.segments",
+                stdin=sp.DEVNULL,
                 stdout=sp.PIPE,
                 stderr=self._log_pipe,
             )
@@ -562,6 +563,7 @@ class Stream:
             self.build_command(),
             name=f"viseron.camera.{self._camera.identifier}.pipe",
             register=False,
+            stdin=sp.DEVNULL,
             stdout=sp.PIPE,
             stderr=self._log_pipe,
         )
@@ -645,6 +647,7 @@ class Stream:
         self.segment_process = RestartablePopen(
             self.build_segment_command(),
             name=f"viseron.camera.{self._camera.identifier}.segments",
+            stdin=sp.DEVNULL,
             stdout=sp.PIPE,
             stderr=self._log_pipe,
         )
@@ -738,6 +741,7 @@ class FFprobe:
             ffprobe_command,
             name=f"viseron.camera.{self._camera_identifier}.ffprobe",
             register=False,
+            stdin=sp.DEVNULL,
             stdout=sp.PIPE,
             stderr=log_pipe,
         )
