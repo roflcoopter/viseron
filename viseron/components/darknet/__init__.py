@@ -424,7 +424,7 @@ class DarknetNative(BaseDarknet, ChildProcessWorker):
         logpipe.close()
         self._process_initialization_done.set()
 
-    def _detect(self, frame, min_confidence):
+    def _detect(self, frame: bytes, min_confidence):
         """Run detection on frame."""
         self._darknet.copy_image_from_bytes(self._darknet_image, frame)
         detections = self._darknet.detect_image(
@@ -444,13 +444,13 @@ class DarknetNative(BaseDarknet, ChildProcessWorker):
         """Put result into queue."""
         pop_if_full(self._result_queues[item["camera_identifier"]], item)
 
-    def preprocess(self, frame) -> bytes:
+    def preprocess(self, frame: np.ndarray) -> bytes:
         """Pre process frame before detection."""
         return letterbox_resize(frame, self.model_width, self.model_height).tobytes()
 
     def detect(
         self,
-        frame: np.ndarray,
+        frame: bytes,
         camera_identifier: str,
         result_queue,
         min_confidence: float,
