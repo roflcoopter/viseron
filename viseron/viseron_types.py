@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from viseron.components.data_stream import DataStream
     from viseron.components.edgetpu.edgetpu_types import EdgeTPUViseronData
     from viseron.components.go2rtc import Go2RTC
+    from viseron.components.gotify import GotifyEventNotifier
     from viseron.components.hailo import Hailo8Detector
     from viseron.components.mqtt import MQTT
     from viseron.components.nvr.nvr import NVR
@@ -60,6 +61,7 @@ class ViseronData(TypedDict, total=False):
     dlib: dict[Literal["classifier"], KNeighborsClassifier | None]
     edgetpu: EdgeTPUViseronData
     go2rtc: Go2RTC
+    gotify: GotifyEventNotifier
     hailo: Hailo8Detector
     mqtt: MQTT
     nvr: dict[str, NVR]
