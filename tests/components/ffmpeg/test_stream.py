@@ -322,8 +322,11 @@ class TestStream:
         [
             ("mjpeg", "h264", ["-tune", "zerolatency"]),
             ("mjpeg", "hevc", []),
+            ("mjpeg", UNDEFINED, ["-tune", "zerolatency"]),
             ("rtsp", None, []),
+            ("rtsp", UNDEFINED, []),
             ("rtmp", None, []),
+            ("rtmp", UNDEFINED, []),
         ],
     )
     def test_encoder_tuning_args(self, stream_format, codec, expected_args) -> None:
@@ -338,7 +341,9 @@ class TestStream:
                     CONFIG_RECORDER_CODEC: codec,
                 },
             }
-            result = stream._encoder_tuning_args()
+            mock_logger = MagicMock()
+            stream._logger = mock_logger
+            result = stream.encoder_tuning_args()
             assert result == expected_args
 
     @pytest.mark.parametrize(
@@ -364,7 +369,7 @@ class TestStream:
             stream._config = {
                 CONFIG_STREAM_FORMAT: stream_format,
             }
-            result = stream._force_keyframe_args()
+            result = stream.force_keyframe_args()
             assert result == expected_args
 
     @pytest.mark.parametrize(
@@ -396,4 +401,4 @@ class TestStream:
                     CONFIG_RECORDER_CODEC: recorder_codec,
                 },
             }
-            assert stream.get_encoder_codec() == expected_cmd
+            assert stream.encoder_codec_args() == expected_cmd
