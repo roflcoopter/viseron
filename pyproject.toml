@@ -219,6 +219,7 @@ forced-separate = ["tests"]
     "SLF001",  ##  https://docs.astral.sh/ruff/rules/private-member-access/
     "PLR2004", ##  https://docs.astral.sh/ruff/rules/magic-value-comparison/
     "ANN201",  ##  https://docs.astral.sh/ruff/rules/missing-return-type-undocumented-public-function/
+    "FBT001",  ##  https://docs.astral.sh/ruff/rules/boolean-type-hint-positional-argument/
 ]
 
 # Generation of docs use many long lines, so we disable line length rule for scripts/gen_docs
