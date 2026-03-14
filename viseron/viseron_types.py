@@ -53,7 +53,9 @@ class ViseronData(TypedDict, total=False):
     logger: dict[Literal["logs"], dict[str, str]]
     storage: Storage
     webserver: Webserver
-    websocket_commands: dict[str, tuple[Callable[[], Awaitable[None]], vol.Schema]]
+    websocket_commands: dict[
+        str, tuple[Callable[[WebSocketHandler, dict], Awaitable[None]], vol.Schema]
+    ]
     websocket_connections: list[WebSocketHandler]
     download_tokens: dict[str, DownloadToken]
     public_image_tokens: dict[str, PublicImageToken]
