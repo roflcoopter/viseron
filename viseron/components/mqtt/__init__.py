@@ -1,9 +1,9 @@
 """MQTT interface."""
+
 from __future__ import annotations
 
 import logging
 import threading
-from collections.abc import Callable
 from queue import Empty, Queue
 from typing import TYPE_CHECKING, Any
 
@@ -19,7 +19,6 @@ from viseron.const import (
 )
 from viseron.events import EventEmptyData
 from viseron.helpers.validators import CoerceNoneToDict, Maybe
-from viseron.states import EventEntityAddedData
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
@@ -67,7 +66,6 @@ from .const import (
     MQTT_CLIENT_CONNECTION_ONLINE,
     MQTT_RC,
 )
-from .entity import MQTTEntity
 from .entity.binary_sensor import BinarySensorMQTTEntity
 from .entity.image import ImageMQTTEntity
 from .entity.sensor import SensorMQTTEntity
@@ -77,8 +75,13 @@ from .helpers import PublishPayload, SubscribeTopic
 from .homeassistant import HassMQTTInterface
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from viseron import Event, Viseron
     from viseron.helpers.entity import Entity
+    from viseron.states import EventEntityAddedData
+
+    from .entity import MQTTEntity
 
 LOGGER = logging.getLogger(__name__)
 
@@ -168,17 +171,27 @@ ENTITY_OVERRIDES: dict[type, type[MQTTEntity]] = {
 }
 
 
-def setup(vis: Viseron, config) -> bool:
+def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     """Set up the mqtt component."""
     config = config[COMPONENT]
     mqtt_client = MQTT(vis, config)
+    vis.data[COMPONENT] = mqtt_client
     mqtt_client.connect()
-    vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, mqtt_client.stop)
 
     if config.get(CONFIG_HOME_ASSISTANT, None):
-        HassMQTTInterface(vis, config)
+        vis.data[COMPONENT].hass_interface = HassMQTTInterface(vis, config)
 
     return True
+
+
+def unload(vis: Viseron) -> None:
+    """Unload the mqtt component."""
+    if COMPONENT in vis.data:
+        mqtt_client = vis.data[COMPONENT]
+        mqtt_client.stop()
+        if mqtt_client.hass_interface:
+            mqtt_client.hass_interface.unload()
+        del vis.data[COMPONENT]
 
 
 class MQTT:
@@ -196,10 +209,17 @@ class MQTT:
         self._reconnect = False
         self._kill_received = False
 
-        vis.data[COMPONENT] = self
+        self._publisher_thread: RestartableThread | None = None
 
         self._entity_creation_lock = threading.Lock()
         self._entities: dict[str, MQTTEntity] = {}
+
+        self._event_listeners = []
+        self._event_listeners.append(
+            vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
+        )
+
+        self.hass_interface: HassMQTTInterface | None = None
 
     @property
     def base_topic(self) -> str:
@@ -227,9 +247,9 @@ class MQTT:
                 LOGGER.debug(f"Entity {entity.entity_id} has already been added")
                 return
 
-            if entity_class := ENTITY_OVERRIDES.get(type(entity)):
-                mqtt_entity = entity_class(self._vis, self._config, entity)
-            elif entity_class := ENTITY_MAP.get(entity.domain):
+            if (entity_class := ENTITY_OVERRIDES.get(type(entity))) or (
+                entity_class := ENTITY_MAP.get(entity.domain)
+            ):
                 mqtt_entity = entity_class(self._vis, self._config, entity)
             else:
                 LOGGER.debug(f"Unsupported domain encountered: {entity.domain}")
@@ -252,13 +272,13 @@ class MQTT:
         entity_added_data: EventEntityAddedData = event_data.data
         self.create_entity(entity_added_data.entity)
 
-    def get_entities(self):
+    def get_entities(self) -> dict[str, MQTTEntity]:
         """Return registered MQTT entities."""
         return self._entities
 
     def on_connect(self, _client, _userdata, _flags, returncode) -> None:
         """On established MQTT connection."""
-        LOGGER.debug(f"MQTT connected with returncode {str(returncode)}")
+        LOGGER.debug(f"MQTT connected with returncode {returncode!s}")
         if returncode != 0:
             LOGGER.error(
                 f"Could not connect to broker. Returncode: {returncode}: "
@@ -281,16 +301,20 @@ class MQTT:
             self.on_reconnect()
             return
 
-        self._vis.listen_event(EVENT_ENTITY_ADDED, self.entity_added)
+        self._event_listeners.append(
+            self._vis.listen_event(EVENT_ENTITY_ADDED, self.entity_added)
+        )
         self.create_entities(self._vis.get_entities())
-        self._vis.listen_event(EVENT_STATE_CHANGED, self.state_changed)
+        self._event_listeners.append(
+            self._vis.listen_event(EVENT_STATE_CHANGED, self.state_changed)
+        )
 
-    def on_reconnect(self):
+    def on_reconnect(self) -> None:
         """Handle broker reconnect."""
         LOGGER.debug("Reconnected to MQTT broker, re-subscribing to topics")
         self._reconnect = False
         # Re-subscribe to all topics
-        for topic, _ in self._subscriptions.items():
+        for topic in self._subscriptions:
             LOGGER.debug(f"Re-subscribing to topic {topic}")
             self._client.subscribe(topic)
 
@@ -304,7 +328,7 @@ class MQTT:
         """On MQTT disconnection."""
         if returncode != MQTTErrorCode.MQTT_ERR_SUCCESS:
             LOGGER.warning(
-                f"MQTT disconnected with returncode {str(returncode)}({returncode})"
+                f"MQTT disconnected with returncode {returncode!s}({returncode})"
             )
         if self._connected:
             self._reconnect = True
@@ -313,8 +337,7 @@ class MQTT:
     def on_message(self, _client, _userdata, msg) -> None:
         """On message received."""
         LOGGER.debug(
-            f"Message received on topic {msg.topic}, "
-            f"message {str(msg.payload.decode())}"
+            f"Message received on topic {msg.topic}, message {msg.payload.decode()!s}"
         )
         for callback in self._subscriptions[msg.topic]:
             # Run callback in thread to not block the message queue
@@ -338,12 +361,13 @@ class MQTT:
                 self._config[CONFIG_USERNAME], self._config[CONFIG_PASSWORD]
             )
 
-        RestartableThread(
+        self._publisher_thread = RestartableThread(
             name=f"{__name__}.publisher",
             target=self.publisher,
             daemon=True,
             register=True,
-        ).start()
+        )
+        self._publisher_thread.start()
 
         # Set a Last Will message
         self._client.will_set(self.lwt_topic, payload="dead", retain=True)
@@ -393,12 +417,20 @@ class MQTT:
     def stop(self) -> None:
         """Stop mqtt client."""
         LOGGER.debug("Stopping MQTT client")
+        for unsubscribe in self._event_listeners:
+            unsubscribe()
+
         # Publish using client directly so we are sure its published
         self._client.publish(
             topic=self.client_connection_topic,
             payload=MQTT_CLIENT_CONNECTION_OFFLINE,
             retain=True,
         )
+
         self._kill_received = True
+        if self._publisher_thread:
+            self._publisher_thread.stop()
+            self._publisher_thread.join()
+
         self._client.disconnect()
         self._client.loop_stop()
