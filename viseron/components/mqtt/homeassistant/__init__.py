@@ -1,4 +1,5 @@
 """Home Assistant MQTT integration."""
+
 from __future__ import annotations
 
 import logging
@@ -44,8 +45,14 @@ class HassMQTTInterface:
 
         self._hass_entity_creation_lock = threading.Lock()
         self._hass_entities: dict[str, HassMQTTEntity] = {}
-        vis.listen_event(EVENT_MQTT_ENTITY_ADDED, self.mqtt_entity_added)
-        vis.listen_event(EVENT_MQTT_BROKER_RECONNECT, self.broker_reconnect)
+        self._event_listeners = []
+        self._event_listeners.append(
+            vis.listen_event(EVENT_MQTT_ENTITY_ADDED, self.mqtt_entity_added)
+        )
+        self._event_listeners.append(
+            vis.listen_event(EVENT_MQTT_BROKER_RECONNECT, self.broker_reconnect)
+        )
+
         self.create_hass_entities(self._mqtt.get_entities())
 
     def create_hass_entity(self, mqtt_entity: MQTTEntity) -> None:
@@ -87,3 +94,9 @@ class HassMQTTInterface:
         with self._hass_entity_creation_lock:
             for entity in self._hass_entities.values():
                 entity.create()
+
+    def unload(self) -> None:
+        """Unload Home Assistant MQTT interface."""
+        for unsubscribe in self._event_listeners:
+            unsubscribe()
+        self._event_listeners = []
