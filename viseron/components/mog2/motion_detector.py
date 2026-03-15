@@ -17,7 +17,7 @@ from .const import (
 )
 
 
-def setup(vis: Viseron, config, identifier) -> bool:
+def setup(vis: Viseron, config: dict, identifier: str) -> bool:
     """Set up the mog2 motion_detector domain."""
     MotionDetector(vis, config[DOMAIN], identifier)
 
@@ -27,7 +27,7 @@ def setup(vis: Viseron, config, identifier) -> bool:
 class MotionDetector(AbstractMotionDetectorScanner):
     """Perform motion detection."""
 
-    def __init__(self, vis: Viseron, config, camera_identifier) -> None:
+    def __init__(self, vis: Viseron, config: dict, camera_identifier: str) -> None:
         super().__init__(vis, COMPONENT, config, camera_identifier)
 
         self._camera_config = config[CONFIG_CAMERAS][camera_identifier]
@@ -38,8 +38,9 @@ class MotionDetector(AbstractMotionDetectorScanner):
         )
 
         self._empty_mat = cv2.Mat(np.empty((3, 3), np.uint8))
+        self._first_frame = True
 
-    def preprocess(self, frame):
+    def preprocess(self, frame: np.ndarray) -> np.ndarray:
         """Resize the frame to the desired width and height."""
         return cv2.resize(
             frame,
@@ -47,8 +48,13 @@ class MotionDetector(AbstractMotionDetectorScanner):
             interpolation=cv2.INTER_LINEAR,
         )
 
-    def return_motion(self, frame) -> Contours:
+    def return_motion(self, frame: np.ndarray) -> Contours:
         """Perform motion detection and return Contours."""
+        if self._first_frame:
+            self._first_frame = False
+            self._bgsmog.apply(frame, learningRate=1.0)
+            return Contours([], self._resolution)
+
         fgmask = self._bgsmog.apply(
             frame,
             learningRate=self._camera_config[CONFIG_LEARNING_RATE],
