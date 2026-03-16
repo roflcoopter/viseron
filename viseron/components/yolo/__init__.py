@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 
-from viseron import Viseron
 from viseron.domains import RequireDomain, setup_domain
 from viseron.domains.object_detector import (
     BASE_CONFIG_SCHEMA as OBJECT_DETECTOR_BASE_CONFIG_SCHEMA,
@@ -36,6 +35,9 @@ from .const import (
     DESC_MODEL_PATH,
     DESC_OBJECT_DETECTOR,
 )
+
+if TYPE_CHECKING:
+    from viseron import Viseron
 
 OBJECT_DETECTOR_SCHEMA = OBJECT_DETECTOR_BASE_CONFIG_SCHEMA.extend(
     {
@@ -86,7 +88,7 @@ def setup_domains(vis: Viseron, config: dict[str, Any]) -> None:
     config = config[COMPONENT]
 
     if config.get(CONFIG_OBJECT_DETECTOR, None):
-        for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS].keys():
+        for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS]:
             setup_domain(
                 vis,
                 COMPONENT,
