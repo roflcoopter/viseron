@@ -1,4 +1,5 @@
 """Sensor that represents NVR state of operation."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -42,5 +43,9 @@ class OperationStateSensor(CameraSensor):
 
     def handle_event(self, event_data: Event[EventOperationState]) -> None:
         """Update sensor state."""
-        self._state = event_data.data.operation_state
+        self._state = (
+            event_data.data.operation_state.value
+            if event_data.data.operation_state
+            else "unknown"
+        )
         self.set_state()

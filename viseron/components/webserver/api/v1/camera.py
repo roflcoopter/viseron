@@ -14,6 +14,7 @@ import imutils
 import numpy as np
 import voluptuous as vol
 
+from viseron.components.nvr.nvr import OperationState
 from viseron.components.storage.models import TriggerTypes
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.domains.camera.const import (
@@ -180,11 +181,9 @@ class CameraAPIHandler(BaseAPIHandler):
                 jpg = await self.run_in_executor(self._snapshot_from_url, camera)
             else:
                 jpg = await self.run_in_executor(self._snapshot_from_memory, camera)
-        except Exception as exception:  # pylint: disable=broad-except
-            LOGGER.error(
-                "Error fetching camera snapshot for camera %s: %s",
-                camera_identifier,
-                exception,
+        except Exception:  # pylint: disable=broad-except
+            LOGGER.exception(
+                f"Error fetching camera snapshot for camera {camera_identifier}"
             )
             if camera.still_image[CONFIG_USE_LAST_SNAPSHOT_ON_ERROR]:
                 jpg = CameraAPIHandler.camera_snapshots.get(camera_identifier, None)
@@ -296,14 +295,14 @@ class CameraAPIHandler(BaseAPIHandler):
             )
             return None
 
-        if nvr.operation_state == "idle":
+        if nvr.operation_state == OperationState.IDLE:
             self.response_error(
                 HTTPStatus.BAD_REQUEST,
                 reason="NVR is idle",
             )
             return None
 
-        async def wait_for_recording_start(timeout=5) -> bool:
+        async def wait_for_recording_start(timeout: int = 5) -> bool:
             """Wait for recording to start."""
             start_time = time.time()
             while True:
@@ -321,7 +320,7 @@ class CameraAPIHandler(BaseAPIHandler):
                     return True
                 await asyncio.sleep(0.1)
 
-        async def wait_for_recording_stop(timeout=5) -> bool:
+        async def wait_for_recording_stop(timeout: int = 5) -> bool:
             """Wait for recording to stop."""
             start_time = time.time()
             while True:
