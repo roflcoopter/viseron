@@ -2,9 +2,11 @@
 
 import logging
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from ultralytics import YOLO
+from ultralytics.engine.results import Results
 
 from viseron import Viseron
 from viseron.domains.object_detector import AbstractObjectDetector
@@ -24,7 +26,7 @@ from .const import (
 LOGGER = logging.getLogger(__name__)
 
 
-def setup(vis: Viseron, config, identifier) -> bool:
+def setup(vis: Viseron, config: dict[str, Any], identifier: str) -> bool:
     """Set up the YOLO object_detector domain."""
     ObjectDetector(vis, config, identifier)
 
@@ -34,7 +36,9 @@ def setup(vis: Viseron, config, identifier) -> bool:
 class ObjectDetector(AbstractObjectDetector):
     """YOLO object detection."""
 
-    def __init__(self, vis: Viseron, config, camera_identifier) -> None:
+    def __init__(
+        self, vis: Viseron, config: dict[str, Any], camera_identifier: str
+    ) -> None:
         super().__init__(
             vis, COMPONENT, config[CONFIG_OBJECT_DETECTOR], camera_identifier
         )
@@ -49,27 +53,29 @@ class ObjectDetector(AbstractObjectDetector):
         LOGGER.info(f"Loaded YOLO model: {model}")
         LOGGER.info(f"Labels: {self._detector.names}")
 
-    def preprocess(self, frame):
+    def preprocess(self, frame: np.ndarray) -> np.ndarray:
         """Preprocess frame before detection."""
-
         return np.array(frame)
 
-    def postprocess(self, results):
+    def postprocess(self, results: list[Results]) -> list[DetectedObject]:
         """Return yolo detections as DetectedObject."""
-
         objects = []
 
         for result in results:
-            classes_names = result.names
+            if result.boxes is None or len(result.boxes) == 0:
+                continue
 
-            for box in result.boxes:
-                cls = int(box.cls[0])
-                [x1, y1, x2, y2] = box.xyxy[0]
+            classes_names = result.names
+            boxes = result.boxes
+
+            for i in range(len(boxes)):  # pylint: disable=consider-using-enumerate
+                cls = int(boxes[i].cls[0])
+                [x1, y1, x2, y2] = boxes[i].xyxy[0]
                 x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
                 objects.append(
                     DetectedObject.from_absolute(
                         label=classes_names[cls],
-                        confidence=float(box.conf),
+                        confidence=float(boxes[i].conf),
                         x1=x1,
                         y1=y1,
                         x2=x2,
@@ -80,7 +86,7 @@ class ObjectDetector(AbstractObjectDetector):
                 )
         return objects
 
-    def return_objects(self, frame):
+    def return_objects(self, frame: np.ndarray) -> list[DetectedObject]:
         """Perform object detection."""
         try:
             results = self._detector.predict(
@@ -96,3 +102,8 @@ class ObjectDetector(AbstractObjectDetector):
             return []
 
         return self.postprocess(results)
+
+    def unload(self) -> None:
+        """Unload the object detector."""
+        super().unload()
+        del self._detector
