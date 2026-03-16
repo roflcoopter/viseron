@@ -1,4 +1,5 @@
 """API handlers."""
+
 from __future__ import annotations
 
 import inspect
@@ -6,13 +7,11 @@ import json
 import logging
 from functools import partial
 from http import HTTPStatus
-from re import Match, Pattern
-from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypedDict, cast
 
 import tornado.routing
 import voluptuous as vol
 from voluptuous.humanize import humanize_error
-from voluptuous.schema_builder import Schema
 
 from viseron.components.webserver.api.const import API_BASE
 from viseron.components.webserver.auth import Role
@@ -20,7 +19,10 @@ from viseron.components.webserver.request_handler import ViseronRequestHandler
 from viseron.helpers.json import JSONEncoder
 
 if TYPE_CHECKING:
+    from re import Match, Pattern
+
     from typing_extensions import NotRequired
+    from voluptuous.schema_builder import Schema
 
     from viseron import Viseron
 
@@ -51,7 +53,7 @@ class Route(TypedDict):
 class BaseAPIHandler(ViseronRequestHandler):
     """Base handler for all API endpoints."""
 
-    routes: list[Route] = []
+    routes: ClassVar[list[Route]] = []
 
     def initialize(self, vis: Viseron) -> None:
         """Initialize."""
@@ -67,7 +69,7 @@ class BaseAPIHandler(ViseronRequestHandler):
         return self._json_body
 
     @json_body.setter
-    def json_body(self, value) -> None:
+    def json_body(self, value: dict[str, Any]) -> None:
         """Set JSON body."""
         self._json_body = value
 
@@ -101,10 +103,14 @@ class BaseAPIHandler(ViseronRequestHandler):
             return super().check_xsrf_cookie()
 
         # Non-browser clients or requests not using cookies: skip CSRF check
-        return
+        return None
 
     async def response_success(
-        self, *, status: HTTPStatus = HTTPStatus.OK, response=None, headers=None
+        self,
+        *,
+        status: HTTPStatus = HTTPStatus.OK,
+        response: Any | None = None,
+        headers: dict[str, str] | None = None,
     ) -> None:
         """Send successful response."""
 
@@ -156,16 +162,13 @@ class BaseAPIHandler(ViseronRequestHandler):
             try:
                 self.json_body = schema(json_body)
             except vol.Invalid as err:
-                LOGGER.error(
+                LOGGER.exception(
                     f"Invalid body: {self.request.body.decode()}",
-                    exc_info=True,
                 )
                 return (
                     False,
-                    "Invalid body: {}. {}".format(
-                        self.request.body.decode(),
-                        humanize_error(json_body, err),
-                    ),
+                    f"Invalid body: {self.request.body.decode()}. "
+                    f"{humanize_error(json_body, err)}",
                 )
         return True, None
 
@@ -260,13 +263,13 @@ class BaseAPIHandler(ViseronRequestHandler):
                         self.response_error(
                             HTTPStatus.UNAUTHORIZED, reason="Authentication required"
                         )
-                        return
+                        return None
 
                     if not self.current_user:
                         self.response_error(
                             HTTPStatus.UNAUTHORIZED, reason="User not set"
                         )
-                        return
+                        return None
 
                     if requires_role := route.get("requires_role", None):
                         if self.current_user.role not in requires_role:
@@ -278,21 +281,20 @@ class BaseAPIHandler(ViseronRequestHandler):
                             self.response_error(
                                 HTTPStatus.FORBIDDEN, reason="Insufficient permissions"
                             )
-                            return
-                    else:
-                        if (
-                            self.current_user.role
-                            not in METHOD_ALLOWED_ROLES[self.request.method]
-                        ):
-                            LOGGER.debug(
-                                "Request with invalid permissions, endpoint requires"
-                                f" {METHOD_ALLOWED_ROLES[self.request.method]}, user"
-                                f" has role {self.current_user.role}"
-                            )
-                            self.response_error(
-                                HTTPStatus.FORBIDDEN, reason="Insufficient permissions"
-                            )
-                            return
+                            return None
+                    elif (
+                        self.current_user.role
+                        not in METHOD_ALLOWED_ROLES[self.request.method]
+                    ):
+                        LOGGER.debug(
+                            "Request with invalid permissions, endpoint requires"
+                            f" {METHOD_ALLOWED_ROLES[self.request.method]}, user"
+                            f" has role {self.current_user.role}"
+                        )
+                        self.response_error(
+                            HTTPStatus.FORBIDDEN, reason="Insufficient permissions"
+                        )
+                        return None
 
                 params = await self.run_in_executor(self._get_params, route)
                 if params is None:
@@ -307,18 +309,17 @@ class BaseAPIHandler(ViseronRequestHandler):
                         schema = self._allow_token_parameter(schema, route)
                         self.request_arguments = schema(request_arguments)
                     except vol.Invalid as err:
-                        LOGGER.error(
+                        LOGGER.exception(
                             f"Invalid request arguments: {request_arguments}",
-                            exc_info=True,
                         )
                         self.response_error(
                             HTTPStatus.BAD_REQUEST,
-                            reason="Invalid request arguments: {}. {}".format(
-                                request_arguments,
-                                humanize_error(request_arguments, err),
+                            reason=(
+                                f"Invalid request arguments: {request_arguments}. "
+                                f"{humanize_error(request_arguments, err)}"
                             ),
                         )
-                        return
+                        return None
 
                 path_args = [param.decode() for param in params.get("path_args", [])]
                 path_kwargs = params.get("path_kwargs", {})
@@ -332,7 +333,7 @@ class BaseAPIHandler(ViseronRequestHandler):
                             HTTPStatus.BAD_REQUEST,
                             reason="Missing camera identifier in request",
                         )
-                        return
+                        return None
 
                     camera = await self.run_in_executor(
                         self._get_camera, camera_identifier
@@ -342,7 +343,7 @@ class BaseAPIHandler(ViseronRequestHandler):
                             HTTPStatus.NOT_FOUND,
                             reason=f"Camera {camera_identifier} not found",
                         )
-                        return
+                        return None
 
                     if not await self.run_in_executor(
                         self.validate_camera_token, camera
@@ -351,7 +352,7 @@ class BaseAPIHandler(ViseronRequestHandler):
                             HTTPStatus.UNAUTHORIZED,
                             reason="Unauthorized",
                         )
-                        return
+                        return None
 
                 result, reason = await self.run_in_executor(
                     self.validate_json_body, route
@@ -359,37 +360,31 @@ class BaseAPIHandler(ViseronRequestHandler):
                 if not result:
                     self.response_error(
                         HTTPStatus.BAD_REQUEST,
-                        reason=cast(str, reason),
+                        reason=cast("str", reason),
                     )
-                    return
+                    return None
 
                 LOGGER.debug(
-                    (
-                        "Routing to {}.{}(*args={}, **kwargs={}, request_arguments={})"
-                    ).format(
-                        self.__class__.__name__,
-                        route["method"],
-                        path_args,
-                        path_kwargs,
-                        self.request_arguments,
-                    ),
+                    "Routing to %s.%s(*args=%s, **kwargs=%s, request_arguments=%s)",
+                    self.__class__.__name__,
+                    route["method"],
+                    path_args,
+                    path_kwargs,
+                    self.request_arguments,
                 )
                 try:
                     func = getattr(self, route["method"])
                     if inspect.iscoroutinefunction(func):
                         return await func(*path_args, **path_kwargs)
                     return func(*path_args, **path_kwargs)
-                except Exception as error:  # pylint: disable=broad-except
-                    LOGGER.error(
-                        f"Error in API {self.__class__.__name__}."
-                        f"{self.route['method']}: "
-                        f"{str(error)}",
-                        exc_info=True,
+                except Exception:  # pylint: disable=broad-except
+                    LOGGER.exception(
+                        f"Error in API {self.__class__.__name__}.{self.route['method']}"
                     )
                     self.response_error(
                         HTTPStatus.INTERNAL_SERVER_ERROR, reason="Internal server error"
                     )
-                    return
+                    return None
 
         if unsupported_method:
             LOGGER.warning(f"Method not allowed for URI: {self.request.uri}")
@@ -397,6 +392,8 @@ class BaseAPIHandler(ViseronRequestHandler):
         else:
             LOGGER.warning(f"Endpoint not found for URI: {self.request.uri}")
             self.handle_endpoint_not_found()
+
+        return None
 
     async def delete(self) -> None:
         """Route DELETE requests."""

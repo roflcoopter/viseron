@@ -12,8 +12,9 @@ import logging
 import threading
 import time
 from dataclasses import dataclass
+from enum import Enum
 from queue import Empty, Queue
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from viseron.components.nvr.const import COMPONENT
 from viseron.components.nvr.sensor import OperationStateSensor
@@ -70,7 +71,7 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-def setup(vis: Viseron, config, identifier) -> bool:
+def setup(vis: Viseron, config: dict[str, Any], identifier: str) -> bool:
     """Set up the edgetpu object_detector domain."""
     object_detector: AbstractObjectDetector | Literal[False] = False
     if vis.domain_registry.is_configured(OBJECT_DETECTOR, identifier):
@@ -105,7 +106,7 @@ class EventOperationState(EventData):
     """Hold information of current state of operation."""
 
     camera_identifier: str
-    operation_state: str
+    operation_state: OperationState | None
 
 
 @dataclass
@@ -158,8 +159,8 @@ class FrameIntervalCalculator:
             )
             scan_fps = output_fps
         self._scan: bool = False
-        self._scan_fps = scan_fps
-        self._scan_interval = 0
+        self._scan_fps: int = scan_fps
+        self._scan_interval: int = 0
         self._scan_error: bool = False
 
         self._frame_number = 0
@@ -190,12 +191,12 @@ class FrameIntervalCalculator:
             self._frame_number = 0
         return False
 
-    def calculate_scan_interval(self, output_fps) -> None:
+    def calculate_scan_interval(self, output_fps: float) -> None:
         """Calculate the frame scan interval."""
         self._scan_interval = round(output_fps / self.scan_fps)
 
     @property
-    def scan(self):
+    def scan(self) -> bool:
         """Return if frames should be scanned."""
         return self._scan
 
@@ -211,17 +212,17 @@ class FrameIntervalCalculator:
         )
 
     @property
-    def scan_fps(self):
+    def scan_fps(self) -> int:
         """Return scan fps of scanner."""
         return self._scan_fps
 
     @property
-    def scan_interval(self):
+    def scan_interval(self) -> int:
         """Return scan interval of scanner."""
         return self._scan_interval
 
     @property
-    def scan_error(self):
+    def scan_error(self) -> bool:
         """Return if the last scan failed."""
         return self._scan_error
 
@@ -240,6 +241,16 @@ class FrameIntervalCalculator:
         """Unload frame interval calculator."""
         for unsubscribe in self._listeners:
             unsubscribe()
+
+
+class OperationState(Enum):
+    """Enum for NVR state of operation."""
+
+    IDLE = "idle"
+    SCANNING_FOR_MOTION = "scanning_for_motion"
+    SCANNING_FOR_OBJECTS = "scanning_for_objects"
+    RECORDING = "recording"
+    ERROR_SCANNING_FRAME = "error_scanning_frame"
 
 
 class NVR(AbstractNVR):
@@ -269,7 +280,7 @@ class NVR(AbstractNVR):
         self._start_manual_recording = False
         self._kill_received = False
         self._removal_timers: list[threading.Timer] = []
-        self._operation_state = None
+        self._operation_state: OperationState | None = None
 
         self._frame_scanners: dict[str, FrameIntervalCalculator] = {}
         self._current_frame_scanners: dict[str, FrameIntervalCalculator] = {}
@@ -376,6 +387,7 @@ class NVR(AbstractNVR):
         self._listeners.append(
             self._vis.listen_event(self._camera.frame_bytes_topic, self._frame_queue)
         )
+        self._first_frame_log = True
         self._nvr_thread = RestartableThread(
             name=str(self),
             target=self.run,
@@ -423,12 +435,12 @@ class NVR(AbstractNVR):
             scanner.calculate_scan_interval(self._camera.output_fps)
 
     @property
-    def operation_state(self):
+    def operation_state(self) -> OperationState | None:
         """Return state of operation."""
         return self._operation_state
 
     @operation_state.setter
-    def operation_state(self, value) -> None:
+    def operation_state(self, value: OperationState | None) -> None:
         """Set state of operation."""
         if value == self._operation_state:
             return
@@ -444,17 +456,17 @@ class NVR(AbstractNVR):
 
     def update_operation_state(self) -> None:
         """Update operation state."""
-        operation_state = "idle"
+        operation_state = OperationState.IDLE
         if self._frame_scanner_errors:
-            operation_state = "error_scanning_frame"
+            operation_state = OperationState.ERROR_SCANNING_FRAME
         elif self._camera.is_recording:
-            operation_state = "recording"
+            operation_state = OperationState.RECORDING
         elif not self._camera.is_on:
-            operation_state = "idle"
+            operation_state = OperationState.IDLE
         elif self._object_detector and self._frame_scanners[OBJECT_DETECTOR].scan:
-            operation_state = "scanning_for_objects"
+            operation_state = OperationState.SCANNING_FOR_OBJECTS
         elif self._motion_detector and self._frame_scanners[MOTION_DETECTOR].scan:
-            operation_state = "scanning_for_motion"
+            operation_state = OperationState.SCANNING_FOR_MOTION
 
         self.operation_state = operation_state
 
@@ -490,7 +502,7 @@ class NVR(AbstractNVR):
                         ):
                             frame_scanner.domain_instance.result_failed_callback()
 
-    def start_manual_recording(self, manual_recording: ManualRecording):
+    def start_manual_recording(self, manual_recording: ManualRecording) -> None:
         """Start a manual recording with a set duration."""
         self._logger.debug(
             "Received request to start manual recording with duration: "
@@ -630,10 +642,7 @@ class NVR(AbstractNVR):
         ):
             return False
 
-        if obj.trigger_event_recording:
-            return True
-
-        return False
+        return obj.trigger_event_recording
 
     def process_object_event(self) -> None:
         """Process any detected objects to see if recorder should start."""
@@ -735,10 +744,10 @@ class NVR(AbstractNVR):
             self._frame_scanners[MOTION_DETECTOR].scan = True
             self._logger.info("Starting motion detector")
 
-    def stop_recorder(self, force=False) -> None:
+    def stop_recorder(self, *, force: bool = False) -> None:
         """Stop recorder."""
 
-        def _stop():
+        def _stop() -> None:
             self._stop_recorder_at = None
             self._seconds_left = 0
             self._camera.stop_recorder()
@@ -815,7 +824,7 @@ class NVR(AbstractNVR):
         This makes sure all frames are cleaned up eventually.
         """
 
-        def _remove():
+        def _remove() -> None:
             self._camera.shared_frames.remove(shared_frame, self._camera)
             self._removal_timers.remove(timer)
 
@@ -824,7 +833,7 @@ class NVR(AbstractNVR):
             _remove,
             args=(),
         )
-        timer.name = f"{str(self)}.remove_frame.{shared_frame.name}"
+        timer.name = f"{self!s}.remove_frame.{shared_frame.name}"
         timer.daemon = True
         self._removal_timers.append(timer)
         timer.start()
@@ -832,15 +841,14 @@ class NVR(AbstractNVR):
     def run(self) -> None:
         """Frame processing loop."""
         self._logger.debug("Waiting for first frame")
-        first_frame_log = True
+        self._first_frame_log = True
 
         while not self._kill_received:
-            self._run(first_frame_log)
-            first_frame_log = False
+            self._run()
 
         self._logger.debug("NVR thread stopped")
 
-    def _run(self, first_frame_log=False) -> None:
+    def _run(self) -> None:
         """Process frames from camera."""
         self.update_operation_state()
         try:
@@ -848,8 +856,9 @@ class NVR(AbstractNVR):
         except Empty:
             return
 
-        if first_frame_log:
+        if self._first_frame_log:
             self._logger.debug("First frame received")
+            self._first_frame_log = False
 
         shared_frame = frame.data.shared_frame
         if (frame_age := time.time() - shared_frame.capture_time) > 1:

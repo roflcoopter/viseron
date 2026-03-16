@@ -1,5 +1,4 @@
 """Tests for NVR component."""
-# pylint: disable=protected-access
 
 import datetime
 import logging
@@ -304,7 +303,7 @@ class TestNVRRunMotionOnly:
         # Start recording with motion
         motion_detector.motion_detected = True
         feed_frame_to_nvr(nvr)
-        nvr._run(first_frame_log=True)
+        nvr._run()
         assert camera.is_recording
         assert nvr._stop_recorder_at is None
 
@@ -378,7 +377,7 @@ class TestNVRRunObjectOnly:
         # 1) First frame: no objects -> no recording
         object_detector.objects_in_fov = []
         feed_frame_to_nvr(nvr)
-        nvr._run(first_frame_log=True)
+        nvr._run()
         assert not camera.is_recording
         camera.start_recorder.assert_not_called()
 
@@ -440,7 +439,7 @@ class TestNVRRunObjectOnly:
             SimpleNamespace(trigger_event_recording=True, label="person")
         ]
         feed_frame_to_nvr(nvr)
-        nvr._run(first_frame_log=True)
+        nvr._run()
         assert camera.is_recording
         assert nvr._stop_recorder_at is None
 
@@ -513,7 +512,7 @@ class TestNVRRunObjectOnly:
             SimpleNamespace(trigger_event_recording=True, label="person")
         ]
         feed_frame_to_nvr(nvr)
-        nvr._run(first_frame_log=True)
+        nvr._run()
         assert camera.is_recording
         assert nvr._stop_recorder_at is None
 
@@ -529,7 +528,7 @@ class TestNVRRunObjectOnly:
         feed_frame_to_nvr(nvr)
         nvr._run()
         assert "Max recording time exceeded, stopping recorder" in caplog.text
-        assert nvr.stop_recorder.called_once_with(True)
+        nvr.stop_recorder.assert_called_once_with(force=True)
         assert not camera.is_recording
 
 
@@ -566,7 +565,7 @@ class TestNVRRunBoth:
             SimpleNamespace(trigger_event_recording=True, label="person")
         ]
         feed_frame_to_nvr(nvr)
-        nvr._run(first_frame_log=True)
+        nvr._run()
         assert camera.is_recording
         # Motion scanner should start due to recorder_keepalive
         assert nvr._frame_scanners[MOTION_DETECTOR].scan is True
@@ -615,7 +614,7 @@ class TestNVRRunBoth:
             SimpleNamespace(trigger_event_recording=True, label="person")
         ]
         feed_frame_to_nvr(nvr)
-        nvr._run(first_frame_log=True)
+        nvr._run()
         assert camera.is_recording
         assert nvr._frame_scanners[MOTION_DETECTOR].scan is True
 
@@ -672,7 +671,7 @@ class TestNVRRunBoth:
             SimpleNamespace(trigger_event_recording=True, label="person")
         ]
         feed_frame_to_nvr(nvr)
-        nvr._run(first_frame_log=True)
+        nvr._run()
         assert camera.is_recording
         assert nvr._frame_scanners[MOTION_DETECTOR].scan is True
 
@@ -719,7 +718,7 @@ class TestNVRRunBoth:
             SimpleNamespace(trigger_event_recording=True, label="person")
         ]
         feed_frame_to_nvr(nvr)
-        nvr._run(first_frame_log=True)
+        nvr._run()
         assert camera.is_recording
         assert nvr._frame_scanners[MOTION_DETECTOR].scan is True
 
@@ -803,7 +802,7 @@ class TestNVRRunBoth:
         ]
         motion_detector.motion_detected = False
         feed_frame_to_nvr(nvr)
-        nvr._run(first_frame_log=True)
+        nvr._run()
         assert not camera.is_recording
 
         motion_detector.motion_detected = True
@@ -837,7 +836,7 @@ class TestNVRRunBoth:
         ]
         motion_detector.motion_detected = True
         feed_frame_to_nvr(nvr)
-        nvr._run(first_frame_log=True)
+        nvr._run()
         assert camera.is_recording
 
         motion_detector.motion_detected = False
@@ -880,7 +879,7 @@ class TestNVRRunBoth:
         ]
         motion_detector.motion_detected = True
         feed_frame_to_nvr(nvr)
-        nvr._run(first_frame_log=True)
+        nvr._run()
         assert camera.is_recording
 
         object_detector.objects_in_fov = []
@@ -917,7 +916,7 @@ class TestNVRRunManualRecording:
         # Schedule manual recording
         nvr.start_manual_recording(ManualRecording(duration=3))
         feed_frame_to_nvr(nvr)
-        nvr._run(first_frame_log=True)
+        nvr._run()
         assert camera.is_recording
         assert camera.recorder.active_recording.trigger_type == TriggerTypes.MANUAL
 
@@ -931,7 +930,7 @@ class TestNVRRunManualRecording:
         fake_time.advance(2)
         feed_frame_to_nvr(nvr)
         nvr._run()
-        assert nvr.stop_recorder.called_once_with(True)
+        nvr.stop_recorder.assert_called_once_with(force=True)
         assert not camera.is_recording
 
     def test_manual_recording_overrides_object_event(self, vis, monkeypatch, caplog):
@@ -950,7 +949,7 @@ class TestNVRRunManualRecording:
             SimpleNamespace(trigger_event_recording=True, label="person")
         ]
         feed_frame_to_nvr(nvr)
-        nvr._run(first_frame_log=True)
+        nvr._run()
         assert camera.is_recording
         assert camera.recorder.active_recording.trigger_type == TriggerTypes.OBJECT
 
@@ -960,14 +959,14 @@ class TestNVRRunManualRecording:
         nvr._run()
         assert camera.is_recording
         assert camera.recorder.active_recording.trigger_type == TriggerTypes.MANUAL
-        assert camera.stop_recorder.called_once_with(True)
+        camera.stop_recorder.assert_called_once_with()
         assert "Event recording in progress" in caplog.text
 
         # End after duration
         fake_time.advance(3)
         feed_frame_to_nvr(nvr)
         nvr._run()
-        assert nvr.stop_recorder.called_once_with(True)
+        nvr.stop_recorder.assert_called_with(force=True)
         assert not camera.is_recording
 
     def test_manual_recording_overrides_motion_event(self, vis, monkeypatch, caplog):
@@ -984,7 +983,7 @@ class TestNVRRunManualRecording:
         # Trigger motion event recording
         motion_detector.motion_detected = True
         feed_frame_to_nvr(nvr)
-        nvr._run(first_frame_log=True)
+        nvr._run()
         assert camera.is_recording
         assert camera.recorder.active_recording.trigger_type == TriggerTypes.MOTION
 
@@ -994,14 +993,14 @@ class TestNVRRunManualRecording:
         nvr._run()
         assert camera.is_recording
         assert camera.recorder.active_recording.trigger_type == TriggerTypes.MANUAL
-        assert camera.stop_recorder.called_once_with(True)
+        camera.stop_recorder.assert_called_once_with()
         assert "Event recording in progress" in caplog.text
 
         # Advance beyond duration -> stops
         fake_time.advance(3)
         feed_frame_to_nvr(nvr)
         nvr._run()
-        assert nvr.stop_recorder.called_once_with(True)
+        nvr.stop_recorder.assert_called_with(force=True)
         assert not camera.is_recording
 
     def test_manual_recording_does_not_restart_each_frame(
@@ -1016,7 +1015,7 @@ class TestNVRRunManualRecording:
 
         nvr.start_manual_recording(ManualRecording(duration=4))
         feed_frame_to_nvr(nvr)
-        nvr._run(first_frame_log=True)
+        nvr._run()
         assert camera.is_recording
 
         # Subsequent frames before duration end should not start again
@@ -1031,7 +1030,7 @@ class TestNVRRunManualRecording:
         fake_time.advance(3)
         feed_frame_to_nvr(nvr)
         nvr._run()
-        assert nvr.stop_recorder.called_once_with(True)
+        nvr.stop_recorder.assert_called_once_with(force=True)
         assert not camera.is_recording
 
     def test_manual_recording_no_duration(self, vis, monkeypatch, caplog):
@@ -1044,7 +1043,7 @@ class TestNVRRunManualRecording:
 
         nvr.start_manual_recording(ManualRecording(duration=None))
         feed_frame_to_nvr(nvr)
-        nvr._run(first_frame_log=True)
+        nvr._run()
         assert camera.is_recording
 
         # Advance time indefinitely -> recording continues
@@ -1058,7 +1057,7 @@ class TestNVRRunManualRecording:
         feed_frame_to_nvr(nvr)
         nvr._run()
         assert "Received request to stop manual recording" in caplog.text
-        assert nvr.stop_recorder.called_once_with(True)
+        nvr.stop_recorder.assert_called_once_with(force=True)
         assert not camera.is_recording
 
     def test_manual_recording_no_duration_max_recording_time_exceeded(
@@ -1073,12 +1072,12 @@ class TestNVRRunManualRecording:
 
         nvr.start_manual_recording(ManualRecording(duration=None))
         feed_frame_to_nvr(nvr)
-        nvr._run(first_frame_log=True)
+        nvr._run()
         assert camera.is_recording
 
         camera.recorder.max_recording_time_exceeded = True
         feed_frame_to_nvr(nvr)
         nvr._run()
         assert "Max recording time exceeded, stopping recorder" in caplog.text
-        assert nvr.stop_recorder.called_once_with(True)
+        nvr.stop_recorder.assert_called_once_with(force=True)
         assert not camera.is_recording
