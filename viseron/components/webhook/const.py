@@ -1,7 +1,8 @@
 """Webhook constants."""
+
 from typing import Final
 
-COMPONENT = "webhook"
+COMPONENT: Final = "webhook"
 
 
 # CONFIG_SCHEMA constants
@@ -17,7 +18,7 @@ CONFIG_URL: Final = "url"
 CONFIG_METHOD: Final = "method"
 CONFIG_HEADERS: Final = "headers"
 CONFIG_USERNAME: Final = "username"
-CONFIG_PASSWORD: Final = "password"
+CONFIG_PASSWORD: Final = "password"  # noqa: S105
 CONFIG_PAYLOAD: Final = "payload"
 CONFIG_TIMEOUT: Final = "timeout"
 CONFIG_CONTENT_TYPE: Final = "content_type"
@@ -45,7 +46,7 @@ DESC_METHOD: Final = "The HTTP method to use for the webhook request."
 DESC_HEADERS: Final = "Headers to include in the webhook request."
 DESC_HEADER: Final = "Header key for the webhook request."
 DESC_USERNAME: Final = "Username for basic authentication."
-DESC_PASSWORD: Final = "Password for basic authentication."
+DESC_PASSWORD: Final = "Password for basic authentication."  # noqa: S105
 DESC_PAYLOAD: Final = "Payload to send with the webhook request."
 DESC_TIMEOUT: Final = "The timeout for the webhook request in seconds."
 DESC_CONTENT_TYPE: Final = "The content type of the webhook request."

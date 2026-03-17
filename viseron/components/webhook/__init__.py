@@ -1,4 +1,5 @@
 """Webhook component."""
+
 from __future__ import annotations
 
 import logging
@@ -7,7 +8,6 @@ from typing import TYPE_CHECKING, Any
 import requests
 import voluptuous as vol
 
-from viseron.events import Event
 from viseron.helpers.template import render_template, render_template_condition
 from viseron.helpers.validators import (
     CoerceNoneToDict,
@@ -61,7 +61,10 @@ from .const import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from viseron import Viseron
+    from viseron.events import Event
 
 LOGGER = logging.getLogger(__name__)
 
@@ -144,7 +147,15 @@ CONFIG_SCHEMA = vol.Schema(
 
 def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     """Set up the webhook component."""
-    Webhook(vis, config[COMPONENT])
+    vis.data[COMPONENT] = Webhook(vis, config[COMPONENT])
+    return True
+
+
+def unload(vis: Viseron) -> bool:
+    """Unload the webhook component."""
+    if COMPONENT in vis.data:
+        vis.data[COMPONENT].unload()
+        del vis.data[COMPONENT]
     return True
 
 
@@ -154,6 +165,7 @@ class Webhook:
     def __init__(self, vis: Viseron, config: dict[str, Any]) -> None:
         self.vis = vis
         self.config = config
+        self._event_listeners: list[Callable] = []
         self._setup_hooks()
 
     def _setup_hook(self, hook_name: str, hook_conf: dict[str, Any]) -> None:
@@ -169,16 +181,18 @@ class Webhook:
 
         trigger = hook_conf[CONFIG_TRIGGER]
         event_type = trigger[CONFIG_EVENT]
-        self.vis.listen_event(event_type, _handle_trigger)
+        self._event_listeners.append(
+            self.vis.listen_event(event_type, _handle_trigger),
+        )
         LOGGER.debug(f"Registered webhook '{hook_name}' for event '{event_type}'")
 
-    def _setup_hooks(self):
+    def _setup_hooks(self) -> None:
         for hook_name, hook_conf in self.config.items():
             self._setup_hook(hook_name, hook_conf)
 
     def _handle_event(
         self, hook_conf: dict[str, Any], event: dict[str, Any], hook_name: str
-    ):
+    ) -> None:
         condition_template = hook_conf[CONFIG_TRIGGER][CONFIG_CONDITION]
         if condition_template:
             result, rendered_condition = render_template_condition(
@@ -227,5 +241,11 @@ class Webhook:
                 auth=auth,
             )
             LOGGER.debug(f"Webhook '{hook_name}' status code: {resp.status_code}")
-        except Exception as e:  # pylint: disable=broad-except
-            LOGGER.error(f"Webhook '{hook_name}' error: {e}")
+        except Exception:  # pylint: disable=broad-except
+            LOGGER.exception(f"Error sending webhook '{hook_name}'")
+
+    def unload(self) -> None:
+        """Unload the webhook component."""
+        for unsubscribe in self._event_listeners:
+            unsubscribe()
+        self._event_listeners.clear()
