@@ -894,6 +894,22 @@ class TestConfigDiff:
         assert diff.get_component_change("ffmpeg") is change
         assert diff.get_component_change("nonexistent") is None
 
+    def test_remove_default_components(self) -> None:
+        """Test remove_default_components removes members of DEFAULT_COMPONENTS."""
+        diff = ConfigDiff(
+            component_changes={
+                "ffmpeg": ComponentChange("ffmpeg", None, {"camera": {}}),
+                "mqtt": ComponentChange("mqtt", None, {"broker": "localhost"}),
+                "webserver": ComponentChange("webserver", None, {"port": 8080}),
+                "darknet": ComponentChange("darknet", None, {"object_detector": {}}),
+            }
+        )
+        diff.remove_default_components()
+        assert "ffmpeg" in diff.component_changes
+        assert "mqtt" in diff.component_changes
+        assert "darknet" in diff.component_changes
+        assert "webserver" not in diff.component_changes
+
 
 class TestDiffConfig:
     """Test diff_config function."""

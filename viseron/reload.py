@@ -7,7 +7,11 @@ import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from viseron.components import get_component, setup_components, unload_component
+from viseron.components import (
+    get_component,
+    setup_components,
+    unload_component,
+)
 from viseron.config import (
     ComponentChange,
     ConfigDiff,
@@ -18,6 +22,7 @@ from viseron.config import (
     diff_identifier_config,
     load_config,
 )
+from viseron.const import DEFAULT_COMPONENTS
 from viseron.domain_registry import DomainState
 from viseron.domains import get_unload_order, setup_domains, unload_domain
 
@@ -35,6 +40,7 @@ class ReloadResult:
 
     success: bool
     diff: ConfigDiff | None = None
+    restart_required: bool = False
     errors: list[str] = field(default_factory=list)
 
 
@@ -174,6 +180,16 @@ def _load_and_diff_config(
     LOGGER.debug(f"Identifiers to reload: {changes.identifiers_to_reload}")
 
     return new_config, diff, changes
+
+
+def _check_default_component_changes(diff: ConfigDiff) -> set[str]:
+    """Check for changes to DEFAULT_COMPONENTS and return them."""
+    component_changes = (
+        diff.get_added_components()
+        + diff.get_removed_components()
+        + diff.get_modified_components()
+    )
+    return set(component_changes) & set(DEFAULT_COMPONENTS)
 
 
 def _handle_removed_components(vis: Viseron, diff: ConfigDiff, plan: SetupPlan) -> None:
@@ -369,6 +385,15 @@ def _reload_config(
     new_config, diff, changes = loaded
     result.diff = diff
     plan = SetupPlan()
+
+    default_components_changed = _check_default_component_changes(diff)
+    if default_components_changed:
+        result.restart_required = True
+        LOGGER.info(
+            f"Changes detected in default components {default_components_changed}, "
+            f"restart is required to apply these changes"
+        )
+        diff.remove_default_components()
 
     _handle_removed_components(vis, diff, plan)
     _handle_added_components(diff, plan)

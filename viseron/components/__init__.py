@@ -15,9 +15,13 @@ from voluptuous.humanize import humanize_error
 from viseron.const import (
     COMPONENT_RETRY_INTERVAL,
     COMPONENT_RETRY_INTERVAL_MAX,
+    CORE_COMPONENTS,
+    CRITICAL_COMPONENTS,
+    DEFAULT_COMPONENTS,
     FAILED,
     LOADED,
     LOADING,
+    LOGGING_COMPONENTS,
     SLOW_SETUP_WARNING,
     VISERON_SIGNAL_SHUTDOWN,
 )
@@ -34,16 +38,6 @@ if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.domains import OptionalDomain, RequireDomain
     from viseron.viseron_types import SupportedDomains
-
-
-LOGGING_COMPONENTS = {"logger"}
-# Core components are always loaded even if they are not present in config
-CORE_COMPONENTS = {"data_stream"}
-# Default components are always loaded even if they are not present in config
-DEFAULT_COMPONENTS = {"webserver", "storage"}
-# Critical components are required for Viseron to function properly
-# If one of these components fail to load, Viseron will activate safe mode
-CRITICAL_COMPONENTS = LOGGING_COMPONENTS | CORE_COMPONENTS | DEFAULT_COMPONENTS
 
 
 LOGGER = logging.getLogger(__name__)
