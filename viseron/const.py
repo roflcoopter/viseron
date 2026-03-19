@@ -143,6 +143,14 @@ DOMAIN_RETRY_INTERVAL = 10
 DOMAIN_RETRY_INTERVAL_MAX = 300
 SLOW_SETUP_WARNING = 20
 SLOW_DEPENDENCY_WARNING = 60
+LOGGING_COMPONENTS = {"logger"}
+# Core components are always loaded even if they are not present in config
+CORE_COMPONENTS = {"data_stream"}
+# Default components are always loaded even if they are not present in config
+DEFAULT_COMPONENTS = {"webserver", "storage"}
+# Critical components are required for Viseron to function properly
+# If one of these components fail to load, Viseron will activate safe mode
+CRITICAL_COMPONENTS = LOGGING_COMPONENTS | CORE_COMPONENTS | DEFAULT_COMPONENTS
 
 
 RESTART_EXIT_CODE = 100

@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, call, patch
 
+import pytest
+
 from viseron.config import ComponentChange, ConfigDiff, DomainChange, IdentifierChange
 from viseron.domain_registry import DomainEntry, DomainState
 from viseron.reload import (
@@ -12,6 +14,7 @@ from viseron.reload import (
     ReloadResult,
     SetupPlan,
     _apply_setup_plan,
+    _check_default_component_changes,
     _get_changes,
     _handle_added_components,
     _handle_cancelled_retries,
@@ -29,8 +32,6 @@ from viseron.reload import (
 )
 
 if TYPE_CHECKING:
-    import pytest
-
     from viseron.viseron_types import SupportedDomains
 
 
@@ -533,6 +534,67 @@ class TestLoadAndDiffConfig:
         mock_load.assert_called_once()
         mock_diff.assert_called_once_with(vis.config, new_cfg)
         mock_get_changes.assert_called_once_with(mock_diff.return_value)
+
+
+class TestCheckDefaultComponentChanges:
+    """Test _check_default_component_changes function."""
+
+    @pytest.mark.parametrize(
+        ("diff", "expected"),
+        [
+            pytest.param(
+                ConfigDiff(),
+                set(),
+                id="no_default_component_changes",
+            ),
+            pytest.param(
+                ConfigDiff(
+                    component_changes={
+                        "webserver": ComponentChange(
+                            component_name="webserver",
+                            old_config=None,
+                            new_config={"auth": {}},
+                        ),
+                    }
+                ),
+                {"webserver"},
+                id="default_component_added",
+            ),
+            pytest.param(
+                ConfigDiff(
+                    component_changes={
+                        "webserver": ComponentChange(
+                            component_name="webserver",
+                            old_config={"auth": {}},
+                            new_config=None,
+                        ),
+                    }
+                ),
+                {"webserver"},
+                id="default_component_removed",
+            ),
+            pytest.param(
+                ConfigDiff(
+                    component_changes={
+                        "webserver": ComponentChange(
+                            component_name="webserver",
+                            old_config={"auth": {"enabled": False}},
+                            new_config={"auth": {"enabled": True}},
+                        ),
+                    }
+                ),
+                {"webserver"},
+                id="default_component_modified",
+            ),
+        ],
+    )
+    def test_check_default_component_changes(
+        self, diff: ConfigDiff, expected: set
+    ) -> None:
+        """Test _check_default_component_changes with various scenarios."""
+        result = _check_default_component_changes(diff)
+
+        assert result == expected
 
 
 class TestHandleRemovedComponents:
@@ -1372,8 +1434,10 @@ class TestReloadConfig:
     @patch("viseron.reload._handle_added_components")
     @patch("viseron.reload._handle_removed_components")
     @patch("viseron.reload._load_and_diff_config")
+    @patch("viseron.reload._check_default_component_changes", return_value=set())
     def test_validation_failure_aborts(
         self,
+        mock_check_defaults: MagicMock,
         mock_load: MagicMock,
         mock_removed: MagicMock,
         mock_added: MagicMock,
@@ -1391,6 +1455,7 @@ class TestReloadConfig:
         assert "Config validation failed" in result.errors[0]
         mock_removed.assert_called_once()
         mock_added.assert_called_once()
+        mock_check_defaults.assert_called_once()
         mock_apply.assert_not_called()
         vis.set_config.assert_not_called()
 
@@ -1403,8 +1468,10 @@ class TestReloadConfig:
     @patch("viseron.reload._handle_added_components")
     @patch("viseron.reload._handle_removed_components")
     @patch("viseron.reload._load_and_diff_config")
+    @patch("viseron.reload._check_default_component_changes", return_value=set())
     def test_successful_reload(
         self,
+        mock_check_defaults: MagicMock,
         mock_load: MagicMock,
         mock_removed: MagicMock,
         mock_added: MagicMock,
@@ -1426,6 +1493,7 @@ class TestReloadConfig:
         result = _reload_config(vis, cancelled)
 
         assert result.success is True
+        assert result.restart_required is False
         assert not result.errors
         mock_removed.assert_called_once()
         mock_added.assert_called_once()
@@ -1435,6 +1503,72 @@ class TestReloadConfig:
         mock_modified_id.assert_called_once()
         mock_cancelled.assert_called_once()
         mock_apply.assert_called_once()
+        mock_check_defaults.assert_called_once_with(diff)
+        vis.set_config.assert_called_once_with(new_config)
+
+    @patch("viseron.reload._apply_setup_plan")
+    @patch("viseron.reload._handle_cancelled_retries")
+    @patch("viseron.reload._handle_modified_identifiers")
+    @patch("viseron.reload._handle_modified_domains")
+    @patch("viseron.reload._handle_modified_components")
+    @patch("viseron.reload._validate_config", return_value=True)
+    @patch("viseron.reload._handle_added_components")
+    @patch("viseron.reload._handle_removed_components")
+    @patch("viseron.reload._load_and_diff_config")
+    @patch("viseron.reload._check_default_component_changes")
+    def test_default_component_changes(
+        self,
+        mock_check_defaults: MagicMock,
+        mock_load: MagicMock,
+        mock_removed: MagicMock,
+        mock_added: MagicMock,
+        mock_validate: MagicMock,
+        mock_modified_comp: MagicMock,
+        mock_modified_dom: MagicMock,
+        mock_modified_id: MagicMock,
+        mock_cancelled: MagicMock,
+        mock_apply: MagicMock,
+    ) -> None:
+        """Test that default component changes are handled correctly."""
+        vis = MagicMock()
+        new_config: dict[str, dict] = {
+            "ffmpeg": {"key": "val"},
+            "webserver": {"key": "val"},
+        }
+        diff = ConfigDiff(
+            component_changes={
+                "ffmpeg": ComponentChange(
+                    component_name="ffmpeg",
+                    old_config=None,
+                    new_config=new_config["ffmpeg"],
+                ),
+                "webserver": ComponentChange(
+                    component_name="webserver",
+                    old_config=None,
+                    new_config=new_config["webserver"],
+                ),
+            }
+        )
+        changes = ReloadChanges()
+        mock_load.return_value = (new_config, diff, changes)
+        mock_check_defaults.return_value = {"webserver"}
+
+        result = _reload_config(vis, [])
+
+        assert result.success is True
+        assert result.restart_required is True
+        assert "webserver" not in diff.component_changes
+        assert "ffmpeg" in diff.component_changes
+        assert not result.errors
+        mock_removed.assert_called_once()
+        mock_added.assert_called_once()
+        mock_validate.assert_called_once()
+        mock_modified_comp.assert_called_once()
+        mock_modified_dom.assert_called_once()
+        mock_modified_id.assert_called_once()
+        mock_cancelled.assert_called_once()
+        mock_apply.assert_called_once()
+        mock_check_defaults.assert_called_once_with(diff)
         vis.set_config.assert_called_once_with(new_config)
 
 
