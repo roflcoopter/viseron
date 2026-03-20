@@ -1,16 +1,17 @@
 """Auth tests."""
+
 from __future__ import annotations
 
 import os
 from datetime import timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from filelock import FileLock
 
 from viseron.components.webserver.auth import (
     Auth,
-    AuthenticationFailed,
+    AuthenticationFailedError,
     InvalidRoleError,
     LastAdminUserError,
     Role,
@@ -19,28 +20,29 @@ from viseron.components.webserver.auth import (
     token_response,
 )
 
+if TYPE_CHECKING:
+    from viseron import Viseron
+
+    from tests.conftest import MockViseron
+
 WEBSERVER_CONFIG: dict[str, Any] = {"auth": {"session_expiry": None}}
 
 
 class TestAuth:
     """Auth tests."""
 
-    def setup_method(self, vis):
+    def setup_method(self, vis: Viseron):
         """Set up tests."""
         self.auth = Auth(vis, WEBSERVER_CONFIG)
-        self.auth_store_lock = FileLock(
-            f"{self.auth._auth_store.path}.lock"  # pylint: disable=protected-access
-        )
+        self.auth_store_lock = FileLock(f"{self.auth._auth_store.path}.lock")
         self.onboarding_lock = FileLock(f"{self.auth.onboarding_path()}.lock")
         self.auth_store_lock.acquire()
         self.onboarding_lock.acquire()
 
     def teardown_method(self):
         """Teardown tests."""
-        if os.path.exists(
-            self.auth._auth_store.path  # pylint: disable=protected-access
-        ):
-            os.remove(self.auth._auth_store.path)  # pylint: disable=protected-access
+        if os.path.exists(self.auth._auth_store.path):
+            os.remove(self.auth._auth_store.path)
         if os.path.exists(self.auth.onboarding_path()):
             os.remove(self.auth.onboarding_path())
         self.auth_store_lock.release()
@@ -56,12 +58,7 @@ class TestAuth:
         assert user.password != "test"
 
         assert user.id in self.auth.users
-        assert (
-            os.path.exists(
-                self.auth._auth_store.path  # pylint: disable=protected-access
-            )
-            is True
-        )
+        assert os.path.exists(self.auth._auth_store.path) is True
 
         user2 = self.auth.add_user("Test2", "Test2", "test", Role.WRITE)
         assert user2.role == Role.WRITE
@@ -103,13 +100,13 @@ class TestAuth:
     def test_validate_user_invalid_password(self):
         """Test validating user with invalid password."""
         self.auth.add_user("Test", "test", "test", Role.ADMIN)
-        with pytest.raises(AuthenticationFailed):
+        with pytest.raises(AuthenticationFailedError):
             self.auth.validate_user("test", "invalid")
 
     def test_validate_user_missing_user(self):
         """Test validating user with missing username."""
         self.auth.add_user("Test", "test", "test", Role.ADMIN)
-        with pytest.raises(AuthenticationFailed):
+        with pytest.raises(AuthenticationFailedError):
             self.auth.validate_user("missing", "invalid")
 
     def test_get_user(self):
@@ -318,7 +315,7 @@ class TestAuth:
         self.auth.refresh_tokens.pop(refresh_token.id)
         assert self.auth.validate_access_token(access_token) is None
 
-    def test_load(self, vis):
+    def test_load(self, vis: MockViseron):
         """Test loading storage."""
         user = self.auth.add_user("Test", "test", "test", Role.ADMIN)
         user2 = self.auth.add_user("Test2", "test2", "test", Role.ADMIN)
@@ -366,7 +363,7 @@ class TestAuth:
                 == self.auth.refresh_tokens[refresh_token.id].created_at
             )
 
-    def test_session_expiry(self, vis):
+    def test_session_expiry(self, vis: MockViseron):
         """Test session expiry."""
         assert self.auth.session_expiry is None
         config = WEBSERVER_CONFIG.copy()

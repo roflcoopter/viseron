@@ -124,6 +124,7 @@ export type StoredTokens = {
 export type UserPreferences = {
   timezone?: string | null;
   date_format?: string | null;
+  time_format?: "12h" | "24h" | null;
 };
 
 export type AuthUserResponse = {

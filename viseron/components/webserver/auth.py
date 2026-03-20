@@ -48,7 +48,7 @@ class InvalidRoleError(ViseronError):
     """Invalid role specified."""
 
 
-class AuthenticationFailed(ViseronError):
+class AuthenticationFailedError(ViseronError):
     """Authentication failed."""
 
 
@@ -68,6 +68,10 @@ class InvalidDateFormatError(ViseronError):
     """Invalid date format specified."""
 
 
+class InvalidTimeFormatError(ViseronError):
+    """Invalid time format specified."""
+
+
 VALID_DATE_FORMATS = [
     "YYYY-MM-DD",
     "MM/DD/YYYY",
@@ -75,6 +79,11 @@ VALID_DATE_FORMATS = [
     "DD.MM.YYYY",
     "MM-DD-YYYY",
     "DD-MM-YYYY",
+]
+
+VALID_TIME_FORMATS = [
+    "12h",
+    "24h",
 ]
 
 
@@ -113,12 +122,14 @@ class Preferences:
 
     timezone: str | None = None
     date_format: str | None = None
+    time_format: str | None = None
 
     def asdict(self) -> dict[str, Any]:
         """Convert preferences to dict."""
         return {
             "timezone": self.timezone,
             "date_format": self.date_format,
+            "time_format": self.time_format,
         }
 
 
@@ -187,7 +198,7 @@ def token_response(
 class Auth:
     """Users."""
 
-    def __init__(self, vis: Viseron, config) -> None:
+    def __init__(self, vis: Viseron, config: dict[str, Any]) -> None:
         self._vis = vis
         self._config = config
         self._users: dict[str, User] | None = None
@@ -240,9 +251,7 @@ class Auth:
 
     def onboarding_complete(self) -> bool:
         """Return onboarding status."""
-        if self.users or os.path.exists(self.onboarding_path()):
-            return True
-        return False
+        return bool(self.users or os.path.exists(self.onboarding_path()))
 
     @staticmethod
     def hash_password(password: str) -> str:
@@ -257,8 +266,9 @@ class Auth:
         username: str,
         password: str,
         role: Role,
+        *,
         enabled: bool = True,
-    ):
+    ) -> User:
         """Add user."""
         LOGGER.debug(f"Adding user {username}")
         name = name.strip()
@@ -286,7 +296,7 @@ class Auth:
         name: str,
         username: str,
         password: str,
-    ):
+    ) -> User:
         """Onboard the first user."""
         user = self.add_user(name, username, password, Role.ADMIN)
         Path(self.onboarding_path()).touch()
@@ -305,12 +315,12 @@ class Auth:
 
         if user:
             if not bcrypt.checkpw(password.encode(), base64.b64decode(user.password)):
-                raise AuthenticationFailed
+                raise AuthenticationFailedError
             return user
 
         # Always check a fake password to avoid timing attacks.
         bcrypt.checkpw(b"fakepw", fakepw_hash)
-        raise AuthenticationFailed
+        raise AuthenticationFailedError
 
     def get_user(self, user_id: str) -> User | None:
         """Get user by id."""
@@ -370,9 +380,11 @@ class Auth:
             user = self.users[user_id]
 
             # Check if the new username is already taken by another user
-            if username.strip().casefold() != user.username:
-                if self.get_user_by_username(username.strip().casefold()):
-                    raise UserExistsError(f"Username {username} is already taken")
+            if (
+                username.strip().casefold() != user.username
+                and self.get_user_by_username(username.strip().casefold())
+            ):
+                raise UserExistsError(f"Username {username} is already taken")
 
             # Prevent role change of the last admin user
             if user.role == Role.ADMIN and role != Role.ADMIN:
@@ -430,6 +442,11 @@ class Auth:
             date_format = preferences.date_format
             if date_format is not None and date_format not in VALID_DATE_FORMATS:
                 raise InvalidDateFormatError(f"Invalid date format: {date_format}")
+
+            # Validate time_format if provided
+            time_format = preferences.time_format
+            if time_format is not None and time_format not in VALID_TIME_FORMATS:
+                raise InvalidTimeFormatError(f"Invalid time format: {time_format}")
 
             # Update preferences
             user.preferences = preferences
@@ -497,16 +514,12 @@ class Auth:
         client_id: str,
         access_token_type: Literal["normal"],
         access_token_expiration: datetime.timedelta = ACCESS_TOKEN_EXPIRATION,
-    ):
+    ) -> RefreshToken:
         """Generate refresh token."""
         refresh_token = RefreshToken(
             user_id=user_id,
             client_id=client_id,
-            session_expiration=(
-                self.session_expiry
-                if self.session_expiry
-                else datetime.timedelta(days=3650)
-            ),
+            session_expiration=(self.session_expiry or datetime.timedelta(days=3650)),
             access_token_type=access_token_type,
             access_token_expiration=access_token_expiration,
         )
@@ -540,9 +553,9 @@ class Auth:
     def generate_access_token(
         self,
         refresh_token: RefreshToken,
-        remote_ip,
+        remote_ip: str,
         expiry: datetime.timedelta | None = None,
-    ):
+    ) -> str:
         """Generate access token using JWT."""
         self.validate_refresh_token(refresh_token)
         now = utcnow()
@@ -561,7 +574,7 @@ class Auth:
             algorithm="HS256",
         )
 
-    def validate_access_token(self, access_token: str):
+    def validate_access_token(self, access_token: str) -> None | RefreshToken:
         """Validate access token."""
         try:
             unverif_claims = jwt.decode(
@@ -570,7 +583,7 @@ class Auth:
         except jwt.InvalidTokenError:
             return None
 
-        refresh_token = self.get_refresh_token(cast(str, unverif_claims.get("iss")))
+        refresh_token = self.get_refresh_token(cast("str", unverif_claims.get("iss")))
         if refresh_token is None:
             jwt_key = ""
             issuer = ""

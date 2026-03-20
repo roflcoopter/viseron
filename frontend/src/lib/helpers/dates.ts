@@ -23,6 +23,17 @@ export const VALID_DATE_FORMATS: DateFormatOption[] = [
 
 let defaultTimezone: string = Intl.DateTimeFormat().resolvedOptions().timeZone;
 let defaultDisplayDateFormat: string = DATE_FORMAT;
+let defaultTimeFormat: "12h" | "24h" | null = null;
+
+export function is12HourFormat() {
+  if (defaultTimeFormat !== null) {
+    return defaultTimeFormat === "12h";
+  }
+  const format = new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+  }).resolvedOptions().hourCycle;
+  return !!format?.startsWith("h12");
+}
 
 export function dayjsSetDefaultTimezone(tz: string) {
   defaultTimezone = tz;
@@ -41,11 +52,23 @@ export function getDisplayDateFormat() {
   return defaultDisplayDateFormat;
 }
 
-export function is12HourFormat() {
-  const format = new Intl.DateTimeFormat(undefined, {
-    hour: "numeric",
-  }).resolvedOptions().hourCycle;
-  return !!format?.startsWith("h12");
+export function setDefaultTimeFormat(format: "12h" | "24h" | null) {
+  defaultTimeFormat = format;
+}
+
+export function getDefaultTimeFormat() {
+  return defaultTimeFormat;
+}
+
+export function getDisplayTimeFormat(seconds = true) {
+  if (is12HourFormat()) {
+    return seconds ? "h:mm:ss A" : "h:mm A";
+  }
+  return seconds ? "HH:mm:ss" : "HH:mm";
+}
+
+export function getDisplayDateTimeFormat() {
+  return `${getDisplayDateFormat()} ${getDisplayTimeFormat()}`;
 }
 
 export function isDateFormat(str: string): boolean {
@@ -86,6 +109,9 @@ export function getDayjsFromUnixTimestamp(timestamp: number) {
 
 // Format a dayjs instance to a time string HH:mm:ss or HH:mm
 export function getTimeStringFromDayjs(date: Dayjs, seconds = true) {
+  if (is12HourFormat()) {
+    return date.format(seconds ? "h:mm:ss A" : "h:mm A");
+  }
   return date.format(seconds ? "HH:mm:ss" : "HH:mm");
 }
 

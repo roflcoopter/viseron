@@ -23,9 +23,11 @@ import {
   DATE_FORMAT,
   dayjsSetDefaultTimezone,
   getDayjs,
+  getDefaultTimeFormat,
   getDefaultTimezone,
   getDisplayDateFormat,
   setDefaultDisplayDateFormat,
+  setDefaultTimeFormat,
 } from "lib/helpers/dates";
 import { getToken, isManualLogoutActive } from "lib/tokens";
 import * as types from "lib/types";
@@ -238,6 +240,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     userQuery.data?.preferences?.date_format ?? DATE_FORMAT;
   if (getDisplayDateFormat() !== userDateFormat) {
     setDefaultDisplayDateFormat(userDateFormat);
+  }
+
+  // Set global time format based on user preference
+  const userTimeFormat = userQuery.data?.preferences?.time_format ?? null;
+  if (getDefaultTimeFormat() !== userTimeFormat) {
+    setDefaultTimeFormat(userTimeFormat);
   }
 
   return (
