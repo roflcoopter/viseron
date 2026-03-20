@@ -12,7 +12,7 @@ import { useState } from "react";
 
 import { useFilteredCameras } from "components/camera/useCameraStore";
 import { useExportTimespan } from "lib/commands";
-import { is12HourFormat } from "lib/helpers/dates";
+import { getDisplayDateFormat, is12HourFormat } from "lib/helpers/dates";
 
 type ExportDialogProps = {
   open: boolean;
@@ -80,6 +80,7 @@ export function ExportDialog({ open, setOpen }: ExportDialogProps) {
             onChange={handleStartDate}
             closeOnSelect={false}
             ampm={is12HourFormat()}
+            format={`${getDisplayDateFormat()} HH:mm:ss`}
           />
           <DateTimePicker
             label="End Date & Time"
@@ -90,6 +91,7 @@ export function ExportDialog({ open, setOpen }: ExportDialogProps) {
             closeOnSelect={false}
             ampm={is12HourFormat()}
             minDateTime={startDate || undefined}
+            format={`${getDisplayDateFormat()} HH:mm:ss`}
           />
         </Stack>
       </DialogContent>

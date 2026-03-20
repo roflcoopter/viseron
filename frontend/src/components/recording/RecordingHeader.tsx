@@ -9,7 +9,7 @@ import { alpha, useTheme } from "@mui/material/styles";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { Dayjs } from "dayjs";
 
-import { DATE_FORMAT } from "lib/helpers/dates";
+import { DATE_FORMAT, getDisplayDateFormat } from "lib/helpers/dates";
 import * as types from "lib/types";
 
 interface RecordingHeaderProps {
@@ -156,7 +156,7 @@ export function RecordingHeader({
             label="Start Date"
             value={startDate}
             onChange={onStartDateChange}
-            format={DATE_FORMAT}
+            format={getDisplayDateFormat()}
             shouldDisableDate={(date) => {
               const dateStr = date.format(DATE_FORMAT);
               return !availableDates.includes(dateStr);
@@ -172,7 +172,7 @@ export function RecordingHeader({
             label="End Date"
             value={endDate}
             onChange={onEndDateChange}
-            format={DATE_FORMAT}
+            format={getDisplayDateFormat()}
             shouldDisableDate={(date) => {
               const dateStr = date.format(DATE_FORMAT);
               return !availableDates.includes(dateStr);

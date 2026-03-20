@@ -7,7 +7,22 @@ dayjs.extend(timezone);
 
 export const DATE_FORMAT = "YYYY-MM-DD";
 
+export type DateFormatOption = {
+  value: string;
+  label: string;
+};
+
+export const VALID_DATE_FORMATS: DateFormatOption[] = [
+  { value: "YYYY-MM-DD", label: "YYYY-MM-DD (e.g. 2026-03-20)" },
+  { value: "MM/DD/YYYY", label: "MM/DD/YYYY (e.g. 03/20/2026)" },
+  { value: "DD/MM/YYYY", label: "DD/MM/YYYY (e.g. 20/03/2026)" },
+  { value: "DD.MM.YYYY", label: "DD.MM.YYYY (e.g. 20.03.2026)" },
+  { value: "MM-DD-YYYY", label: "MM-DD-YYYY (e.g. 03-20-2026)" },
+  { value: "DD-MM-YYYY", label: "DD-MM-YYYY (e.g. 20-03-2026)" },
+];
+
 let defaultTimezone: string = Intl.DateTimeFormat().resolvedOptions().timeZone;
+let defaultDisplayDateFormat: string = DATE_FORMAT;
 
 export function dayjsSetDefaultTimezone(tz: string) {
   defaultTimezone = tz;
@@ -16,6 +31,14 @@ export function dayjsSetDefaultTimezone(tz: string) {
 
 export function getDefaultTimezone() {
   return defaultTimezone;
+}
+
+export function setDefaultDisplayDateFormat(format: string) {
+  defaultDisplayDateFormat = format;
+}
+
+export function getDisplayDateFormat() {
+  return defaultDisplayDateFormat;
 }
 
 export function is12HourFormat() {
@@ -69,4 +92,9 @@ export function getTimeStringFromDayjs(date: Dayjs, seconds = true) {
 // Format a dayjs instance to a date string YYYY-MM-DD
 export function getDateStringFromDayjs(date: Dayjs) {
   return date.format(DATE_FORMAT);
+}
+
+// Format a dayjs instance to a date string using the user's preferred display format
+export function getDisplayDateStringFromDayjs(date: Dayjs) {
+  return date.format(defaultDisplayDateFormat);
 }

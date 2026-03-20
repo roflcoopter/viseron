@@ -7,6 +7,7 @@ import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Container from "@mui/material/Container";
 import Divider from "@mui/material/Divider";
+import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useMemo, useState } from "react";
@@ -20,6 +21,7 @@ import {
   useProfileUpdateDisplayName,
   useProfileUpdatePreferences,
 } from "lib/api/profile";
+import { DATE_FORMAT, VALID_DATE_FORMATS } from "lib/helpers/dates";
 import * as types from "lib/types";
 
 function UserInfo({ user }: { user: types.AuthUserResponse }) {
@@ -107,11 +109,22 @@ function Preferences({ user }: { user: types.AuthUserResponse }) {
     [],
   );
 
+  // Date format
+  const savedDateFormat = user.preferences?.date_format ?? null;
+  const [selectedDateFormat, setSelectedDateFormat] = useState<string | null>(
+    savedDateFormat,
+  );
+
   // Preferences
   const profileUpdatePreferences = useProfileUpdatePreferences();
-  const preferencesHasChanges = selectedTimezone !== savedTimezone;
+  const preferencesHasChanges =
+    selectedTimezone !== savedTimezone ||
+    selectedDateFormat !== savedDateFormat;
   const handleSavePreferences = () => {
-    profileUpdatePreferences.mutate({ timezone: selectedTimezone });
+    profileUpdatePreferences.mutate({
+      timezone: selectedTimezone,
+      date_format: selectedDateFormat,
+    });
   };
   return (
     <Box sx={{ marginBottom: 3 }}>
@@ -150,6 +163,34 @@ function Preferences({ user }: { user: types.AuthUserResponse }) {
         autoHighlight
         sx={{ marginBottom: 2 }}
       />
+
+      <Typography variant="subtitle2" sx={{ marginBottom: 1 }}>
+        Date Format
+      </Typography>
+      <Typography
+        variant="body2"
+        color="text.secondary"
+        sx={{ marginBottom: 2 }}
+      >
+        Set your preferred format for displaying dates.
+      </Typography>
+
+      <TextField
+        select
+        label="Date Format"
+        value={selectedDateFormat ?? DATE_FORMAT}
+        onChange={(e) => {
+          const value = e.target.value;
+          setSelectedDateFormat(value === DATE_FORMAT ? null : value);
+        }}
+        sx={{ marginBottom: 2, minWidth: 280 }}
+      >
+        {VALID_DATE_FORMATS.map((fmt) => (
+          <MenuItem key={fmt.value} value={fmt.value}>
+            {fmt.label}
+          </MenuItem>
+        ))}
+      </TextField>
 
       <Box sx={{ display: "flex", gap: 1 }}>
         <Button

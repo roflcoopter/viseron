@@ -64,6 +64,20 @@ class InvalidTimezoneError(ViseronError):
     """Invalid timezone specified."""
 
 
+class InvalidDateFormatError(ViseronError):
+    """Invalid date format specified."""
+
+
+VALID_DATE_FORMATS = [
+    "YYYY-MM-DD",
+    "MM/DD/YYYY",
+    "DD/MM/YYYY",
+    "DD.MM.YYYY",
+    "MM-DD-YYYY",
+    "DD-MM-YYYY",
+]
+
+
 @dataclass
 class RefreshToken:
     """Refresh token.
@@ -98,11 +112,13 @@ class Preferences:
     """User preferences."""
 
     timezone: str | None = None
+    date_format: str | None = None
 
     def asdict(self) -> dict[str, Any]:
         """Convert preferences to dict."""
         return {
             "timezone": self.timezone,
+            "date_format": self.date_format,
         }
 
 
@@ -409,6 +425,11 @@ class Auth:
             timezone = preferences.timezone
             if timezone is not None and timezone not in available_timezones():
                 raise InvalidTimezoneError(f"Invalid timezone: {timezone}")
+
+            # Validate date_format if provided
+            date_format = preferences.date_format
+            if date_format is not None and date_format not in VALID_DATE_FORMATS:
+                raise InvalidDateFormatError(f"Invalid date format: {date_format}")
 
             # Update preferences
             user.preferences = preferences
