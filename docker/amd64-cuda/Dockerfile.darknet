@@ -3,7 +3,7 @@ ARG OPENCV_VERSION
 ARG CUDA_VERSION
 ARG UBUNTU_VERSION_NUMBER
 FROM roflcoopter/${ARCH}-opencv:${OPENCV_VERSION} as opencv
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn9-devel-ubuntu${UBUNTU_VERSION_NUMBER} AS build
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn-devel-ubuntu${UBUNTU_VERSION_NUMBER} AS build
 
 COPY --from=opencv /opt/opencv /opt/opencv/
 
