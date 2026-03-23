@@ -176,7 +176,6 @@ ignore = [
     "RUF006",  ##     2   https://docs.astral.sh/ruff/rules/asyncio-dangling-task/
     "RUF043",  ##     2   https://docs.astral.sh/ruff/rules/pytest-raises-ambiguous-pattern/
     "S110",    ##     2   https://docs.astral.sh/ruff/rules/try-except-pass/
-    "S701",    ##     2   https://docs.astral.sh/ruff/rules/jinja2-autoescape-false/
     "TD002",   ##     2   https://docs.astral.sh/ruff/rules/missing-todo-author/
     "TD003",   ##     2   https://docs.astral.sh/ruff/rules/missing-todo-link/
     "A005",    ##     1   https://docs.astral.sh/ruff/rules/stdlib-module-shadowing/

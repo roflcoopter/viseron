@@ -278,7 +278,9 @@ class Viseron:
             self._process_watchdog = ProcessWatchDog(self.background_scheduler)
 
         self.storage: Storage | None = None
-        self.jinja_env = Environment(loader=BaseLoader(), undefined=StrictUndefined)
+        self.jinja_env = Environment(
+            loader=BaseLoader(), undefined=StrictUndefined, autoescape=True
+        )
 
         self.critical_components_config_store = CriticalComponentsConfigStore(self)
         self.safe_mode = False
