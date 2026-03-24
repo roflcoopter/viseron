@@ -103,3 +103,17 @@ test.describe("Screenshot live page", () => {
     });
   });
 });
+
+test.describe("Screenshot profile page", () => {
+  test.use({ viewport: { width: 1440, height: 1200 } });
+
+  test("main view screenshot", async ({ page }: { page: Page }) => {
+    await page.goto("/#/profile", { waitUntil: "domcontentloaded" });
+    await expect(page.getByText(/Profile/)).toHaveCount(1);
+    await expect(page.getByText(/Test User/)).toHaveCount(1);
+    await page.screenshot({
+      path: "../docs/static/img/ui/profile/main.png",
+      fullPage: true,
+    });
+  });
+});

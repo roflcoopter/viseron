@@ -305,4 +305,20 @@ export const handlers = [
   http.get(`${API_BASE_URL}/recordings/camera3`, () =>
     HttpResponse.json({}, { status: 200 }),
   ),
+
+  // Profile
+  http.get(`${API_BASE_URL}/profile/available_timezones`, () =>
+    HttpResponse.json(
+      {
+        timezones: ["UTC", "America/New_York", "Europe/London", "Asia/Tokyo"],
+      },
+      { status: 200 },
+    ),
+  ),
+  http.put(`${API_BASE_URL}/profile/preferences`, () =>
+    HttpResponse.json({}, { status: 200 }),
+  ),
+  http.put(`${API_BASE_URL}/profile/display_name`, () =>
+    HttpResponse.json({}, { status: 200 }),
+  ),
 ];
