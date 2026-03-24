@@ -1,12 +1,30 @@
 import { Page, expect } from "@playwright/test";
 import { test } from "e2e/playwright.setup";
 
-test("Screenshot cameras page", async ({ page }: { page: Page }) => {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.getByText(/Camera [0-9]/)).toHaveCount(3);
-  await page.screenshot({
-    path: "../docs/static/img/ui/cameras/main.png",
-    fullPage: true,
+test.describe("Screenshot cameras page", () => {
+  test.beforeEach(async ({ page }: { page: Page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await expect(page.getByText(/Camera [0-9]/)).toHaveCount(3);
+  });
+
+  test("main view screenshot", async ({ page }: { page: Page }) => {
+    await page.screenshot({
+      path: "../docs/static/img/ui/cameras/main.png",
+      fullPage: true,
+    });
+  });
+
+  test("camera toggle button screenshot", async ({ page }: { page: Page }) => {
+    // Add a green highlight border around the camera toggle button
+    const cameraToggleButton = page.getByTestId("camera-toggle-button").first();
+    await cameraToggleButton.evaluate((el) => {
+      el.style.outline = "3px solid #00ff00";
+      el.style.outlineOffset = "3px";
+    });
+    await page.screenshot({
+      path: "../docs/static/img/ui/cameras/camera-toggle-button.png",
+      fullPage: true,
+    });
   });
 });
 

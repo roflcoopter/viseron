@@ -254,19 +254,21 @@ function SuccessCameraCard({
             >
               <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                 <Tooltip title={camera.is_on ? "Stop Camera" : "Start Camera"}>
-                  <Switch
-                    checked={camera.is_on}
-                    disabled={cameraStartStop.isPending}
-                    onChange={() => {
-                      if (cameraStartStop.isPending) {
-                        return;
-                      }
-                      cameraStartStop.mutate({
-                        camera,
-                        action: camera.is_on ? "stop" : "start",
-                      });
-                    }}
-                  />
+                  <div data-testid="camera-toggle-button">
+                    <Switch
+                      checked={camera.is_on}
+                      disabled={cameraStartStop.isPending}
+                      onChange={() => {
+                        if (cameraStartStop.isPending) {
+                          return;
+                        }
+                        cameraStartStop.mutate({
+                          camera,
+                          action: camera.is_on ? "stop" : "start",
+                        });
+                      }}
+                    />
+                  </div>
                 </Tooltip>
                 <Tooltip title="Uptime Status">
                   <div style={{ cursor: "pointer" }}>
