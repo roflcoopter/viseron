@@ -1,4 +1,5 @@
 """FFmpeg constants."""
+
 import logging
 from typing import Final
 
@@ -7,6 +8,7 @@ COMPONENT = "ffmpeg"
 DESC_COMPONENT = "FFmpeg Configuration."
 
 ENV_FFMPEG_PATH = "VISERON_FFMPEG_PATH"
+MAX_EMPTY_FRAMES = 10
 
 STREAM_FORMAT_MAP = {
     "rtsp": {"protocol": "rtsp", "timeout_option": ["-timeout", "5000000"]},
@@ -48,7 +50,7 @@ FFMPEG_LOGLEVELS = {
 FFPROBE_LOGLEVELS = FFMPEG_LOGLEVELS
 FFPROBE_TIMEOUT = 15
 
-# Hardware acceleration constands
+# Hardware acceleration constants
 HWACCEL_VAAPI = ["-hwaccel", "vaapi", "-vaapi_device", "/dev/dri/renderD128"]
 HWACCEL_CUDA_DECODER_CODEC_MAP = {
     "h264": "h264_cuvid",
@@ -151,7 +153,6 @@ CONFIG_SEGMENTS_FOLDER = "segments_folder"
 CONFIG_RECORDER_OUPTUT_ARGS = "output_args"
 
 DEFAULT_RECORDER_HWACCEL_ARGS: list[str] = []
-DEFAULT_RECORDER_CODEC = "copy"
 DEFAULT_RECORDER_AUDIO_CODEC = "unset"
 DEFAULT_RECORDER_VIDEO_FILTERS: list[str] = []
 DEFAULT_RECORDER_AUDIO_FILTERS: list[str] = []
@@ -159,7 +160,11 @@ DEFAULT_RECORDER_OUTPUT_ARGS: list[str] = []
 DEFAULT_SEGMENTS_FOLDER = "/segments"
 
 DESC_RECORDER_HWACCEL_ARGS = "FFmpeg encoder hardware acceleration arguments."
-DESC_RECORDER_CODEC = "FFmpeg video encoder codec, eg <code>h264_nvenc</code>."
+DESC_RECORDER_CODEC = (
+    "FFmpeg video encoder codec, eg <code>h264_nvenc</code>. "
+    "Defaults to <code>copy</code> except for MJPEG streams where the default is "
+    "<code>h264</code>."
+)
 DESC_RECORDER_AUDIO_CODEC = (
     "FFmpeg audio encoder codec, eg <code>aac</code>.<br>"
     "If your source has audio and you want to remove it, set this to <code>null</code>."
@@ -188,7 +193,7 @@ CONFIG_CAMERA = "camera"
 
 CONFIG_HOST = "host"
 CONFIG_USERNAME = "username"
-CONFIG_PASSWORD = "password"
+CONFIG_PASSWORD = "password"  # noqa: S105
 CONFIG_GLOBAL_ARGS = "global_args"
 CONFIG_SUBSTREAM = "substream"
 CONFIG_FFMPEG_LOGLEVEL = "ffmpeg_loglevel"
@@ -219,7 +224,7 @@ DEFAULT_RECORD_ONLY = False
 DESC_CAMERA = "Camera domain config."
 DESC_HOST = "IP or hostname of camera."
 DESC_USERNAME = "Username for the camera stream."
-DESC_PASSWORD = "Password for the camera stream."
+DESC_PASSWORD = "Password for the camera stream."  # noqa: S105
 DESC_GLOBAL_ARGS = (
     "A valid list of FFmpeg arguments. "
     "These are applied before the <code>input_args</code>."

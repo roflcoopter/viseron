@@ -42,11 +42,16 @@ type DrawerItemDivider = { type: "divider" };
 
 type DrawerItemTypes = DrawerItemHeader | DrawerItemLink | DrawerItemDivider;
 
+type DrawerSections = {
+  topItems: Array<DrawerItemTypes>;
+  bottomItems: Array<DrawerItemTypes>;
+};
+
 const getDrawerItems = (
   auth: types.AuthEnabledResponse,
   user: types.AuthUserResponse | null,
-) => {
-  const drawerItems: Array<DrawerItemTypes> = [
+): DrawerSections => {
+  const topItems: Array<DrawerItemTypes> = [
     { type: "header", title: "Pages" },
     { type: "link", title: "Cameras", icon: Video, path: "/" },
     {
@@ -111,7 +116,10 @@ const getDrawerItems = (
     },
     { type: "divider" },
   ];
-  return drawerItems;
+
+  const bottomItems: Array<DrawerItemTypes> = [];
+
+  return { topItems, bottomItems };
 };
 
 interface AppDrawerProps {
@@ -280,7 +288,7 @@ export default function AppDrawer({
   const { auth, user } = useAuthContext();
   const location = useLocation();
 
-  const drawerItems = getDrawerItems(auth, user);
+  const { topItems, bottomItems } = getDrawerItems(auth, user);
 
   return (
     <Drawer
@@ -300,9 +308,22 @@ export default function AppDrawer({
       }}
     >
       <AppDrawerHeader />
-      <List>
+      <List
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          height: "100%",
+        }}
+      >
+        <Box onClick={() => setDrawerOpen(false)} sx={{ flexGrow: 1 }}>
+          {topItems.map((item: DrawerItemTypes, index: number) =>
+            getItem(index, location, item),
+          )}
+        </Box>
         <Box onClick={() => setDrawerOpen(false)}>
-          {drawerItems.map((item, index) => getItem(index, location, item))}
+          {bottomItems.map((item: DrawerItemTypes, index: number) =>
+            getItem(index, location, item),
+          )}
         </Box>
       </List>
     </Drawer>

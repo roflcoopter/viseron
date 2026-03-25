@@ -4,6 +4,7 @@ This domain is NOT meant to be subclassed or implemented by other components.
 The reason for using a domain instead of a component is to use the domain dependencies
 built into domain setup.
 """
+
 from __future__ import annotations
 
 import datetime
@@ -11,37 +12,38 @@ import logging
 import threading
 import time
 from dataclasses import dataclass
+from enum import Enum
 from queue import Empty, Queue
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
-import numpy as np
-
-from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.components.nvr.const import COMPONENT
+from viseron.components.nvr.sensor import OperationStateSensor
+from viseron.components.nvr.toggle import ManualRecordingToggle
 from viseron.components.storage.models import TriggerTypes
-from viseron.const import DOMAIN_IDENTIFIERS, VISERON_SIGNAL_SHUTDOWN
+from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.motion_detector import AbstractMotionDetectorScanner
 from viseron.domains.motion_detector.const import (
-    DATA_MOTION_DETECTOR_RESULT,
-    DATA_MOTION_DETECTOR_SCAN,
+    EVENT_MOTION_DETECTOR_RESULT,
+    EVENT_MOTION_DETECTOR_SCAN,
 )
+from viseron.domains.nvr import AbstractNVR
 from viseron.domains.object_detector.const import (
-    DATA_OBJECT_DETECTOR_RESULT,
-    DATA_OBJECT_DETECTOR_SCAN,
+    EVENT_OBJECT_DETECTOR_RESULT,
+    EVENT_OBJECT_DETECTOR_SCAN,
 )
-from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.events import EventData
 from viseron.exceptions import DomainNotRegisteredError
 from viseron.helpers import utcnow
-from viseron.types import Domain
+from viseron.viseron_types import Domain
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
     DATA_NO_DETECTOR_RESULT,
     DATA_NO_DETECTOR_SCAN,
-    DATA_PROCESSED_FRAME_TOPIC,
+    DOMAIN,
     EVENT_OPERATION_STATE,
+    EVENT_PROCESSED_FRAME_TOPIC,
     EVENT_SCAN_FRAMES,
     MOTION_DETECTOR,
     NO_DETECTOR,
@@ -49,38 +51,37 @@ from .const import (
     OBJECT_DETECTOR,
     SCANNER_RESULT_RETRIES,
 )
-from .sensor import OperationStateSensor
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    import numpy as np
+
     from viseron import Viseron
-    from viseron.components.data_stream import DataStream
-    from viseron.domains.camera import AbstractCamera
+    from viseron.domains.camera import AbstractCamera, EventFrameBytesData
+    from viseron.domains.camera.recorder import ManualRecording
     from viseron.domains.camera.shared_frames import SharedFrame
     from viseron.domains.motion_detector import AbstractMotionDetector, Contours
     from viseron.domains.object_detector import AbstractObjectDetector
+    from viseron.domains.object_detector.detected_object import DetectedObject
     from viseron.domains.post_processor import AbstractPostProcessor
+    from viseron.events import Event
     from viseron.helpers.filter import Filter
 
 LOGGER = logging.getLogger(__name__)
 
 
-def setup(vis: Viseron, config, identifier) -> bool:
+def setup(vis: Viseron, config: dict[str, Any], identifier: str) -> bool:
     """Set up the edgetpu object_detector domain."""
     object_detector: AbstractObjectDetector | Literal[False] = False
-    if (
-        OBJECT_DETECTOR in vis.data[DOMAIN_IDENTIFIERS]
-        and identifier in vis.data[DOMAIN_IDENTIFIERS][OBJECT_DETECTOR]
-    ):
+    if vis.domain_registry.is_configured(OBJECT_DETECTOR, identifier):
         try:
             object_detector = vis.get_registered_domain(OBJECT_DETECTOR, identifier)
         except DomainNotRegisteredError:
             object_detector = False
 
     motion_detector: AbstractMotionDetector | Literal[False] = False
-    if (
-        MOTION_DETECTOR in vis.data[DOMAIN_IDENTIFIERS]
-        and identifier in vis.data[DOMAIN_IDENTIFIERS][MOTION_DETECTOR]
-    ):
+    if vis.domain_registry.is_configured(MOTION_DETECTOR, identifier):
         try:
             motion_detector = vis.get_registered_domain(MOTION_DETECTOR, identifier)
         except DomainNotRegisteredError:
@@ -92,8 +93,8 @@ def setup(vis: Viseron, config, identifier) -> bool:
 
 
 @dataclass
-class DataProcessedFrame:
-    """Processed frame that is sent on DATA_PROCESSED_FRAME_TOPIC."""
+class EventProcessedFrame(EventData):
+    """Processed frame that is sent on EVENT_PROCESSED_FRAME_TOPIC."""
 
     frame: np.ndarray
     objects_in_fov: list[DetectedObject] | None
@@ -105,7 +106,16 @@ class EventOperationState(EventData):
     """Hold information of current state of operation."""
 
     camera_identifier: str
-    operation_state: str
+    operation_state: OperationState | None
+
+
+@dataclass
+class EventFrameToScan(EventData):
+    """Event dispatched when a frame is marked for scanning."""
+
+    shared_frame: SharedFrame
+    camera_identifier: str
+    scanner_name: str
 
 
 @dataclass
@@ -149,15 +159,15 @@ class FrameIntervalCalculator:
             )
             scan_fps = output_fps
         self._scan: bool = False
-        self._scan_fps = scan_fps
-        self._scan_interval = 0
+        self._scan_fps: int = scan_fps
+        self._scan_interval: int = 0
         self._scan_error: bool = False
 
         self._frame_number = 0
         self.result_queue: Queue = Queue(maxsize=1)
 
-        self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
-        self._data_stream.subscribe_data(topic_result, self.result_queue)
+        self._listeners: list[Callable] = []
+        self._listeners.append(self._vis.listen_event(topic_result, self.result_queue))
 
         self.calculate_scan_interval(output_fps)
 
@@ -166,19 +176,27 @@ class FrameIntervalCalculator:
         if self.scan:
             if self._frame_number % self._scan_interval == 0:
                 self._frame_number = 1
-                self._data_stream.publish_data(self._topic_scan, shared_frame)
+                self._vis.dispatch_event(
+                    self._topic_scan,
+                    EventFrameToScan(
+                        shared_frame=shared_frame,
+                        camera_identifier=self._camera_identifier,
+                        scanner_name=self._name,
+                    ),
+                    store=False,
+                )
                 return True
             self._frame_number += 1
         else:
             self._frame_number = 0
         return False
 
-    def calculate_scan_interval(self, output_fps) -> None:
+    def calculate_scan_interval(self, output_fps: float) -> None:
         """Calculate the frame scan interval."""
         self._scan_interval = round(output_fps / self.scan_fps)
 
     @property
-    def scan(self):
+    def scan(self) -> bool:
         """Return if frames should be scanned."""
         return self._scan
 
@@ -194,17 +212,17 @@ class FrameIntervalCalculator:
         )
 
     @property
-    def scan_fps(self):
+    def scan_fps(self) -> int:
         """Return scan fps of scanner."""
         return self._scan_fps
 
     @property
-    def scan_interval(self):
+    def scan_interval(self) -> int:
         """Return scan interval of scanner."""
         return self._scan_interval
 
     @property
-    def scan_error(self):
+    def scan_error(self) -> bool:
         """Return if the last scan failed."""
         return self._scan_error
 
@@ -219,8 +237,23 @@ class FrameIntervalCalculator:
         """Return domain instance of scanner."""
         return self._domain_instance
 
+    def unload(self) -> None:
+        """Unload frame interval calculator."""
+        for unsubscribe in self._listeners:
+            unsubscribe()
 
-class NVR:
+
+class OperationState(Enum):
+    """Enum for NVR state of operation."""
+
+    IDLE = "idle"
+    SCANNING_FOR_MOTION = "scanning_for_motion"
+    SCANNING_FOR_OBJECTS = "scanning_for_objects"
+    RECORDING = "recording"
+    ERROR_SCANNING_FRAME = "error_scanning_frame"
+
+
+class NVR(AbstractNVR):
     """NVR class that orchestrates all handling of camera streams."""
 
     def __init__(
@@ -231,8 +264,7 @@ class NVR:
         object_detector: AbstractObjectDetector | Literal[False],
         motion_detector: AbstractMotionDetector | Literal[False],
     ) -> None:
-        self._vis = vis
-        self._config = config
+        super().__init__(vis, config, camera_identifier)
         self._camera: AbstractCamera = vis.get_registered_domain(
             CAMERA_DOMAIN, camera_identifier
         )
@@ -244,17 +276,15 @@ class NVR:
         self._start_recorder = False
         self._stop_recorder_at: datetime.datetime | None = None
         self._seconds_left = 0
+        self._manual_recording: ManualRecording | None = None
+        self._start_manual_recording = False
         self._kill_received = False
-        self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
         self._removal_timers: list[threading.Timer] = []
-        self._operation_state = None
+        self._operation_state: OperationState | None = None
 
         self._frame_scanners: dict[str, FrameIntervalCalculator] = {}
         self._current_frame_scanners: dict[str, FrameIntervalCalculator] = {}
         self._frame_scanner_errors: list[str] = []
-        self._topic_processed_frame = DATA_PROCESSED_FRAME_TOPIC.format(
-            camera_identifier=camera_identifier
-        )
 
         self._motion_only_frames = 0
         self._motion_recorder_keepalive_reached = False
@@ -269,10 +299,10 @@ class NVR:
                 self._logger,
                 self._camera.output_fps,
                 self._motion_detector.fps,
-                DATA_MOTION_DETECTOR_SCAN.format(
+                EVENT_MOTION_DETECTOR_SCAN.format(
                     camera_identifier=self._camera.identifier
                 ),
-                DATA_MOTION_DETECTOR_RESULT.format(
+                EVENT_MOTION_DETECTOR_RESULT.format(
                     camera_identifier=self._camera.identifier
                 ),
                 self._motion_detector,
@@ -289,10 +319,10 @@ class NVR:
                 self._logger,
                 self._camera.output_fps,
                 self._object_detector.fps,
-                DATA_OBJECT_DETECTOR_SCAN.format(
+                EVENT_OBJECT_DETECTOR_SCAN.format(
                     camera_identifier=self._camera.identifier
                 ),
-                DATA_OBJECT_DETECTOR_RESULT.format(
+                EVENT_OBJECT_DETECTOR_RESULT.format(
                     camera_identifier=self._camera.identifier
                 ),
                 self._object_detector,
@@ -309,7 +339,7 @@ class NVR:
                 self._frame_scanners[MOTION_DETECTOR].scan = True
                 self._frame_scanners[OBJECT_DETECTOR].scan = False
 
-            case _ if (self._object_detector and self._motion_detector):
+            case _ if self._object_detector and self._motion_detector:
                 self._frame_scanners[OBJECT_DETECTOR].scan = True
                 self._frame_scanners[
                     MOTION_DETECTOR
@@ -337,13 +367,27 @@ class NVR:
                 None,
             )
 
+        # Check if any filter in self._object_detector.object_filters requires motion
+        # and warn if motion detector is not configured
+        if not self._motion_detector and self._object_detector:
+            for filter_name, filter_obj in self._object_detector.object_filters.items():
+                if filter_obj.require_motion:
+                    self._logger.warning(
+                        f"Object filter for '{filter_name}' requires motion detection, "
+                        "but motion detector is not configured. Either remove "
+                        "'require_motion' or configure a motion detector."
+                    )
+                    filter_obj.require_motion = False
+
         self._post_processors: dict[Domain, AbstractPostProcessor] = {}
         self.set_post_processors()
 
-        self._frame_queue: Queue[SharedFrame] = Queue(maxsize=100)
-        self._data_stream.subscribe_data(
-            self._camera.frame_bytes_topic, self._frame_queue
+        self._frame_queue: Queue[Event[EventFrameBytesData]] = Queue(maxsize=100)
+        self._listeners: list[Callable] = []
+        self._listeners.append(
+            self._vis.listen_event(self._camera.frame_bytes_topic, self._frame_queue)
         )
+        self._first_frame_log = True
         self._nvr_thread = RestartableThread(
             name=str(self),
             target=self.run,
@@ -356,10 +400,15 @@ class NVR:
         if self._frame_scanners:
             self.calculate_output_fps(list(self._frame_scanners.values()))
 
-        vis.data.setdefault(COMPONENT, {})[camera_identifier] = self
-        vis.add_entity(COMPONENT, OperationStateSensor(vis, self))
-
-        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
+        vis.add_entity(
+            COMPONENT, OperationStateSensor(vis, self), DOMAIN, self._camera.identifier
+        )
+        vis.add_entity(
+            COMPONENT, ManualRecordingToggle(vis, self), DOMAIN, self._camera.identifier
+        )
+        self._listeners.append(
+            vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
+        )
 
         self._camera.start_camera()
         self._logger.info(f"NVR for camera {self._camera.name} initialized")
@@ -386,12 +435,12 @@ class NVR:
             scanner.calculate_scan_interval(self._camera.output_fps)
 
     @property
-    def operation_state(self):
+    def operation_state(self) -> OperationState | None:
         """Return state of operation."""
         return self._operation_state
 
     @operation_state.setter
-    def operation_state(self, value) -> None:
+    def operation_state(self, value: OperationState | None) -> None:
         """Set state of operation."""
         if value == self._operation_state:
             return
@@ -407,17 +456,17 @@ class NVR:
 
     def update_operation_state(self) -> None:
         """Update operation state."""
-        operation_state = "idle"
+        operation_state = OperationState.IDLE
         if self._frame_scanner_errors:
-            operation_state = "error_scanning_frame"
+            operation_state = OperationState.ERROR_SCANNING_FRAME
         elif self._camera.is_recording:
-            operation_state = "recording"
+            operation_state = OperationState.RECORDING
         elif not self._camera.is_on:
-            operation_state = "idle"
+            operation_state = OperationState.IDLE
         elif self._object_detector and self._frame_scanners[OBJECT_DETECTOR].scan:
-            operation_state = "scanning_for_objects"
+            operation_state = OperationState.SCANNING_FOR_OBJECTS
         elif self._motion_detector and self._frame_scanners[MOTION_DETECTOR].scan:
-            operation_state = "scanning_for_motion"
+            operation_state = OperationState.SCANNING_FOR_MOTION
 
         self.operation_state = operation_state
 
@@ -452,6 +501,58 @@ class NVR:
                             frame_scanner.domain_instance, "result_failed_callback"
                         ):
                             frame_scanner.domain_instance.result_failed_callback()
+
+    def start_manual_recording(self, manual_recording: ManualRecording) -> None:
+        """Start a manual recording with a set duration."""
+        self._logger.debug(
+            "Received request to start manual recording with duration: "
+            f"{manual_recording.duration}"
+        )
+        self._manual_recording = manual_recording
+        self._start_manual_recording = True
+
+    def stop_manual_recording(self) -> None:
+        """Stop manual recording."""
+        self._logger.debug("Received request to stop manual recording")
+        self._manual_recording = None
+
+    def process_manual_recording(self) -> None:
+        """Process manual recording."""
+        if not self._manual_recording:
+            return
+
+        if not self._start_manual_recording:
+            return
+
+        if self._camera.is_recording:
+            self._logger.info(
+                "Event recording in progress, starting manual recording instead"
+            )
+            self.stop_recorder(force=True)
+
+        self._start_manual_recording = False
+        self._trigger_type = TriggerTypes.MANUAL
+        self._start_recorder = True
+        if self._manual_recording.duration:
+            self._stop_recorder_at = utcnow() + datetime.timedelta(
+                seconds=self._manual_recording.duration
+            )
+
+    @property
+    def manual_recording_ended(self) -> bool:
+        """Return if manual recording should end."""
+        if not self._manual_recording:
+            return True
+
+        if self.camera.recorder.active_recording is None:
+            return True
+
+        if self._manual_recording.duration is None:
+            return False
+
+        return (
+            utcnow() - self.camera.recorder.active_recording.start_time
+        ).total_seconds() > self._manual_recording.duration
 
     def event_over_check_motion(
         self, obj: DetectedObject, object_filters: dict[str, Filter]
@@ -541,10 +642,7 @@ class NVR:
         ):
             return False
 
-        if obj.trigger_event_recording:
-            return True
-
-        return False
+        return obj.trigger_event_recording
 
     def process_object_event(self) -> None:
         """Process any detected objects to see if recorder should start."""
@@ -629,7 +727,9 @@ class NVR:
         self, shared_frame: SharedFrame, trigger_type: TriggerTypes
     ) -> None:
         """Start recorder."""
-        self._stop_recorder_at = None
+        if self._stop_recorder_at and self._stop_recorder_at < utcnow():
+            self._stop_recorder_at = None
+
         self._camera.start_recorder(
             shared_frame,
             self._object_detector.objects_in_fov if self._object_detector else None,
@@ -644,10 +744,10 @@ class NVR:
             self._frame_scanners[MOTION_DETECTOR].scan = True
             self._logger.info("Starting motion detector")
 
-    def stop_recorder(self, force=False) -> None:
+    def stop_recorder(self, *, force: bool = False) -> None:
         """Stop recorder."""
 
-        def _stop():
+        def _stop() -> None:
             self._stop_recorder_at = None
             self._seconds_left = 0
             self._camera.stop_recorder()
@@ -669,7 +769,7 @@ class NVR:
                 self._logger.info(f"Stopping recording in: {seconds_left}s")
                 self._seconds_left = seconds_left
 
-        if utcnow() > self._stop_recorder_at:
+        if utcnow() >= self._stop_recorder_at:
             if (
                 self._motion_detector
                 and self._object_detector
@@ -686,6 +786,7 @@ class NVR:
         self.scanner_results()
         self.process_object_event()
         self.process_motion_event()
+        self.process_manual_recording()
 
     def process_recorder(self, shared_frame: SharedFrame) -> None:
         """Check if we should start or stop the recorder."""
@@ -700,10 +801,22 @@ class NVR:
         ):
             self._logger.info("Max recording time exceeded, stopping recorder")
             self.stop_recorder(force=True)
+        elif (
+            self._camera.is_recording
+            and self._camera.recorder.active_recording
+            and self._camera.recorder.active_recording.trigger_type
+            == TriggerTypes.MANUAL
+        ):
+            # Nested if in order to not end up in the block below
+            if self.manual_recording_ended:
+                self._logger.info("Manual recording stopped or time exceeded")
+                self.stop_recorder(force=True)
+                return
         elif self._camera.is_recording and self.event_over():
             self.stop_recorder()
         else:
             self._stop_recorder_at = None
+            self._seconds_left = 0
 
     def remove_frame(self, shared_frame: SharedFrame) -> None:
         """Remove frame after a delay.
@@ -711,7 +824,7 @@ class NVR:
         This makes sure all frames are cleaned up eventually.
         """
 
-        def _remove():
+        def _remove() -> None:
             self._camera.shared_frames.remove(shared_frame, self._camera)
             self._removal_timers.remove(timer)
 
@@ -720,50 +833,67 @@ class NVR:
             _remove,
             args=(),
         )
-        timer.name = f"{str(self)}.remove_frame.{shared_frame.name}"
+        timer.name = f"{self!s}.remove_frame.{shared_frame.name}"
         timer.daemon = True
         self._removal_timers.append(timer)
         timer.start()
 
     def run(self) -> None:
-        """Read frames from camera."""
+        """Frame processing loop."""
         self._logger.debug("Waiting for first frame")
-        first_frame_log = True
+        self._first_frame_log = True
 
         while not self._kill_received:
-            self.update_operation_state()
-            try:
-                shared_frame = self._frame_queue.get(timeout=1)
-            except Empty:
-                continue
+            self._run()
 
-            if first_frame_log:
-                self._logger.debug("First frame received")
-                first_frame_log = False
-
-            if (frame_age := time.time() - shared_frame.capture_time) > 1:
-                self._logger.debug(f"Frame is {frame_age} seconds old. Discarding")
-                self.remove_frame(shared_frame)
-                continue
-
-            self.process_frame(shared_frame)
-            self.process_recorder(shared_frame)
-            self._data_stream.publish_data(
-                self._topic_processed_frame,
-                DataProcessedFrame(
-                    frame=self._camera.shared_frames.get_decoded_frame_rgb(
-                        shared_frame
-                    ).copy(),
-                    objects_in_fov=self._object_detector.objects_in_fov
-                    if self._object_detector
-                    else None,
-                    motion_contours=self._motion_detector.motion_contours
-                    if self._motion_detector
-                    else None,
-                ),
-            )
-            self.remove_frame(shared_frame)
         self._logger.debug("NVR thread stopped")
+
+    def _run(self) -> None:
+        """Process frames from camera."""
+        self.update_operation_state()
+        try:
+            frame = self._frame_queue.get(timeout=1)
+        except Empty:
+            return
+
+        if self._first_frame_log:
+            self._logger.debug("First frame received")
+            self._first_frame_log = False
+
+        shared_frame = frame.data.shared_frame
+        if (frame_age := time.time() - shared_frame.capture_time) > 1:
+            self._logger.debug(f"Frame is {frame_age} seconds old. Discarding")
+            self.remove_frame(shared_frame)
+            return
+
+        self.process_frame(shared_frame)
+        self.process_recorder(shared_frame)
+        self._vis.dispatch_event(
+            EVENT_PROCESSED_FRAME_TOPIC.format(
+                camera_identifier=self._camera.identifier
+            ),
+            EventProcessedFrame(
+                frame=self._camera.shared_frames.get_decoded_frame_rgb(
+                    shared_frame
+                ).copy(),
+                objects_in_fov=self._object_detector.objects_in_fov
+                if self._object_detector
+                else None,
+                motion_contours=self._motion_detector.motion_contours
+                if self._motion_detector
+                else None,
+            ),
+            store=False,
+        )
+        self.remove_frame(shared_frame)
+
+    def unload(self) -> None:
+        """Unload nvr."""
+        for unsubscribe in self._listeners:
+            unsubscribe()
+        for scanner in self._frame_scanners.values():
+            scanner.unload()
+        self._nvr_thread.stop()  # indirectly calls self.stop thru stop_target
 
     def stop(self) -> None:
         """Stop processing of events."""

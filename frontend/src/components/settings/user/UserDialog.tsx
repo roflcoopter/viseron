@@ -44,7 +44,14 @@ function UserDialog({ user, onClose }: UserDialogProps) {
 
   const handleSave = () => {
     authUpdateUser.mutate(
-      { id: user.id, name, username, role, assigned_cameras: assignedCameras },
+      {
+        id: user.id,
+        name,
+        username,
+        role,
+        assigned_cameras: assignedCameras,
+        preferences: user.preferences,
+      },
       {
         onSuccess: () => {
           onClose();

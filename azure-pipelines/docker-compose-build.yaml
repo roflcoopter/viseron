@@ -161,6 +161,8 @@ services:
       args:
         ARCH: amd64
         VISERON_VERSION: dev
+      cache_from:
+        - roflcoopter/amd64-viseron-tests:dev
     image: roflcoopter/amd64-viseron-tests:dev
     container_name: amd64-viseron-tests
     environment:
@@ -171,7 +173,7 @@ services:
         chown -R abc:abc /src &&
         su abc -c '
           cd /src &&
-          pytest --cov=viseron/ --cov-report term-missing -s tests &&
+          pytest --cov=viseron/ --cov-report term-missing -s -n auto tests &&
           coverage xml
         '
       "

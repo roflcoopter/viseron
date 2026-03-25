@@ -1,4 +1,5 @@
 """Constants."""
+
 import os
 from typing import Final
 
@@ -102,28 +103,21 @@ ENV_JETSON_NANO = "VISERON_JETSON_NANO"
 ENV_PROFILE_MEMORY = "VISERON_PROFILE_MEMORY"
 ENV_LOG_MAX_BYTES = "VISERON_LOG_MAX_BYTES"
 ENV_LOG_BACKUP_COUNT = "VISERON_LOG_BACKUP_COUNT"
+ENV_DEV_WARNINGS = "VISERON_DEV_WARNINGS"
 
 
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 FONT_SIZE = 0.6
 FONT_THICKNESS = 1
 
+MIN_LABEL_Y_POSITION = 10
 
 TOPIC_STATIC_MJPEG_STREAMS = "static_mjepg_streams"
 
 # Viseron.data constants
-LOADING = "loading"
-LOADED = "loaded"
-FAILED = "failed"
-
-DOMAIN_LOADING: Final = "domain_loading"
-DOMAIN_LOADED: Final = "domain_loaded"
-DOMAIN_FAILED: Final = "domain_failed"
-
-DOMAINS_TO_SETUP = "domains_to_setup"
-DOMAIN_IDENTIFIERS = "domain_identifiers"
-DOMAIN_SETUP_TASKS = "domain_setup_tasks"
-REGISTERED_DOMAINS = "registered_domains"
+LOADING: Final = "loading"
+LOADED: Final = "loaded"
+FAILED: Final = "failed"
 
 # Signal constants
 VISERON_SIGNAL_SHUTDOWN: Final = "shutdown"
@@ -139,6 +133,7 @@ STATE_UNKNOWN = "unknown"
 EVENT_STATE_CHANGED = "state_changed"
 EVENT_ENTITY_ADDED = "entity_added"
 EVENT_DOMAIN_REGISTERED = "domain/registered/{domain}"
+EVENT_DOMAIN_UNREGISTERED = "domain/unregistered/{domain}"
 EVENT_DOMAIN_SETUP_STATUS = "domain/setup/{status}/{domain}/{identifier}"
 
 # Setup constants
@@ -148,6 +143,14 @@ DOMAIN_RETRY_INTERVAL = 10
 DOMAIN_RETRY_INTERVAL_MAX = 300
 SLOW_SETUP_WARNING = 20
 SLOW_DEPENDENCY_WARNING = 60
+LOGGING_COMPONENTS = {"logger"}
+# Core components are always loaded even if they are not present in config
+CORE_COMPONENTS = {"data_stream"}
+# Default components are always loaded even if they are not present in config
+DEFAULT_COMPONENTS = {"webserver", "storage"}
+# Critical components are required for Viseron to function properly
+# If one of these components fail to load, Viseron will activate safe mode
+CRITICAL_COMPONENTS = LOGGING_COMPONENTS | CORE_COMPONENTS | DEFAULT_COMPONENTS
 
 
 RESTART_EXIT_CODE = 100

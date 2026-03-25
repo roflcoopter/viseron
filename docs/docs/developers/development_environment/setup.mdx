@@ -23,7 +23,7 @@ This section will explain how to set up a development environment for Viseron.
 The easiest way to get started with development is to use the VSCode Dev Container.
 This will set up a development environment with all the tools you need to build and test the project.
 
-The Devcontainer contains everything you need to develop the Python backend, the React frontend and the Docusaurus documentation.
+The Dev Container contains everything you need to develop the Python backend, the React frontend and the Docusaurus documentation.
 
 ### Prerequisites
 
@@ -34,13 +34,34 @@ The Devcontainer contains everything you need to develop the Python backend, the
 ### Getting started
 
 - Go to the [Viseron repository](https://github.com/roflcoopter/viseron) and click `fork`.
-- Once your fork is created, copy the URL of your fork and paste it below, then click `Open`:
-  <RepositoryOpener />
-- Your browser will prompt you if you want to use Visual Studio Code to open the link, click `Open Link`.
-- When Visual Studio Code asks if you want to install the Remote extension, click `Install`.
-- The Dev Container image will then be built (this may take a few minutes), after this your development environment will be ready.
+- Once the fork is created, clone your fork to your local machine.
+- Open the folder of the cloned repository in Visual Studio Code.
+- You should see a popup in the bottom right corner asking if you want to reopen the folder in a Dev Container, click `Reopen in Container`.<br />
+  <img
+    src="/img/screenshots/Docs-developer-open-devcontainer.png"
+    alt-text="Dev Container"
+  />
+- If you do not see the popup, you can also open the command palette (`Ctrl+Shift+P`), type `Dev Containers: Reopen in Container` and select it.
+- Visual Studio Code will now build the Dev Container image and open the folder in the Dev Container.
+  This may take a few minutes the first time, as it needs to download and install all the dependencies.
+
+<details>
+  <summary>Old instructions using a clone in a Docker volume</summary>
+  - Go to the [Viseron repository](https://github.com/roflcoopter/viseron) and click `fork`.
+  - Once your fork is created, copy the URL of your fork and paste it below, then click `Open`:
+    <RepositoryOpener />
+  - Your browser will prompt you if you want to use Visual Studio Code to open the link, click `Open Link`.
+  - When Visual Studio Code asks if you want to install the Remote extension, click `Install`.
+  - The Dev Container image will then be built (this may take a few minutes), after this your development environment will be ready.
 
 In the future, if you want to get back to your development environment: open Visual Studio Code, click on the `Remote Explorer` button in the sidebar, select `Containers` at the top of the sidebar.
+
+:::warning
+
+Note that using a Docker volume means that your code is stored in a Docker volume and not on your local filesystem.
+If you want to keep your code on your local filesystem, you should clone the repository manually and open it in a Dev Container as described in the main instructions above.
+
+:::
 
 :::info
 
@@ -48,9 +69,11 @@ This section was taken from the [Home Assistant documentation](https://developer
 
 :::
 
+</details>
+
 ### Tasks
 
-There are a lot of useful tasks in the Devcontainer that can be run from the command palette (`Ctrl+Shift+P`) in VSCode.
+There are a lot of useful tasks in the Dev Container that can be run from the command palette (`Ctrl+Shift+P` > `Tasks: Run Task`) in VSCode.
 
 Some of the tasks that are available:
 
@@ -59,7 +82,7 @@ Some of the tasks that are available:
 
 ### Debugging in VSCode
 
-The Devcontainer also contains a launch configuration for debugging the Python backend in VSCode.
+The Dev Container also contains a launch configuration for debugging the Python backend in VSCode.
 If you go to the `Run and Debug` (`Ctrl+Shift+D`) tab in VSCode, you can select `Viseron` from the dropdown and click `Start Debugging` to start debugging the backend.
 
 There are also launch configurations for debugging the frontend.
@@ -69,7 +92,7 @@ There are also launch configurations for debugging the frontend.
 
 ## Manual Environment
 
-Setting up a manual environment without using the Devcontainer is not something I recommend due to the large number of dependencies and tools that are required.
+Setting up a manual environment without using the Dev Container is not something I recommend due to the large number of dependencies and tools that are required.
 
 If you still want to set up a manual environment, you can follow the steps below.
 

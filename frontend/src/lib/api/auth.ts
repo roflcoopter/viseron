@@ -5,6 +5,12 @@ import queryClient, { clientId, viseronAPI } from "lib/api/client";
 import { clearTokens, setManualLogout, storeTokens } from "lib/tokens";
 import * as types from "lib/types";
 
+export const ROLE_LABELS: Record<string, string> = {
+  admin: "Administrator",
+  read: "Read Only",
+  write: "Read & Write",
+};
+
 interface AuthCreateVariables {
   name: string;
   username: string;
@@ -131,30 +137,13 @@ export const useAuthLogout = () =>
       // Clear all queries except auth.enabled to prevent unnecessary refetching
       queryClient.removeQueries({
         predicate: (query) => {
-          const key = query.queryKey;
-          // Keep auth.enabled query
-          return !(key[0] === "auth" && key[1] === "enabled");
+          const isAuthEnabled =
+            query.queryKey[0] === "auth" && query.queryKey[1] === "enabled";
+          return !isAuthEnabled;
         },
       });
     },
   });
-
-interface AuthTokenVariables {
-  grant_type: string;
-  client_id: string;
-}
-
-export async function authToken({
-  grant_type,
-  client_id,
-}: AuthTokenVariables): Promise<types.AuthTokenResponse> {
-  const response = await viseronAPI.post("/auth/token", {
-    grant_type,
-    client_id,
-  });
-  storeTokens(response.data);
-  return response.data;
-}
 
 async function authEnabled() {
   const response =

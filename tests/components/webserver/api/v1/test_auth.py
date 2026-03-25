@@ -130,6 +130,7 @@ class TestAuthAPIHandler(TestAppBaseAuth):
             "name": "Asd",
             "username": USER_NAME,
             "role": "admin",
+            "preferences": None,
         }
 
     def test_auth_user_missing(self):

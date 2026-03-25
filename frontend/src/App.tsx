@@ -3,6 +3,7 @@ import { lazy } from "react";
 import { Navigate, useRoutes } from "react-router-dom";
 
 const Cameras = lazy(() => import("pages/Cameras"));
+const Tuning = lazy(() => import("pages/Tuning"));
 const CameraRecordings = lazy(
   () => import("pages/recordings/CameraRecordings"),
 );
@@ -16,6 +17,7 @@ const Login = lazy(() => import("pages/Login"));
 const Live = lazy(() => import("pages/Live"));
 const NotFound = lazy(() => import("pages/NotFound"));
 const Onboarding = lazy(() => import("pages/Onboarding"));
+const Profile = lazy(() => import("pages/Profile"));
 const PublicLayout = lazy(() => import("layouts/PublicLayout"));
 const Recordings = lazy(() => import("pages/recordings/Recordings"));
 const Settings = lazy(() => import("pages/settings"));
@@ -29,12 +31,23 @@ function App() {
       element: <PrivateLayout />,
       children: [
         {
-          path: "/cameras",
-          element: <Navigate to="/" replace />,
-        },
-        {
           path: "/",
           element: <Cameras />,
+        },
+        {
+          path: "/cameras",
+          children: [
+            { index: true, element: <Navigate to="/" replace /> },
+            {
+              element: <RequireRole userRole={["admin"]} />,
+              children: [
+                {
+                  path: ":camera_identifier",
+                  children: [{ index: true, element: <Tuning /> }],
+                },
+              ],
+            },
+          ],
         },
         {
           path: "/recordings",
@@ -63,6 +76,10 @@ function App() {
         {
           path: "/entities",
           element: <Entities />,
+        },
+        {
+          path: "/profile",
+          element: <Profile />,
         },
         {
           element: <RequireRole userRole={["admin"]} />,

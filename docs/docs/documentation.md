@@ -50,17 +50,25 @@ Viserons features include, but not limited to the following:
 
 ## Screenshots
 
+:::note
+
+Some screenshots may be outdated as the UI is constantly being improved.<br />
+
+Several screenshots are taken programmatically during end-to-end tests, thus camera snapshots and streams are not visible in them.
+
+:::
+
 ### Camera view
 
-<img src="/img/screenshots/Viseron-screenshot-cameras.png" alt-text="Camera view"/>
+<img src="/img/ui/cameras/main.png" alt-text="Camera view"/>
 
 ### Live view
 
-<img src="/img/screenshots/Viseron-screenshot-live.png" alt-text="Live view"/>
+<img src="/img/ui/live/main.png" alt-text="Live view"/>
 
 ### Recordings view
 
-<img src="/img/screenshots/Viseron-screenshot-recordings.png" alt-text="Recordings view"/>
+<img src="/img/ui/recordings/main.png" alt-text="Recordings view"/>
 
 ### Events view
 
@@ -73,6 +81,14 @@ Viserons features include, but not limited to the following:
 ### Responsive camera grid for Events and Timeline
 
 <img src="/img/screenshots/Viseron-Events-responsive-grid.gif" alt-text="Timeline view"/>
+
+### Profile page
+
+<img src="/img/ui/profile/main.png" alt-text="Profile page"/>
+
+### Camera tuning page
+
+<img src="/img/ui/tune/main.png" alt-text="Camera tuning page"/>
 
 ### Entities view
 

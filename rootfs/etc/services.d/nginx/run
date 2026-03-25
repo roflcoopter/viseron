@@ -1,6 +1,7 @@
 #!/usr/bin/with-contenv bash
 
+source /helpers/logger.sh
 source /helpers/set_env.sh
 
-echo "Starting nginx..."
+log_info "Starting nginx..."
 exec justc-envdir /var/run/environment exec nginx -c /usr/local/nginx/conf/nginx.conf 2>&1 | tee -a $VISERON_CONFIG_DIR/nginx.log

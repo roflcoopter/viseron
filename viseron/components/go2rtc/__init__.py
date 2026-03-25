@@ -1,12 +1,14 @@
 """go2rtc component."""
+
 from __future__ import annotations
 
 import logging
+from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
 import requests
 import voluptuous as vol
-import yaml
+from ruamel.yaml import YAML
 
 from .const import COMPONENT, DESC_COMPONENT, GO2RTC_CONFIG
 
@@ -26,10 +28,15 @@ CONFIG_SCHEMA = vol.Schema(
 
 
 def setup(vis: Viseron, config: dict[str, Any]) -> bool:
-    """Set up the logger component."""
+    """Set up the go2rtc component."""
     vis.data[COMPONENT] = Go2RTC(vis, config)
 
     return True
+
+
+def unload(vis: Viseron) -> None:
+    """Unload the go2rtc component."""
+    vis.data.pop(COMPONENT, None)
 
 
 class Go2RTC:
@@ -43,7 +50,8 @@ class Go2RTC:
         self._create_config()
         self.restart()
 
-    def _create_config(self):
+    def _create_config(self) -> None:
+        yaml = YAML()
         with open(GO2RTC_CONFIG, "w", encoding="utf-8") as config_file:
             yaml.dump(self._config[COMPONENT], config_file)
 
@@ -52,23 +60,23 @@ class Go2RTC:
         try:
             response = requests.get("http://localhost:1984/api/streams", timeout=5)
             response.raise_for_status()
-        except requests.RequestException as exc:
-            LOGGER.error("Failed to fetch cameras from go2rtc: %s", exc)
+        except requests.RequestException:
+            LOGGER.exception("Failed to fetch cameras from go2rtc")
             return []
 
         cameras = response.json()
         return list(cameras)
 
     def restart(self) -> None:
-        """Restart the go2rtc."""
+        """Restart go2rtc."""
         LOGGER.debug("Restarting go2rtc")
         try:
             response = requests.post("http://localhost:1984/api/restart", timeout=5)
-        except requests.RequestException as exc:
-            LOGGER.error("Failed to restart go2rtc: %s", exc)
+        except requests.RequestException:
+            LOGGER.exception("Failed to restart go2rtc")
             return
 
-        if response.status_code == 200:
+        if response.status_code == HTTPStatus.OK:
             LOGGER.debug("Go2RTC restarted successfully")
         else:
             LOGGER.error("Failed to restart go2rtc: %s", response.text)

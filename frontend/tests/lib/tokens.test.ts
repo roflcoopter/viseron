@@ -1,29 +1,30 @@
-import dayjs from "dayjs";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import { getDayjs } from "lib/helpers/dates";
 import * as tokens from "lib/tokens";
 import * as types from "lib/types";
 
 const TOKENS_KEY = "tokens";
 
+const NOW = getDayjs();
 const TOKEN_RESPONSE: types.AuthTokenResponse = {
   header: "header",
   payload: "payload",
   expiration: 3600,
-  expires_at: "2023-11-30T11:05:38Z",
-  expires_at_timestamp: 1701338738,
-  session_expires_at: "2023-11-30T11:05:38Z",
-  session_expires_at_timestamp: 1701338738,
+  expires_at: NOW.add(3600, "second").toISOString(),
+  expires_at_timestamp: NOW.add(3600, "second").unix(),
+  session_expires_at: NOW.add(3600, "second").toISOString(),
+  session_expires_at_timestamp: NOW.add(3600, "second").unix(),
 };
 
 const TOKEN_DATA: types.StoredTokens = {
   header: "header",
   payload: "payload",
   expiration: 3600,
-  expires_at: dayjs("2023-11-30T11:05:38Z"),
-  expires_at_timestamp: 1701338738,
-  session_expires_at: dayjs("2023-11-30T11:05:38Z"),
-  session_expires_at_timestamp: 1701338738,
+  expires_at: NOW.add(3600, "second"),
+  expires_at_timestamp: NOW.add(3600, "second").unix(),
+  session_expires_at: NOW.add(3600, "second"),
+  session_expires_at_timestamp: NOW.add(3600, "second").unix(),
 };
 
 vi.useFakeTimers();
@@ -33,7 +34,13 @@ describe("Tokens", () => {
   const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
   const removeItemSpy = vi.spyOn(Storage.prototype, "removeItem");
 
+  beforeEach(() => {
+    vi.useFakeTimers();
+    localStorage.setItem(TOKENS_KEY, JSON.stringify(TOKEN_DATA));
+  });
+
   afterEach(() => {
+    vi.useRealTimers();
     localStorage.clear();
     getItemSpy.mockClear();
     setItemSpy.mockClear();
@@ -75,6 +82,7 @@ describe("Tokens", () => {
   describe("tokenExpired", () => {
     test("token is flagged as expired", () => {
       tokens.storeTokens(TOKEN_RESPONSE);
+      vi.advanceTimersByTime(3601 * 1000);
       const expired = tokens.tokenExpired();
       expect(expired).toBe(true);
     });
@@ -82,10 +90,10 @@ describe("Tokens", () => {
     test("token is flagged as expired when it has less than 10 seconds left to live", () => {
       const _tokens = {
         ...TOKEN_DATA,
-        expires_at: dayjs().add(9, "seconds").toISOString(),
-        expires_at_timestamp: dayjs().add(9, "seconds").unix(),
-        session_expires_at: dayjs().add(9, "seconds").toISOString(),
-        session_expires_at_timestamp: dayjs().add(9, "seconds").unix(),
+        expires_at: getDayjs().add(9, "seconds").toISOString(),
+        expires_at_timestamp: getDayjs().add(9, "seconds").unix(),
+        session_expires_at: getDayjs().add(9, "seconds").toISOString(),
+        session_expires_at_timestamp: getDayjs().add(9, "seconds").unix(),
       };
       tokens.storeTokens(_tokens);
       const expired = tokens.tokenExpired();
@@ -95,10 +103,10 @@ describe("Tokens", () => {
     test("token is NOT flagged as expired", () => {
       const _tokens = {
         ...TOKEN_DATA,
-        expires_at: dayjs().add(1, "hour").toISOString(),
-        expires_at_timestamp: dayjs().add(1, "hour").unix(),
-        session_expires_at: dayjs().add(1, "hour").toISOString(),
-        session_expires_at_timestamp: dayjs().add(1, "hour").unix(),
+        expires_at: getDayjs().add(1, "hour").toISOString(),
+        expires_at_timestamp: getDayjs().add(1, "hour").unix(),
+        session_expires_at: getDayjs().add(1, "hour").toISOString(),
+        session_expires_at_timestamp: getDayjs().add(1, "hour").unix(),
       };
       tokens.storeTokens(_tokens);
       const expired = tokens.tokenExpired();
@@ -109,6 +117,7 @@ describe("Tokens", () => {
   describe("sessionExpired", () => {
     test("session is flagged as expired", () => {
       tokens.storeTokens(TOKEN_RESPONSE);
+      vi.advanceTimersByTime(3601 * 1000);
       const expired = tokens.sessionExpired();
       expect(expired).toBe(true);
     });
@@ -136,31 +145,37 @@ describe("Tokens", () => {
     });
 
     test("should set session expired timeout", () => {
-      const sessionExpiresAt = dayjs().add(1, "hour");
+      const sessionExpiresAt = getDayjs().add(1, "hour");
 
-      tokens.setSessionExpiredTimeout(sessionExpiresAt);
+      tokens.setSessionExpiredTimeout();
 
       expect(dispatchCustomEventSpy).not.toHaveBeenCalled();
 
-      vi.advanceTimersByTime((sessionExpiresAt.unix() - dayjs().unix()) * 2000);
+      vi.advanceTimersByTime(
+        (sessionExpiresAt.unix() - getDayjs().unix()) * 2000,
+      );
 
       expect(dispatchCustomEventSpy).toHaveBeenCalledTimes(1);
       expect(dispatchCustomEventSpy).toHaveBeenCalledWith("session-expired");
     });
 
     test("should clear existing session expired timeout", () => {
-      const clearTimeout = vi.spyOn(window, "clearTimeout");
-      const sessionExpiresAt = dayjs().add(1, "hour");
+      // First clear any existing timeout from previous tests
+      tokens.clearSessionExpiredTimeout();
 
-      tokens.setSessionExpiredTimeout(sessionExpiresAt);
+      // Create a new spy
+      const clearTimeoutSpyLocal = vi.spyOn(window, "clearTimeout");
+      tokens.setSessionExpiredTimeout();
 
-      expect(clearTimeout).toHaveBeenCalledTimes(1);
+      expect(clearTimeoutSpyLocal).not.toHaveBeenCalled();
       expect(dispatchCustomEventSpy).not.toHaveBeenCalled();
 
-      tokens.setSessionExpiredTimeout(sessionExpiresAt);
+      tokens.setSessionExpiredTimeout();
 
-      expect(clearTimeout).toHaveBeenCalledTimes(2);
+      expect(clearTimeoutSpyLocal).toHaveBeenCalledTimes(1);
       expect(dispatchCustomEventSpy).not.toHaveBeenCalled();
+
+      clearTimeoutSpyLocal.mockClear();
     });
   });
 });

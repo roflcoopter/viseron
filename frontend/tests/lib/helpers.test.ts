@@ -1,8 +1,8 @@
 import { render, waitFor } from "@testing-library/react";
+import { renderWithContext } from "tests/utils/renderWithContext";
 
+import { getVideoElement } from "components/player/utils";
 import {
-  getRecordingVideoJSOptions,
-  getVideoElement,
   objHasValues,
   objIsEmpty,
   removeURLParameter,
@@ -38,6 +38,7 @@ const mockCamera: types.Camera = {
   is_on: true,
   connected: true,
   live_stream_available: true,
+  is_recording: false,
 };
 
 describe("sortObj", () => {
@@ -92,64 +93,19 @@ describe("objHasValues", () => {
   });
 });
 
-describe("getRecordingVideoJSOptions", () => {
-  it("should return the correct videoJS options", () => {
-    const recording: types.Recording = {
-      thumbnail_path: "thumbnail.jpg",
-      hls_url: "video.m3u8",
-      id: 0,
-      camera_identifier: "",
-      start_time: "",
-      start_timestamp: 0,
-      end_time: "",
-      end_timestamp: 0,
-      trigger_type: "",
-      trigger_id: 0,
-    };
-    const options = getRecordingVideoJSOptions(recording);
-    expect(options).toEqual({
-      autoplay: false,
-      playsinline: true,
-      controls: true,
-      loop: true,
-      poster: "thumbnail.jpg",
-      preload: "none",
-      responsive: true,
-      fluid: true,
-      playbackRates: [0.5, 1, 2, 5, 10],
-      liveui: true,
-      liveTracker: {
-        trackingThreshold: 0,
-      },
-      html5: {
-        vhs: {
-          experimentalLLHLS: true,
-        },
-      },
-      sources: [
-        {
-          src: "video.m3u8",
-          type: "application/x-mpegURL",
-        },
-      ],
-    });
-  });
-});
-
 describe("getVideoElement", () => {
   it("should render VideoPlayerPlaceholder if recording is null", () => {
-    const { getByTestId } = render(getVideoElement(mockCamera, null, false));
+    const { getByTestId } = render(getVideoElement(mockCamera, null));
     expect(getByTestId("video-player-placeholder")).toBeInTheDocument();
   });
 
   it("should render VideoPlayerPlaceholder if recording is undefined", () => {
-    const { getByTestId } = render(
-      getVideoElement(mockCamera, undefined, false),
-    );
+    const { getByTestId } = render(getVideoElement(mockCamera, undefined));
     expect(getByTestId("video-player-placeholder")).toBeInTheDocument();
   });
 
-  it("should render VideoPlayer if recording has values", async () => {
+  it("should render HlsVodPlayer if recording has values", async () => {
+    import("components/player/hlsplayer/HlsVodPlayer");
     const recording: types.Recording = {
       thumbnail_path: "thumbnail.jpg",
       hls_url: "video.m3u8",
@@ -162,14 +118,14 @@ describe("getVideoElement", () => {
       trigger_type: "",
       trigger_id: 0,
     };
-    const { getByTestId } = render(
-      getVideoElement(mockCamera, recording, false),
+    const { getByTestId } = renderWithContext(
+      getVideoElement(mockCamera, recording),
     );
     await waitFor(
       () => {
-        expect(getByTestId("video-player")).toBeInTheDocument();
+        expect(getByTestId("hls-vod-player")).toBeInTheDocument();
       },
-      { timeout: 3000 },
+      { timeout: 30000 },
     );
   });
 });

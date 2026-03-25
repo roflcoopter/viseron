@@ -1,4 +1,5 @@
 """Tier handler."""
+
 from __future__ import annotations
 
 import logging
@@ -120,8 +121,8 @@ class TierHandler(FileSystemEventHandler):
         super().__init__()
 
         self._vis = vis
-        self._storage: Storage = vis.data[COMPONENT]
-        self._webserver: Webserver = self._vis.data[WEBSERVER_COMPONENT]
+        self._storage = vis.data[COMPONENT]
+        self._webserver = self._vis.data[WEBSERVER_COMPONENT]
         self._camera = camera
         self._tier_id = tier_id
         self._category = category
@@ -1112,7 +1113,6 @@ def move_file(
                 EventEmptyData(),
                 store=False,
             )
-            return
 
     storage.tier_check_worker_send_command(
         DataItemMoveFile(
@@ -1176,7 +1176,9 @@ def add_file_handler(
     """Add file handler to webserver."""
     # We have to import this here to avoid circular imports
     # pylint: disable-next=import-outside-toplevel
-    from viseron.components.webserver.tiered_file_handler import TieredFileHandler
+    from viseron.components.webserver.tiered_file_handler import (  # noqa: PLC0415
+        TieredFileHandler,
+    )
 
     webserver.application.add_handlers(
         r".*",

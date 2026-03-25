@@ -1,19 +1,26 @@
 """Base entity abstract class."""
+
 from __future__ import annotations
 
 from abc import ABC
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from viseron import Viseron
 
 
-class Entity(ABC):
+class Entity(ABC):  # noqa: B024
     """Base entity class.
 
     entity_id will be generated with the help of 'domain'.'object_id'.
     If object_id is not set, it will be generated using name.
     name is the only required property.
+
+    Entities can implement setup and unload methods to handle setup and
+    cleanup tasks when being added or removed from Viseron.
+    These methods should handle subscribing and unsubscribing from events, etc.
     """
 
     # The following variables should NOT be overridden
@@ -36,8 +43,11 @@ class Entity(ABC):
     entity_category: str | None = None
     icon: str | None = None
 
+    def __init__(self, _vis: Viseron) -> None:
+        self._event_listeners: list[Callable] = []
+
     @property
-    def state(self):
+    def state(self) -> Any:
         """Return entity state."""
         return self._state
 
@@ -54,7 +64,7 @@ class Entity(ABC):
         attributes.update(self.extra_attributes or {})
         return attributes
 
-    def set_state(self):
+    def set_state(self) -> None:
         """Set the state in the states registry."""
         if self.vis is None:
             raise RuntimeError(f"Attribute vis has not been set for {self}")
@@ -69,11 +79,16 @@ class Entity(ABC):
         """
         return {}
 
-    def update(self):
-        """Update entity."""
-        raise NotImplementedError()
+    def unload(self) -> None:
+        """Unload entity."""
+        for unsubscribe in self._event_listeners:
+            unsubscribe()
 
-    def as_dict(self):
+    def update(self) -> None:
+        """Update entity."""
+        raise NotImplementedError
+
+    def as_dict(self) -> dict[str, Any]:
         """Return entity as dict."""
         return {
             "entity_id": self.entity_id,

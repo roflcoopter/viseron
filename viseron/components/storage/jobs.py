@@ -1,4 +1,5 @@
 """Cleanup jobs for removing orphaned files and database records."""
+
 from __future__ import annotations
 
 import datetime
@@ -8,11 +9,10 @@ import os
 import threading
 import time
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import setproctitle
 from apscheduler.triggers.cron import CronTrigger
-from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import and_, delete, exists, func, select
 
 from viseron.components.storage.const import (
@@ -32,16 +32,21 @@ from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import DomainNotRegisteredError
 from viseron.helpers import utcnow
-from viseron.types import SnapshotDomain
+from viseron.viseron_types import SnapshotDomain
 from viseron.watchdog.process_watchdog import RestartableProcess
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
+    from apscheduler.triggers.interval import IntervalTrigger
+    from sqlalchemy.orm import Session
+
     from viseron import Viseron
     from viseron.components.storage import Storage
     from viseron.domains.camera import AbstractCamera
 
 LOGGER = logging.getLogger(__name__)
+
+LOG_THROTTLE_SECONDS = 5
 
 BATCH_SIZE = 100
 
@@ -82,7 +87,7 @@ class BaseCleanupJob(ABC):
     def _run(self) -> None:
         """Run the cleanup job."""
 
-    def _wrapped_run(self):
+    def _wrapped_run(self) -> None:
         setproctitle.setproctitle(f"viseron_{self.name}")
         self._storage.engine.dispose(close=False)
         self._run()
@@ -103,13 +108,13 @@ class BaseCleanupJob(ABC):
         with self.run_lock:
             self.running = False
 
-    def log_progress(self, message: str):
+    def log_progress(self, message: str) -> None:
         """Log progress of the cleanup job.
 
         Throttled to only run every 5s so that it doesn't spam the logs.
         """
         now = time.time()
-        if now - self._last_log_time > 5:
+        if now - self._last_log_time > LOG_THROTTLE_SECONDS:
             LOGGER.debug(message)
             self._last_log_time = now
 
@@ -117,7 +122,12 @@ class BaseCleanupJob(ABC):
 class BaseTableCleanupJob(BaseCleanupJob):
     """Base class for database table cleanup jobs that use batch processing."""
 
-    def batch_delete_orphaned(self, session, table, path_column):
+    def batch_delete_orphaned(
+        self,
+        session: Session,
+        table: type[PostProcessorResults | Motion | Objects],
+        path_column: Any,
+    ) -> None:
         """Delete orphaned records in batches using cursor-based pagination.
 
         Args:
@@ -833,7 +843,7 @@ class CleanupManager:
     both filesystem and database maintenance tasks.
     """
 
-    def __init__(self, vis: Viseron, storage: Storage):
+    def __init__(self, vis: Viseron, storage: Storage) -> None:
         self._vis = vis
         self.jobs: list[BaseCleanupJob] = [
             OrphanedFilesCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
@@ -870,7 +880,7 @@ class CleanupManager:
                 ).start()
                 return
 
-    def start(self):
+    def start(self) -> None:
         """Start the cleanup scheduler."""
         for job in self.jobs:
             self._vis.background_scheduler.add_job(
@@ -883,7 +893,7 @@ class CleanupManager:
                 replace_existing=True,
             )
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the cleanup scheduler."""
         LOGGER.debug("Stopping cleanup jobs")
         for job in self.jobs:

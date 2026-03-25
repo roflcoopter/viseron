@@ -84,6 +84,10 @@
 
 # Frontend
 !/frontend
+!/frontend/e2e
+!/frontend/e2e/**
+!/frontend/eslint-rules
+!/frontend/eslint-rules/**
 !/frontend/public
 !/frontend/public/*
 !/frontend/public/static
@@ -113,20 +117,20 @@
 # Scripts
 !/scripts
 !/scripts/*
-!/scripts/gen_docs/*
+!/scripts/**
 
 # Repo
 !/.codespellrc
 !/.coveragerc
 !/.flake8
 !/.gitignore
-!/.isort.cfg
 !/.mypy.ini
 !/.pre-commit-config.yaml
 !/.pylintrc
 !/codecov.yaml
 !/LICENSE
 !/netlify.toml
+!/pyproject.toml
 !/README.md
 !tox.ini
 !/config

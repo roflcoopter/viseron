@@ -371,6 +371,7 @@ function MenuProvider({ children }: { children: React.ReactNode }) {
           container={() => document.body}
           slotProps={{
             paper: {
+              "data-testid": "live-player-context-menu-paper",
               sx: {
                 minWidth: 200,
                 zIndex: isFullscreen ? 9004 : isPlayerFullscreen ? 8100 : 1001,
@@ -896,7 +897,7 @@ function Live() {
         ref={containerRef}
         sx={{
           paddingBottom: isFullscreen ? 0 : 0.8,
-          paddingX: isFullscreen ? 0 : 2,
+          paddingX: isFullscreen ? 0 : { xs: 1, md: 2 },
           height: isFullscreen
             ? "100vh"
             : `calc(100dvh - ${theme.headerHeight}px - ${theme.headerMargin})`,

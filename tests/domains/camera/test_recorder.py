@@ -11,7 +11,7 @@ import pytest
 from sqlalchemy import insert
 from sqlalchemy.orm import Session
 
-from viseron.components.storage.models import Files, Recordings
+from viseron.components.storage.models import Files, Recordings, TriggerTypes
 from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.recorder import (
     AbstractRecorder,
@@ -20,7 +20,6 @@ from viseron.domains.camera.recorder import (
     delete_recordings,
     get_recordings,
 )
-from viseron.watchdog.thread_watchdog import RestartableThread
 
 from tests.common import MockCamera
 
@@ -242,13 +241,10 @@ class TestRecorderBase:
 #
 # Test cases that work with segments
 #
-# Note: Segments are written to the database only after the file is fully written.
-#       As a result, concatenation of segments cannot fully happen until the segments
-#       within the recording time period have been completed.
-#
-#       Some of these test cases are designed to test this behavior.  They do this
-#       by delaying the addition of segments so they are written after the recording
-#       is ccomplete.
+# Note: In production, _concatenate_fragments sleeps before querying to allow
+#       segments still being written to complete. In tests, we mock the sleep
+#       and insert all segments upfront. The query matches segments purely by
+#       time range, so insertion timing does not affect the results.
 #
 
 
@@ -314,19 +310,15 @@ def fixture_add_recording_to_session(
 @pytest.fixture(name="add_segment_to_session")
 def fixture_add_segment_to_session(
     get_db_session: Callable[[], Session]
-) -> Callable[[datetime.datetime, float, float], None]:
+) -> Callable[[datetime.datetime, float], None]:
     """Fixture to add a segment to the session with an incrementing variable."""
 
     counter = {"value": 0}
 
-    def _add_segment(
-        segment_start: datetime.datetime, duration: float, delay: float
-    ) -> None:
-        """Add a segment to the session after a delay, incrementing counter."""
+    def _add_segment(segment_start: datetime.datetime, duration: float) -> None:
+        """Add a segment to the session, incrementing counter."""
         counter["value"] += 1
         segment_number = counter["value"]
-
-        time.sleep(delay)
 
         with get_db_session() as session:
             session.execute(
@@ -400,6 +392,7 @@ def fixture_create_recording(recording_params):
             thumbnail_path=params["thumbnail_path"],
             clip_path=None,
             objects=[],
+            trigger_type=TriggerTypes.MANUAL,
         )
 
     return _create_recording
@@ -457,7 +450,7 @@ class TestAbstractRecorder:
         recorder: ConcreteTestRecorder,
         add_db_recording,
         create_recording,
-        add_segment_to_session: Callable[[datetime.datetime, float, float], None],
+        add_segment_to_session: Callable[[datetime.datetime, float], None],
         segment_offsets,
         expected,
     ):
@@ -465,40 +458,19 @@ class TestAbstractRecorder:
         add_db_recording()
         recording = create_recording()
 
+        segment_duration = 10.0
+
+        for offset in segment_offsets:
+            segment_start = recording.start_time + datetime.timedelta(seconds=offset)
+            add_segment_to_session(segment_start, segment_duration)
+
         # pylint: disable=protected-access
         with patch.object(recorder._storage, "get_session") as mock_get_session, patch(
             "shutil.move"
-        ) as _:
+        ) as _, patch("viseron.domains.camera.recorder.sleep"):
             mock_get_session.return_value = get_db_session()
 
-            # Use a container to store the return value from the thread target
-            result_container = {}
+            result = recorder._concatenate_fragments(recording)
 
-            def target_with_result(*args, **kwargs):
-                result_container["num_fragments"] = recorder._concatenate_fragments(
-                    *args, **kwargs
-                )
-
-            concat_thread = RestartableThread(
-                name="viseron.camera.test.concatenate_fragments",
-                target=target_with_result,
-                args=(recording,),
-                register=False,
-            )
-            concat_thread.start()
-
-            recording_time = (recording.end_time - recording.start_time).total_seconds()
-            segment_duration = 10.0
-
-            for offset in segment_offsets:
-                # delay from end of recording to when segment should be inserted
-                delay = segment_duration - recording_time + offset
-                delay = max(delay, 0.0)
-                segment_start = recording.start_time + datetime.timedelta(
-                    seconds=offset
-                )
-                add_segment_to_session(segment_start, segment_duration, delay)
-
-            concat_thread.join()
-
-            assert result_container["num_fragments"] == expected
+            assert result == expected
+            assert result == expected

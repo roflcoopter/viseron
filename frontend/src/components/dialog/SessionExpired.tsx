@@ -5,47 +5,60 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import queryClient from "lib/api/client";
-import { clearSessionExpiredTimeout } from "lib/tokens";
+import {
+  clearSessionExpiredTimeout,
+  clearTokens,
+  setSessionExpiredTimeout,
+} from "lib/tokens";
 
 const useSessionExpiredEvent = (
   setOpen: React.Dispatch<React.SetStateAction<boolean>>,
 ) => {
+  const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
-    document.addEventListener("session-expired", () => {
+    setSessionExpiredTimeout();
+    const handleSessionExpired = () => {
       queryClient.removeQueries({
         predicate(query) {
-          return (
-            query.queryKey[0] !== "auth" && query.queryKey[1] !== "enabled"
-          );
+          const isAuthEnabled =
+            query.queryKey[0] === "auth" && query.queryKey[1] === "enabled";
+          return !isAuthEnabled;
         },
       });
       queryClient.invalidateQueries({
         predicate(query) {
-          return (
-            query.queryKey[0] !== "auth" && query.queryKey[1] !== "enabled"
-          );
+          const isAuthEnabled =
+            query.queryKey[0] === "auth" && query.queryKey[1] === "enabled";
+          return !isAuthEnabled;
         },
       });
-      navigate("/login", { replace: true });
+      if (location.pathname !== "/login") {
+        navigate("/login", {
+          replace: true,
+          state: { from: location.pathname },
+        });
+      }
+      clearTokens();
       setOpen(true);
-    });
+    };
+
+    document.addEventListener("session-expired", handleSessionExpired);
+
     return () => {
-      document.removeEventListener("session-expired", () => setOpen(false));
+      document.removeEventListener("session-expired", handleSessionExpired);
       clearSessionExpiredTimeout();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [location, navigate, setOpen]);
 };
 
 function SessionExpired() {
   const [open, setOpen] = useState(false);
   useSessionExpiredEvent(setOpen);
-
   return (
     <Dialog
       open={open}

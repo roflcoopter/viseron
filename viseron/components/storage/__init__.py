@@ -7,7 +7,6 @@ import logging
 import os
 import pathlib
 import time
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Literal, TypedDict, overload
 
 import voluptuous as vol
@@ -76,16 +75,19 @@ from viseron.exceptions import ComponentNotReady
 from viseron.helpers import utcnow
 from viseron.helpers.logs import StreamToLogger
 from viseron.helpers.validators import UNDEFINED
-from viseron.types import SnapshotDomain
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from viseron import Event, Viseron
     from viseron.components.storage.storage_subprocess import (
         DataItem,
         DataItemDeleteFile,
         DataItemMoveFile,
     )
+    from viseron.domain_registry import EventDomainRegisteredData
     from viseron.domains.camera import AbstractCamera
+    from viseron.viseron_types import SnapshotDomain
 
 LOGGER = logging.getLogger(__name__)
 
@@ -398,20 +400,17 @@ class Storage:
         return self._get_session()
 
     @overload
-    def get_event_clips_path(self, camera: AbstractCamera) -> str:
-        ...
+    def get_event_clips_path(self, camera: AbstractCamera) -> str: ...
 
     @overload
     def get_event_clips_path(
         self, camera: AbstractCamera, all_tiers: Literal[False]
-    ) -> str:
-        ...
+    ) -> str: ...
 
     @overload
     def get_event_clips_path(
         self, camera: AbstractCamera, all_tiers: Literal[True]
-    ) -> list[str]:
-        ...
+    ) -> list[str]: ...
 
     def get_event_clips_path(
         self, camera: AbstractCamera, all_tiers: bool = False
@@ -435,20 +434,17 @@ class Storage:
         ]
 
     @overload
-    def get_segments_path(self, camera: AbstractCamera) -> str:
-        ...
+    def get_segments_path(self, camera: AbstractCamera) -> str: ...
 
     @overload
     def get_segments_path(
         self, camera: AbstractCamera, all_tiers: Literal[False]
-    ) -> str:
-        ...
+    ) -> str: ...
 
     @overload
     def get_segments_path(
         self, camera: AbstractCamera, all_tiers: Literal[True]
-    ) -> list[str]:
-        ...
+    ) -> list[str]: ...
 
     def get_segments_path(
         self, camera: AbstractCamera, all_tiers: bool = False
@@ -470,20 +466,17 @@ class Storage:
         ]
 
     @overload
-    def get_thumbnails_path(self, camera: AbstractCamera) -> str:
-        ...
+    def get_thumbnails_path(self, camera: AbstractCamera) -> str: ...
 
     @overload
     def get_thumbnails_path(
         self, camera: AbstractCamera, all_tiers: Literal[False]
-    ) -> str:
-        ...
+    ) -> str: ...
 
     @overload
     def get_thumbnails_path(
         self, camera: AbstractCamera, all_tiers: Literal[True]
-    ) -> list[str]:
-        ...
+    ) -> list[str]: ...
 
     def get_thumbnails_path(
         self, camera: AbstractCamera, all_tiers: bool = False
@@ -510,20 +503,19 @@ class Storage:
         ]
 
     @overload
-    def get_snapshots_path(self, camera: AbstractCamera, domain: SnapshotDomain) -> str:
-        ...
+    def get_snapshots_path(
+        self, camera: AbstractCamera, domain: SnapshotDomain
+    ) -> str: ...
 
     @overload
     def get_snapshots_path(
         self, camera: AbstractCamera, domain: SnapshotDomain, all_tiers: Literal[False]
-    ) -> str:
-        ...
+    ) -> str: ...
 
     @overload
     def get_snapshots_path(
         self, camera: AbstractCamera, domain: SnapshotDomain, all_tiers: Literal[True]
-    ) -> list[str]:
-        ...
+    ) -> list[str]: ...
 
     def get_snapshots_path(
         self, camera: AbstractCamera, domain: SnapshotDomain, all_tiers: bool = False
@@ -546,20 +538,17 @@ class Storage:
         ]
 
     @overload
-    def get_timelapse_path(self, camera: AbstractCamera) -> str | None:
-        ...
+    def get_timelapse_path(self, camera: AbstractCamera) -> str | None: ...
 
     @overload
     def get_timelapse_path(
         self, camera: AbstractCamera, all_tiers: Literal[False]
-    ) -> str | None:
-        ...
+    ) -> str | None: ...
 
     @overload
     def get_timelapse_path(
         self, camera: AbstractCamera, all_tiers: Literal[True]
-    ) -> list[str] | None:
-        ...
+    ) -> list[str] | None: ...
 
     def get_timelapse_path(
         self, camera: AbstractCamera, all_tiers: bool = False
@@ -615,8 +604,10 @@ class Storage:
         if filename not in self.ignored_files:
             self.ignored_files.append(filename)
 
-    def _camera_registered(self, event_data: Event[AbstractCamera]) -> None:
-        camera = event_data.data
+    def _camera_registered(
+        self, event_data: Event[EventDomainRegisteredData[AbstractCamera]]
+    ) -> None:
+        camera = event_data.data.instance
         self.create_tier_handlers(camera)
 
     def create_tier_handlers(self, camera: AbstractCamera) -> None:
@@ -674,24 +665,21 @@ class Storage:
         self,
         item: DataItem,
         callback: Callable[[DataItem], None] | None = None,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @overload
     def tier_check_worker_send_command(
         self,
         item: DataItemMoveFile,
         callback: Callable[[DataItemMoveFile], None] | None = None,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @overload
     def tier_check_worker_send_command(
         self,
         item: DataItemDeleteFile,
         callback: Callable[[DataItemDeleteFile], None] | None = None,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     def tier_check_worker_send_command(
         self,

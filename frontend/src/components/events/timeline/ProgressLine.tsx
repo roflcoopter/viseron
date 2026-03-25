@@ -4,7 +4,7 @@ import Hls from "hls.js";
 import { memo, useEffect, useRef } from "react";
 
 import { getYPosition, useReferencePlayerStore } from "components/events/utils";
-import { dateToTimestamp, getTimeFromDate } from "lib/helpers";
+import { getDayjsFromDate, getTimeStringFromDayjs } from "lib/helpers/dates";
 
 const useTimeUpdate = (
   hls: Hls | null,
@@ -27,7 +27,7 @@ const useTimeUpdate = (
         return;
       }
       if (hls.playingDate && containerRef.current) {
-        const playingTimestamp = dateToTimestamp(hls.playingDate);
+        const playingTimestamp = getDayjsFromDate(hls.playingDate).unix();
         const bounds = containerRef.current.getBoundingClientRect();
         const top = `${Math.floor(
           getYPosition(
@@ -37,7 +37,9 @@ const useTimeUpdate = (
             bounds.height,
           ),
         )}px`;
-        const innerHTML = DOMPurify.sanitize(getTimeFromDate(hls.playingDate));
+        const innerHTML = DOMPurify.sanitize(
+          getTimeStringFromDayjs(getDayjsFromDate(hls.playingDate)),
+        );
         if (timeRef.current && innerHTML !== timeRef.current.innerHTML) {
           timeRef.current.innerHTML = innerHTML;
         }

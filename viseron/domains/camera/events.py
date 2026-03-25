@@ -1,11 +1,14 @@
 """Events for the camera domain."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from viseron.events import EventData
-from viseron.types import SupportedDomains
+
+if TYPE_CHECKING:
+    from viseron.viseron_types import SupportedDomains
 
 
 @dataclass

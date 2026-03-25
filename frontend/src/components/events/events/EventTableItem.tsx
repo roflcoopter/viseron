@@ -17,11 +17,11 @@ import {
 } from "components/events/utils";
 import { ImageWithFallback } from "components/images/ImageWithFallback";
 import { useFirstRender } from "hooks/UseFirstRender";
+import { BLANK_IMAGE, getCameraNameFromQueryCache } from "lib/helpers";
 import {
-  BLANK_IMAGE,
-  getCameraNameFromQueryCache,
-  getTimeFromDate,
-} from "lib/helpers";
+  getDayjsFromDateTimeString,
+  getTimeStringFromDayjs,
+} from "lib/helpers/dates";
 import * as types from "lib/types";
 
 type EventTableItemIconsProps = {
@@ -43,8 +43,8 @@ function EventTableItemIcons({ sortedEvents }: EventTableItemIconsProps) {
         fontSize=".75rem"
         color="text.secondary"
         align="center"
-      >{`${getTimeFromDate(
-        new Date(getEventTime(sortedEvents[0])),
+      >{`${getTimeStringFromDayjs(
+        getDayjsFromDateTimeString(getEventTime(sortedEvents[0])),
       )}`}</Typography>
       <Grid container justifyContent="center" alignItems="center">
         {Object.keys(uniqueEvents).map((key) => {

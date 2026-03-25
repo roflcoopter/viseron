@@ -3,6 +3,11 @@
 source /helpers/logger.sh
 source /helpers/set_env.sh
 
+if [ -n "$POSTGRES_DATABASE_URL" ]; then
+  log_info "POSTGRES_DATABASE_URL is set. Skipping local PostgreSQL shutdown."
+  exit 0
+fi
+
 log_info "Wait for Viseron to stop..."
 PID=$(pgrep -f ^viseron)
 while ps -p $PID > /dev/null; do
@@ -11,7 +16,7 @@ done
 log_info "Viseron has stopped!"
 
 log_info "Stopping PostgreSQL..."
-s6-setuidgid postgres $PG_BIN/pg_ctl -D $VISERON_CONFIG_DIR/postgresql -l $VISERON_CONFIG_DIR/postgresql/logfile stop
+s6-setuidgid postgres $PG_BIN/pg_ctl -D $PGDATA -l $PGDATA/logfile stop
 
 # Wait until PostgreSQL has stopped
 log_info "Waiting for PostgreSQL Server to stop..."
@@ -21,4 +26,4 @@ done
 log_info "PostgreSQL Server has stopped!"
 
 # Restore permissions
-chown -R abc:abc $VISERON_CONFIG_DIR/postgresql
+chown -R abc:abc $PGDATA

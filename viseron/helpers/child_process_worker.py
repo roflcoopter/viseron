@@ -6,7 +6,6 @@ import logging
 import multiprocessing as mp
 import os
 from abc import ABC, abstractmethod
-from multiprocessing.synchronize import Event
 from queue import Empty, Queue
 from typing import TYPE_CHECKING, Any
 
@@ -19,6 +18,8 @@ from viseron.watchdog.process_watchdog import RestartableProcess
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
+    from multiprocessing.synchronize import Event
+
     from viseron import Viseron
 
 
@@ -39,22 +40,22 @@ class ChildProcessWorker(ABC):
         self._process_frames_proc_exit = mp.Event()
 
         self.input_queue: Queue[Any] = Queue(maxsize=100)
-        input_thread = RestartableThread(
+        self._input_thread = RestartableThread(
             target=self._process_input_queue,
             name=f"child_process.{self._name}.input_thread",
             register=True,
             daemon=True,
         )
-        input_thread.start()
+        self._input_thread.start()
 
         self._output_queue: mp.Queue = mp.Queue(maxsize=100)
-        output_thread = RestartableThread(
+        self._output_thread = RestartableThread(
             target=self._process_output_queue,
             name=f"child_process.{self._name}.output_thread",
             register=True,
             daemon=True,
         )
-        output_thread.start()
+        self._output_thread.start()
 
         self._process_queue: mp.Queue = mp.Queue(maxsize=100)
         self._process_frames_proc = RestartableProcess(
@@ -63,7 +64,10 @@ class ChildProcessWorker(ABC):
         )
         self._process_frames_proc.start()
 
-        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
+        self._event_listeners = []
+        self._event_listeners.append(
+            vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
+        )
 
     def create_process(self) -> mp.Process:
         """Return process used by RestartableProcess.
@@ -147,12 +151,23 @@ class ChildProcessWorker(ABC):
     def stop(self) -> None:
         """Stop detection process."""
         LOGGER.debug(f"Sending exit event to {self.child_process_name}")
+        self._process_frames_proc_exit.set()
+
+        self._input_thread.stop()
+        self._output_thread.stop()
+        self._input_thread.join(5)
+        self._output_thread.join(5)
+
+        self._process_frames_proc.join(5)
+        self._process_frames_proc.terminate()
+        self._process_frames_proc.kill()
+
+        for unsubscribe in self._event_listeners:
+            unsubscribe()
+
         if self._process_queue:
             self._process_queue.close()
         if self._output_queue:
             self._output_queue.close()
-        self._process_frames_proc_exit.set()
-        self._process_frames_proc.join(5)
-        self._process_frames_proc.terminate()
-        self._process_frames_proc.kill()
+
         LOGGER.debug(f"{self.child_process_name} exited")

@@ -49,6 +49,24 @@
       "problemMatcher": []
     },
     {
+      "label": "Python: Ruff",
+      "type": "shell",
+      "command": "ruff check viseron && ruff format --check viseron",
+      "dependsOn": [
+        "Install all Requirements",
+        "Install all Test Requirements"
+      ],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "Python: Pytest Code Coverage",
       "type": "shell",
       "command": "pytest tests/ --cov=viseron/ --cov-report term-missing --durations-min=1 --durations=0",
@@ -296,6 +314,20 @@
         "panel": "new"
       },
       "problemMatcher": []
+    },
+    {
+      "label": "Docs: Generate Screenshots",
+      "type": "shell",
+      "command": "cd frontend && npm run e2e:update-screenshots",
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
+      "label": "Docs: Generate Screenshots (specific)",
+      "type": "shell",
+      "command": "cd frontend && npm run e2e:update-screenshots -- -g '${input:playwrightTestTitle}'",
+      "problemMatcher": [],
+      "group": "build"
     }
   ],
   "inputs": [
@@ -308,6 +340,11 @@
       "id": "revision_message",
       "type": "promptString",
       "description": "Revision message (should end with a period)"
+    },
+    {
+      "id": "playwrightTestTitle",
+      "type": "promptString",
+      "description": "Title of the Playwright test to run"
     }
   ]
 }

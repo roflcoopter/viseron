@@ -180,6 +180,36 @@ The same strategy can be applied for snapshots (images of detected objects, face
 Viseron will sometimes require database migrations to be run when you upgrade Viseron.
 This is done automatically on startup, and you should **avoid** stopping Viseron while migrations are running.
 
+## External database
+
+By default Viseron runs a local PostgreSQL database inside the container.
+If you want to use an external database, you can set the `POSTGRES_DATABASE_URL` environment variable to point to your database.
+
+This is an example of a `docker-compose.yaml` file that runs Viseron alongside a PostgreSQL database container:
+
+```yaml title="docker-compose.yaml"
+services:
+  // highlight-start
+  viseron-postgres-container:
+    image: postgres:latest
+    restart: always
+    shm_size: "128mb"
+    environment:
+      POSTGRES_USER: viseron
+      POSTGRES_PASSWORD: example
+      POSTGRES_DB: viseron
+  // highlight-end
+
+  viseron:
+    # Add the below to your existing Docker Compose configuration
+    // highlight-start
+    environment:
+      - POSTGRES_DATABASE_URL=postgresql://viseron:example@viseron-postgres-container/viseron
+    depends_on:
+      - viseron-postgres-container
+    // highlight-end
+```
+
 <ComponentTroubleshooting
   meta={ComponentMetadata}
   logs={["sqlalchemy.engine"]}

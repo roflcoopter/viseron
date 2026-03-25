@@ -37,6 +37,7 @@ from .const import (
     CONFIG_SAVE_TO_DISK,
     CONFIG_THUMBNAIL,
     DEFAULT_LOOKBACK,
+    DOMAIN,
     EVENT_RECORDER_COMPLETE,
     EVENT_RECORDER_START,
     EVENT_RECORDER_STOP,
@@ -47,7 +48,6 @@ from .shared_frames import SharedFrame
 
 if TYPE_CHECKING:
     from viseron import Viseron
-    from viseron.components.storage import Storage
     from viseron.components.storage.models import TriggerTypes
     from viseron.domains.camera import AbstractCamera, FailedCamera
 
@@ -96,6 +96,7 @@ class Recording:
     thumbnail_path: str | None
     clip_path: str | None
     objects: list[DetectedObject]
+    trigger_type: TriggerTypes | None
 
     def as_dict(self):
         """Return as dict."""
@@ -108,6 +109,7 @@ class Recording:
             "date": self.date,
             "thumbnail_path": self.thumbnail_path,
             "objects": self.objects,
+            "trigger_type": self.trigger_type,
         }
 
     def get_fragments(
@@ -115,6 +117,13 @@ class Recording:
     ):
         """Return a list of files for this recording."""
         return get_recording_fragments(self.id, lookback, get_session, now)
+
+
+@dataclass
+class ManualRecording:
+    """Dataclass for manual recordings."""
+
+    duration: int | None = None
 
 
 class RecorderBase:
@@ -131,7 +140,7 @@ class RecorderBase:
         self._config = config
         self._camera = camera
 
-        self._storage: Storage = vis.data[STORAGE_COMPONENT]
+        self._storage = vis.data[STORAGE_COMPONENT]
 
     def get_recordings(
         self, utc_offset: datetime.timedelta, date=None, subpath: str = ""
@@ -200,7 +209,7 @@ class AbstractRecorder(ABC, RecorderBase):
 
     def __init__(self, vis: Viseron, component, config, camera: AbstractCamera) -> None:
         super().__init__(vis, config, camera)
-        self._storage: Storage = vis.data[STORAGE_COMPONENT]
+        self._storage = vis.data[STORAGE_COMPONENT]
         self._camera: AbstractCamera = camera
 
         self.is_recording = False
@@ -211,8 +220,18 @@ class AbstractRecorder(ABC, RecorderBase):
         create_directory(self._camera.temp_segments_folder)
         create_directory(self._camera.thumbnails_folder)
 
-        vis.add_entity(component, RecorderBinarySensor(vis, self._camera))
-        vis.add_entity(component, ThumbnailImage(vis, self._camera))
+        vis.add_entity(
+            component,
+            RecorderBinarySensor(vis, self._camera),
+            DOMAIN,
+            camera.identifier,
+        )
+        vis.add_entity(
+            component,
+            ThumbnailImage(vis, self._camera),
+            DOMAIN,
+            camera.identifier,
+        )
 
     def as_dict(self) -> dict[str, dict[int, RecordingDict]]:
         """Return recorder information as dict."""
@@ -302,6 +321,7 @@ class AbstractRecorder(ABC, RecorderBase):
             ),
             clip_path=None,
             objects=objects_in_fov,
+            trigger_type=trigger_type,
         )
 
         self._start(recording, shared_frame, objects_in_fov)
@@ -385,7 +405,7 @@ class AbstractRecorder(ABC, RecorderBase):
         ]
         num_fragments = len(fragments)
         if num_fragments == 0:
-            self._logger.error("No fragments available.")
+            self._logger.error("No fragments available")
             return None
         event_clip = self._camera.fragmenter.concatenate_fragments(fragments)
         if not event_clip:

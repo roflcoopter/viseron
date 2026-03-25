@@ -58,7 +58,7 @@ function SystemEvents() {
   };
 
   return (
-    <Container sx={{ paddingX: 2 }}>
+    <Container sx={{ paddingX: { xs: 1, md: 2 }, paddingY: 0.5 }}>
       <Paper variant="outlined" sx={{ p: 3, mb: 1 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>
           Listen to events

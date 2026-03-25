@@ -1,4 +1,5 @@
 """CompreFace face recognition."""
+
 from __future__ import annotations
 
 import logging
@@ -6,13 +7,11 @@ import os
 from typing import TYPE_CHECKING, Any
 
 import cv2
-import numpy as np
 from compreface import CompreFace
-from compreface.service.recognition_service import RecognitionService
 
 from viseron.domains.face_recognition import AbstractFaceRecognition
 from viseron.domains.face_recognition.binary_sensor import FaceDetectionBinarySensor
-from viseron.domains.face_recognition.const import CONFIG_FACE_RECOGNITION_PATH
+from viseron.domains.face_recognition.const import CONFIG_FACE_RECOGNITION_PATH, DOMAIN
 from viseron.helpers import calculate_absolute_coords, get_image_files_in_folder
 
 from .const import (
@@ -32,6 +31,9 @@ from .const import (
 )
 
 if TYPE_CHECKING:
+    import numpy as np
+    from compreface.service.recognition_service import RecognitionService
+
     from viseron import Viseron
     from viseron.domains.object_detector.detected_object import DetectedObject
     from viseron.domains.post_processor import PostProcessorFrame
@@ -39,7 +41,7 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-def setup(vis: Viseron, config, identifier) -> bool:
+def setup(vis: Viseron, config: dict[str, Any], identifier: str) -> bool:
     """Set up the CompreFace face_recognition domain."""
     FaceRecognition(vis, config, identifier)
 
@@ -49,13 +51,15 @@ def setup(vis: Viseron, config, identifier) -> bool:
 class FaceRecognition(AbstractFaceRecognition):
     """CompreFace face recognition processor."""
 
-    def __init__(self, vis: Viseron, config, camera_identifier) -> None:
+    def __init__(
+        self, vis: Viseron, config: dict[str, Any], camera_identifier: str
+    ) -> None:
         super().__init__(
             vis,
             COMPONENT,
             config[CONFIG_FACE_RECOGNITION],
             camera_identifier,
-            not config[CONFIG_FACE_RECOGNITION][CONFIG_USE_SUBJECTS],
+            generate_entities=not config[CONFIG_FACE_RECOGNITION][CONFIG_USE_SUBJECTS],
         )
 
         if COMPONENT not in self._vis.data:
@@ -64,9 +68,7 @@ class FaceRecognition(AbstractFaceRecognition):
                 "Make sure the component is set up correctly."
             )
 
-        self._compreface_service: CompreFaceService = self._vis.data[COMPONENT][
-            CONFIG_FACE_RECOGNITION
-        ]
+        self._compreface_service = self._vis.data[COMPONENT][CONFIG_FACE_RECOGNITION]
 
         if config[CONFIG_FACE_RECOGNITION][CONFIG_USE_SUBJECTS]:
             self.update_subject_entities()
@@ -95,11 +97,13 @@ class FaceRecognition(AbstractFaceRecognition):
                 added_subjects.append(f"{self._camera.identifier}_{subject}")
                 self._vis.add_entity(
                     COMPONENT,
-                    FaceDetectionBinarySensor(self._vis, self._camera, subject),
+                    binary_sensor,
+                    DOMAIN,
+                    self._camera.identifier,
                 )
         return added_subjects
 
-    def preprocess(self, frame) -> np.ndarray:
+    def preprocess(self, frame: np.ndarray) -> np.ndarray:
         """Preprocess frame."""
         return frame
 
@@ -122,8 +126,8 @@ class FaceRecognition(AbstractFaceRecognition):
             detections = self.recognition_service.recognize(
                 cv2.imencode(".jpg", cropped_frame)[1].tobytes(),
             )
-        except Exception as error:  # pylint: disable=broad-except
-            self._logger.error("Error calling compreface: %s", error, exc_info=True)
+        except Exception:  # pylint: disable=broad-except
+            self._logger.exception("Error calling compreface")
             return
 
         self._logger.debug(f"CompreFace response: {detections}")
@@ -163,7 +167,7 @@ class FaceRecognition(AbstractFaceRecognition):
 class CompreFaceService:
     """CompreFace service."""
 
-    def __init__(self, config: dict[str, Any]):
+    def __init__(self, config: dict[str, Any]) -> None:
         options = {
             CONFIG_LIMIT: config[CONFIG_FACE_RECOGNITION][CONFIG_LIMIT],
             CONFIG_DET_PROB_THRESHOLD: config[CONFIG_FACE_RECOGNITION][
@@ -202,7 +206,7 @@ class CompreFaceService:
 class CompreFaceTrain:
     """Train CompreFace to recognize faces."""
 
-    def __init__(self, vis: Viseron, config) -> None:
+    def __init__(self, vis: Viseron, config: dict[str, Any]) -> None:
         self._config = config
         self._vis = vis
 
@@ -212,9 +216,7 @@ class CompreFaceTrain:
                 "Make sure the component is set up correctly."
             )
 
-        self._compreface_service: CompreFaceService = self._vis.data[COMPONENT][
-            CONFIG_FACE_RECOGNITION
-        ]
+        self._compreface_service = self._vis.data[COMPONENT][CONFIG_FACE_RECOGNITION]
         self._face_collection = (
             self._compreface_service.recognition_service.get_face_collection()
         )
@@ -268,7 +270,5 @@ class CompreFaceTrain:
                 LOGGER.debug(f"CompreFace response: {result}")
                 if "message" in result:
                     LOGGER.warning(
-                        "Image {} not suitable for training: {}".format(
-                            img_path, result
-                        )
+                        f"Image {img_path} not suitable for training: {result}"
                     )

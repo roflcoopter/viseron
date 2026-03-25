@@ -1,16 +1,15 @@
 """Face recognition module."""
+
 from __future__ import annotations
 
 import os
 from abc import abstractmethod
 from dataclasses import dataclass
 from threading import Timer
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 
-from viseron.domains.camera.shared_frames import SharedFrame
-from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.domains.post_processor import (
     BASE_CONFIG_SCHEMA,
     AbstractPostProcessor,
@@ -20,7 +19,7 @@ from viseron.events import EventData
 from viseron.helpers import calculate_relative_coords
 from viseron.helpers.schemas import FLOAT_MIN_ZERO
 from viseron.helpers.validators import Deprecated
-from viseron.types import SnapshotDomain
+from viseron.viseron_types import SnapshotDomain
 
 from .binary_sensor import FaceDetectionBinarySensor
 from .const import (
@@ -43,6 +42,11 @@ from .const import (
     EVENT_FACE_EXPIRED,
     UNKNOWN_FACE,
 )
+
+if TYPE_CHECKING:
+    from viseron import Viseron
+    from viseron.domains.camera.shared_frames import SharedFrame
+    from viseron.domains.object_detector.detected_object import DetectedObject
 
 BASE_CONFIG_SCHEMA = BASE_CONFIG_SCHEMA.extend(
     {
@@ -113,7 +117,13 @@ class AbstractFaceRecognition(AbstractPostProcessor):
     """Abstract face recognition."""
 
     def __init__(
-        self, vis, component, config, camera_identifier, generate_entities=True
+        self,
+        vis: Viseron,
+        component: str,
+        config: dict,
+        camera_identifier: str,
+        *,
+        generate_entities: bool = True,
     ) -> None:
         super().__init__(vis, config, camera_identifier)
         self._faces: dict[str, FaceDict] = {}
@@ -122,10 +132,13 @@ class AbstractFaceRecognition(AbstractPostProcessor):
                 if face_dir == "unknown":
                     continue
                 vis.add_entity(
-                    component, FaceDetectionBinarySensor(vis, self._camera, face_dir)
+                    component,
+                    FaceDetectionBinarySensor(vis, self._camera, face_dir),
+                    DOMAIN,
+                    camera_identifier,
                 )
 
-    def __post_init__(self, *args, **kwargs):
+    def __post_init__(self, *args, **kwargs) -> None:
         """Post init hook."""
         self._vis.register_domain(DOMAIN, self._camera_identifier, self)
 
@@ -216,7 +229,7 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         if self._config[CONFIG_SAVE_UNKNOWN_FACES]:
             self._save_face(face_dict, coordinates, shared_frame)
 
-    def expire_face(self, face) -> None:
+    def expire_face(self, face: str) -> None:
         """Expire no longer found face."""
         self._logger.debug(f"Expiring face {face}")
         self._vis.dispatch_event(

@@ -1,4 +1,5 @@
 """Websocket API handler."""
+
 from __future__ import annotations
 
 import asyncio
@@ -137,7 +138,7 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
         """Handle a single incoming message."""
         if self._waiting_for_auth:
             if await self.run_in_executor(self.handle_auth, message):
-                LOGGER.debug("Authentication successful.")
+                LOGGER.debug("Authentication successful")
                 self._waiting_for_auth = False
                 await self.async_send_message(auth_ok_message(self.vis))
                 return

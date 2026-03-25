@@ -6,7 +6,7 @@ WORKDIR /src
 
 ENV VISERON_TESTS=true
 
-ADD requirements_test.txt requirements_test.txt
+COPY requirements_test.txt requirements_test.txt
 RUN \
   python3 -m pip install -r requirements_test.txt
 

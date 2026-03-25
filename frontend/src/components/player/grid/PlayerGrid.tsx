@@ -47,18 +47,8 @@ const PlayerItem = forwardRef<PlayerItemRef, PlayerItemProps>(
         key={camera.identifier}
         sx={{
           flexBasis: "min-content",
-          ...(gridLayout.columns === 1 &&
-            gridLayout.rows > 1 && {
-              width: "100%",
-              maxWidth: "100%",
-              flexBasis: "auto",
-            }),
         }}
-        size={
-          gridLayout.columns === 1 && gridLayout.rows > 1
-            ? 12
-            : 12 / gridLayout.columns
-        }
+        size={12 / gridLayout.columns}
       >
         <Box
           ref={boxRef}

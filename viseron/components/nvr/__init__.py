@@ -1,4 +1,5 @@
 """NVR component."""
+
 from __future__ import annotations
 
 import logging
@@ -8,7 +9,7 @@ import voluptuous as vol
 
 from viseron.domains import OptionalDomain, RequireDomain, setup_domain
 from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
-from viseron.types import Domain
+from viseron.viseron_types import Domain
 
 from .const import CAMERA, COMPONENT, DESC_COMPONENT, DOMAIN
 
@@ -38,11 +39,11 @@ def optional_domains(identifier: str) -> list[OptionalDomain]:
     return _optional_domains
 
 
-def setup(
+def setup_domains(
     vis: Viseron,
     config: dict[str, Any],
-) -> bool:
-    """Set up the nvr component."""
+) -> None:
+    """Set up nvr domains."""
     config = config[COMPONENT]
 
     for camera_identifier in config.keys():
@@ -60,4 +61,3 @@ def setup(
             ],
             optional_domains=optional_domains(camera_identifier),
         )
-    return True

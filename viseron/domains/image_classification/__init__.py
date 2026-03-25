@@ -1,4 +1,5 @@
 """Image classification module."""
+
 from __future__ import annotations
 
 from abc import abstractmethod
@@ -23,6 +24,7 @@ from .const import (
 from .sensor import ImageClassificationSensor
 
 if TYPE_CHECKING:
+    from viseron import Viseron
     from viseron.domains.post_processor import PostProcessorFrame
 
 
@@ -65,12 +67,19 @@ class EventImageClassification(EventData):
 class AbstractImageClassification(AbstractPostProcessor):
     """Abstract image classification."""
 
-    def __init__(self, vis, component, config, camera_identifier) -> None:
+    def __init__(
+        self, vis: Viseron, component: str, config: dict, camera_identifier: str
+    ) -> None:
         super().__init__(vis, config, camera_identifier)
         self._expire_timer: Timer | None = None
-        vis.add_entity(component, ImageClassificationSensor(vis, self._camera))
+        vis.add_entity(
+            component,
+            ImageClassificationSensor(vis, self._camera),
+            DOMAIN,
+            self._camera_identifier,
+        )
 
-    def __post_init__(self, *args, **kwargs):
+    def __post_init__(self, *args, **kwargs) -> None:
         """Post init hook."""
         self._vis.register_domain(DOMAIN, self._camera_identifier, self)
 

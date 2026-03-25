@@ -12,8 +12,7 @@ const Footer = styled("footer")(() => ({
   position: "relative",
   left: 0,
   bottom: 0,
-  marginTop: "60px",
-  paddingBottom: "25px",
+  paddingBottom: "30px",
 }));
 
 export default function AppFooter() {
@@ -23,9 +22,12 @@ export default function AppFooter() {
   const showFooter = !["/events", "/live", "/settings/configuration"].includes(
     location.pathname,
   );
+  const isLowerPaddingTop =
+    location.pathname.startsWith("/cameras") ||
+    ["/profile"].includes(location.pathname);
 
   return showFooter ? (
-    <Footer>
+    <Footer sx={{ paddingTop: isLowerPaddingTop ? "30px" : "60px" }}>
       <Box
         sx={{
           display: "flex",
@@ -132,7 +134,7 @@ export default function AppFooter() {
         </Typography>
         <Link
           target="_blank"
-          href="https://github.com/roflcoopter/viseron?tab=MIT-1-ov-file"
+          href="https://github.com/roflcoopter/viseron/blob/master/LICENSE"
           color={theme.palette.text.secondary}
           variant="caption"
           sx={{

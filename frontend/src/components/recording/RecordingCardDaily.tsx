@@ -17,10 +17,17 @@ import LazyLoad from "react-lazyload";
 import { Link } from "react-router-dom";
 
 import MutationIconButton from "components/buttons/MutationIconButton";
+import { getVideoElement } from "components/player/utils";
 import VideoPlayerPlaceholder from "components/player/videoplayer/VideoPlayerPlaceholder";
 import { useAuthContext } from "context/AuthContext";
 import { useDeleteRecording } from "lib/api/recordings";
-import { getTimeFromDate, getVideoElement, objHasValues } from "lib/helpers";
+import { objHasValues } from "lib/helpers";
+import {
+  getDateStringFromDayjs,
+  getDayjsFromDateString,
+  getDayjsFromDateTimeString,
+  getTimeStringFromDayjs,
+} from "lib/helpers/dates";
 import * as types from "lib/types";
 
 interface RecordingCardDailyProps {
@@ -35,7 +42,7 @@ export default function RecordingCardDaily({
   recording,
 }: RecordingCardDailyProps) {
   const theme = useTheme();
-  const { auth, user } = useAuthContext();
+  const { user } = useAuthContext();
   const deleteRecording = useDeleteRecording();
 
   return (
@@ -54,7 +61,9 @@ export default function RecordingCardDaily({
       }
     >
       <CardContent>
-        <Typography variant="h6">{date}</Typography>
+        <Typography variant="h6">
+          {getDateStringFromDayjs(getDayjsFromDateString(date))}
+        </Typography>
       </CardContent>
       <CardMedia>
         <LazyLoad
@@ -67,7 +76,7 @@ export default function RecordingCardDaily({
           }
         >
           {objHasValues<types.Recording>(recording) ? (
-            getVideoElement(camera, recording, auth.enabled)
+            getVideoElement(camera, recording)
           ) : (
             <Box
               sx={{
@@ -102,7 +111,9 @@ export default function RecordingCardDaily({
             <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
               Latest recording:{"\n"}
               <span style={{ color: theme.palette.info.main }}>
-                {getTimeFromDate(new Date(recording.start_time))}
+                {getTimeStringFromDayjs(
+                  getDayjsFromDateTimeString(recording.start_time),
+                )}
               </span>
             </Typography>
           ) : (

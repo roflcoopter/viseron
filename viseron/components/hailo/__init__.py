@@ -6,14 +6,13 @@ import logging
 import multiprocessing as mp
 from functools import partial
 from queue import Empty, Queue
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import voluptuous as vol
 from hailo_platform import HEF, FormatType, HailoSchedulingAlgorithm, VDevice
 from hailo_platform.pyhailort.pyhailort import AsyncInferJob, FormatOrder
 
-from viseron import Viseron
 from viseron.components.hailo.utils import (
     get_hailo_arch,
     get_model,
@@ -50,6 +49,9 @@ from .const import (
     DESC_MULTI_PROCESS_SERVICE,
     DESC_OBJECT_DETECTOR,
 )
+
+if TYPE_CHECKING:
+    from viseron import Viseron
 
 LOGGER = logging.getLogger(__name__)
 
@@ -93,17 +95,24 @@ CONFIG_SCHEMA = vol.Schema(
 
 
 def setup(vis: Viseron, config: dict[str, Any]) -> bool:
-    """Set up Hailo component."""
+    """Set up hailo component."""
     config = config[COMPONENT]
 
     try:
         vis.data[COMPONENT] = Hailo8Detector(vis, config)
     except Exception as error:
-        LOGGER.error("Failed to start Hailo 8 detector: %s", error, exc_info=True)
+        LOGGER.exception("Failed to start Hailo 8 detector")
         raise ComponentNotReady from error
 
+    return True
+
+
+def setup_domains(vis: Viseron, config: dict[str, Any]) -> None:
+    """Set up hailo domains."""
+    config = config[COMPONENT]
+
     if config.get(CONFIG_OBJECT_DETECTOR, None):
-        for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS].keys():
+        for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS]:
             setup_domain(
                 vis,
                 COMPONENT,
@@ -118,7 +127,12 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
                 ],
             )
 
-    return True
+
+def unload(vis: Viseron) -> None:
+    """Unload hailo component."""
+    if COMPONENT in vis.data:
+        vis.data[COMPONENT].stop()
+        del vis.data[COMPONENT]
 
 
 class LoadHailo8Error(ViseronError):
@@ -128,7 +142,7 @@ class LoadHailo8Error(ViseronError):
 class Hailo8Detector(ChildProcessWorker):
     """Hailo 8 object detector."""
 
-    def __init__(self, vis: Viseron, config: dict[str, Any]):
+    def __init__(self, vis: Viseron, config: dict[str, Any]) -> None:
         self._config = config
         hailo_arch = get_hailo_arch()
         LOGGER.debug(f"Detected Hailo architecture: {hailo_arch}")
@@ -301,7 +315,7 @@ class HailoInfer:
     """Helper around Hailo SDK to perform asynchronous inference.
 
     Based on https://raw.githubusercontent.com/hailo-ai/Hailo-Application-Code-Examples/refs/heads/main/runtime/hailo-8/python/common/hailo_inference.py #pylint: disable=line-too-long
-    """
+    """  # noqa: E501
 
     def __init__(
         self,

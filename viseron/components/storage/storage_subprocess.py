@@ -1,19 +1,18 @@
 """Check storage tiers in a subprocess."""
+
 from __future__ import annotations
 
 import argparse
-import datetime
 import logging
 import multiprocessing as mp
 import sys
 import time
-from collections.abc import Callable
 from dataclasses import dataclass
 from queue import Empty, Queue
 from typing import TYPE_CHECKING, Literal
 
-import numpy as np
 import psutil
+import setproctitle
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from manager import connect
@@ -23,6 +22,11 @@ from viseron.watchdog.subprocess_watchdog import RestartablePopen
 from viseron.watchdog.thread_watchdog import RestartableThread, ThreadWatchDog
 
 if TYPE_CHECKING:
+    import datetime
+    from collections.abc import Callable
+
+    import numpy as np
+
     from viseron import Viseron
 
 LOGGER = logging.getLogger(__name__)
@@ -116,14 +120,16 @@ class TierCheckWorker(SubProcessWorker):
         item: DataItem | DataItemMoveFile | DataItemDeleteFile,
         callback: Callable[[DataItem | DataItemMoveFile | DataItemDeleteFile], None]
         | None,
-    ):
+    ) -> None:
         """Send command to the subprocess."""
         if callback is not None:
             item.callback_id = str(id(callback))
             self._callbacks[item.callback_id] = callback
         self.input_queue.put(item)
 
-    def work_output(self, item: DataItem | DataItemMoveFile | DataItemDeleteFile):
+    def work_output(
+        self, item: DataItem | DataItemMoveFile | DataItemDeleteFile
+    ) -> None:
         """Perform work on output item from child process."""
         if not item.callback_id:
             return
@@ -179,7 +185,7 @@ def get_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def initializer(cpulimit: int | None):
+def initializer(cpulimit: int | None) -> None:
     """Initialize engine in process."""
     # Limit CPU by spawning cpulimit
     pid = mp.current_process().pid
@@ -187,20 +193,21 @@ def initializer(cpulimit: int | None):
         ps = psutil.Process(pid)
         ps.nice(20)
     if pid and cpulimit is not None:
-        command = f"cpulimit -l {cpulimit} -p {pid} -z -q"
+        command = ["cpulimit", "-l", str(cpulimit), "-p", str(pid), "-z", "-q"]
         LOGGER.debug(f"Running command: {command}")
         RestartablePopen(
             command,
             register=False,
-            shell=True,
         )
+    # Set process name
+    setproctitle.setproctitle(f"viseron_storage_subprocess_{pid}")
 
 
 def worker_task_files(
     worker: Worker,
     file_queue: Queue[DataItemDeleteFile | DataItemMoveFile],
     output_queue: Queue[DataItemDeleteFile | DataItemMoveFile],
-):
+) -> None:
     """Worker thread that only processes file operation commands."""
     while True:
         try:
@@ -209,8 +216,8 @@ def worker_task_files(
             output_queue.put(job)
         except Empty:
             continue
-        except Exception as exc:  # pylint: disable=broad-except
-            LOGGER.exception(f"Error in file worker thread: {exc}")
+        except Exception:  # pylint: disable=broad-except
+            LOGGER.exception("Error in file worker thread")
 
 
 def worker_task_mixed(
@@ -219,7 +226,7 @@ def worker_task_mixed(
     file_queue: Queue[DataItemDeleteFile | DataItemMoveFile],
     output_queue: Queue[DataItem | DataItemDeleteFile | DataItemMoveFile],
     name: str,
-):
+) -> None:
     """Worker thread that prioritizes file operations but also handles check_tier.
 
     This ensures that file operations are not blocked by slow check_tier jobs.
@@ -235,15 +242,15 @@ def worker_task_mixed(
             output_queue.put(job)
         except Empty:
             continue
-        except Exception as exc:  # pylint: disable=broad-except
-            LOGGER.exception(f"Error in mixed worker thread {name}: {exc}")
+        except Exception:  # pylint: disable=broad-except
+            LOGGER.exception(f"Error in mixed worker thread {name}")
 
 
 def dispatcher_task(
     process_queue: Queue[DataItem | DataItemDeleteFile | DataItemMoveFile],
     check_queue: Queue[DataItem],
     file_queue: Queue[DataItemDeleteFile | DataItemMoveFile],
-):
+) -> None:
     """Dispatcher thread routing jobs to dedicated queues.
 
     check_tier commands can be slow. File operations should not be blocked by them,
@@ -262,11 +269,11 @@ def dispatcher_task(
                 file_queue.put(job)
             else:
                 LOGGER.debug("Unknown command %s", job.cmd)
-        except Exception as exc:  # pylint: disable=broad-except
-            LOGGER.exception(f"Dispatcher error routing job: {exc}")
+        except Exception:  # pylint: disable=broad-except
+            LOGGER.exception("Dispatcher error routing job")
 
 
-def main():
+def main() -> None:
     """Run tier check in a subprocess."""
     parser = get_parser()
     args = parser.parse_args()

@@ -40,6 +40,9 @@ COPY --from=go2rtc-base /go2rtc/video-rtc.js /go2rtc/
 # Build frontend
 FROM node:${NODE_VERSION} AS frontend
 
+ARG NODE_OPTIONS=""
+ENV NODE_OPTIONS=${NODE_OPTIONS}
+
 WORKDIR /frontend
 
 COPY frontend/package.json ./

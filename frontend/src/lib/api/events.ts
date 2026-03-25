@@ -6,11 +6,8 @@ import {
 } from "@tanstack/react-query";
 import { useMemo } from "react";
 
-import {
-  EventQueryPair,
-  useInvalidateQueryOnEvent,
-  viseronAPI,
-} from "lib/api/client";
+import { viseronAPI } from "lib/api/client";
+import { EventQueryPair, useInvalidateQueryOnEvent } from "lib/api/utils";
 import * as types from "lib/types";
 
 type EventsVariablesWithTime = {

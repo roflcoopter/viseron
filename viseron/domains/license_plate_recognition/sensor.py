@@ -1,4 +1,5 @@
 """Binary sensor that represents license plate recognition."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -14,7 +15,10 @@ from .const import (
 if TYPE_CHECKING:
     from viseron import Event, Viseron
     from viseron.domains.camera import AbstractCamera
-    from viseron.domains.license_plate_recognition import EventLicensePlateRecognition
+    from viseron.domains.license_plate_recognition import (
+        EventLicensePlateRecognition,
+        LicensePlateRecognitionResult,
+    )
 
 
 class LicensePlateRecognitionSensor(CameraSensor):
@@ -32,21 +36,25 @@ class LicensePlateRecognitionSensor(CameraSensor):
 
     def setup(self) -> None:
         """Set up event listener."""
-        self._vis.listen_event(
-            EVENT_LICENSE_PLATE_RECOGNITION_RESULT.format(
-                camera_identifier=self._camera.identifier
-            ),
-            self.result,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_LICENSE_PLATE_RECOGNITION_RESULT.format(
+                    camera_identifier=self._camera.identifier
+                ),
+                self.result,
+            )
         )
-        self._vis.listen_event(
-            EVENT_LICENSE_PLATE_RECOGNITION_EXPIRED.format(
-                camera_identifier=self._camera.identifier
-            ),
-            self.result_expired,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_LICENSE_PLATE_RECOGNITION_EXPIRED.format(
+                    camera_identifier=self._camera.identifier
+                ),
+                self.result_expired,
+            )
         )
 
     @property
-    def state(self):
+    def state(self) -> str:
         """Return entity state."""
         if (
             self._license_plate_recognition_event
@@ -56,7 +64,7 @@ class LicensePlateRecognitionSensor(CameraSensor):
         return STATE_UNKNOWN
 
     @property
-    def extra_attributes(self):
+    def extra_attributes(self) -> dict[str, list[LicensePlateRecognitionResult]]:
         """Return entity attributes."""
         if (
             self._license_plate_recognition_event

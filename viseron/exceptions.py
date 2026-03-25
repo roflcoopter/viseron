@@ -1,7 +1,8 @@
 """Exceptions used by Viseron."""
+
 from __future__ import annotations
 
-from viseron.types import Domain
+from viseron.viseron_types import Domain
 
 
 class ViseronError(Exception):

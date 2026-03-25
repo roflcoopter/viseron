@@ -1,4 +1,5 @@
-"""CompreFace object detection."""
+"""CompreFace face recognition."""
+
 import logging
 from typing import Any
 
@@ -112,7 +113,7 @@ CONFIG_SCHEMA = vol.Schema(
 
 
 def setup(vis: Viseron, config: dict[str, Any]) -> bool:
-    """Set up the edgetpu component."""
+    """Set up the compreface component."""
     config = config[COMPONENT]
 
     if not config.get(CONFIG_FACE_RECOGNITION, None):
@@ -121,7 +122,20 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     vis.data[COMPONENT] = {}
     vis.data[COMPONENT][CONFIG_FACE_RECOGNITION] = CompreFaceService(config)
 
-    for camera_identifier in config[CONFIG_FACE_RECOGNITION][CONFIG_CAMERAS].keys():
+    if config[CONFIG_FACE_RECOGNITION][CONFIG_TRAIN]:
+        CompreFaceTrain(vis, config)
+
+    return True
+
+
+def setup_domains(vis: Viseron, config: dict[str, Any]) -> None:
+    """Set up compreface domains."""
+    config = config[COMPONENT]
+
+    if not config.get(CONFIG_FACE_RECOGNITION, None):
+        return
+
+    for camera_identifier in config[CONFIG_FACE_RECOGNITION][CONFIG_CAMERAS]:
         setup_domain(
             vis,
             COMPONENT,
@@ -136,7 +150,9 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
             ],
         )
 
-    if config[CONFIG_FACE_RECOGNITION][CONFIG_TRAIN]:
-        CompreFaceTrain(vis, config)
 
+def unload(vis: Viseron) -> bool:
+    """Unload the compreface component."""
+    if COMPONENT in vis.data:
+        del vis.data[COMPONENT]
     return True

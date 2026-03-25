@@ -1,14 +1,16 @@
 """General helper functions."""
+
 from __future__ import annotations
 
 import datetime
+import inspect
 import linecache
 import logging
 import math
-import multiprocessing as mp
 import os
 import re
 import socket
+import sys
 import time
 import tracemalloc
 import urllib.parse
@@ -17,15 +19,18 @@ from typing import TYPE_CHECKING, Any, Literal, overload
 
 import cv2
 import numpy as np
+import psutil
 import slugify as unicode_slug
 import supervision as sv
 import tornado.queues as tq
 
-from viseron.const import FONT, FONT_SIZE, FONT_THICKNESS
-from viseron.types import Domain
+from viseron.const import FONT, FONT_SIZE, FONT_THICKNESS, MIN_LABEL_Y_POSITION
 
 if TYPE_CHECKING:
+    import multiprocessing as mp
+
     from viseron.domains.object_detector.detected_object import DetectedObject
+    from viseron.viseron_types import Domain
 
 LOGGER = logging.getLogger(__name__)
 
@@ -145,7 +150,7 @@ def put_object_label_relative(frame, obj, frame_res, color=(255, 0, 0)) -> None:
     )
 
     # If label is outside the top of the frame, put it below the bounding box
-    if coordinates[1] < 10:
+    if coordinates[1] < MIN_LABEL_Y_POSITION:
         coordinates = (
             math.floor(obj.rel_x1 * frame_res[0]),
             (math.floor(obj.rel_y2 * frame_res[1])) + 5,
@@ -542,8 +547,7 @@ def convert_letterboxed_bbox(
     model_height: int,
     bbox: tuple[int, int, int, int],
     return_absolute: Literal[False] = ...,
-) -> tuple[float, float, float, float]:
-    ...
+) -> tuple[float, float, float, float]: ...
 
 
 @overload
@@ -554,8 +558,7 @@ def convert_letterboxed_bbox(
     model_height: int,
     bbox: tuple[int, int, int, int],
     return_absolute: Literal[True],
-) -> tuple[int, int, int, int]:
-    ...
+) -> tuple[int, int, int, int]: ...
 
 
 def convert_letterboxed_bbox(
@@ -766,6 +769,86 @@ def memory_usage_profiler(logger, key_type="lineno", limit=5) -> None:
     log_message += "\nTotal allocated size: %.1f KiB" % (total / 1024)
     log_message += "\n----------------------------------------------------------------"
     logger.debug(log_message)
+
+
+def caller_name(skip=2) -> str:
+    """Get a name of a caller in the format module.class.method.
+
+    'skip' specifies how many levels of stack to skip while getting caller
+    name. skip=1 means "who calls me", skip=2 "who calls my caller" etc.
+
+    An empty string is returned if skipped levels exceed stack height
+
+    Taken from: https://gist.github.com/techtonik/2151727
+    """
+
+    def stack_(frame):
+        framelist = []
+        while frame:
+            framelist.append(frame)
+            frame = frame.f_back
+        return framelist
+
+    stack = stack_(sys._getframe(1))  # pylint: disable=protected-access
+    start = 0 + skip
+    if len(stack) < start + 1:
+        return ""
+    parentframe = stack[start]
+
+    name = []
+    module = inspect.getmodule(parentframe)
+    if module:
+        name.append(module.__name__)
+    if "self" in parentframe.f_locals:
+        name.append(parentframe.f_locals["self"].__class__.__name__)
+    codename = parentframe.f_code.co_name
+    if codename != "<module>":  # top level usually
+        name.append(codename)  # function or a method
+    del parentframe
+    return ".".join(name)
+
+
+def kill_zombie_processes():
+    """Kill any leftover processes.
+
+    If Viseron crashes or is forcefully stopped, child processes
+    (e.g., ffmpeg, gstreamer) might be left running. This function
+    scans for such processes and kills them.
+    """
+    current_pid = os.getpid()
+
+    for proc in psutil.process_iter(["pid", "name", "cmdline"]):
+        try:
+            # Skip current process
+            if proc.info["pid"] == current_pid:
+                continue
+
+            name = proc.info["name"] or ""
+            cmdline = " ".join(proc.info["cmdline"] or [])
+
+            should_kill = False
+            # Check name-based patterns
+            if (
+                cmdline.startswith("ffmpeg_")
+                or cmdline.startswith("gstreamer_")
+                or cmdline.startswith("viseron_")
+                or cmdline.startswith("viseron.")
+            ):
+                should_kill = True
+
+            # Check cmdline python processes spawned by Viseron
+            if "python" in name and cmdline.startswith("viseron"):
+                should_kill = True
+
+            if should_kill:
+                LOGGER.warning(
+                    f"Killing leftover process {proc.info['pid']}: {cmdline}"
+                )
+                proc.kill()
+
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            # Process might have already died or we don't have permission
+            pass
 
 
 def find_file(name: str, paths: list[str]):

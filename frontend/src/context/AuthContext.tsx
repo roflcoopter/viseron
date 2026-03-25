@@ -5,9 +5,11 @@ import Cookies from "js-cookie";
 import {
   createContext,
   useContext,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 
@@ -17,6 +19,11 @@ import { Loading } from "components/loading/Loading";
 import { useToast } from "hooks/UseToast";
 import { useAuthEnabled, useAuthUser } from "lib/api/auth";
 import { viseronAPI } from "lib/api/client";
+import {
+  dayjsSetDefaultTimezone,
+  getDayjs,
+  getDefaultTimezone,
+} from "lib/helpers/dates";
 import { getToken, isManualLogoutActive } from "lib/tokens";
 import * as types from "lib/types";
 
@@ -114,6 +121,25 @@ const useAuthAxiosInterceptor = (
   }, [auth, toast, user]);
 };
 
+// Sync user cookie with state to trigger re-renders
+const useUserCookieSync = () => {
+  const [cookiesUser, setCookiesUser] = useState(Cookies.get("user"));
+
+  useEffect(() => {
+    const checkCookie = () => {
+      const currentCookie = Cookies.get("user");
+      setCookiesUser(currentCookie);
+    };
+    checkCookie();
+
+    const interval = setInterval(checkCookie, 100);
+
+    return () => clearInterval(interval);
+  }, [setCookiesUser]);
+
+  return cookiesUser;
+};
+
 type AuthContextState = {
   auth: types.AuthEnabledResponse;
   user: types.AuthUserResponse | null;
@@ -128,15 +154,15 @@ type AuthProviderProps = {
 export function AuthProvider({ children }: AuthProviderProps) {
   const authQuery = useAuthEnabled();
   const location = useLocation();
+  const cookiesUser = useUserCookieSync();
 
-  const cookies = Cookies.get();
   const userQuery = useAuthUser({
-    username: cookies.user,
+    username: cookiesUser || "",
     configOptions: {
       enabled: !!(
         authQuery.data?.enabled &&
         authQuery.data?.onboarding_complete &&
-        !!cookies.user
+        !!cookiesUser
       ),
     },
   });
@@ -171,7 +197,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   // Don't show error if we're on login page or if there's no cookie (user just logged out)
-  if (userQuery.isError && cookies.user && location.pathname !== "/login") {
+  if (userQuery.isError && cookiesUser && location.pathname !== "/login") {
     return <ErrorLoadingUser />;
   }
 
@@ -190,6 +216,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
         subtext="Auth context value is null"
       />
     );
+  }
+
+  // Set global timezone based on user preference
+  const userTimezone =
+    userQuery.data?.preferences?.timezone ??
+    Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (getDefaultTimezone() !== userTimezone) {
+    dayjsSetDefaultTimezone(userTimezone);
+    // Update api client UTC offset header
+    viseronAPI.defaults.headers.common["X-Client-UTC-Offset"] = getDayjs()
+      .utcOffset()
+      .toString();
   }
 
   return (

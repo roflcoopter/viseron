@@ -1,20 +1,23 @@
 """Viseron states registry."""
+
 from __future__ import annotations
 
 import logging
 import threading
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from viseron.const import EVENT_ENTITY_ADDED, EVENT_STATE_CHANGED
 from viseron.events import EventData
 from viseron.helpers import slugify
+from viseron.helpers.logs import development_warning
 
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.components import Component
     from viseron.helpers.entity import Entity
+    from viseron.viseron_types import SupportedDomains
 
 LOGGER = logging.getLogger(__name__)
 
@@ -29,7 +32,7 @@ class EventStateChangedData(EventData):
 
     _as_dict: dict[str, Any] | None = None
 
-    def as_dict(self):
+    def as_dict(self) -> dict[str, Any]:
         """Return state changed event as dict."""
         if not self._as_dict:
             self._as_dict = {
@@ -45,6 +48,22 @@ class EventEntityAddedData(EventData):
     """Entity event data."""
 
     entity: Entity
+
+
+class DomainOwnerDict(TypedDict):
+    """Domain owner structure."""
+
+    identifiers: dict[str, list[str]]
+
+
+class ComponentOwnerDict(TypedDict):
+    """Component owner structure."""
+
+    entities: list[str]
+    domains: dict[SupportedDomains, DomainOwnerDict]
+
+
+EntityOwner = dict[str, ComponentOwnerDict]
 
 
 class State:
@@ -63,7 +82,7 @@ class State:
 
         self._as_dict: dict[str, Any] | None = None
 
-    def as_dict(self):
+    def as_dict(self) -> dict[str, Any]:
         """Return state as dict."""
         if not self._as_dict:
             self._as_dict = {
@@ -82,6 +101,7 @@ class States:
         self._vis = vis
         self._registry: dict[str, Entity] = {}
         self._registry_lock = threading.Lock()
+        self._entity_owner: EntityOwner = {}
 
         self._current_states: dict[str, State] = {}
 
@@ -89,6 +109,11 @@ class States:
     def current(self) -> dict[str, State]:
         """Return current states."""
         return self._current_states
+
+    @property
+    def entity_owner(self) -> EntityOwner:
+        """Return entity owner registry."""
+        return self._entity_owner
 
     def set_state(self, entity: Entity) -> None:
         """Set the state in the states registry."""
@@ -116,7 +141,13 @@ class States:
             ),
         )
 
-    def add_entity(self, component: Component, entity: Entity):
+    def add_entity(
+        self,
+        component: Component,
+        entity: Entity,
+        domain: SupportedDomains | None = None,
+        identifier: str | None = None,
+    ) -> Entity:
         """Add entity to states registry."""
         with self._registry_lock:
             if not entity.name:
@@ -124,18 +155,16 @@ class States:
                     f"Component {component.name} is adding entities without name. "
                     "name is required for all entities"
                 )
-                return
+                raise ValueError("Entity name is required")
 
             LOGGER.debug(f"Adding entity {entity.name} from component {component.name}")
 
-            if entity.entity_id:
-                entity_id = entity.entity_id
-            else:
-                entity_id = self._generate_entity_id(entity)
+            entity_id = entity.entity_id or self._generate_entity_id(entity)
 
             if entity_id in self._registry:
                 LOGGER.error(
-                    f"Component {component.name} does not generate unique entity IDs"
+                    f"Component {component.name} does not generate unique entity IDs: "
+                    f"{entity_id}"
                 )
                 suffix_number = 1
                 while True:
@@ -154,16 +183,100 @@ class States:
             if hasattr(entity, "setup"):
                 entity.setup()
 
+                if not hasattr(entity, "unload"):
+                    development_warning(
+                        LOGGER,
+                        f"Entity {entity.entity_id} from component {component.name} "
+                        "is missing unload method",
+                    )
+
+            self._register_entity_owner(
+                component.name, entity.entity_id, domain, identifier
+            )
+
             self._vis.dispatch_event(
                 EVENT_ENTITY_ADDED, EventEntityAddedData(entity), store=False
             )
             self.set_state(entity)
             return entity
 
-    def get_entities(self):
+    def _register_entity_owner(
+        self,
+        component_name: str,
+        entity_id: str,
+        domain: SupportedDomains | None = None,
+        identifier: str | None = None,
+    ) -> None:
+        """Register entity ownership for tracking."""
+        self._ensure_component_owner_entry(component_name)
+
+        if domain:
+            self._register_domain_entity(component_name, domain, identifier, entity_id)
+        else:
+            self._entity_owner[component_name]["entities"].append(entity_id)
+
+    def _ensure_component_owner_entry(self, component_name: str) -> None:
+        """Ensure component has an entry in entity owner registry."""
+        if component_name not in self._entity_owner:
+            self._entity_owner[component_name] = {
+                "entities": [],
+                "domains": {},
+            }
+
+    def _register_domain_entity(
+        self,
+        component_name: str,
+        domain: SupportedDomains,
+        identifier: str | None,
+        entity_id: str,
+    ) -> None:
+        """Register entity under a specific domain."""
+        domains = self._entity_owner[component_name]["domains"]
+
+        if domain not in domains:
+            domains[domain] = {"identifiers": {}}
+
+        if identifier:
+            if identifier not in domains[domain]["identifiers"]:
+                domains[domain]["identifiers"][identifier] = []
+            domains[domain]["identifiers"][identifier].append(entity_id)
+
+    def get_entities(self) -> dict[str, Entity]:
         """Return all registered entities."""
         with self._registry_lock:
             return dict(sorted(self._registry.items()))
+
+    def unload_entity(self, entity_id: str) -> None:
+        """Unload entity from states registry."""
+        with self._registry_lock:
+            entity = self._registry.get(entity_id, None)
+            if not entity:
+                LOGGER.warning(f"Tried to unload non existing entity {entity_id}")
+                return
+
+            LOGGER.debug(f"Unloading entity {entity_id}")
+
+            if hasattr(entity, "unload"):
+                try:
+                    entity.unload()
+                    LOGGER.debug(f"Unloaded entity {entity_id}")
+                except Exception:  # pylint: disable=broad-except
+                    LOGGER.exception(f"Error unloading entity {entity_id}")
+            else:
+                development_warning(LOGGER, f"Entity {entity_id} has no unload method")
+
+            del self._registry[entity_id]
+            if entity_id in self._current_states:
+                del self._current_states[entity_id]
+
+            # Also delete from entity owner registry
+            for component in self._entity_owner.values():
+                if entity_id in component["entities"]:
+                    component["entities"].remove(entity_id)
+                for domain in component["domains"].values():
+                    for entities in domain["identifiers"].values():
+                        if entity_id in entities:
+                            entities.remove(entity_id)
 
     @staticmethod
     def _assign_object_id(entity: Entity) -> None:

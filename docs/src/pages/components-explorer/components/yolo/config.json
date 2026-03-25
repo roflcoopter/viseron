@@ -343,9 +343,9 @@
           {
             "type": "string",
             "name": "model_path",
-            "description": "Path to a YOLO model.More information <a href=https://docs.ultralytics.com/models>here</a>.",
-            "optional": true,
-            "default": "/detectors/models/yolo/default.pt"
+            "description": "Path to a YOLO model. See <i>Pre-trained models</i> below.",
+            "required": true,
+            "default": null
           },
           {
             "type": "float",

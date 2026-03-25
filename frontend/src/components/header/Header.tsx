@@ -4,6 +4,7 @@ import {
   Moon,
   RightPanelClose,
   Settings,
+  User,
 } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
@@ -105,7 +106,7 @@ export default function AppHeader() {
             display: "flex",
             alignItems: "center",
             minHeight: theme.headerHeight,
-            paddingX: 2,
+            paddingX: { xs: 1, md: 2 },
           }}
         >
           <Stack
@@ -113,7 +114,10 @@ export default function AppHeader() {
             spacing={1}
             justifyContent="left"
             alignItems="center"
-            sx={{ width: !mediaQuerySmall ? "12%" : undefined }}
+            sx={{
+              width: !mediaQuerySmall ? "auto" : undefined,
+              flexShrink: 0,
+            }}
           >
             <Tooltip title="Menu" enterDelay={300}>
               <IconButton
@@ -141,11 +145,12 @@ export default function AppHeader() {
             </Tooltip>
           </Stack>
           <Box
-            sx={
-              !mediaQuerySmall
-                ? { width: "76%", pointerEvents: "none" }
-                : undefined
-            }
+            sx={{
+              width: mediaQuerySmall ? undefined : "100%",
+              flex: mediaQuerySmall ? 1 : undefined,
+              marginLeft: mediaQuerySmall ? undefined : 1,
+              pointerEvents: mediaQuerySmall ? undefined : "none",
+            }}
           >
             <Breadcrumbs />
           </Box>
@@ -153,7 +158,10 @@ export default function AppHeader() {
             direction="row"
             spacing={1}
             justifyContent="end"
-            sx={{ width: !mediaQuerySmall ? "12%" : { marginLeft: "auto" } }}
+            sx={{
+              width: !mediaQuerySmall ? "auto" : { marginLeft: "auto" },
+              flexShrink: 0,
+            }}
           >
             <Tooltip
               title={
@@ -178,6 +186,17 @@ export default function AppHeader() {
                 </IconButton>
               </Tooltip>
             ) : null}
+            {auth.enabled && (
+              <Tooltip title="My Profile" enterDelay={300}>
+                <IconButton
+                  component={RouterLink}
+                  color="primary"
+                  to="/profile"
+                >
+                  <User />
+                </IconButton>
+              </Tooltip>
+            )}
             {auth.enabled && (
               <Tooltip title="Logout" enterDelay={300}>
                 <IconButton

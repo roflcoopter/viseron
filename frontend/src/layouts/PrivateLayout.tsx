@@ -1,8 +1,7 @@
-import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
 import { styled } from "@mui/material/styles";
 import { Suspense, useRef } from "react";
-import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { CSSTransition, SwitchTransition } from "react-transition-group";
 
 import { ScrollToTopFab } from "components/ScrollToTop";
@@ -32,7 +31,7 @@ function PrivateLayoutContent() {
       <Navigate
         to="/login"
         state={{
-          from: location,
+          from: location.pathname,
         }}
       />
     );
@@ -44,7 +43,7 @@ function PrivateLayoutContent() {
       <Navigate
         to="/login"
         state={{
-          from: location,
+          from: location.pathname,
         }}
       />
     );
@@ -105,7 +104,7 @@ export function RequireRole({ userRole }: RequireRoleProps) {
       <Navigate
         to="/login"
         state={{
-          from: location,
+          from: location.pathname,
         }}
       />
     );
@@ -126,9 +125,6 @@ export function RequireRole({ userRole }: RequireRoleProps) {
           text="Access Denied"
           subtext="You do not have permission to view this page."
         />
-        <Button variant="contained" component={Link} to="/">
-          Navigate to Home
-        </Button>
       </Container>
     );
   }

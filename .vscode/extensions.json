@@ -2,11 +2,10 @@
   "recommendations": [
     "ms-python.python",
     "ms-python.vscode-pylance",
-    "ms-python.isort",
     "ms-python.flake8",
-    "ms-python.black-formatter",
     "ms-python.pylint",
     "ms-python.mypy-type-checker",
+    "charliermarsh.ruff",
     "redhat.vscode-yaml",
     "esbenp.prettier-vscode",
     "eamodio.gitlens",

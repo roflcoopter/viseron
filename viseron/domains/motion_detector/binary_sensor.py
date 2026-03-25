@@ -1,4 +1,5 @@
 """Binary sensor that represents motion detection."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -32,9 +33,11 @@ class MotionDetectionBinarySensor(CameraBinarySensor):
 
     def setup(self) -> None:
         """Set up event listener."""
-        self._vis.listen_event(
-            EVENT_MOTION_DETECTED.format(camera_identifier=self._camera.identifier),
-            self.handle_event,
+        self._event_listeners.append(
+            self._vis.listen_event(
+                EVENT_MOTION_DETECTED.format(camera_identifier=self._camera.identifier),
+                self.handle_event,
+            )
         )
 
     @property

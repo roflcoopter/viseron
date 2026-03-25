@@ -1,6 +1,7 @@
 """GStreamer component."""
 
 import logging
+from typing import Any
 
 import voluptuous as vol
 
@@ -22,10 +23,9 @@ CONFIG_SCHEMA = vol.Schema(
 LOGGER = logging.getLogger(__name__)
 
 
-def setup(vis: Viseron, config) -> bool:
-    """Set up the gstreamer component."""
+def setup_domains(vis: Viseron, config: dict[str, Any]) -> None:
+    """Set up gstreamer domains."""
     config = config[COMPONENT]
-    vis.data[COMPONENT] = {}
 
     for camera_identifier, camera_config in config[CONFIG_CAMERA].items():
         pruned_config = {}
@@ -33,5 +33,3 @@ def setup(vis: Viseron, config) -> bool:
         setup_domain(
             vis, COMPONENT, CAMERA_DOMAIN, pruned_config, identifier=camera_identifier
         )
-
-    return True

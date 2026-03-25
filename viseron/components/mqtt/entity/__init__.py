@@ -5,14 +5,13 @@ import json
 from functools import partial
 from typing import TYPE_CHECKING, Generic, TypeVar
 
-from viseron.components.mqtt.const import COMPONENT as MQTT_COMPONENT, CONFIG_CLIENT_ID
+from viseron.components.mqtt.const import COMPONENT as MQTT_COMPONENT
 from viseron.components.mqtt.helpers import PublishPayload
 from viseron.helpers.entity import Entity
 from viseron.helpers.json import JSONEncoder
 
 if TYPE_CHECKING:
     from viseron import Viseron
-    from viseron.components.mqtt import MQTT
 
 T = TypeVar("T", bound=Entity)
 
@@ -25,13 +24,13 @@ class MQTTEntity(Generic[T]):
         self._config = config
         self.entity = entity
 
-        self._mqtt: MQTT = vis.data[MQTT_COMPONENT]
+        self._mqtt = vis.data[MQTT_COMPONENT]
 
     @property
     def state_topic(self) -> str:
         """Return state topic."""
         return (
-            f"{self._config[CONFIG_CLIENT_ID]}/{self.entity.domain}/"
+            f"{self._mqtt.base_topic}/{self.entity.domain}/"
             f"{self.entity.object_id}/state"
         )
 

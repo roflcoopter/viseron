@@ -14,7 +14,7 @@ NO_DETECTOR_FPS: Final = 1
 SCANNER_RESULT_RETRIES: Final = 5
 
 # Data stream topic constants
-DATA_PROCESSED_FRAME_TOPIC = "{camera_identifier}/nvr/processed_frame"
+EVENT_PROCESSED_FRAME_TOPIC = "{camera_identifier}/nvr/processed_frame"
 
 
 # Event topic constants

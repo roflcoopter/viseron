@@ -1,4 +1,5 @@
 """Background subtraction motion detection."""
+
 import voluptuous as vol
 
 from viseron import Viseron
@@ -51,10 +52,10 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config) -> bool:
-    """Set up the background_subtractor component."""
+def setup_domains(vis: Viseron, config: dict) -> None:
+    """Set up background_subtractor domains."""
     config = config[COMPONENT]
-    for camera_identifier in config[CONFIG_MOTION_DETECTOR][CONFIG_CAMERAS].keys():
+    for camera_identifier in config[CONFIG_MOTION_DETECTOR][CONFIG_CAMERAS]:
         setup_domain(
             vis,
             COMPONENT,
@@ -68,4 +69,3 @@ def setup(vis: Viseron, config) -> bool:
                 )
             ],
         )
-    return True

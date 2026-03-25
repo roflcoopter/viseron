@@ -41,6 +41,11 @@ export function TextFieldItem<T extends string>(props: TextFieldItemProps<T>) {
         type: inputKind,
         value: event.target.value,
       }),
+    slotProps: {
+      htmlInput: {
+        "data-testid": `text-field-input-${inputKind}`,
+      },
+    },
     InputProps: password
       ? {
           endAdornment: (

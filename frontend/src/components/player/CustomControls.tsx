@@ -6,13 +6,16 @@ import {
   Pause,
   Play,
   PopIn,
+  RecordingFilled,
   Rewind_10 as Rewind10,
   ShrinkScreen,
+  StopFilledAlt,
   VolumeMute,
   VolumeUp,
 } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
 import Fab from "@mui/material/Fab";
 import Fade from "@mui/material/Fade";
 import Menu from "@mui/material/Menu";
@@ -23,6 +26,7 @@ import Typography from "@mui/material/Typography";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import screenfull from "screenfull";
 
+import { ProgressBar } from "components/player/ProgressBar";
 import { useFullscreen } from "context/FullscreenContext";
 import { isTouchDevice } from "lib/helpers";
 
@@ -34,6 +38,8 @@ interface CustomFabProps {
   children: React.ReactNode;
   title?: string;
   isFullscreen?: boolean;
+  disabled?: boolean;
+  "data-testid"?: string;
 }
 export function CustomFab({
   onClick,
@@ -41,6 +47,8 @@ export function CustomFab({
   children,
   title,
   isFullscreen = false,
+  disabled = false,
+  "data-testid": dataTestId,
 }: CustomFabProps) {
   const { isFullscreen: isContainerFullscreen } = useFullscreen();
 
@@ -51,6 +59,8 @@ export function CustomFab({
       size={size}
       color="primary"
       sx={{ margin: 0.25, zIndex: ZINDEX }}
+      disabled={disabled}
+      data-testid={dataTestId}
     >
       {children}
     </Fab>
@@ -82,6 +92,9 @@ interface CustomControlsProps {
   isVisible?: boolean;
   isLive?: boolean;
   onLiveClick?: () => void;
+  isRecording?: boolean;
+  onManualRecording?: () => void;
+  manualRecordingLoading?: boolean;
   onVolumeChange?: (event: Event, volume: number | number[]) => void;
   isMuted?: boolean;
   onMuteToggle?: () => void;
@@ -89,9 +102,12 @@ interface CustomControlsProps {
   playbackSpeed?: number;
   isFullscreen?: boolean;
   onFullscreenToggle?: () => void;
+  isFullscreenSupported?: boolean;
   onPictureInPictureToggle?: () => void;
   isPictureInPictureSupported?: boolean;
   extraButtons?: React.ReactNode;
+  videoRef?: React.RefObject<HTMLVideoElement | null>;
+  showProgressBar?: boolean;
 }
 
 export function CustomControls({
@@ -102,6 +118,9 @@ export function CustomControls({
   isVisible = false,
   isLive = false,
   onLiveClick,
+  isRecording = false,
+  onManualRecording,
+  manualRecordingLoading = false,
   onVolumeChange,
   isMuted = false,
   onMuteToggle,
@@ -109,14 +128,26 @@ export function CustomControls({
   playbackSpeed = 1,
   isFullscreen = false,
   onFullscreenToggle,
+  isFullscreenSupported,
   onPictureInPictureToggle,
   isPictureInPictureSupported = false,
   extraButtons,
+  videoRef,
+  showProgressBar = false,
 }: CustomControlsProps) {
   const [isVolumeSliderVisible, setIsVolumeSliderVisible] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isProgressDragging, setIsProgressDragging] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const volumeControlRef = useRef<HTMLDivElement>(null);
+
+  const handleProgressDragStart = useCallback(() => {
+    setIsProgressDragging(true);
+  }, []);
+
+  const handleProgressDragEnd = useCallback(() => {
+    setIsProgressDragging(false);
+  }, []);
 
   const handleVolumeControlMouseEnter = useCallback(() => {
     if (!isDragging) {
@@ -161,16 +192,22 @@ export function CustomControls({
           setIsVolumeSliderVisible(false);
         }
       }
+      if (isProgressDragging) {
+        setIsProgressDragging(false);
+      }
     };
 
     document.addEventListener("mouseup", handleGlobalMouseUp);
     return () => {
       document.removeEventListener("mouseup", handleGlobalMouseUp);
     };
-  }, [isDragging]);
+  }, [isDragging, isProgressDragging]);
 
   return (
-    <Fade in={isVisible || Boolean(anchorEl)} timeout={300}>
+    <Fade
+      in={isVisible || Boolean(anchorEl) || isProgressDragging}
+      timeout={300}
+    >
       <Box
         sx={{
           position: "absolute",
@@ -229,29 +266,54 @@ export function CustomControls({
             alignItems: "center",
           }}
         >
-          {/* LIVE button */}
-          {onLiveClick ? (
-            <Button
-              onClick={onLiveClick}
-              onTouchStart={(e) => e.stopPropagation()}
-              variant="contained"
-              size="small"
-              sx={{ margin: 0.25 }}
-            >
-              <CircleFill
-                fill={isLive ? "red" : "gray"}
-                size={12}
-                style={{ marginRight: 8 }}
-              />
-              <Typography variant="button">LIVE</Typography>
-            </Button>
-          ) : (
-            // Empty div so that 'space-between' works
-            <div />
+          {/* Left-aligned controls */}
+          <Box display="flex" alignItems="center" flexShrink={0}>
+            {onLiveClick && (
+              <Button
+                onClick={onLiveClick}
+                onTouchStart={(e) => e.stopPropagation()}
+                variant="contained"
+                size="small"
+                sx={{ margin: 0.25 }}
+              >
+                <CircleFill
+                  fill={isLive ? "red" : "gray"}
+                  size={12}
+                  style={{ marginRight: 8 }}
+                />
+                <Typography variant="button">LIVE</Typography>
+              </Button>
+            )}
+            {onManualRecording && (
+              <CustomFab
+                onClick={onManualRecording}
+                title={isRecording ? "Stop Recording" : "Start Recording"}
+                disabled={manualRecordingLoading}
+                data-testid="manual-recording-button"
+              >
+                {manualRecordingLoading ? (
+                  <CircularProgress enableTrackSlot size={20} />
+                ) : isRecording ? (
+                  <StopFilledAlt size={25} color="red" />
+                ) : (
+                  <RecordingFilled size={25} />
+                )}
+              </CustomFab>
+            )}
+          </Box>
+
+          {/* Progress bar */}
+          {showProgressBar && videoRef && (
+            <ProgressBar
+              videoRef={videoRef}
+              isProgressDragging={isProgressDragging}
+              onDragStart={handleProgressDragStart}
+              onDragEnd={handleProgressDragEnd}
+            />
           )}
 
           {/* Right-aligned controls */}
-          <Box display="flex" alignItems="center">
+          <Box display="flex" alignItems="center" flexShrink={0}>
             {(onVolumeChange || onMuteToggle) && (
               <Box
                 ref={volumeControlRef}
@@ -270,7 +332,7 @@ export function CustomControls({
                       right: "50%",
                       top: "50%",
                       transform: "translateY(-50%)",
-                      height: 35,
+                      height: 25,
                       width: isVolumeSliderVisible || isDragging ? 150 : 0,
                       visibility:
                         isVolumeSliderVisible || isDragging
@@ -301,9 +363,16 @@ export function CustomControls({
                       onMouseUp={handleMouseUp}
                       aria-labelledby="horizontal-volume-slider"
                       sx={{
+                        height: 4,
                         width: "80%",
                         "& .MuiSlider-thumb": {
+                          width: 12,
+                          height: 12,
                           transition: "none",
+                        },
+                        // Make track (left side of the thumb) smaller
+                        "& .MuiSlider-track": {
+                          border: "none",
                         },
                       }}
                       min={0}
@@ -389,15 +458,16 @@ export function CustomControls({
                 <ShrinkScreen size={20} />
               </CustomFab>
             )}
-            {onFullscreenToggle && screenfull.isEnabled && (
-              <CustomFab
-                onClick={onFullscreenToggle}
-                title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-                isFullscreen={isFullscreen}
-              >
-                {isFullscreen ? <PopIn size={20} /> : <Launch size={20} />}
-              </CustomFab>
-            )}
+            {onFullscreenToggle &&
+              (isFullscreenSupported ?? screenfull.isEnabled) && (
+                <CustomFab
+                  onClick={onFullscreenToggle}
+                  title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                  isFullscreen={isFullscreen}
+                >
+                  {isFullscreen ? <PopIn size={20} /> : <Launch size={20} />}
+                </CustomFab>
+              )}
           </Box>
         </Box>
       </Box>

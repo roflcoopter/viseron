@@ -6,6 +6,7 @@ from datetime import timedelta
 from typing import Any
 
 import pytest
+from filelock import FileLock
 
 from viseron.components.webserver.auth import (
     Auth,
@@ -27,6 +28,12 @@ class TestAuth:
     def setup_method(self, vis):
         """Set up tests."""
         self.auth = Auth(vis, WEBSERVER_CONFIG)
+        self.auth_store_lock = FileLock(
+            f"{self.auth._auth_store.path}.lock"  # pylint: disable=protected-access
+        )
+        self.onboarding_lock = FileLock(f"{self.auth.onboarding_path()}.lock")
+        self.auth_store_lock.acquire()
+        self.onboarding_lock.acquire()
 
     def teardown_method(self):
         """Teardown tests."""
@@ -36,6 +43,8 @@ class TestAuth:
             os.remove(self.auth._auth_store.path)  # pylint: disable=protected-access
         if os.path.exists(self.auth.onboarding_path()):
             os.remove(self.auth.onboarding_path())
+        self.auth_store_lock.release()
+        self.onboarding_lock.release()
 
     def test_add_user(self):
         """Test adding user."""

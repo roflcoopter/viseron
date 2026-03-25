@@ -16,10 +16,14 @@ import LazyLoad from "react-lazyload";
 
 import MutationIconButton from "components/buttons/MutationIconButton";
 import LicensePlateRecognitionIcon from "components/icons/LicensePlateRecognition";
+import { getVideoElement } from "components/player/utils";
 import VideoPlayerPlaceholder from "components/player/videoplayer/VideoPlayerPlaceholder";
 import { useAuthContext } from "context/AuthContext";
 import { useDeleteRecording } from "lib/api/recordings";
-import { getTimeFromDate, getVideoElement } from "lib/helpers";
+import {
+  getDayjsFromDateTimeString,
+  getTimeStringFromDayjs,
+} from "lib/helpers/dates";
 import * as types from "lib/types";
 
 interface RecordingCardInterface {
@@ -32,7 +36,7 @@ export default function RecordingCard({
   recording,
 }: RecordingCardInterface) {
   const theme = useTheme();
-  const { auth, user } = useAuthContext();
+  const { user } = useAuthContext();
   const deleteRecording = useDeleteRecording();
 
   return (
@@ -75,7 +79,9 @@ export default function RecordingCard({
             </Tooltip>
           ) : null}
           <Typography>
-            {getTimeFromDate(new Date(recording.start_time))}
+            {getTimeStringFromDayjs(
+              getDayjsFromDateTimeString(recording.start_time),
+            )}
           </Typography>
         </Stack>
       </CardContent>
@@ -89,7 +95,7 @@ export default function RecordingCard({
             />
           }
         >
-          {getVideoElement(camera, recording, auth.enabled)}
+          {getVideoElement(camera, recording)}
         </LazyLoad>
       </CardMedia>
       {!user || user.role === "admin" || user.role === "write" ? (

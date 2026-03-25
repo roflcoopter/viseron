@@ -2,11 +2,11 @@
 
 from typing import Final
 
-COMPONENT = "compreface"
+COMPONENT: Final = "compreface"
 SUBJECTS = "subjects"
 
 # CONFIG_SCHEMA constants
-CONFIG_FACE_RECOGNITION = "face_recognition"
+CONFIG_FACE_RECOGNITION: Final = "face_recognition"
 CONFIG_HOST = "host"
 CONFIG_PORT = "port"
 CONFIG_API_KEY = "recognition_api_key"

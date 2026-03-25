@@ -1,8 +1,12 @@
 """Camera API Handler."""
+
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
 from http import HTTPStatus
+from typing import TYPE_CHECKING
 
 import cv2
 import httpx
@@ -10,8 +14,9 @@ import imutils
 import numpy as np
 import voluptuous as vol
 
+from viseron.components.nvr.nvr import OperationState
+from viseron.components.storage.models import TriggerTypes
 from viseron.components.webserver.api.handlers import BaseAPIHandler
-from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.const import (
     AUTHENTICATION_BASIC,
     AUTHENTICATION_DIGEST,
@@ -21,7 +26,11 @@ from viseron.domains.camera.const import (
     CONFIG_USE_LAST_SNAPSHOT_ON_ERROR,
     CONFIG_USERNAME,
 )
+from viseron.domains.camera.recorder import ManualRecording
 from viseron.helpers.validators import request_argument_bool
+
+if TYPE_CHECKING:
+    from viseron.domains.camera import AbstractCamera
 
 LOGGER = logging.getLogger(__name__)
 
@@ -57,6 +66,36 @@ class CameraAPIHandler(BaseAPIHandler):
                 },
             ),
         },
+        {
+            "path_pattern": r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)/start",
+            "supported_methods": ["POST"],
+            "method": "post_start_camera",
+        },
+        {
+            "path_pattern": r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)/stop",
+            "supported_methods": ["POST"],
+            "method": "post_stop_camera",
+        },
+        {
+            "path_pattern": (
+                r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)/manual_recording"
+            ),
+            "supported_methods": ["POST"],
+            "method": "post_manual_recording",
+            "json_body_schema": vol.Schema(
+                vol.Any(
+                    {
+                        vol.Required("action"): vol.All(vol.Lower, "start"),
+                        vol.Optional("duration"): vol.All(
+                            vol.Coerce(int), vol.Range(min=1)
+                        ),
+                    },
+                    {
+                        vol.Required("action"): vol.All(vol.Lower, "stop"),
+                    },
+                )
+            ),
+        },
     ]
 
     def _get_auth(
@@ -87,7 +126,7 @@ class CameraAPIHandler(BaseAPIHandler):
             camera.still_image[CONFIG_URL],
             auth=auth,
         )
-        if response.status_code == 200:
+        if response.status_code == HTTPStatus.OK.value:
             img_array = np.asarray(bytearray(response.content), dtype=np.uint8)
             img = cv2.imdecode(img_array, -1)
             if self.request_arguments["width"] and self.request_arguments["height"]:
@@ -118,19 +157,17 @@ class CameraAPIHandler(BaseAPIHandler):
         """Return snapshot from camera memory."""
         if camera.current_frame:
             with camera.current_frame:
-                ret, jpg = camera.get_snapshot(
+                _ret, jpg = camera.get_snapshot(
                     camera.current_frame,
                     self.request_arguments["width"],
                     self.request_arguments["height"],
                 )
-                if ret:
-                    return jpg
+                return jpg
         return None
 
     async def get_snapshot(self, camera_identifier: str) -> None:
         """Return camera snapshot."""
         camera = await self.run_in_executor(self._get_camera, camera_identifier)
-
         if not camera:
             self.response_error(
                 HTTPStatus.NOT_FOUND,
@@ -144,11 +181,9 @@ class CameraAPIHandler(BaseAPIHandler):
                 jpg = await self.run_in_executor(self._snapshot_from_url, camera)
             else:
                 jpg = await self.run_in_executor(self._snapshot_from_memory, camera)
-        except Exception as exception:  # pylint: disable=broad-except
-            LOGGER.error(
-                "Error fetching camera snapshot for camera %s: %s",
-                camera_identifier,
-                exception,
+        except Exception:  # pylint: disable=broad-except
+            LOGGER.exception(
+                f"Error fetching camera snapshot for camera {camera_identifier}"
             )
             if camera.still_image[CONFIG_USE_LAST_SNAPSHOT_ON_ERROR]:
                 jpg = CameraAPIHandler.camera_snapshots.get(camera_identifier, None)
@@ -173,7 +208,6 @@ class CameraAPIHandler(BaseAPIHandler):
         camera = self._get_camera(
             camera_identifier, failed=self.request_arguments["failed"]
         )
-
         if not camera:
             self.response_error(
                 HTTPStatus.NOT_FOUND,
@@ -183,3 +217,145 @@ class CameraAPIHandler(BaseAPIHandler):
 
         await self.response_success(response=camera.as_dict())
         return
+
+    async def post_start_camera(self, camera_identifier: str) -> None:
+        """Start camera."""
+        camera = self._get_camera(camera_identifier, failed=False)
+        if not camera:
+            self.response_error(
+                HTTPStatus.NOT_FOUND,
+                reason=f"Camera {camera_identifier} not found",
+            )
+            return
+
+        nvr = self.get_nvr(camera_identifier)
+        if not nvr:
+            self.response_error(
+                HTTPStatus.NOT_FOUND,
+                reason=f"NVR for camera {camera_identifier} not found",
+            )
+            return
+
+        if camera.is_on:
+            await self.response_success()
+            return
+
+        await self.run_in_executor(camera.start_camera)
+        await self.response_success()
+        return
+
+    async def post_stop_camera(self, camera_identifier: str) -> None:
+        """Stop camera."""
+        camera = self._get_camera(camera_identifier, failed=False)
+        if not camera:
+            self.response_error(
+                HTTPStatus.NOT_FOUND,
+                reason=f"Camera {camera_identifier} not found",
+            )
+            return
+
+        nvr = self.get_nvr(camera_identifier)
+        if not nvr:
+            self.response_error(
+                HTTPStatus.NOT_FOUND,
+                reason=f"NVR for camera {camera_identifier} not found",
+            )
+            return
+
+        if not camera.is_on:
+            await self.response_success()
+            return
+
+        await self.run_in_executor(camera.stop_camera)
+        await self.response_success()
+        return
+
+    async def post_manual_recording(self, camera_identifier: str) -> None:
+        """Start/stop manual recording."""
+        camera = self._get_camera(camera_identifier, failed=False)
+        if not camera:
+            self.response_error(
+                HTTPStatus.NOT_FOUND,
+                reason=f"Camera {camera_identifier} not found",
+            )
+            return None
+
+        nvr = self.get_nvr(camera_identifier)
+        if not nvr:
+            self.response_error(
+                HTTPStatus.NOT_FOUND,
+                reason=f"NVR for camera {camera_identifier} not found",
+            )
+            return None
+
+        if not camera.is_on or not camera.connected:
+            self.response_error(
+                HTTPStatus.BAD_REQUEST,
+                reason="Camera is off or disconnected",
+            )
+            return None
+
+        if nvr.operation_state == OperationState.IDLE:
+            self.response_error(
+                HTTPStatus.BAD_REQUEST,
+                reason="NVR is idle",
+            )
+            return None
+
+        async def wait_for_recording_start(timeout: int = 5) -> bool:
+            """Wait for recording to start."""
+            start_time = time.time()
+            while True:
+                if time.time() - start_time > timeout:
+                    return False
+
+                if (
+                    nvr.camera.is_recording
+                    and nvr.camera.recorder.active_recording
+                    and (
+                        nvr.camera.recorder.active_recording.trigger_type
+                        == TriggerTypes.MANUAL
+                    )
+                ):
+                    return True
+                await asyncio.sleep(0.1)
+
+        async def wait_for_recording_stop(timeout: int = 5) -> bool:
+            """Wait for recording to stop."""
+            start_time = time.time()
+            while True:
+                if time.time() - start_time > timeout:
+                    return False
+
+                if not nvr.camera.is_recording:
+                    return True
+                await asyncio.sleep(0.1)
+
+        action = self.json_body["action"]
+        if action == "start":
+            duration = self.json_body.get("duration", None)
+            manual_recording = ManualRecording(duration=duration)
+            await self.run_in_executor(nvr.start_manual_recording, manual_recording)
+            if await wait_for_recording_start():
+                await self.response_success()
+                return None
+            return self.response_error(
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                reason="Failed to start manual recording",
+            )
+
+        if action == "stop":
+            await self.run_in_executor(nvr.stop_manual_recording)
+            if await wait_for_recording_stop():
+                await self.response_success()
+                return None
+            return self.response_error(
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                reason="Failed to stop manual recording",
+            )
+
+        self.response_error(
+            HTTPStatus.BAD_REQUEST,
+            reason="Invalid action specified",
+        )
+        return None

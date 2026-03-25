@@ -121,12 +121,17 @@ export type StoredTokens = {
   session_expires_at_timestamp: number;
 };
 
+export type UserPreferences = {
+  timezone?: string | null;
+};
+
 export type AuthUserResponse = {
   id: string;
   name: string;
   username: string;
   role: "admin" | "read" | "write";
   assigned_cameras: string[] | null;
+  preferences: UserPreferences | null;
 };
 
 export type AuthUsersResponse = {
@@ -144,7 +149,7 @@ export interface Recording {
   end_time: string;
   end_timestamp: number;
   trigger_type: string;
-  trigger_id: number;
+  trigger_id: number | null;
   thumbnail_path: string;
   hls_url: string;
 }
@@ -183,6 +188,7 @@ export interface Camera {
   is_on: boolean;
   connected: boolean;
   live_stream_available: boolean;
+  is_recording: boolean;
 }
 
 export interface Cameras {

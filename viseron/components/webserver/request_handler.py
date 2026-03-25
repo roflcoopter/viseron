@@ -4,26 +4,27 @@ from __future__ import annotations
 import hmac
 import logging
 from collections.abc import Callable
-from datetime import timedelta
+from datetime import datetime, timedelta
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, overload
 
+import pytz
 import tornado.web
 from sqlalchemy.orm import Session
 from tornado.ioloop import IOLoop
 
-from viseron.components import DomainToSetup
+from viseron.components.nvr.const import DOMAIN as NVR_DOMAIN
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.webserver.auth import Role
 from viseron.components.webserver.const import COMPONENT
-from viseron.const import DOMAIN_FAILED
+from viseron.domain_registry import DomainEntry
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import DomainNotRegisteredError
 from viseron.helpers import get_utc_offset, utcnow
 
 if TYPE_CHECKING:
     from viseron import Viseron
-    from viseron.components.storage import Storage
+    from viseron.components.nvr.nvr import NVR
     from viseron.components.webserver import Webserver
     from viseron.components.webserver.auth import RefreshToken, User
     from viseron.domains.camera import AbstractCamera, FailedCamera
@@ -39,8 +40,8 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
     def initialize(self, vis: Viseron) -> None:
         """Initialize request handler."""
         self._vis = vis
-        self._webserver: Webserver = vis.data[COMPONENT]
-        self._storage: Storage = vis.data[STORAGE_COMPONENT]
+        self._webserver = vis.data[COMPONENT]
+        self._storage = vis.data[STORAGE_COMPONENT]
         self.current_user = None
         # Manually set xsrf cookie
         self.xsrf_token  # pylint: disable=pointless-statement
@@ -86,10 +87,28 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
     def utc_offset(self) -> timedelta:
         """Return the UTC offset for the client.
 
-        The offset is calculated from the X-Client-UTC-Offset header.
-        If the header is not present, look for a cookie with the same name.
-        If the cookie is not present, the offset is set to the servers timezone.
+        The offset is calculated in the following order of priority:
+        1. User's timezone preference (IANA timezone string)
+        2. X-Client-UTC-Offset header (minutes offset)
+        3. X-Client-UTC-Offset cookie (minutes offset, used by WebSocket)
+        4. Server's timezone
+
+        Using pytz due to this bug: https://github.com/python/cpython/issues/116676
         """
+        if (
+            self.current_user
+            and self.current_user.preferences
+            and self.current_user.preferences.timezone
+        ):
+            try:
+                local_now = datetime.now(
+                    tz=pytz.timezone(self.current_user.preferences.timezone)
+                )
+                offset = local_now.utcoffset() or timedelta(0)
+                return offset
+            except (KeyError, ValueError):
+                pass
+
         if header := self.request.headers.get("X-Client-UTC-Offset", None):
             return timedelta(minutes=int(header))
         if cookie := self.get_cookie("X-Client-UTC-Offset", None):
@@ -244,9 +263,9 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
     def _get_failed_cameras(self) -> None | dict[str, FailedCamera]:
         """Get all registered failed camera instances."""
         try:
-            camera_domains: list[DomainToSetup] = (
-                self._vis.data[DOMAIN_FAILED].get(CAMERA_DOMAIN, {}).values()
-            )
+            failed_entries: dict[
+                str, DomainEntry
+            ] = self._vis.domain_registry.get_failed(CAMERA_DOMAIN)
         except DomainNotRegisteredError:
             return None
 
@@ -256,16 +275,15 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             or self.current_user.role == Role.ADMIN
         ):
             return {
-                camera_domain.identifier: camera_domain.error_instance
-                for camera_domain in camera_domains
-                if camera_domain.error_instance
+                identifier: entry.error_instance
+                for identifier, entry in failed_entries.items()
+                if entry.error_instance
             }
 
         return {
-            camera_domain.identifier: camera_domain.error_instance
-            for camera_domain in camera_domains
-            if camera_domain.error_instance
-            and camera_domain.identifier in self.current_user.assigned_cameras
+            identifier: entry.error_instance
+            for identifier, entry in failed_entries.items()
+            if entry.error_instance and identifier in self.current_user.assigned_cameras
         }
 
     @overload
@@ -303,13 +321,9 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             camera = self._vis.get_registered_domain(CAMERA_DOMAIN, camera_identifier)
         except DomainNotRegisteredError:
             if failed:
-                domain_to_setup = (
-                    self._vis.data[DOMAIN_FAILED]
-                    .get(CAMERA_DOMAIN, {})
-                    .get(camera_identifier, None)
-                )
-                if domain_to_setup:
-                    camera = domain_to_setup.error_instance
+                entry = self._vis.domain_registry.get(CAMERA_DOMAIN, camera_identifier)
+                if entry and entry.error_instance:
+                    camera = entry.error_instance
 
         if (
             not self.current_user
@@ -353,6 +367,16 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
     ) -> AbstractCamera | FailedCamera | None:
         """Get camera instance."""
         return self._get_camera(camera_identifier, failed)
+
+    def get_nvr(self, camera_identifier: str) -> NVR | None:
+        """Get NVR instance for camera."""
+        try:
+            return self._vis.get_registered_domain(
+                NVR_DOMAIN,
+                camera_identifier,
+            )
+        except DomainNotRegisteredError:
+            return None
 
     def _get_session(self) -> Session:
         """Get a database session."""

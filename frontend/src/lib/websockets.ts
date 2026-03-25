@@ -1,12 +1,11 @@
-import dayjs from "dayjs";
 import React from "react";
 
 import { Toast, toastIds } from "hooks/UseToast";
-import { authToken } from "lib/api/auth";
 import { BASE_PATH, clientId } from "lib/api/client";
 import { sleep } from "lib/helpers";
+import { getDayjs } from "lib/helpers/dates";
 import * as messages from "lib/messages";
-import { loadTokens, tokenExpired } from "lib/tokens";
+import { authToken, loadTokens, tokenExpired } from "lib/tokens";
 import * as types from "lib/types";
 
 const DEBUG = false;
@@ -214,7 +213,7 @@ export class Connection {
       return;
     }
 
-    document.cookie = `X-Client-UTC-Offset=${dayjs().utcOffset()}; path=${BASE_PATH}/websocket`;
+    document.cookie = `X-Client-UTC-Offset=${getDayjs().utcOffset()}; path=${BASE_PATH}/websocket`;
     const wsURL = `${
       window.location.protocol === "https:" ? "wss://" : "ws://"
     }${location.host}${BASE_PATH}/websocket`;
@@ -231,7 +230,7 @@ export class Connection {
         }
         console.debug("Error connecting, retrying", error);
         // eslint-disable-next-line no-await-in-loop
-        await sleep(5000);
+        await sleep(1000);
       }
     }
     this._initializeSocket();

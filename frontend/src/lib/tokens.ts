@@ -1,38 +1,18 @@
 import { InternalAxiosRequestConfig } from "axios";
-import dayjs, { Dayjs } from "dayjs";
+import { Dayjs } from "dayjs";
 
-import { authToken } from "lib/api/auth";
-import { clientId } from "lib/api/client";
+import { clientId, viseronAPI } from "lib/api/client";
 import { dispatchCustomEvent } from "lib/events";
 import * as types from "lib/types";
 
-let sessionExpiredTimeout: NodeJS.Timeout | undefined;
-
-export const clearSessionExpiredTimeout = () => {
-  if (sessionExpiredTimeout) {
-    clearTimeout(sessionExpiredTimeout);
-    sessionExpiredTimeout = undefined;
-  }
-};
-
-export const setSessionExpiredTimeout = (session_expires_at: Dayjs) => {
-  if (sessionExpiredTimeout) {
-    clearTimeout(sessionExpiredTimeout);
-  }
-  sessionExpiredTimeout = setTimeout(
-    () => {
-      dispatchCustomEvent("session-expired");
-    },
-    (session_expires_at.unix() - dayjs().unix()) * 1000,
-  );
-};
+import { getDayjs, getDayjsFromDateTimeString } from "./helpers/dates";
 
 export const genTokens = (
   tokens: types.AuthTokenResponse,
 ): types.StoredTokens => ({
   ...tokens,
-  expires_at: dayjs(tokens.expires_at),
-  session_expires_at: dayjs(tokens.session_expires_at),
+  expires_at: getDayjsFromDateTimeString(tokens.expires_at),
+  session_expires_at: getDayjsFromDateTimeString(tokens.session_expires_at),
 });
 
 export const storeTokens = (tokens: types.AuthTokenResponse) => {
@@ -44,7 +24,6 @@ export const loadTokens = (): types.StoredTokens | null => {
   if (tokensStorage !== null) {
     const jsonTokens = JSON.parse(tokensStorage);
     const tokens = genTokens(jsonTokens);
-    setSessionExpiredTimeout(tokens.session_expires_at);
     return tokens;
   }
   return null;
@@ -58,13 +37,43 @@ export const setManualLogout = (value: boolean) => {
 
 export const isManualLogoutActive = () => isManualLogout;
 
+let sessionExpiredTimeout: NodeJS.Timeout | undefined;
+export const clearSessionExpiredTimeout = () => {
+  if (sessionExpiredTimeout) {
+    clearTimeout(sessionExpiredTimeout);
+    sessionExpiredTimeout = undefined;
+  }
+};
+
+export const setSessionExpiredTimeout = () => {
+  const storedTokens = loadTokens();
+  if (!storedTokens) {
+    return;
+  }
+
+  if (sessionExpiredTimeout) {
+    clearTimeout(sessionExpiredTimeout);
+  }
+
+  if (storedTokens.session_expires_at <= getDayjs()) {
+    return;
+  }
+
+  sessionExpiredTimeout = setTimeout(
+    () => {
+      dispatchCustomEvent("session-expired");
+    },
+    (storedTokens.session_expires_at.unix() - getDayjs().unix()) * 1000,
+  );
+};
+
 export const clearTokens = () => {
   localStorage.removeItem("tokens");
   clearSessionExpiredTimeout();
 };
 
 const expired = (expires_at: Dayjs): boolean =>
-  dayjs() > expires_at.subtract(10, "seconds");
+  getDayjs() > expires_at.subtract(10, "seconds");
 
 export const tokenExpired = (): boolean => {
   const storedTokens = loadTokens();
@@ -83,6 +92,23 @@ export const getAuthHeader = (): string | null => {
   }
   return null;
 };
+
+interface AuthTokenVariables {
+  grant_type: string;
+  client_id: string;
+}
+
+export async function authToken({
+  grant_type,
+  client_id,
+}: AuthTokenVariables): Promise<types.AuthTokenResponse> {
+  const response = await viseronAPI.post("/auth/token", {
+    grant_type,
+    client_id,
+  });
+  storeTokens(response.data);
+  return response.data;
+}
 
 let isFetchingTokens = false;
 let tokenPromise: Promise<types.AuthTokenResponse>;

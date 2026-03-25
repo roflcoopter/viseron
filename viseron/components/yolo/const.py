@@ -4,7 +4,7 @@ from typing import Final
 COMPONENT = "yolo"
 
 # CONFIG_SCHEMA constants
-CONFIG_OBJECT_DETECTOR = "object_detector"
+CONFIG_OBJECT_DETECTOR: Final = "object_detector"
 
 # OBJECT_DETECTOR_SCHEMA constants
 CONFIG_MODEL_PATH = "model_path"
@@ -13,7 +13,7 @@ CONFIG_IOU = "iou"
 CONFIG_HALF_PRECISION = "half_precision"
 CONFIG_DEVICE = "device"
 
-DEFAULT_MODEL_PATH = "/detectors/models/yolo/default.pt"
+DEFAULT_MODEL_PATH: Final = None
 DEFAULT_MIN_CONFIDENCE = 0.25
 DEFAULT_IOU = 0.7
 DEFAULT_HALF_PRECISION = False
@@ -22,11 +22,7 @@ DEFAULT_DEVICE: Final = None
 DESC_COMPONENT = "YOLO configuration."
 DESC_OBJECT_DETECTOR = "Object detector domain config."
 
-DESC_MODEL_PATH = (
-    "Path to a YOLO model."
-    "More information "
-    "<a href=https://docs.ultralytics.com/models>here</a>."
-)
+DESC_MODEL_PATH = "Path to a YOLO model. See <i>Pre-trained models</i> below."
 DESC_MIN_CONFIDENCE = (
     "Minimum confidence to consider a detection.<br>"
     "This minimum is enforced during inference before being filtered by values "

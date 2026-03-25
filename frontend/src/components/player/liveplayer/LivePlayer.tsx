@@ -2,204 +2,17 @@ import { VideoOff } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTheme } from "@mui/material/styles";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
 import { CustomControls } from "components/player/CustomControls.js";
-import { usePlayerSettingsStore } from "components/player/UsePlayerSettingsStore";
 import { ZoomPanOverlay } from "components/player/ZoomPanOverlay";
 import { useZoomPan } from "components/player/hooks/useZoomPan";
+import { useLivePlayerControls } from "components/player/liveplayer/useLivePlayerControls";
 import { VideoRTC } from "components/player/liveplayer/video-rtc.js";
 import "components/player/liveplayer/video-stream.js";
-import { isTouchDevice } from "lib/helpers.js";
+import { isTouchDevice } from "lib/helpers";
 import * as types from "lib/types";
-
-const useVideoControlsVisibility = (
-  playerRef: React.RefObject<VideoRTC | null>,
-  cameraId: string,
-  onPlayerFullscreenChange?: (isFullscreen: boolean) => void,
-) => {
-  const [controlsVisible, setControlsVisible] = useState(false);
-  const [isHovering, setIsHovering] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isPictureInPicture, setIsPictureInPicture] = useState(false);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Get mute state from store
-  const isMuted = usePlayerSettingsStore(
-    (state) => state.muteMap[cameraId] ?? false,
-  );
-  const setMute = usePlayerSettingsStore((state) => state.setMute);
-
-  const showControlsTemporarily = useCallback(() => {
-    setControlsVisible(true);
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    timeoutRef.current = setTimeout(() => {
-      setControlsVisible(false);
-    }, 3000); // Hide controls after 3 seconds
-  }, []);
-
-  const togglePlayPause = useCallback(() => {
-    const videoElement = playerRef.current;
-    if (videoElement && videoElement.video) {
-      if (videoElement.video.paused) {
-        videoElement.video.play();
-      } else {
-        videoElement.video.pause();
-      }
-    }
-  }, [playerRef]);
-
-  const handlePlayPause = useCallback(() => {
-    togglePlayPause();
-    showControlsTemporarily();
-  }, [showControlsTemporarily, togglePlayPause]);
-
-  const handleVolumeChange = useCallback(
-    (event: Event, newVolume: number | number[]) => {
-      const videoElement = playerRef.current;
-      if (videoElement && videoElement.video) {
-        videoElement.video.muted = false;
-        videoElement.video.volume = (newVolume as number) / 100;
-      }
-      if ((newVolume as number) === 0) {
-        setMute(cameraId, true);
-      } else {
-        setMute(cameraId, false);
-      }
-      showControlsTemporarily();
-    },
-    [playerRef, cameraId, setMute, showControlsTemporarily],
-  );
-
-  const handleMuteToggle = useCallback(() => {
-    const videoElement = playerRef.current;
-    if (videoElement && videoElement.video) {
-      videoElement.video.muted = !isMuted;
-    }
-    setMute(cameraId, !isMuted);
-    showControlsTemporarily();
-  }, [playerRef, cameraId, isMuted, setMute, showControlsTemporarily]);
-
-  const handleFullscreenToggle = useCallback(() => {
-    const newFullscreenState = !isFullscreen;
-    setIsFullscreen(newFullscreenState);
-    onPlayerFullscreenChange?.(newFullscreenState);
-  }, [isFullscreen, onPlayerFullscreenChange]);
-
-  const handlePictureInPictureToggle = useCallback(async () => {
-    try {
-      const videoElement = playerRef.current?.video;
-      if (!videoElement) return;
-
-      if (document.pictureInPictureElement) {
-        await document.exitPictureInPicture();
-        setIsPictureInPicture(false);
-      } else {
-        await videoElement.requestPictureInPicture();
-        setIsPictureInPicture(true);
-
-        // Ensure video is playing before requesting PiP
-        if (videoElement.paused) {
-          await videoElement.play();
-        }
-      }
-    } catch (error) {
-      console.error("Error toggling Picture in Picture:", error);
-      setIsPictureInPicture(false);
-    }
-  }, [playerRef]);
-
-  const isPictureInPictureSupported = useCallback(
-    () =>
-      "pictureInPictureEnabled" in document && document.pictureInPictureEnabled,
-    [],
-  );
-
-  const handleMouseEnter = useCallback(() => {
-    setIsHovering(true);
-    setControlsVisible(true);
-  }, []);
-
-  const handleMouseLeave = useCallback(() => {
-    setIsHovering(false);
-    setControlsVisible(false);
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-  }, []);
-
-  const handleTouchStart = useCallback(() => {
-    if (controlsVisible) {
-      setControlsVisible(false);
-    } else {
-      showControlsTemporarily();
-    }
-  }, [controlsVisible, showControlsTemporarily]);
-
-  useEffect(() => {
-    const videoElement = playerRef.current;
-    if (!videoElement || !videoElement.video) return () => {};
-
-    // Sync mute state with video element on mount
-    videoElement.video.muted = isMuted;
-
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
-
-    // Handle PiP state changes
-    const handleEnterPiP = () => setIsPictureInPicture(true);
-    const handleLeavePiP = () => setIsPictureInPicture(false);
-
-    videoElement.video.addEventListener("play", handlePlay);
-    videoElement.video.addEventListener("pause", handlePause);
-    videoElement.video.addEventListener(
-      "enterpictureinpicture",
-      handleEnterPiP,
-    );
-    videoElement.video.addEventListener(
-      "leavepictureinpicture",
-      handleLeavePiP,
-    );
-
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-      videoElement.video!.removeEventListener("play", handlePlay);
-      videoElement.video!.removeEventListener("pause", handlePause);
-      videoElement.video!.removeEventListener(
-        "enterpictureinpicture",
-        handleEnterPiP,
-      );
-      videoElement.video!.removeEventListener(
-        "leavepictureinpicture",
-        handleLeavePiP,
-      );
-    };
-  }, [playerRef, isMuted]);
-
-  return {
-    handlePlayPause,
-    handleVolumeChange,
-    handleMuteToggle,
-    handleFullscreenToggle,
-    handlePictureInPictureToggle,
-    isPictureInPictureSupported: isPictureInPictureSupported(),
-    handleMouseEnter,
-    handleMouseLeave,
-    handleTouchStart,
-    controlsVisible,
-    isHovering,
-    isPlaying,
-    isMuted,
-    isFullscreen,
-    isPictureInPicture,
-  };
-};
 
 const usePlayerStatus = (playerRef: React.RefObject<VideoRTC | null>) => {
   const [status, setStatus] = useState<string>("");
@@ -311,17 +124,15 @@ export function LivePlayer({
     handleMouseEnter,
     handleMouseLeave,
     handleTouchStart,
+    handleManualRecording,
+    manualRecordingLoading,
     controlsVisible,
     isPlaying,
     isHovering,
     isMuted,
     isFullscreen,
     isPictureInPicture,
-  } = useVideoControlsVisibility(
-    elementRef,
-    camera.identifier,
-    onPlayerFullscreenChange,
-  );
+  } = useLivePlayerControls(elementRef, camera, onPlayerFullscreenChange);
 
   // Disable zoom/pan when loading, camera is disconnected and still loading or has error
   const isZoomPanDisabled: boolean = Boolean(
@@ -401,6 +212,9 @@ export function LivePlayer({
         onFullscreenToggle={handleFullscreenToggle}
         onPictureInPictureToggle={handlePictureInPictureToggle}
         isPictureInPictureSupported={isPictureInPictureSupported}
+        onManualRecording={camera.failed ? undefined : handleManualRecording}
+        isRecording={camera.failed ? undefined : camera.is_recording}
+        manualRecordingLoading={manualRecordingLoading}
         extraButtons={extraButtons}
       />
       <div

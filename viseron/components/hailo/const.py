@@ -1,7 +1,7 @@
 """Constants for the Hailo component."""
 from typing import Final
 
-COMPONENT = "hailo"
+COMPONENT: Final = "hailo"
 
 HAILO8_DEFAULT_URL = (
     "https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/"
@@ -13,7 +13,7 @@ HAILO8L_DEFAULT_URL = (
 )
 
 # CONFIG_SCHEMA constants
-CONFIG_OBJECT_DETECTOR = "object_detector"
+CONFIG_OBJECT_DETECTOR: Final = "object_detector"
 CONFIG_MULTI_PROCESS_SERVICE = "multi_process_service"
 
 DEFAULT_MULTI_PROCESS_SERVICE: Final = False

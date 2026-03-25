@@ -2119,9 +2119,9 @@
                   {
                     "type": "string",
                     "name": "codec",
-                    "description": "FFmpeg video encoder codec, eg <code>h264_nvenc</code>.",
+                    "description": "FFmpeg video encoder codec, eg <code>h264_nvenc</code>. Defaults to <code>copy</code> except for MJPEG streams where the default is <code>h264</code>.",
                     "optional": true,
-                    "default": "copy"
+                    "default": null
                   },
                   {
                     "type": "string",

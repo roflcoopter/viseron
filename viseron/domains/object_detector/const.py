@@ -9,8 +9,8 @@ DOMAIN: Final = "object_detector"
 MODEL_CACHE: Final = os.path.join(CONFIG_DIR, "models")
 
 # Data stream topic constants
-DATA_OBJECT_DETECTOR_SCAN = "object_detector/{camera_identifier}/scan"
-DATA_OBJECT_DETECTOR_RESULT = "object_detector/{camera_identifier}/result"
+EVENT_OBJECT_DETECTOR_SCAN = "object_detector/{camera_identifier}/scan"
+EVENT_OBJECT_DETECTOR_RESULT = "object_detector/{camera_identifier}/result"
 
 
 # Event topic constants

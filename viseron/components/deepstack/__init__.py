@@ -111,8 +111,19 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config) -> bool:
-    """Set up the edgetpu component."""
+def setup(_vis: Viseron, config) -> bool:
+    """Set up the deepstack component."""
+    config = config[COMPONENT]
+
+    if config.get(CONFIG_FACE_RECOGNITION, None):
+        if config[CONFIG_FACE_RECOGNITION][CONFIG_TRAIN]:
+            DeepstackTrain(config)
+
+    return True
+
+
+def setup_domains(vis: Viseron, config) -> None:
+    """Set up deepstack domains."""
     config = config[COMPONENT]
 
     if config.get(CONFIG_OBJECT_DETECTOR, None):
@@ -152,8 +163,3 @@ def setup(vis: Viseron, config) -> bool:
                     )
                 ],
             )
-
-        if config[CONFIG_FACE_RECOGNITION][CONFIG_TRAIN]:
-            DeepstackTrain(config)
-
-    return True

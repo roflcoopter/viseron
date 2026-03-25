@@ -1,20 +1,24 @@
 """Common mocks for Viseron webserver tests."""
+
 from __future__ import annotations
 
 import json
 import logging
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
 import pytest
-from tornado.httpclient import HTTPResponse
+from filelock import FileLock
 from tornado.testing import AsyncHTTPTestCase
 from tornado.web import create_signed_value
 
 from viseron import Viseron, setup_viseron
 from viseron.components.webserver import Webserver, create_application
 from viseron.components.webserver.const import COMPONENT
+
+if TYPE_CHECKING:
+    from tornado.httpclient import HTTPResponse
 
 USER_ID = "ffa448c2623b45ba8be62bfc6b0ae859"
 USER_NAME = "asd"
@@ -35,7 +39,7 @@ AUTH_STORAGE_DATA = {
             USER_ID: {
                 "name": "Asd",
                 "username": USER_NAME,
-                "password": "JDJiJDEyJFJsNm9HeVVKcEx5cXlXSlFsaFBVNWVhVlJ3TWJaRlR4d3U4YUo0Y2JwaC4uU0VMbjliWlUy",  # pylint: disable=line-too-long
+                "password": "JDJiJDEyJFJsNm9HeVVKcEx5cXlXSlFsaFBVNWVhVlJ3TWJaRlR4d3U4YUo0Y2JwaC4uU0VMbjliWlUy",  # pylint: disable=line-too-long  # noqa: E501
                 "role": "admin",
                 "id": USER_ID,
                 "enabled": True,
@@ -43,7 +47,7 @@ AUTH_STORAGE_DATA = {
             READ_USER_ID: {
                 "name": "Read User",
                 "username": READ_USER_NAME,
-                "password": "JDJiJDEyJFJsNm9HeVVKcEx5cXlXSlFsaFBVNWVhVlJ3TWJaRlR4d3U4YUo0Y2JwaC4uU0VMbjliWlUy",  # pylint: disable=line-too-long
+                "password": "JDJiJDEyJFJsNm9HeVVKcEx5cXlXSlFsaFBVNWVhVlJ3TWJaRlR4d3U4YUo0Y2JwaC4uU0VMbjliWlUy",  # pylint: disable=line-too-long  # noqa: E501
                 "role": "read",
                 "id": READ_USER_ID,
                 "enabled": True,
@@ -89,7 +93,7 @@ class TestAppBase(AsyncHTTPTestCase):
     config: dict[str, Any] = {}
 
     @pytest.fixture(autouse=True)
-    def inject_caplog(self, caplog):
+    def inject_caplog(self, caplog: pytest.LogCaptureFixture) -> None:
         """Inject caplog fixture."""
         self._caplog = caplog  # pylint: disable=attribute-defined-outside-init
         self._caplog.set_level(logging.DEBUG)
@@ -97,8 +101,9 @@ class TestAppBase(AsyncHTTPTestCase):
     def setUp(self) -> None:
         """Set up the test."""
         # Mock the real application so we dont listen on the same port twice
-        with patch("viseron.load_config") as mocked_load_config, patch(
-            "viseron.components.webserver.create_application"
+        with (
+            patch("viseron.load_config") as mocked_load_config,
+            patch("viseron.components.webserver.create_application"),
         ):
             mocked_load_config.return_value = self.config
             self.vis = Viseron(start_background_scheduler=False)
@@ -109,7 +114,7 @@ class TestAppBase(AsyncHTTPTestCase):
     def tearDown(self) -> None:
         """Tear down the test."""
         super().tearDown()
-        self.vis.shutdown()
+        self.webserver.stop()
 
     def get_app(self):
         """Get the application.
@@ -117,10 +122,9 @@ class TestAppBase(AsyncHTTPTestCase):
         Required override for AsyncHTTPTestCase.
         AsyncHTTPTestCase does not support xsrf_cookies, so we disable it here.
         """
-        app = create_application(
+        return create_application(
             self.vis, {"debug": False}, "dummy_secret", xsrf_cookies=False
         )
-        return app
 
 
 class TestAppBaseNoAuth(TestAppBase):
@@ -134,16 +138,29 @@ class TestAppBaseAuth(TestAppBase):
 
     config = {"webserver": {"auth": None}}
 
+    def setUp(self) -> None:
+        """Set up the test."""
+        super().setUp()
+        self.auth_store_path = (
+            self.webserver.auth._auth_store.path  # pylint: disable=protected-access
+        )
+        auth_store_lock_path = f"{self.auth_store_path}.lock"
+        self._auth_store_lock = FileLock(auth_store_lock_path)
+        self._auth_store_lock.acquire()
+
+        self.onboarding_path = self.webserver.auth.onboarding_path()
+        onboarding_lock_path = f"{self.onboarding_path}.lock"
+        self._onboarding_lock = FileLock(onboarding_lock_path)
+        self._onboarding_lock.acquire()
+
     def tearDown(self) -> None:
         """Tear down the test."""
-        if os.path.exists(
-            self.webserver.auth._auth_store.path  # pylint: disable=protected-access
-        ):
-            os.remove(
-                self.webserver.auth._auth_store.path  # pylint: disable=protected-access
-            )
-        if os.path.exists(self.webserver.auth.onboarding_path()):
-            os.remove(self.webserver.auth.onboarding_path())
+        if os.path.exists(self.auth_store_path):
+            os.remove(self.auth_store_path)
+        if os.path.exists(self.onboarding_path):
+            os.remove(self.onboarding_path)
+        self._auth_store_lock.release()
+        self._onboarding_lock.release()
         return super().tearDown()
 
     def fetch_with_auth(
@@ -177,9 +194,9 @@ class TestAppBaseAuth(TestAppBase):
             "refresh_token",
             "token",
         ).decode()
-        kwargs["headers"][
-            "Cookie"
-        ] = f"refresh_token={refresh_token_cookie};user={USER_ID};"
+        kwargs["headers"]["Cookie"] = (
+            f"refresh_token={refresh_token_cookie};user={USER_ID};"
+        )
 
         # Create access token
         access_token = self.webserver.auth.generate_access_token(
@@ -207,8 +224,7 @@ class TestAppBaseAuth(TestAppBase):
                 signature,
             ).decode()
             kwargs["headers"]["Cookie"] += f"signature_cookie={signature_token_cookie};"
-        else:
-            if not kwargs["headers"].get("Authorization", False):
-                kwargs["headers"]["Authorization"] = "Bearer " + access_token
+        elif not kwargs["headers"].get("Authorization", False):
+            kwargs["headers"]["Authorization"] = "Bearer " + access_token
 
         return self.fetch(path, raise_error, **kwargs)

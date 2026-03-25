@@ -14,11 +14,17 @@ import LazyLoad from "react-lazyload";
 import { Link } from "react-router-dom";
 
 import MutationIconButton from "components/buttons/MutationIconButton";
+import { getVideoElement } from "components/player/utils";
 import VideoPlayerPlaceholder from "components/player/videoplayer/VideoPlayerPlaceholder";
 import { useAuthContext } from "context/AuthContext";
 import { useCamera } from "lib/api/camera";
 import { useDeleteRecording, useRecordings } from "lib/api/recordings";
-import { getTimeFromDate, getVideoElement, objHasValues } from "lib/helpers";
+import { objHasValues } from "lib/helpers";
+import {
+  getDateStringFromDayjs,
+  getDayjsFromDateTimeString,
+  getTimeStringFromDayjs,
+} from "lib/helpers/dates";
 import * as types from "lib/types";
 
 interface RecordingCardLatestProps {
@@ -31,7 +37,7 @@ export default function RecordingCardLatest({
   failed,
 }: RecordingCardLatestProps) {
   const theme = useTheme();
-  const { auth, user } = useAuthContext();
+  const { user } = useAuthContext();
   const deleteRecording = useDeleteRecording();
 
   const recordingsQuery = useRecordings({
@@ -130,7 +136,7 @@ export default function RecordingCardLatest({
           }
         >
           {objHasValues(recording) ? (
-            getVideoElement(cameraQuery.data, recording, auth.enabled)
+            getVideoElement(cameraQuery.data, recording)
           ) : (
             <Box
               sx={{
@@ -166,8 +172,10 @@ export default function RecordingCardLatest({
               Latest recording:{"\n"}
               <span style={{ color: theme.palette.info.main }}>
                 {(() => {
-                  const startDate = new Date(recording.start_time);
-                  return `${startDate.toLocaleDateString()} - ${getTimeFromDate(startDate)}`;
+                  const startDate = getDayjsFromDateTimeString(
+                    recording.start_time,
+                  );
+                  return `${getDateStringFromDayjs(startDate)} - ${getTimeStringFromDayjs(startDate)}`;
                 })()}
               </span>
             </Typography>

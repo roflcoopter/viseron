@@ -36,7 +36,7 @@ jobs:
         env:
           cache-name: cache-python-venv
         run: >-
-          echo "key=${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements.txt') }}-${{ hashFiles('requirements_test.txt') }}-${{ hashFiles('requirements_ci.txt') }}" >> $GITHUB_OUTPUT
+          echo "key=${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ steps.python.outputs.python-version }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements.txt') }}-${{ hashFiles('requirements_test.txt') }}-${{ hashFiles('requirements_ci.txt') }}" >> $GITHUB_OUTPUT
       - name: Restore Python virtual environment
         id: cache-venv
         uses: actions/cache@v4
@@ -101,86 +101,6 @@ jobs:
         with:
           command: |
             pre-commit install-hooks
-
-  run-isort:
-    name: Run isort
-    runs-on: ubuntu-22.04
-    needs: [prepare-python-venv, prepare-pre-commit]
-    steps:
-      - name: Check out code from GitHub
-        uses: actions/checkout@v3.5.2
-      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
-        uses: actions/setup-python@v4.3.0
-        id: python
-        with:
-          python-version: ${{ env.DEFAULT_PYTHON }}
-      - name: Restore base Python virtual environment
-        id: cache-venv
-        uses: actions/cache@v4
-        with:
-          path: venv
-          key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
-      - name: Fail job if Python cache restore failed
-        if: steps.cache-venv.outputs.cache-hit != 'true'
-        run: |
-          echo "Failed to restore Python virtual environment from cache"
-          exit 1
-      - name: Restore pre-commit environment from cache
-        id: cache-pre-commit
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.PRE_COMMIT_CACHE }}
-          key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
-      - name: Fail job if pre-commit cache restore failed
-        if: steps.cache-pre-commit.outputs.cache-hit != 'true'
-        run: |
-          echo "Failed to restore pre-commit environment from cache"
-          exit 1
-      - name: Run isort
-        uses: ./.github/templates/run_in_venv
-        with:
-          command: |
-            pre-commit run --hook-stage manual isort --all-files --show-diff-on-failure
-
-  run-black:
-    name: Run black
-    runs-on: ubuntu-22.04
-    needs: [prepare-python-venv, prepare-pre-commit]
-    steps:
-      - name: Check out code from GitHub
-        uses: actions/checkout@v3.5.2
-      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
-        uses: actions/setup-python@v4.3.0
-        id: python
-        with:
-          python-version: ${{ env.DEFAULT_PYTHON }}
-      - name: Restore base Python virtual environment
-        id: cache-venv
-        uses: actions/cache@v4
-        with:
-          path: venv
-          key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
-      - name: Fail job if Python cache restore failed
-        if: steps.cache-venv.outputs.cache-hit != 'true'
-        run: |
-          echo "Failed to restore Python virtual environment from cache"
-          exit 1
-      - name: Restore pre-commit environment from cache
-        id: cache-pre-commit
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.PRE_COMMIT_CACHE }}
-          key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
-      - name: Fail job if pre-commit cache restore failed
-        if: steps.cache-pre-commit.outputs.cache-hit != 'true'
-        run: |
-          echo "Failed to restore pre-commit environment from cache"
-          exit 1
-      - name: Run black
-        uses: ./.github/templates/run_in_venv
-        with:
-          command: |
-            pre-commit run --hook-stage manual black --all-files --show-diff-on-failure
 
   run-codespell:
     name: Run codespell
@@ -388,6 +308,42 @@ jobs:
           command: |
             pre-commit run --hook-stage manual pyupgrade --all-files --show-diff-on-failure
 
+  # Run ruff, but dont fail yet since we are in the process of migrating
+  run-ruff:
+    name: Run ruff
+    runs-on: ubuntu-22.04
+    needs: [prepare-python-venv, prepare-pre-commit]
+    steps:
+      - name: Check out code from GitHub
+        uses: actions/checkout@v3.5.2
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        uses: actions/setup-python@v4.3.0
+        id: python
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON }}
+      - name: Restore base Python virtual environment
+        id: cache-venv
+        uses: actions/cache@v4
+        with:
+          path: venv
+          key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
+      - name: Fail job if Python cache restore failed
+        if: steps.cache-venv.outputs.cache-hit != 'true'
+        run: |
+          echo "Failed to restore Python virtual environment from cache"
+          exit 1
+      - name: Run ruff check
+        uses: ./.github/templates/run_in_venv
+        with:
+          command: |
+            ruff --version
+            ruff check || true
+      - name: Run ruff format check
+        uses: ./.github/templates/run_in_venv
+        with:
+          command: |
+            ruff format --check || true
+
   run-pytest:
     name: Run pytest
     runs-on: ubuntu-22.04
@@ -419,7 +375,7 @@ jobs:
       - name: Clean up space used
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-          docker rmi -f $(docker images -aq)
+          docker rmi -f $(docker images -aq) || true
           docker system prune --force --all --volumes
       - name: List free space after cleaning
         run: |
@@ -430,7 +386,7 @@ jobs:
           docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env pull amd64-wheels
       - name: Re-build wheels
         run: |
-          docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 --build-arg EXTRA_PIP_ARGS="--extra-index-url https://download.pytorch.org/whl/cpu" amd64-wheels
+          docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-wheels
           docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-viseron
       - name: Build pytest Docker image
         run: |

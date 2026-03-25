@@ -49,6 +49,12 @@ declare module "@mui/material/Typography" {
   }
 }
 
+declare module "@mui/material/Menu" {
+  interface MenuPaperSlotPropsOverrides {
+    "data-testid"?: string;
+  }
+}
+
 const blue = {
   50: "#F0F7FF",
   100: "#C2E0FF",
@@ -182,8 +188,8 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
     return {
       components: {
         MuiCssBaseline: {
-          styleOverrides: (themeParam: Theme) =>
-            themeParam.palette.mode === "dark"
+          styleOverrides: (themeParam: Theme) => ({
+            ...(themeParam.palette.mode === "dark"
               ? darkScrollbar({
                   track: "#0f2740",
                   thumb: "#1f5286",
@@ -193,7 +199,12 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
                   track: "#f1f1f1",
                   thumb: "#c1c1c1",
                   active: "#a8a8a8",
-                }),
+                })),
+            "*::-webkit-scrollbar": {
+              width: "13px",
+              height: "13px",
+            },
+          }),
         },
         MuiContainer: {
           styleOverrides: {

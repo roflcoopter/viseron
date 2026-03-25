@@ -1,12 +1,18 @@
 """Home Assistant MQTT integration."""
+
 from __future__ import annotations
 
 import logging
 import threading
 from typing import TYPE_CHECKING
 
-from viseron.components.mqtt.const import COMPONENT, EVENT_MQTT_ENTITY_ADDED
+from viseron.components.mqtt.const import (
+    COMPONENT,
+    EVENT_MQTT_BROKER_RECONNECT,
+    EVENT_MQTT_ENTITY_ADDED,
+)
 from viseron.components.mqtt.event import EventMQTTEntityAddedData
+from viseron.events import EventEmptyData
 
 from .binary_sensor import HassMQTTBinarySensor
 from .camera import HassMQTTCamera
@@ -37,17 +43,25 @@ class HassMQTTInterface:
 
         self._mqtt = vis.data[COMPONENT]
 
-        self._entity_creation_lock = threading.Lock()
-        self._entities: dict[str, HassMQTTEntity] = {}
-        vis.listen_event(EVENT_MQTT_ENTITY_ADDED, self.entity_added)
-        self.create_entities(self._mqtt.get_entities())
+        self._hass_entity_creation_lock = threading.Lock()
+        self._hass_entities: dict[str, HassMQTTEntity] = {}
+        self._event_listeners = []
+        self._event_listeners.append(
+            vis.listen_event(EVENT_MQTT_ENTITY_ADDED, self.mqtt_entity_added)
+        )
+        self._event_listeners.append(
+            vis.listen_event(EVENT_MQTT_BROKER_RECONNECT, self.broker_reconnect)
+        )
 
-    def create_entity(self, mqtt_entity: MQTTEntity) -> None:
+        self.create_hass_entities(self._mqtt.get_entities())
+
+    def create_hass_entity(self, mqtt_entity: MQTTEntity) -> None:
         """Create entity in Home Assistant."""
-        with self._entity_creation_lock:
-            if mqtt_entity.entity.entity_id in self._entities:
+        with self._hass_entity_creation_lock:
+            if mqtt_entity.entity.entity_id in self._hass_entities:
                 LOGGER.debug(
-                    f"Entity {mqtt_entity.entity.entity_id} has already been added"
+                    f"Entity {mqtt_entity.entity.entity_id} "
+                    "has already been added to Home Assistant"
                 )
                 return
 
@@ -62,14 +76,27 @@ class HassMQTTInterface:
                 return
 
             hass_entity.create()
-            self._entities[mqtt_entity.entity.entity_id] = hass_entity
+            self._hass_entities[mqtt_entity.entity.entity_id] = hass_entity
 
-    def create_entities(self, entities) -> None:
+    def create_hass_entities(self, entities) -> None:
         """Create entities in Home Assistant."""
         for entity in entities.values():
-            self.create_entity(entity)
+            self.create_hass_entity(entity)
 
-    def entity_added(self, event_data: Event) -> None:
+    def mqtt_entity_added(self, event_data: Event) -> None:
         """Add entity to Home Assistant when its added to Viseron."""
         entity_added_data: EventMQTTEntityAddedData = event_data.data
-        self.create_entity(entity_added_data.mqtt_entity)
+        self.create_hass_entity(entity_added_data.mqtt_entity)
+
+    def broker_reconnect(self, _event_data: Event[EventEmptyData]) -> None:
+        """Recreate all entities on broker reconnect."""
+        LOGGER.debug("Recreating all Home Assistant MQTT entities")
+        with self._hass_entity_creation_lock:
+            for entity in self._hass_entities.values():
+                entity.create()
+
+    def unload(self) -> None:
+        """Unload Home Assistant MQTT interface."""
+        for unsubscribe in self._event_listeners:
+            unsubscribe()
+        self._event_listeners = []

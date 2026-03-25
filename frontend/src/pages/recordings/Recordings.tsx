@@ -56,7 +56,7 @@ function Recordings() {
   }
 
   return (
-    <Container sx={{ paddingX: 2 }}>
+    <Container sx={{ paddingX: { xs: 1, md: 2 }, paddingY: 0.5 }}>
       <Grid container direction="row" spacing={1}>
         {failedCameras.data
           ? Object.keys(failedCameras.data)

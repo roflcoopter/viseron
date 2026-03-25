@@ -1,4 +1,5 @@
 """CodeProjectAI object detector tests."""
+
 from unittest.mock import Mock, patch
 
 import numpy as np
@@ -85,7 +86,7 @@ def test_object_detector_init(vis: MockViseron, config):
         vis (MockViseron): The mocked Viseron instance.
         config (dict): The configuration dictionary.
     """
-    _ = MockComponent(COMPONENT, vis)
+    _ = MockComponent(vis, COMPONENT)
     _ = MockCamera(vis, identifier=CAMERA_IDENTIFIER)
     with patch("viseron.components.codeprojectai.object_detector.CodeProjectAIObject"):
         detector = ObjectDetector(vis, config["codeprojectai"], CAMERA_IDENTIFIER)
@@ -106,7 +107,7 @@ def test_preprocess(vis: Viseron, config):
         vis (Viseron): The Viseron instance.
         config (dict): The configuration dictionary.
     """
-    _ = MockComponent(COMPONENT, vis)
+    _ = MockComponent(vis, COMPONENT)
     _ = MockCamera(vis, identifier=CAMERA_IDENTIFIER)
     with patch("viseron.components.codeprojectai.object_detector.CodeProjectAIObject"):
         detector = ObjectDetector(vis, config["codeprojectai"], CAMERA_IDENTIFIER)
@@ -123,7 +124,7 @@ def test_postprocess(vis: Viseron, config):
         vis (Viseron): The Viseron instance.
         config (dict): The configuration dictionary.
     """
-    _ = MockComponent(COMPONENT, vis)
+    _ = MockComponent(vis, COMPONENT)
     _ = MockCamera(vis, identifier=CAMERA_IDENTIFIER)
     with patch("viseron.components.codeprojectai.object_detector.CodeProjectAIObject"):
         detector = ObjectDetector(vis, config["codeprojectai"], CAMERA_IDENTIFIER)
@@ -152,7 +153,7 @@ def test_return_objects_success(mock_detect, vis: Viseron, config):
         vis (Viseron): The Viseron instance.
         config (dict): The configuration dictionary.
     """
-    _ = MockComponent(COMPONENT, vis)
+    _ = MockComponent(vis, COMPONENT)
     _ = MockCamera(vis, identifier=CAMERA_IDENTIFIER)
     mock_detect.return_value = [
         {
@@ -181,11 +182,12 @@ def test_return_objects_exception(mock_detect, vis: Viseron, config):
         vis (Viseron): The Viseron instance.
         config (dict): The configuration dictionary.
     """
-    from codeprojectai.core import (  # pylint: disable=import-outside-toplevel
+    # pylint: disable-next=import-outside-toplevel
+    from codeprojectai.core import (  # noqa: PLC0415
         CodeProjectAIException,
     )
 
-    _ = MockComponent(COMPONENT, vis)
+    _ = MockComponent(vis, COMPONENT)
     _ = MockCamera(vis, identifier=CAMERA_IDENTIFIER)
     mock_detect.side_effect = CodeProjectAIException("Test error")
     detector = ObjectDetector(vis, config["codeprojectai"], CAMERA_IDENTIFIER)
@@ -208,7 +210,7 @@ def test_object_detector_init_no_image_size(vis: Viseron, config, mock_detected_
         config["codeprojectai"]["object_detector"]["image_size"] = None
 
         # Mock camera with non-square resolution
-        _ = MockComponent(COMPONENT, vis)
+        _ = MockComponent(vis, COMPONENT)
         _ = MockCamera(vis, identifier=CAMERA_IDENTIFIER, resolution=(1280, 720))
 
         detector = ObjectDetector(vis, config["codeprojectai"], CAMERA_IDENTIFIER)
@@ -260,7 +262,7 @@ def test_postprocess_square_resolution(vis: Viseron, config, mock_detected_objec
         config["codeprojectai"]["object_detector"]["image_size"] = 640
 
         # Mock camera with square resolution
-        _ = MockComponent(COMPONENT, vis)
+        _ = MockComponent(vis, COMPONENT)
         _ = MockCamera(vis, identifier=CAMERA_IDENTIFIER, resolution=(640, 640))
 
         detector = ObjectDetector(vis, config["codeprojectai"], CAMERA_IDENTIFIER)

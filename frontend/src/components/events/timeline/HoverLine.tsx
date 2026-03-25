@@ -1,10 +1,9 @@
 import Box from "@mui/material/Box";
-import dayjs from "dayjs";
 import DOMPurify from "dompurify";
 import { memo, useEffect, useRef } from "react";
 
 import { getDateAtPosition } from "components/events/utils";
-import { dateToTimestamp, getTimeFromDate } from "lib/helpers";
+import { getDayjs, getTimeStringFromDayjs } from "lib/helpers/dates";
 
 const useSetPosition = (
   ref: React.MutableRefObject<HTMLInputElement | null>,
@@ -32,10 +31,10 @@ const useSetPosition = (
         startRef,
         endRef,
       );
-      if (dateToTimestamp(dateAtCursor) > dayjs().unix()) {
+      if (dateAtCursor.unix() > getDayjs().unix()) {
         return;
       }
-      const timeAtCursor = getTimeFromDate(dateAtCursor);
+      const timeAtCursor = getTimeStringFromDayjs(dateAtCursor);
 
       // Position the line and display the time
       if (ref.current) {

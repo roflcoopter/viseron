@@ -1,22 +1,27 @@
 """dlib constants."""
 
-COMPONENT = "dlib"
+from typing import Final
+
+COMPONENT: Final = "dlib"
 
 # CONFIG_SCHEMA constants
-CONFIG_FACE_RECOGNITION = "face_recognition"
+CONFIG_FACE_RECOGNITION: Final = "face_recognition"
 
 
 # FACE_RECOGNITION_SCHEMA constants
-CONFIG_MODEL = "model"
+CONFIG_MODEL: Final = "model"
 
-DESC_COMPONENT = "dlib configuration."
-DESC_FACE_RECOGNITION = "Face recognition domain config."
-DESC_MODEL = (
+DESC_COMPONENT: Final = "dlib configuration."
+DESC_FACE_RECOGNITION: Final = "Face recognition domain config."
+DESC_MODEL: Final = (
     "Which face recognition model to run. "
     "See <a href=#models>models</a> for more information on this."
 )
 
-SUPPORTED_MODELS = [
+SUPPORTED_MODELS: Final = [
     "hog",
     "cnn",
 ]
+
+# Viseron data keys
+CLASSIFIER: Final = "classifier"
