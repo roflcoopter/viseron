@@ -319,6 +319,7 @@ function SuccessCameraCard({
                     <IconButton
                       component={Link}
                       to={`/cameras/${camera.identifier}`}
+                      data-testid="camera-tuning-button"
                     >
                       <SettingsAdjust size={20} />
                     </IconButton>
