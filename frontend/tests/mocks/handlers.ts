@@ -1,4 +1,5 @@
 import { HttpResponse, http } from "msw";
+import { fileURLToPath } from "url";
 
 import { getDayjs } from "lib/helpers/dates";
 import * as types from "lib/types";
@@ -208,11 +209,22 @@ export const handlers = [
     };
     return HttpResponse.json(camera, { status: 200 });
   }),
-  http.get(`${API_BASE_URL}/camera/camera*/snapshot`, () =>
-    // Return an empty image
-    HttpResponse.arrayBuffer(new ArrayBuffer(0), {
-      status: 200,
-    }),
+  http.get(
+    `${API_BASE_URL}/camera/:camera_identifier/snapshot`,
+    async ({ params }) => {
+      const fs = await import("fs");
+      const path = await import("path");
+      const __dirname = path.dirname(fileURLToPath(import.meta.url));
+      const imagePath = path.resolve(
+        __dirname,
+        `fixtures/${params.camera_identifier}_snapshot.jpg`,
+      );
+      const buffer = fs.readFileSync(imagePath);
+      return HttpResponse.arrayBuffer(buffer.buffer, {
+        status: 200,
+        headers: { "Content-Type": "image/jpeg" },
+      });
+    },
   ),
 
   // Recordings list
