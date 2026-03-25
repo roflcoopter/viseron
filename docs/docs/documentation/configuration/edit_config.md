@@ -8,7 +8,7 @@ The `Configuration Editor` is a convenient way to make changes to your configura
 
 :::tip
 
-The built in Configuration Editor has syntax highlighting, making your YAML endevours a bit easier.
+The built in Configuration Editor has syntax highlighting, making your YAML endeavors a bit easier.
 
 <details>
   <summary>Demonstration of the Editor</summary>
@@ -31,7 +31,7 @@ This is an experimental feature and is not fully fleshed out yet. Not all settin
 
 :::
 
-You access tuning by clicking on the `Camera Tuning` button on a cameras card on the main page.
+You access tuning by clicking on the `Camera Tuning` button on a camera card on the main page.
 
 <details>
   <summary>Camera Tuning button (highlighted in green)</summary>

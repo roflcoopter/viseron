@@ -5,7 +5,7 @@ Viseron uses a YAML based configuration.
 If no `/config/config.yaml` is found, a default one will be created for you on first start.<br />
 The default configuration guides you through the basic setup, and should be a good starting point for most users.
 
-You can edit the `config.yaml` in whatever way you like, but using the built in [Configuration Editor](/docs/documentation/configuration/edit_config) is simple way to get started.
+You can edit the `config.yaml` in whatever way you like, but using the built in [Configuration Editor](/docs/documentation/configuration/edit_config) is a simple way to get started.
 
 ## Example configuration
 
