@@ -101,6 +101,13 @@ class EventDomainRegisteredData(EventData, Generic[T]):
     identifier: str
     instance: T
 
+    def as_dict(self) -> dict[str, Any]:
+        """Return dict without instance for serialization."""
+        return {
+            "domain": self.domain,
+            "identifier": self.identifier,
+        }
+
 
 class DomainRegistry:
     """Centralized registry for all domain lifecycle management."""
