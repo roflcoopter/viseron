@@ -23,45 +23,50 @@ class TestProfileAPIHandler(TestAppBaseAuth):
 
     def test_put_profile_preferences(self) -> None:
         """Test updating user preferences."""
-        new_timezone = "Europe/Stockholm"
         response = self.fetch_with_auth(
             "/api/v1/profile/preferences",
             method="PUT",
-            body=json.dumps({"timezone": new_timezone}),
+            body=json.dumps(
+                {
+                    "timezone": "Europe/Stockholm",
+                    "date_format": "DD/MM/YYYY",
+                    "time_format": "12h",
+                }
+            ),
         )
         assert response.code == 200
 
         user = self.webserver.auth.get_user(USER_ID)
         assert user is not None
         assert user.preferences is not None
-        assert user.preferences.timezone == new_timezone
-
-    def test_put_profile_display_name(self) -> None:
-        """Test updating user display name."""
-        new_name = "New Display Name"
-        response = self.fetch_with_auth(
-            "/api/v1/profile/display_name",
-            method="PUT",
-            body=json.dumps({"name": new_name}),
-        )
-        assert response.code == 200
-
-        # Verify that the display name was updated
-        user = self.webserver.auth.get_user(USER_ID)
-        assert user.name == new_name
+        assert user.preferences.timezone == "Europe/Stockholm"
+        assert user.preferences.date_format == "DD/MM/YYYY"
+        assert user.preferences.time_format == "12h"
 
     def test_put_profile_preferences_clear(self) -> None:
-        """Test clearing user timezone preference by setting it to null."""
+        """Test clearing preferences by setting values to null."""
         self.fetch_with_auth(
             "/api/v1/profile/preferences",
             method="PUT",
-            body=json.dumps({"timezone": "Europe/Stockholm"}),
+            body=json.dumps(
+                {
+                    "timezone": "Europe/Stockholm",
+                    "date_format": "DD.MM.YYYY",
+                    "time_format": "24h",
+                }
+            ),
         )
 
         response = self.fetch_with_auth(
             "/api/v1/profile/preferences",
             method="PUT",
-            body=json.dumps({"timezone": None}),
+            body=json.dumps(
+                {
+                    "timezone": None,
+                    "date_format": None,
+                    "time_format": None,
+                }
+            ),
         )
         assert response.code == 200
 
@@ -69,6 +74,8 @@ class TestProfileAPIHandler(TestAppBaseAuth):
         assert user is not None
         assert user.preferences is not None
         assert user.preferences.timezone is None
+        assert user.preferences.date_format is None
+        assert user.preferences.time_format is None
 
     def test_put_profile_preferences_invalid_timezone(self) -> None:
         """Test that an invalid timezone returns an error."""
@@ -81,6 +88,38 @@ class TestProfileAPIHandler(TestAppBaseAuth):
         body = json.loads(response.body)
         assert "Invalid timezone" in body["error"]
 
+    def test_put_profile_preferences_invalid_date_format(self) -> None:
+        """Test that an invalid date format returns an error."""
+        response = self.fetch_with_auth(
+            "/api/v1/profile/preferences",
+            method="PUT",
+            body=json.dumps(
+                {
+                    "timezone": None,
+                    "date_format": "INVALID",
+                }
+            ),
+        )
+        assert response.code == 400
+        body = json.loads(response.body)
+        assert "Invalid date format" in body["error"]
+
+    def test_put_profile_preferences_invalid_time_format(self) -> None:
+        """Test that an invalid time format returns an error."""
+        response = self.fetch_with_auth(
+            "/api/v1/profile/preferences",
+            method="PUT",
+            body=json.dumps(
+                {
+                    "timezone": None,
+                    "time_format": "INVALID",
+                }
+            ),
+        )
+        assert response.code == 400
+        body = json.loads(response.body)
+        assert "Invalid time format" in body["error"]
+
     def test_put_profile_preferences_unauthenticated(self) -> None:
         """Test that unauthenticated requests to preferences return 401."""
         response = self.fetch(
@@ -89,6 +128,18 @@ class TestProfileAPIHandler(TestAppBaseAuth):
             body=json.dumps({"timezone": "UTC"}),
         )
         assert response.code == 401
+
+    def test_put_profile_display_name(self) -> None:
+        """Test updating user display name."""
+        response = self.fetch_with_auth(
+            "/api/v1/profile/display_name",
+            method="PUT",
+            body=json.dumps({"name": "New Display Name"}),
+        )
+        assert response.code == 200
+
+        user = self.webserver.auth.get_user(USER_ID)
+        assert user.name == "New Display Name"
 
     def test_put_profile_display_name_empty(self) -> None:
         """Test updating display name with an empty value returns 400."""

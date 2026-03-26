@@ -1,4 +1,5 @@
 """Auth API Handlers."""
+
 from __future__ import annotations
 
 import logging
@@ -9,7 +10,7 @@ import voluptuous as vol
 
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.components.webserver.auth import (
-    AuthenticationFailed,
+    AuthenticationFailedError,
     InvalidRoleError,
     LastAdminUserError,
     Role,
@@ -216,7 +217,7 @@ class AuthAPIHandler(BaseAPIHandler):
                 self.json_body["username"],
                 self.json_body["password"],
             )
-        except AuthenticationFailed:
+        except AuthenticationFailedError:
             self.response_error(
                 HTTPStatus.UNAUTHORIZED, reason="Invalid username or password"
             )
@@ -261,9 +262,10 @@ class AuthAPIHandler(BaseAPIHandler):
 
     def _handle_refresh_token(
         self,
-    ) -> tuple[Literal[HTTPStatus.BAD_REQUEST], str] | tuple[
-        Literal[HTTPStatus.OK], dict[str, Any]
-    ]:
+    ) -> (
+        tuple[Literal[HTTPStatus.BAD_REQUEST], str]
+        | tuple[Literal[HTTPStatus.OK], dict[str, Any]]
+    ):
         """Handle refresh token."""
         refresh_token_cookie = self.get_secure_cookie("refresh_token")
         if refresh_token_cookie is None:
@@ -377,6 +379,6 @@ class AuthAPIHandler(BaseAPIHandler):
         """
         await self.response_success()
 
-    async def auth_request_camera_token(self, camera_identifier) -> None:
+    async def auth_request_camera_token(self, camera_identifier: str) -> None:
         """Auth request endpoint for NGINX using camera token."""
         await self.response_success(response={"camera_identifier": camera_identifier})

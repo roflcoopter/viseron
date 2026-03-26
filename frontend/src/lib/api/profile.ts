@@ -23,12 +23,18 @@ export const useProfileAvailableTimezones = () =>
 // Update preferences
 export type ProfileUpdatePreferencesVariables = {
   timezone: string | null;
+  date_format: string | null;
+  time_format: string | null;
 };
 async function profileUpdatePreferences({
   timezone,
+  date_format,
+  time_format,
 }: ProfileUpdatePreferencesVariables) {
   const response = await viseronAPI.put("/profile/preferences", {
     timezone,
+    date_format,
+    time_format,
   });
   return response.data;
 }

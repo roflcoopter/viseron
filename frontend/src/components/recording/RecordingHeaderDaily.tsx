@@ -18,6 +18,7 @@ import { alpha, useTheme } from "@mui/material/styles";
 import { TimePicker } from "@mui/x-date-pickers/TimePicker";
 import { Dayjs } from "dayjs";
 
+import { getDisplayTimeFormat, is12HourFormat } from "lib/helpers/dates";
 import * as types from "lib/types";
 
 interface RecordingHeaderDailyProps {
@@ -213,7 +214,8 @@ export function RecordingHeaderDaily({
             value={startTime}
             onChange={onStartTimeChange}
             views={["hours", "minutes", "seconds"]}
-            format="HH:mm:ss"
+            format={getDisplayTimeFormat()}
+            ampm={is12HourFormat()}
             slotProps={{
               textField: {
                 size: "small",
@@ -229,7 +231,8 @@ export function RecordingHeaderDaily({
             value={endTime}
             onChange={onEndTimeChange}
             views={["hours", "minutes", "seconds"]}
-            format="HH:mm:ss"
+            format={getDisplayTimeFormat()}
+            ampm={is12HourFormat()}
             slotProps={{
               textField: {
                 size: "small",
