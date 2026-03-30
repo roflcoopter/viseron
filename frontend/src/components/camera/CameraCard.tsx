@@ -5,8 +5,6 @@ import {
   SettingsAdjust,
   VideoChat,
   VideoOff,
-  ViewFilled,
-  ViewOffFilled,
 } from "@carbon/icons-react";
 import Image from "@jy95/material-ui-image";
 import Box from "@mui/material/Box";
@@ -15,10 +13,10 @@ import CardActionArea from "@mui/material/CardActionArea";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
-import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
+import Switch from "@mui/material/Switch";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
@@ -255,55 +253,23 @@ function SuccessCameraCard({
               sx={{ width: "100%", alignItems: "center" }}
             >
               <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                {(!auth.enabled || user?.role === "admin") && (
-                  <Tooltip
-                    title={camera.is_on ? "Stop Camera" : "Start Camera"}
-                  >
-                    <Chip
-                      icon={
-                        camera.is_on ? (
-                          <ViewOffFilled
-                            style={{
-                              width: "clamp(16px, 3vw, 18px)",
-                              height: "clamp(16px, 3vw, 18px)",
-                            }}
-                          />
-                        ) : (
-                          <ViewFilled
-                            style={{
-                              width: "clamp(16px, 3vw, 18px)",
-                              height: "clamp(16px, 3vw, 18px)",
-                            }}
-                          />
-                        )
-                      }
-                      label=""
+                <Tooltip title={camera.is_on ? "Stop Camera" : "Start Camera"}>
+                  <div data-testid="camera-toggle-button">
+                    <Switch
+                      checked={camera.is_on}
                       disabled={cameraStartStop.isPending}
-                      color={camera.is_on ? "error" : "primary"}
-                      size="small"
-                      sx={{
-                        height: 30,
-                        borderRadius: 1.2,
-                        px: 1.5,
-                        "& .MuiChip-icon": {
-                          margin: 0,
-                        },
-                        "& .MuiChip-label": {
-                          padding: 0,
-                          width: 0,
-                        },
-                        justifyContent: "center",
-                      }}
-                      onClick={() => {
-                        if (cameraStartStop.isPending) return;
+                      onChange={() => {
+                        if (cameraStartStop.isPending) {
+                          return;
+                        }
                         cameraStartStop.mutate({
                           camera,
                           action: camera.is_on ? "stop" : "start",
                         });
                       }}
                     />
-                  </Tooltip>
-                )}
+                  </div>
+                </Tooltip>
                 <Tooltip title="Uptime Status">
                   <div style={{ cursor: "pointer" }}>
                     <CameraUptime
@@ -321,12 +287,7 @@ function SuccessCameraCard({
                     component={Link}
                     to={`/events?camera=${camera.identifier}&tab=events`}
                   >
-                    <IntrusionPrevention
-                      style={{
-                        width: "clamp(16px, 3vw, 20px)",
-                        height: "clamp(16px, 3vw, 20px)",
-                      }}
-                    />
+                    <IntrusionPrevention size={20} />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Timeline">
@@ -334,12 +295,7 @@ function SuccessCameraCard({
                     component={Link}
                     to={`/events?camera=${camera.identifier}&tab=timeline`}
                   >
-                    <Roadmap
-                      style={{
-                        width: "clamp(16px, 3vw, 20px)",
-                        height: "clamp(16px, 3vw, 20px)",
-                      }}
-                    />
+                    <Roadmap size={20} />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Recordings">
@@ -347,12 +303,7 @@ function SuccessCameraCard({
                     component={Link}
                     to={`/recordings/${camera.identifier}`}
                   >
-                    <Demo
-                      style={{
-                        width: "clamp(16px, 3vw, 20px)",
-                        height: "clamp(16px, 3vw, 20px)",
-                      }}
-                    />
+                    <Demo size={20} />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Live View">
@@ -360,12 +311,7 @@ function SuccessCameraCard({
                     component={Link}
                     to={`/live?camera=${camera.identifier}`}
                   >
-                    <VideoChat
-                      style={{
-                        width: "clamp(16px, 3vw, 20px)",
-                        height: "clamp(16px, 3vw, 20px)",
-                      }}
-                    />
+                    <VideoChat size={20} />
                   </IconButton>
                 </Tooltip>
                 {(!auth.enabled || user?.role === "admin") && (
@@ -373,13 +319,9 @@ function SuccessCameraCard({
                     <IconButton
                       component={Link}
                       to={`/cameras/${camera.identifier}`}
+                      data-testid="camera-tuning-button"
                     >
-                      <SettingsAdjust
-                        style={{
-                          width: "clamp(16px, 3vw, 20px)",
-                          height: "clamp(16px, 3vw, 20px)",
-                        }}
-                      />
+                      <SettingsAdjust size={20} />
                     </IconButton>
                   </Tooltip>
                 )}
