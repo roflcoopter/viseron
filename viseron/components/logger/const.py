@@ -1,15 +1,16 @@
 """Logger constants."""
+
 from typing import Final
 
 COMPONENT: Final = "logger"
 
 
 # CONFIG_SCHEMA constants
-CONFIG_DEFAULT_LEVEL = "default_level"
+CONFIG_DEFAULT_LEVEL: Final = "default_level"
 CONFIG_LOGS: Final = "logs"
-CONFIG_CAMERAS = "cameras"
+CONFIG_CAMERAS: Final = "cameras"
 
-DEFAULT_LOG_LEVEL = "info"
+DEFAULT_LOG_LEVEL: Final = "info"
 DEFAULT_CAMERAS: Final = None
 
 DESC_COMPONENT = "Logger configuration."
@@ -27,6 +28,8 @@ DESC_CAMERAS = (
 DESC_CAMERA_IDENTIFIER = (
     "Override level for all loggers that contain the given camera identifier."
 )
+
+PREVIOUS_CONFIG: Final = "previous_config"
 
 VALID_LOG_LEVELS = {
     "critical": 50,
