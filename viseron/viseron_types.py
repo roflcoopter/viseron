@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from viseron.components.go2rtc import Go2RTC
     from viseron.components.gotify import GotifyEventNotifier
     from viseron.components.hailo import Hailo8Detector
+    from viseron.components.logger.logger_types import LoggerViseronData
     from viseron.components.mqtt import MQTT
     from viseron.components.nvr.nvr import NVR
     from viseron.components.ptz import PTZ
@@ -50,7 +51,7 @@ class ViseronData(TypedDict, total=False):
 
     # Viseron core components
     data_stream: DataStream
-    logger: dict[Literal["logs"], dict[str, str]]
+    logger: LoggerViseronData
     storage: Storage
     webserver: Webserver
     websocket_commands: dict[
