@@ -174,14 +174,14 @@ class Media:
         """Set video encoder configuration for a profile."""
 
         if not configuration.get("token"):
-            configuration[
-                "token"
-            ] = self._selected_profile.VideoEncoderConfiguration.token
+            configuration["token"] = (
+                self._selected_profile.VideoEncoderConfiguration.token
+            )
 
         if not configuration.get("Name"):
-            configuration[
-                "Name"
-            ] = self._selected_profile.VideoEncoderConfiguration.Name
+            configuration["Name"] = (
+                self._selected_profile.VideoEncoderConfiguration.Name
+            )
 
         self._onvif_media_service.SetVideoEncoderConfiguration(
             Configuration=configuration, ForcePersistence=force_persistence
@@ -217,14 +217,14 @@ class Media:
         """Set audio encoder configuration for a profile."""
 
         if not configuration.get("token"):
-            configuration[
-                "token"
-            ] = self._selected_profile.AudioEncoderConfiguration.token
+            configuration["token"] = (
+                self._selected_profile.AudioEncoderConfiguration.token
+            )
 
         if not configuration.get("Name"):
-            configuration[
-                "Name"
-            ] = self._selected_profile.AudioEncoderConfiguration.Name
+            configuration["Name"] = (
+                self._selected_profile.AudioEncoderConfiguration.Name
+            )
 
         self._onvif_media_service.SetAudioEncoderConfiguration(
             Configuration=configuration, ForcePersistence=force_persistence
@@ -259,9 +259,9 @@ class Media:
         """Create new on-screen display configuration."""
 
         if not osd_config.get("VideoSourceConfigurationToken"):
-            osd_config[
-                "VideoSourceConfigurationToken"
-            ] = self._selected_profile.VideoSourceConfiguration.token
+            osd_config["VideoSourceConfigurationToken"] = (
+                self._selected_profile.VideoSourceConfiguration.token
+            )
 
         self._onvif_media_service.CreateOSD(OSD=osd_config)
         return True
@@ -277,9 +277,9 @@ class Media:
         """Set existing on-screen display configuration."""
 
         if not osd_config.get("VideoSourceConfigurationToken"):
-            osd_config[
-                "VideoSourceConfigurationToken"
-            ] = self._selected_profile.VideoSourceConfiguration.token
+            osd_config["VideoSourceConfigurationToken"] = (
+                self._selected_profile.VideoSourceConfiguration.token
+            )
 
         self._onvif_media_service.SetOSD(OSD=osd_config)
         return True

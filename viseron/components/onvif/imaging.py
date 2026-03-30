@@ -79,7 +79,7 @@ class Imaging:
 
     def _has_data(self, d):
         return any(
-            isinstance(v, dict) and self._has_data(v) or v is not None
+            (isinstance(v, dict) and self._has_data(v)) or v is not None
             for v in d.values()
         )
 

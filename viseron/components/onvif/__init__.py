@@ -1,4 +1,5 @@
 """ONVIF component."""
+
 from __future__ import annotations
 
 import asyncio
@@ -719,8 +720,7 @@ class ONVIF:
                 LOGGER.debug(f"Initialized PTZ service for {camera.identifier}")
             except Exception as error:  # pylint: disable=broad-exception-caught
                 LOGGER.error(
-                    f"Failed to initialize PTZ service for {camera.identifier}"
-                    f": {error}"
+                    f"Failed to initialize PTZ service for {camera.identifier}: {error}"
                 )
 
         loop.run_until_complete(

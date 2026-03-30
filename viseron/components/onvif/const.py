@@ -1,4 +1,5 @@
 """ONVIF component constants."""
+
 from typing import Final
 
 COMPONENT: Final = "onvif"
