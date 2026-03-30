@@ -1,6 +1,7 @@
 """ONVIF component constants."""
+from typing import Final
 
-COMPONENT = "onvif"
+COMPONENT: Final = "onvif"
 DESC_COMPONENT = "ONVIF cameras integration."
 
 # Special config keys, not part of ONVIF spec, used for grouping in tuning API
