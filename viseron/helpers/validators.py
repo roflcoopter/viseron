@@ -162,9 +162,7 @@ def valid_camera_identifier(value: Any) -> str:
 
 def request_argument_no_value(value) -> bool:
     """Return true for given request arguments without value."""
-    if value or (isinstance(value, str) and value == ""):
-        return True
-    return False
+    return bool(value or (isinstance(value, str) and value == ""))
 
 
 def jinja2_template(value: Any) -> str:
@@ -173,7 +171,7 @@ def jinja2_template(value: Any) -> str:
         msg = f"Expected Jinja2 template, got {value}"
         raise vol.Invalid(msg)
 
-    env = Environment(loader=BaseLoader())
+    env = Environment(loader=BaseLoader(), autoescape=True)
     try:
         env.compile(value)
     except Exception as e:
@@ -316,6 +314,7 @@ def request_argument_bool(value):
     """Boolean HTTP request argument.
 
     Any boolean value works, but also accepts 'true' and 'false' as strings.
+
     Examples:
         1 => True
         0 => False

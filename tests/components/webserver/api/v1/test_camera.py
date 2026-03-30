@@ -1,15 +1,21 @@
 """Tests for CameraAPIHandler manual recording endpoint."""
+
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+from viseron.components.nvr.nvr import OperationState
 from viseron.components.storage.models import TriggerTypes
-from viseron.domains.camera.recorder import ManualRecording
 
 from tests.common import MockCamera
 from tests.components.webserver.common import TestAppBaseAuth
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from viseron.domains.camera.recorder import ManualRecording
 
 
 async def _fast_sleep(*_: object, **__: object) -> None:
@@ -18,7 +24,6 @@ async def _fast_sleep(*_: object, **__: object) -> None:
 
 def _ticking_time(start: int = 0) -> Callable[[], float]:
     """Return a time.time replacement that increments on each call."""
-
     current = start
 
     def _time() -> float:
@@ -48,7 +53,6 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
 
     def test_manual_recording_start_success(self):
         """Start manual recording succeeds when NVR flips recording state."""
-
         camera, nvr = self._build_camera_and_nvr(is_recording=False)
 
         def start_manual_recording(_: ManualRecording) -> None:
@@ -59,16 +63,23 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
 
         nvr.start_manual_recording = MagicMock(side_effect=start_manual_recording)
 
-        with patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_camera"
+        with (
+            patch(
+                (
+                    "viseron.components.webserver.request_handler."
+                    "ViseronRequestHandler._get_camera"
+                ),
+                return_value=camera,
             ),
-            return_value=camera,
-        ), patch.object(self.vis, "get_registered_domain", return_value=nvr), patch(
-            "viseron.components.webserver.api.v1.camera.asyncio.sleep", new=_fast_sleep
-        ), patch(
-            "viseron.components.webserver.api.v1.camera.time.time", new=_ticking_time()
+            patch.object(self.vis, "get_registered_domain", return_value=nvr),
+            patch(
+                "viseron.components.webserver.api.v1.camera.asyncio.sleep",
+                new=_fast_sleep,
+            ),
+            patch(
+                "viseron.components.webserver.api.v1.camera.time.time",
+                new=_ticking_time(),
+            ),
         ):
             response = self.fetch_with_auth(
                 "/api/v1/camera/test/manual_recording",
@@ -84,20 +95,26 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
 
     def test_manual_recording_start_timeout(self):
         """Start manual recording returns 500 when recording never becomes active."""
-
         camera, nvr = self._build_camera_and_nvr(is_recording=False)
         nvr.start_manual_recording = MagicMock()
 
-        with patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_camera"
+        with (
+            patch(
+                (
+                    "viseron.components.webserver.request_handler."
+                    "ViseronRequestHandler._get_camera"
+                ),
+                return_value=camera,
             ),
-            return_value=camera,
-        ), patch.object(self.vis, "get_registered_domain", return_value=nvr), patch(
-            "viseron.components.webserver.api.v1.camera.asyncio.sleep", new=_fast_sleep
-        ), patch(
-            "viseron.components.webserver.api.v1.camera.time.time", new=_ticking_time()
+            patch.object(self.vis, "get_registered_domain", return_value=nvr),
+            patch(
+                "viseron.components.webserver.api.v1.camera.asyncio.sleep",
+                new=_fast_sleep,
+            ),
+            patch(
+                "viseron.components.webserver.api.v1.camera.time.time",
+                new=_ticking_time(),
+            ),
         ):
             response = self.fetch_with_auth(
                 "/api/v1/camera/test/manual_recording",
@@ -115,7 +132,6 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
 
     def test_manual_recording_stop_success(self):
         """Stop manual recording succeeds when NVR clears recording state."""
-
         camera, nvr = self._build_camera_and_nvr(is_recording=True)
 
         def stop_manual_recording() -> None:
@@ -124,16 +140,23 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
 
         nvr.stop_manual_recording = MagicMock(side_effect=stop_manual_recording)
 
-        with patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_camera"
+        with (
+            patch(
+                (
+                    "viseron.components.webserver.request_handler."
+                    "ViseronRequestHandler._get_camera"
+                ),
+                return_value=camera,
             ),
-            return_value=camera,
-        ), patch.object(self.vis, "get_registered_domain", return_value=nvr), patch(
-            "viseron.components.webserver.api.v1.camera.asyncio.sleep", new=_fast_sleep
-        ), patch(
-            "viseron.components.webserver.api.v1.camera.time.time", new=_ticking_time()
+            patch.object(self.vis, "get_registered_domain", return_value=nvr),
+            patch(
+                "viseron.components.webserver.api.v1.camera.asyncio.sleep",
+                new=_fast_sleep,
+            ),
+            patch(
+                "viseron.components.webserver.api.v1.camera.time.time",
+                new=_ticking_time(),
+            ),
         ):
             response = self.fetch_with_auth(
                 "/api/v1/camera/test/manual_recording",
@@ -149,20 +172,26 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
 
     def test_manual_recording_stop_timeout(self):
         """Stop manual recording returns 500 when recording never stops."""
-
         camera, nvr = self._build_camera_and_nvr(is_recording=True)
         nvr.stop_manual_recording = MagicMock()
 
-        with patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_camera"
+        with (
+            patch(
+                (
+                    "viseron.components.webserver.request_handler."
+                    "ViseronRequestHandler._get_camera"
+                ),
+                return_value=camera,
             ),
-            return_value=camera,
-        ), patch.object(self.vis, "get_registered_domain", return_value=nvr), patch(
-            "viseron.components.webserver.api.v1.camera.asyncio.sleep", new=_fast_sleep
-        ), patch(
-            "viseron.components.webserver.api.v1.camera.time.time", new=_ticking_time()
+            patch.object(self.vis, "get_registered_domain", return_value=nvr),
+            patch(
+                "viseron.components.webserver.api.v1.camera.asyncio.sleep",
+                new=_fast_sleep,
+            ),
+            patch(
+                "viseron.components.webserver.api.v1.camera.time.time",
+                new=_ticking_time(),
+            ),
         ):
             response = self.fetch_with_auth(
                 "/api/v1/camera/test/manual_recording",
@@ -180,7 +209,6 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
 
     def test_manual_recording_camera_not_found(self):
         """Returns 404 when camera is missing."""
-
         with patch(
             (
                 "viseron.components.webserver.request_handler.ViseronRequestHandler."
@@ -204,13 +232,16 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
         """Returns 400 when camera is off."""
         camera, nvr = self._build_camera_and_nvr(is_recording=False, connected=False)
 
-        with patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_camera"
+        with (
+            patch(
+                (
+                    "viseron.components.webserver.request_handler."
+                    "ViseronRequestHandler._get_camera"
+                ),
+                return_value=camera,
             ),
-            return_value=camera,
-        ), patch.object(self.vis, "get_registered_domain", return_value=nvr):
+            patch.object(self.vis, "get_registered_domain", return_value=nvr),
+        ):
             response = self.fetch_with_auth(
                 "/api/v1/camera/test/manual_recording",
                 method="POST",
@@ -226,16 +257,18 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
 
     def test_manual_recording_nvr_not_found(self):
         """Returns 404 when NVR domain is missing."""
-
         camera = MockCamera(identifier="test")
 
-        with patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_camera"
+        with (
+            patch(
+                (
+                    "viseron.components.webserver.request_handler."
+                    "ViseronRequestHandler._get_camera"
+                ),
+                return_value=camera,
             ),
-            return_value=camera,
-        ), patch.object(self.vis, "get_registered_domain", return_value=None):
+            patch.object(self.vis, "get_registered_domain", return_value=None),
+        ):
             response = self.fetch_with_auth(
                 "/api/v1/camera/test/manual_recording",
                 method="POST",
@@ -251,15 +284,18 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
     def test_manual_recording_nvr_is_idle(self):
         """Returns 400 when camera is off."""
         camera, nvr = self._build_camera_and_nvr(is_recording=False)
-        nvr.operation_state = "idle"
+        nvr.operation_state = OperationState.IDLE
 
-        with patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_camera"
+        with (
+            patch(
+                (
+                    "viseron.components.webserver.request_handler."
+                    "ViseronRequestHandler._get_camera"
+                ),
+                return_value=camera,
             ),
-            return_value=camera,
-        ), patch.object(self.vis, "get_registered_domain", return_value=nvr):
+            patch.object(self.vis, "get_registered_domain", return_value=nvr),
+        ):
             response = self.fetch_with_auth(
                 "/api/v1/camera/test/manual_recording",
                 method="POST",
@@ -275,7 +311,6 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
 
     def test_manual_recording_invalid_body(self):
         """Invalid action schema returns 400 without hitting handler logic."""
-
         response = self.fetch_with_auth(
             "/api/v1/camera/test/manual_recording",
             method="POST",
@@ -297,13 +332,16 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
 
         camera.start_camera = MagicMock(side_effect=start_camera)
 
-        with patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_camera"
+        with (
+            patch(
+                (
+                    "viseron.components.webserver.request_handler."
+                    "ViseronRequestHandler._get_camera"
+                ),
+                return_value=camera,
             ),
-            return_value=camera,
-        ), patch.object(self.vis, "get_registered_domain", return_value=MagicMock()):
+            patch.object(self.vis, "get_registered_domain", return_value=MagicMock()),
+        ):
             response = self.fetch_with_auth(
                 "/api/v1/camera/test/start",
                 method="POST",
@@ -321,13 +359,16 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
         camera.is_on = True
         camera.start_camera = MagicMock()
 
-        with patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_camera"
+        with (
+            patch(
+                (
+                    "viseron.components.webserver.request_handler."
+                    "ViseronRequestHandler._get_camera"
+                ),
+                return_value=camera,
             ),
-            return_value=camera,
-        ), patch.object(self.vis, "get_registered_domain", return_value=MagicMock()):
+            patch.object(self.vis, "get_registered_domain", return_value=MagicMock()),
+        ):
             response = self.fetch_with_auth(
                 "/api/v1/camera/test/start",
                 method="POST",
@@ -342,8 +383,8 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
         """Start camera returns 404 when camera missing."""
         with patch(
             (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_camera"
+                "viseron.components.webserver.request_handler."
+                "ViseronRequestHandler._get_camera"
             ),
             return_value=None,
         ):
@@ -364,13 +405,16 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
         camera = MockCamera(identifier="test")
         camera.is_on = False
 
-        with patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_camera"
+        with (
+            patch(
+                (
+                    "viseron.components.webserver.request_handler."
+                    "ViseronRequestHandler._get_camera"
+                ),
+                return_value=camera,
             ),
-            return_value=camera,
-        ), patch.object(self.vis, "get_registered_domain", return_value=None):
+            patch.object(self.vis, "get_registered_domain", return_value=None),
+        ):
             response = self.fetch_with_auth(
                 "/api/v1/camera/test/start",
                 method="POST",
@@ -393,13 +437,16 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
 
         camera.stop_camera = MagicMock(side_effect=stop_camera)
 
-        with patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_camera"
+        with (
+            patch(
+                (
+                    "viseron.components.webserver.request_handler."
+                    "ViseronRequestHandler._get_camera"
+                ),
+                return_value=camera,
             ),
-            return_value=camera,
-        ), patch.object(self.vis, "get_registered_domain", return_value=MagicMock()):
+            patch.object(self.vis, "get_registered_domain", return_value=MagicMock()),
+        ):
             response = self.fetch_with_auth(
                 "/api/v1/camera/test/stop",
                 method="POST",
@@ -417,13 +464,16 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
         camera.is_on = False
         camera.stop_camera = MagicMock()
 
-        with patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_camera"
+        with (
+            patch(
+                (
+                    "viseron.components.webserver.request_handler."
+                    "ViseronRequestHandler._get_camera"
+                ),
+                return_value=camera,
             ),
-            return_value=camera,
-        ), patch.object(self.vis, "get_registered_domain", return_value=MagicMock()):
+            patch.object(self.vis, "get_registered_domain", return_value=MagicMock()),
+        ):
             response = self.fetch_with_auth(
                 "/api/v1/camera/test/stop",
                 method="POST",
@@ -460,13 +510,16 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
         camera = MockCamera(identifier="test")
         camera.is_on = True
 
-        with patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_camera"
+        with (
+            patch(
+                (
+                    "viseron.components.webserver.request_handler."
+                    "ViseronRequestHandler._get_camera"
+                ),
+                return_value=camera,
             ),
-            return_value=camera,
-        ), patch.object(self.vis, "get_registered_domain", return_value=None):
+            patch.object(self.vis, "get_registered_domain", return_value=None),
+        ):
             response = self.fetch_with_auth(
                 "/api/v1/camera/test/stop",
                 method="POST",

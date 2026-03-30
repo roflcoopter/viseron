@@ -38,4 +38,4 @@ types-psycopg2
 types-python-slugify
 types-PyYAML
 types-pytz
-pygobject-stubs
+pygobject-stubs==2.16.0

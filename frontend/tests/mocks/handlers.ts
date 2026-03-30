@@ -1,4 +1,5 @@
 import { HttpResponse, http } from "msw";
+import { fileURLToPath } from "url";
 
 import { getDayjs } from "lib/helpers/dates";
 import * as types from "lib/types";
@@ -208,11 +209,22 @@ export const handlers = [
     };
     return HttpResponse.json(camera, { status: 200 });
   }),
-  http.get(`${API_BASE_URL}/camera/camera*/snapshot`, () =>
-    // Return an empty image
-    HttpResponse.arrayBuffer(new ArrayBuffer(0), {
-      status: 200,
-    }),
+  http.get(
+    `${API_BASE_URL}/camera/:camera_identifier/snapshot`,
+    async ({ params }) => {
+      const fs = await import("fs");
+      const path = await import("path");
+      const __dirname = path.dirname(fileURLToPath(import.meta.url));
+      const imagePath = path.resolve(
+        __dirname,
+        `fixtures/${params.camera_identifier}_snapshot.jpg`,
+      );
+      const buffer = fs.readFileSync(imagePath);
+      return HttpResponse.arrayBuffer(buffer.buffer, {
+        status: 200,
+        headers: { "Content-Type": "image/jpeg" },
+      });
+    },
   ),
 
   // Recordings list
@@ -305,4 +317,197 @@ export const handlers = [
   http.get(`${API_BASE_URL}/recordings/camera3`, () =>
     HttpResponse.json({}, { status: 200 }),
   ),
+
+  // Profile
+  http.get(`${API_BASE_URL}/profile/available_timezones`, () =>
+    HttpResponse.json(
+      {
+        timezones: ["UTC", "America/New_York", "Europe/London", "Asia/Tokyo"],
+      },
+      { status: 200 },
+    ),
+  ),
+  http.put(`${API_BASE_URL}/profile/preferences`, () =>
+    HttpResponse.json({}, { status: 200 }),
+  ),
+  http.put(`${API_BASE_URL}/profile/display_name`, () =>
+    HttpResponse.json({}, { status: 200 }),
+  ),
+
+  // Tune
+  http.get(`${API_BASE_URL}/tune`, () => {
+    const tuneConfig: Record<string, Record<string, Record<string, any>>> = {
+      camera1: {
+        camera: {
+          ffmpeg: {
+            recorder: { idle_timeout: 10 },
+          },
+        },
+        object_detector: {
+          darknet: {
+            labels: [
+              {
+                label: "person",
+                confidence: 0.8,
+                trigger_event_recording: true,
+              },
+              {
+                label: "car",
+                confidence: 0.7,
+                trigger_event_recording: false,
+              },
+            ],
+            zones: [
+              {
+                name: "zone1",
+                coordinates: [
+                  { x: 0, y: 0 },
+                  { x: 100, y: 0 },
+                  { x: 100, y: 100 },
+                  { x: 0, y: 100 },
+                ],
+                labels: [{ label: "person", confidence: 0.8 }],
+              },
+            ],
+            mask: [],
+            available_labels: ["person", "car", "dog", "cat"],
+          },
+        },
+        motion_detector: {
+          mog2: {
+            mask: [],
+          },
+        },
+      },
+      camera2: {
+        camera: {
+          ffmpeg: {
+            recorder: { idle_timeout: 15 },
+          },
+        },
+        object_detector: {
+          darknet: {
+            labels: [
+              {
+                label: "person",
+                confidence: 0.9,
+                trigger_event_recording: true,
+              },
+            ],
+            zones: [],
+            mask: [],
+            available_labels: ["person", "car", "dog", "cat"],
+          },
+        },
+        motion_detector: {
+          mog2: {
+            mask: [],
+          },
+        },
+      },
+    };
+    return HttpResponse.json(tuneConfig, { status: 200 });
+  }),
+  http.get(`${API_BASE_URL}/tune/:camera_identifier`, ({ params }) => {
+    const tuneConfigs: Record<string, Record<string, Record<string, any>>> = {
+      camera1: {
+        camera: {
+          ffmpeg: {
+            recorder: { idle_timeout: 10 },
+          },
+        },
+        object_detector: {
+          darknet: {
+            labels: [
+              {
+                label: "person",
+                confidence: 0.8,
+                trigger_event_recording: true,
+              },
+              {
+                label: "car",
+                confidence: 0.7,
+                trigger_event_recording: false,
+              },
+            ],
+            zones: [
+              {
+                name: "zone1",
+                coordinates: [
+                  { x: 0, y: 0 },
+                  { x: 100, y: 0 },
+                  { x: 100, y: 100 },
+                  { x: 0, y: 100 },
+                ],
+                labels: [{ label: "person", confidence: 0.8 }],
+              },
+            ],
+            mask: [],
+            available_labels: ["person", "car", "dog", "cat"],
+          },
+        },
+        motion_detector: {
+          mog2: {
+            mask: [],
+          },
+        },
+      },
+      camera2: {
+        camera: {
+          ffmpeg: {
+            recorder: { idle_timeout: 15 },
+          },
+        },
+        object_detector: {
+          darknet: {
+            labels: [
+              {
+                label: "person",
+                confidence: 0.9,
+                trigger_event_recording: true,
+              },
+            ],
+            zones: [],
+            mask: [],
+            available_labels: ["person", "car", "dog", "cat"],
+          },
+        },
+        motion_detector: {
+          mog2: {
+            mask: [],
+          },
+        },
+      },
+      camera3: {
+        camera: {
+          ffmpeg: {
+            recorder: { idle_timeout: 10 },
+          },
+        },
+      },
+    };
+    const identifier = params.camera_identifier as string;
+    const config = tuneConfigs[identifier];
+    if (!config) {
+      return HttpResponse.json(
+        { error: `Camera '${identifier}' not found.` },
+        { status: 404 },
+      );
+    }
+    return HttpResponse.json(config, { status: 200 });
+  }),
+  http.put(`${API_BASE_URL}/tune/:camera_identifier`, async ({ request }) => {
+    const body = (await request.json()) as {
+      domain?: string;
+      component?: string;
+      data?: any;
+    };
+    if (!body.domain || !body.component) {
+      return HttpResponse.json(
+        { error: "Missing 'domain' or 'component' in request" },
+        { status: 400 },
+      );
+    }
+    return HttpResponse.json({ success: true }, { status: 200 });
+  }),
 ];

@@ -53,9 +53,17 @@ class FakeBoxes:
             xyxy_vals: List of bounding boxes as [x1, y1, x2, y2]
             conf_vals: List of confidence scores
         """
-        self._cls = list(cls_vals)
-        self._xyxy = list(xyxy_vals)
-        self._conf = list(conf_vals)
+        self._boxes = [
+            Box(c, xy, conf) for c, xy, conf in zip(cls_vals, xyxy_vals, conf_vals)
+        ]
+
+    def __len__(self) -> int:
+        """Return number of boxes."""
+        return len(self._boxes)
+
+    def __getitem__(self, index: int) -> Box:
+        """Return box at index."""
+        return self._boxes[index]
 
     def __iter__(self):
         """Yield Box objects compatible with ObjectDetector.postprocess.
@@ -63,8 +71,7 @@ class FakeBoxes:
         Yields:
             Box: Individual box objects with cls, xyxy, and conf attributes
         """
-        for c, xy, conf in zip(self._cls, self._xyxy, self._conf):
-            yield Box(c, xy, conf)
+        yield from self._boxes
 
 
 class FakeResult:

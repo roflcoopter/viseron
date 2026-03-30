@@ -176,7 +176,6 @@ ignore = [
     "RUF006",  ##     2   https://docs.astral.sh/ruff/rules/asyncio-dangling-task/
     "RUF043",  ##     2   https://docs.astral.sh/ruff/rules/pytest-raises-ambiguous-pattern/
     "S110",    ##     2   https://docs.astral.sh/ruff/rules/try-except-pass/
-    "S701",    ##     2   https://docs.astral.sh/ruff/rules/jinja2-autoescape-false/
     "TD002",   ##     2   https://docs.astral.sh/ruff/rules/missing-todo-author/
     "TD003",   ##     2   https://docs.astral.sh/ruff/rules/missing-todo-link/
     "A005",    ##     1   https://docs.astral.sh/ruff/rules/stdlib-module-shadowing/
@@ -219,6 +218,7 @@ forced-separate = ["tests"]
     "SLF001",  ##  https://docs.astral.sh/ruff/rules/private-member-access/
     "PLR2004", ##  https://docs.astral.sh/ruff/rules/magic-value-comparison/
     "ANN201",  ##  https://docs.astral.sh/ruff/rules/missing-return-type-undocumented-public-function/
+    "FBT001",  ##  https://docs.astral.sh/ruff/rules/boolean-type-hint-positional-argument/
 ]
 
 # Generation of docs use many long lines, so we disable line length rule for scripts/gen_docs

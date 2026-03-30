@@ -15,7 +15,9 @@ runs:
       PYTHON_PATH=$(which python3)
       source venv/bin/activate
       PYTHON_BROKEN_PATH=$(dirname $(which pip))
-      rm $PYTHON_BROKEN_PATH/python
+      rm -f $PYTHON_BROKEN_PATH/python
+      rm -f $PYTHON_BROKEN_PATH/python3
       ln -s $PYTHON_PATH $PYTHON_BROKEN_PATH/python
+      ln -s $PYTHON_PATH $PYTHON_BROKEN_PATH/python3
       export PATH=$PATH:$(dirname $PYTHON_BROKEN_PATH)
       ${{ inputs.command }}

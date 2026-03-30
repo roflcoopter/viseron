@@ -9,6 +9,8 @@ import voluptuous as vol
 
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.components.webserver.auth import (
+    InvalidDateFormatError,
+    InvalidTimeFormatError,
     InvalidTimezoneError,
     Preferences,
     Role,
@@ -33,6 +35,8 @@ class ProfileAPIHandler(BaseAPIHandler):
             "json_body_schema": vol.Schema(
                 {
                     vol.Required("timezone"): vol.Maybe(str),
+                    vol.Optional("date_format", default=None): vol.Maybe(str),
+                    vol.Optional("time_format", default=None): vol.Maybe(str),
                 }
             ),
         },
@@ -67,12 +71,22 @@ class ProfileAPIHandler(BaseAPIHandler):
             await self.run_in_executor(
                 self._webserver.auth.update_preferences,
                 self.current_user.id,
-                Preferences(timezone=self.json_body["timezone"]),
+                Preferences(
+                    timezone=self.json_body["timezone"],
+                    date_format=self.json_body["date_format"],
+                    time_format=self.json_body["time_format"],
+                ),
             )
         except UserDoesNotExistError as error:
             self.response_error(HTTPStatus.NOT_FOUND, reason=str(error))
             return
         except InvalidTimezoneError as error:
+            self.response_error(HTTPStatus.BAD_REQUEST, reason=str(error))
+            return
+        except InvalidDateFormatError as error:
+            self.response_error(HTTPStatus.BAD_REQUEST, reason=str(error))
+            return
+        except InvalidTimeFormatError as error:
             self.response_error(HTTPStatus.BAD_REQUEST, reason=str(error))
             return
 

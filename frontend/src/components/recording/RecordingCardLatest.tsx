@@ -21,8 +21,8 @@ import { useCamera } from "lib/api/camera";
 import { useDeleteRecording, useRecordings } from "lib/api/recordings";
 import { objHasValues } from "lib/helpers";
 import {
-  getDateStringFromDayjs,
   getDayjsFromDateTimeString,
+  getDisplayDateStringFromDayjs,
   getTimeStringFromDayjs,
 } from "lib/helpers/dates";
 import * as types from "lib/types";
@@ -175,7 +175,7 @@ export default function RecordingCardLatest({
                   const startDate = getDayjsFromDateTimeString(
                     recording.start_time,
                   );
-                  return `${getDateStringFromDayjs(startDate)} - ${getTimeStringFromDayjs(startDate)}`;
+                  return `${getDisplayDateStringFromDayjs(startDate)} - ${getTimeStringFromDayjs(startDate)}`;
                 })()}
               </span>
             </Typography>

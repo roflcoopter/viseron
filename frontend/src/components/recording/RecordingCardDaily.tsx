@@ -23,9 +23,9 @@ import { useAuthContext } from "context/AuthContext";
 import { useDeleteRecording } from "lib/api/recordings";
 import { objHasValues } from "lib/helpers";
 import {
-  getDateStringFromDayjs,
   getDayjsFromDateString,
   getDayjsFromDateTimeString,
+  getDisplayDateStringFromDayjs,
   getTimeStringFromDayjs,
 } from "lib/helpers/dates";
 import * as types from "lib/types";
@@ -62,7 +62,7 @@ export default function RecordingCardDaily({
     >
       <CardContent>
         <Typography variant="h6">
-          {getDateStringFromDayjs(getDayjsFromDateString(date))}
+          {getDisplayDateStringFromDayjs(getDayjsFromDateString(date))}
         </Typography>
       </CardContent>
       <CardMedia>

@@ -83,6 +83,14 @@ Several screenshots are taken programmatically during end-to-end tests, thus cam
 
 <img src="/img/screenshots/Viseron-Events-responsive-grid.gif" alt-text="Timeline view"/>
 
+### Profile page
+
+<img src="/img/ui/profile/main.png" alt-text="Profile page"/>
+
+### Camera tuning page
+
+<img src="/img/ui/tune/main.png" alt-text="Camera tuning page"/>
+
 ### Entities view
 
 <img src="/img/screenshots/Viseron-screenshot-entities.png" alt-text="Entities view"/>

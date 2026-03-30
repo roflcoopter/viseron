@@ -15,12 +15,16 @@ if TYPE_CHECKING:
     from viseron.components.compreface.face_recognition import CompreFaceService
     from viseron.components.darknet import BaseDarknet
     from viseron.components.data_stream import DataStream
+    from viseron.components.discord import DiscordNotifier
     from viseron.components.edgetpu.edgetpu_types import EdgeTPUViseronData
     from viseron.components.go2rtc import Go2RTC
+    from viseron.components.gotify import GotifyEventNotifier
     from viseron.components.hailo import Hailo8Detector
     from viseron.components.mqtt import MQTT
     from viseron.components.nvr.nvr import NVR
+    from viseron.components.ptz import PTZ
     from viseron.components.storage import Storage
+    from viseron.components.telegram.ptz_control import TelegramPTZ
     from viseron.components.webserver import Webserver
     from viseron.components.webserver.download_token import DownloadToken
     from viseron.components.webserver.public_image_token import PublicImageToken
@@ -49,7 +53,9 @@ class ViseronData(TypedDict, total=False):
     logger: dict[Literal["logs"], dict[str, str]]
     storage: Storage
     webserver: Webserver
-    websocket_commands: dict[str, tuple[Callable[[], Awaitable[None]], vol.Schema]]
+    websocket_commands: dict[
+        str, tuple[Callable[[WebSocketHandler, dict], Awaitable[None]], vol.Schema]
+    ]
     websocket_connections: list[WebSocketHandler]
     download_tokens: dict[str, DownloadToken]
     public_image_tokens: dict[str, PublicImageToken]
@@ -58,11 +64,15 @@ class ViseronData(TypedDict, total=False):
     compreface: dict[Literal["face_recognition"], CompreFaceService]
     darknet: BaseDarknet
     dlib: dict[Literal["classifier"], KNeighborsClassifier | None]
+    discord: DiscordNotifier
     edgetpu: EdgeTPUViseronData
     go2rtc: Go2RTC
+    gotify: GotifyEventNotifier
     hailo: Hailo8Detector
     mqtt: MQTT
     nvr: dict[str, NVR]
+    telegram: TelegramPTZ
+    ptz: PTZ
 
 
 SupportedDomains = Literal[

@@ -1,9 +1,10 @@
 """Darknet object detector."""
+
 from __future__ import annotations
 
 import logging
 from queue import Queue
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from viseron.domains.object_detector import AbstractObjectDetector
 from viseron.domains.object_detector.const import DOMAIN
@@ -11,6 +12,8 @@ from viseron.domains.object_detector.const import DOMAIN
 from .const import COMPONENT
 
 if TYPE_CHECKING:
+    import numpy as np
+
     from viseron import Viseron
     from viseron.domains.camera.shared_frames import SharedFrame
     from viseron.domains.object_detector.detected_object import DetectedObject
@@ -19,7 +22,7 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-def setup(vis: Viseron, config, identifier) -> bool:
+def setup(vis: Viseron, config: dict[str, Any], identifier: str) -> bool:
     """Set up the darknet object_detector domain."""
     ObjectDetector(vis, config[DOMAIN], identifier)
 
@@ -29,12 +32,14 @@ def setup(vis: Viseron, config, identifier) -> bool:
 class ObjectDetector(AbstractObjectDetector):
     """Performs object detection."""
 
-    def __init__(self, vis: Viseron, config, camera_identifier) -> None:
+    def __init__(
+        self, vis: Viseron, config: dict[str, Any], camera_identifier: str
+    ) -> None:
         super().__init__(vis, COMPONENT, config, camera_identifier)
         self._darknet = vis.data[COMPONENT]
         self._object_result_queue: Queue[list[DetectedObject]] = Queue(maxsize=1)
 
-    def preprocess(self, frame: SharedFrame):
+    def preprocess(self, frame: np.ndarray) -> np.ndarray | bytes:
         """Return preprocessed frame before performing object detection."""
         return self._darknet.preprocess(frame)
 
@@ -61,6 +66,6 @@ class ObjectDetector(AbstractObjectDetector):
         return self._darknet.model_height
 
     @property
-    def model_res(self):
+    def model_res(self) -> tuple[int, int]:
         """Return trained model resolution."""
         return self._darknet.model_res

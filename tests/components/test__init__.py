@@ -10,16 +10,20 @@ import pytest
 import voluptuous as vol
 
 from viseron.components import (
-    CORE_COMPONENTS,
-    DEFAULT_COMPONENTS,
-    LOGGING_COMPONENTS,
     Component,
     CriticalComponentsConfigStore,
     activate_safe_mode,
     setup_component,
     setup_components,
 )
-from viseron.const import FAILED, LOADED, LOADING
+from viseron.const import (
+    CORE_COMPONENTS,
+    DEFAULT_COMPONENTS,
+    FAILED,
+    LOADED,
+    LOADING,
+    LOGGING_COMPONENTS,
+)
 from viseron.exceptions import ComponentNotReady
 
 from tests.common import MockComponent, MockComponentModule

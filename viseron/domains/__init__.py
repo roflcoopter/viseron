@@ -97,6 +97,10 @@ def setup_domain(
     component_instance = vis.data[LOADING].get(
         component, vis.data[LOADED].get(component, None)
     )
+    if not component_instance:
+        raise ValueError(
+            f"Component {component} not found for setting up domain {domain}"
+        )
     component_instance.add_domain_to_setup(
         domain, config, identifier, require_domains, optional_domains
     )

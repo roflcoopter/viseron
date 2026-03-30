@@ -1,6 +1,8 @@
 """Gotify component constants."""
 
-COMPONENT = "gotify"
+from typing import Final
+
+COMPONENT: Final = "gotify"
 DESC_COMPONENT = "Gotify server to send notifications for events."
 
 CONFIG_GOTIFY_URL = "gotify_url"

@@ -9,7 +9,13 @@ from typing import TYPE_CHECKING, Any
 
 from ruamel.yaml import YAML
 
-from viseron.const import CONFIG_PATH, DEFAULT_CONFIG, DEFAULT_PORT, SECRETS_PATH
+from viseron.const import (
+    CONFIG_PATH,
+    DEFAULT_COMPONENTS,
+    DEFAULT_CONFIG,
+    DEFAULT_PORT,
+    SECRETS_PATH,
+)
 from viseron.viseron_types import Domain
 
 if TYPE_CHECKING:
@@ -299,6 +305,12 @@ class ConfigDiff:
         """Return the ComponentChange for a given component name."""
         return self.component_changes.get(component_name, None)
 
+    def remove_default_components(self) -> None:
+        """Remove default components from the diff."""
+        for default_component in DEFAULT_COMPONENTS:
+            if default_component in self.component_changes:
+                del self.component_changes[default_component]
+
 
 def diff_config(old_config: dict[str, Any], new_config: dict[str, Any]) -> ConfigDiff:
     """Compare two configurations and return the differences.
@@ -355,9 +367,9 @@ def diff_domain_config(
     """Compare domain configurations within a component and return the differences.
 
     Args:
+        component_name: The name of the component these domain configs belong to
         old_config: The previous component configuration dictionary
         new_config: The new component configuration dictionary
-        component_change: The ComponentChange object these domains belong to
     Returns:
         List of DomainChange containing all changes between domain configurations
     """
@@ -416,6 +428,8 @@ def diff_identifier_config(
     """Compare identifier configurations within a domain and return the differences.
 
     Args:
+        component_name: The name of the component these identifier configs belong to
+        domain: The domain these identifier configs belong to
         old_config: The previous domain configuration dictionary
         new_config: The new domain configuration dictionary
     Returns:
