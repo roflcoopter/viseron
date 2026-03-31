@@ -25,8 +25,11 @@ export function DeviceServiceSection({
   cameraIdentifier,
   isOnvifAutoConfig,
 }: DeviceServiceSectionProps) {
-  const { data: deviceCapabilities, isError } =
-    useGetDeviceCapabilities(cameraIdentifier);
+  const {
+    data: deviceCapabilities,
+    isError,
+    isLoading,
+  } = useGetDeviceCapabilities(cameraIdentifier);
 
   return (
     <Box
@@ -69,6 +72,7 @@ export function DeviceServiceSection({
       />
       <DeviceActions
         cameraIdentifier={cameraIdentifier}
+        isLoading={isLoading}
         isAvailable={!isError}
       />
     </Box>

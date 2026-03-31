@@ -255,13 +255,22 @@ export function DeviceUsers({
                 }}
               >
                 {user.UserLevel === "Administrator" ? (
-                  <UserAdmin style={{ marginRight: 8, flexShrink: 0 }} />
+                  <UserAdmin
+                    size={20}
+                    style={{ marginRight: 8, flexShrink: 0 }}
+                  />
                 ) : user.UserLevel === "Operator" ? (
-                  <CustomerService style={{ marginRight: 8, flexShrink: 0 }} />
+                  <CustomerService
+                    size={20}
+                    style={{ marginRight: 8, flexShrink: 0 }}
+                  />
                 ) : user.UserLevel === "User" ? (
-                  <User style={{ marginRight: 8, flexShrink: 0 }} />
+                  <User size={20} style={{ marginRight: 8, flexShrink: 0 }} />
                 ) : (
-                  <UserSimulation style={{ marginRight: 8, flexShrink: 0 }} />
+                  <UserSimulation
+                    size={20}
+                    style={{ marginRight: 8, flexShrink: 0 }}
+                  />
                 )}
                 <Typography
                   variant="body2"

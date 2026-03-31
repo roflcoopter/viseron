@@ -22,11 +22,13 @@ import {
 
 interface DeviceActionsProps {
   cameraIdentifier: string;
+  isLoading?: boolean;
   isAvailable?: boolean;
 }
 
 export function DeviceActions({
   cameraIdentifier,
+  isLoading,
   isAvailable,
 }: DeviceActionsProps) {
   const TITLE = "Actions";
@@ -95,7 +97,10 @@ export function DeviceActions({
           }
           onClick={() => setRebootOpen(true)}
           disabled={
-            rebootMutation.isPending || rebootMutation.isSuccess || !isAvailable
+            rebootMutation.isPending ||
+            rebootMutation.isSuccess ||
+            !isAvailable ||
+            isLoading
           }
         >
           {rebootMutation.isSuccess ? "Rebooting..." : "Reboot Device"}
@@ -116,7 +121,8 @@ export function DeviceActions({
           disabled={
             factoryResetMutation.isPending ||
             factoryResetMutation.isSuccess ||
-            !isAvailable
+            !isAvailable ||
+            isLoading
           }
         >
           {factoryResetMutation.isSuccess
