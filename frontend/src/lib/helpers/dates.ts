@@ -55,10 +55,10 @@ export function getDayjsFromDateString(dateString: string) {
 // Supports both seconds and milliseconds
 // Milliseconds are converted to seconds
 export function getDayjsFromUnixTimestamp(timestamp: number) {
-  if (timestamp.toString().length === 13) {
+  if (Math.abs(timestamp) > 9999999999) {
     timestamp = Math.floor(timestamp / 1000);
   }
-  return dayjs.unix(timestamp).tz();
+  return dayjs.unix(Math.round(timestamp)).tz();
 }
 
 // Format a dayjs instance to a time string HH:mm:ss or HH:mm
