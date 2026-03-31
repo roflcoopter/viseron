@@ -34,7 +34,7 @@ from .request_handler import ViseronRequestHandler
 
 LOGGER = logging.getLogger(__name__)
 
-BOUNDARY = "--jpgboundary"
+BOUNDARY = "jpgboundary"
 MAX_CAMERA_LOOKUP_TRIES = 60
 
 if TYPE_CHECKING:
@@ -92,10 +92,11 @@ class StreamHandler(ViseronRequestHandler):
 
     async def write_jpg(self, jpg: np.ndarray) -> None:
         """Set the headers and write the jpg data."""
-        self.write(f"{BOUNDARY}\r\n")
+        self.write(f"--{BOUNDARY}\r\n")
         self.write("Content-type: image/jpeg\r\n")
         self.write(f"Content-length: {len(jpg)}\r\n\r\n")
         self.write(jpg.tobytes())
+        self.write("\r\n")
         await self.flush()
 
     @staticmethod
