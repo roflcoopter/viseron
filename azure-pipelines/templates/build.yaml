@@ -42,7 +42,7 @@ jobs:
           ${{ if or(eq(architecture, 'aarch64'), eq(architecture, 'jetson-nano'), eq(architecture, 'rpi5')) }}:
             name: rpi5
           ${{ else }}:
-            vmImage: ubuntu-latest
+            name: amd64
         steps:
           - template: release_version.yaml
             parameters:
