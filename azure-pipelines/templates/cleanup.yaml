@@ -1,18 +1,29 @@
 steps:
   - script: |
       df -h
-    displayName: List free space before cleaning
+      FREE_GB=$(df -BG --output=avail / | tail -1 | tr -d ' G')
+      echo "Free space: ${FREE_GB}GB"
+      if [ "${FREE_GB}" -lt 20 ]; then
+        echo "##vso[task.setvariable variable=needsCleanup]true"
+      else
+        echo "##vso[task.setvariable variable=needsCleanup]false"
+      fi
+    displayName: Check free space
   - script: |
       docker rmi -f $(docker images -aq) || true
     displayName: Clean up Docker images
+    condition: eq(variables.needsCleanup, 'true')
   - script: |
       docker system prune --force --all --volumes || true
     displayName: Docker prune
+    condition: eq(variables.needsCleanup, 'true')
   - script: |
       sudo rm -rf /usr/local/lib/android || true
       sudo rm -rf /usr/local/.ghcup || true
       sudo rm -rf /opt/hostedtoolcache/CodeQL || true
     displayName: Remove unused files
+    condition: eq(variables.needsCleanup, 'true')
   - script: |
       df -h
     displayName: List free space after cleaning
+    condition: eq(variables.needsCleanup, 'true')

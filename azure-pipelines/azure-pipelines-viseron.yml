@@ -88,11 +88,6 @@ stages:
                 docker manifest inspect roflcoopter/viseron:${release_version}
               }
 
-              echo "Pulling architecture-specific images for version $(viseronVersion)"
-              docker pull roflcoopter/amd64-viseron:$(viseronVersion)
-              docker pull roflcoopter/rpi3-viseron:$(viseronVersion)
-              docker pull roflcoopter/aarch64-viseron:$(viseronVersion)
-
               # Create version tag
               echo "Creating and pushing multi-arch manifest for $(viseronVersion)"
               create_manifest $(viseronVersion)
