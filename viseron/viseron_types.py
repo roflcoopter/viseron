@@ -12,7 +12,8 @@ if TYPE_CHECKING:
     from sklearn.neighbors import KNeighborsClassifier
 
     from viseron.components import Component
-    from viseron.components.compreface.face_recognition import CompreFaceService
+    from viseron.components.compreface.face_recognition import \
+        CompreFaceService
     from viseron.components.darknet import BaseDarknet
     from viseron.components.data_stream import DataStream
     from viseron.components.discord import DiscordNotifier
@@ -23,12 +24,13 @@ if TYPE_CHECKING:
     from viseron.components.logger.logger_types import LoggerViseronData
     from viseron.components.mqtt import MQTT
     from viseron.components.nvr.nvr import NVR
-    from viseron.components.ptz import PTZ
+    from viseron.components.onvif import ONVIF
     from viseron.components.storage import Storage
     from viseron.components.telegram.ptz_control import TelegramPTZ
     from viseron.components.webserver import Webserver
     from viseron.components.webserver.download_token import DownloadToken
-    from viseron.components.webserver.public_image_token import PublicImageToken
+    from viseron.components.webserver.public_image_token import \
+        PublicImageToken
     from viseron.components.webserver.websocket_api import WebSocketHandler
 
 
@@ -73,7 +75,7 @@ class ViseronData(TypedDict, total=False):
     mqtt: MQTT
     nvr: dict[str, NVR]
     telegram: TelegramPTZ
-    ptz: PTZ
+    onvif: ONVIF
 
 
 SupportedDomains = Literal[

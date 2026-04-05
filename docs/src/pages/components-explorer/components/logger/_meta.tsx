@@ -7,6 +7,8 @@ const ComponentMetadata: Component = {
   image: "/img/undraw_collecting.svg",
   tags: ["system"],
   category: null,
+  path: "viseron/components/logger",
+  issue: "logger",
 };
 
 export default ComponentMetadata;

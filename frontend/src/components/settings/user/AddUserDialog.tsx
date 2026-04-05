@@ -96,6 +96,7 @@ function AddUserDialog({ onClose }: AddUserDialogProps) {
         <FormControl fullWidth margin="dense">
           <InputLabel>Role</InputLabel>
           <Select
+            label="Role"
             value={inputState.role?.value || ""}
             onChange={(e) => dispatch({ type: "role", value: e.target.value })}
           >

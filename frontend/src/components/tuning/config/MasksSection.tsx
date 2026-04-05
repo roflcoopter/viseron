@@ -1,5 +1,5 @@
-import { AddAlt, Area } from "@carbon/icons-react";
-import { Box, Button, Typography } from "@mui/material";
+import { AddAlt, Area, Help } from "@carbon/icons-react";
+import { Box, Button, Tooltip, Typography } from "@mui/material";
 import { MouseEvent } from "react";
 
 import { Mask } from "../shared/types";
@@ -28,14 +28,23 @@ export function MasksSection({
   onContextMenu,
 }: MasksSectionProps) {
   return (
-    <Box mb={2}>
+    <Box mb={2.5}>
       <Box
         display="flex"
         justifyContent="space-between"
         alignItems="center"
         mb={1}
       >
-        <Typography variant="subtitle2">Masks</Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography variant="subtitle2">Masks</Typography>
+          <Tooltip
+            title="Masks are used to exclude certain areas in the image from any detection/post processing. If a detected object has its lower portion inside of the mask it will be discarded."
+            arrow
+            placement="top"
+          >
+            <Help size={16} />
+          </Tooltip>
+        </Box>
         <Button
           size="small"
           startIcon={<AddAlt size={16} />}
@@ -46,24 +55,26 @@ export function MasksSection({
         </Button>
       </Box>
       {masks && Array.isArray(masks) && masks.length > 0 ? (
-        masks.map((mask: Mask, index: number) => (
-          <Button
-            key={
-              mask.name ||
-              `mask-${JSON.stringify(mask.coordinates?.[0])}-${index}`
-            }
-            variant={selectedMaskIndex === index ? "contained" : "outlined"}
-            fullWidth
-            sx={{ mb: 1, justifyContent: "flex-start" }}
-            onClick={() => onMaskClick(index)}
-            onContextMenu={(e) => onContextMenu(e, "mask", index)}
-            disabled={isDrawingMode || isSaving}
-            color="error"
-            startIcon={<Area />}
-          >
-            {mask.name || `Mask ${index + 1}`}
-          </Button>
-        ))
+        <Box display="flex" flexDirection="column" gap={1}>
+          {masks.map((mask: Mask, index: number) => (
+            <Button
+              key={
+                mask.name ||
+                `mask-${JSON.stringify(mask.coordinates?.[0])}-${index}`
+              }
+              variant={selectedMaskIndex === index ? "contained" : "outlined"}
+              fullWidth
+              sx={{ justifyContent: "flex-start" }}
+              onClick={() => onMaskClick(index)}
+              onContextMenu={(e) => onContextMenu(e, "mask", index)}
+              disabled={isDrawingMode || isSaving}
+              color="error"
+              startIcon={<Area />}
+            >
+              {mask.name || `Mask ${index + 1}`}
+            </Button>
+          ))}
+        </Box>
       ) : (
         <Typography
           variant="caption"

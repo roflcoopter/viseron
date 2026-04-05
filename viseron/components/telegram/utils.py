@@ -1,4 +1,5 @@
 """Telegram utilities."""
+
 import logging
 from functools import wraps
 

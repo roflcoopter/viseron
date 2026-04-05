@@ -8,6 +8,8 @@ const ComponentMetadata: Component = {
   image: "/img/undraw_surveillance.svg",
   tags: ["nvr"],
   category: "required",
+  path: "viseron/components/nvr",
+  issue: 'nvr OR label:"component: nvr"',
 };
 
 export default ComponentMetadata;

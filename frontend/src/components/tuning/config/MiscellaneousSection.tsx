@@ -1,4 +1,4 @@
-import { InfoOutlined } from "@mui/icons-material";
+import { Help, Information } from "@carbon/icons-react";
 import {
   Box,
   MenuItem,
@@ -56,7 +56,7 @@ export function MiscellaneousSection({
       <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
         {field.description && (
           <Tooltip title={field.description} arrow placement="top">
-            <InfoOutlined sx={{ fontSize: 16, color: "text.secondary" }} />
+            <Information size={16} />
           </Tooltip>
         )}
         <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -118,7 +118,7 @@ export function MiscellaneousSection({
             onChange={(e) => onFieldChange(field.key, e.target.value)}
             disabled={isDrawingMode || isSaving}
             size="small"
-            sx={{ width: "90px" }}
+            sx={{ width: "120px" }}
           >
             {field.options?.map((option) => (
               <MenuItem key={option} value={option}>
@@ -145,15 +145,23 @@ export function MiscellaneousSection({
   };
 
   return (
-    <Box sx={{ mt: 2 }}>
+    <Box mt={0.5}>
       <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          mb: 1,
-        }}
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={1}
       >
-        <Typography variant="subtitle2">Miscellaneous</Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography variant="subtitle2">Configurations</Typography>
+          <Tooltip
+            title="The Viseron configuration for this component based on the camera you choose. This configuration change has no effect unless you restart Viseron."
+            arrow
+            placement="top"
+          >
+            <Help size={16} />
+          </Tooltip>
+        </Box>
       </Box>
 
       <Box>{fields.map((field) => renderField(field))}</Box>
