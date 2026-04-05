@@ -8,6 +8,18 @@ PGID=${PGID:-0}
 groupmod -o -g "$PGID" abc
 usermod -o -u "$PUID" abc
 
+# Symlink all folders to /data, so that they can be used with a Home Assistant add-on with a single volume mapping
+if [ -d "/data" ]; then
+    log_info "Symlinking folders to /data"
+    for folder in event_clips segments snapshots thumbnails; do
+        mkdir -p "/data/${folder}"
+        # Create symlink only if it doesn't already exist
+        if [ ! -L "/${folder}" ]; then
+            ln -s "/data/${folder}" "/${folder}"
+        fi
+    done
+fi
+
 chown -R abc:abc /home/abc/bin
 chown -R --silent abc:abc /config || :
 # Remove /recordings in a future release, it's deprecated in favor of /event_clips
