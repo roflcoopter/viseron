@@ -53,6 +53,12 @@ import { LivePlayer } from "components/player/liveplayer/LivePlayer";
 import { VideoRTC } from "components/player/liveplayer/video-rtc";
 import { MjpegPlayer } from "components/player/mjpegplayer/MjpegPlayer";
 import { ViewSpeedDial } from "components/player/view/ViewSpeedDial";
+import {
+  PolygonEditorButton,
+  PolygonEditorOverlay,
+  useCoordinateTransform,
+  usePolygonEditorStore,
+} from "components/player/polygon-editor";
 import { useFullscreen } from "context/FullscreenContext";
 import { useHasCamerasConfigured } from "hooks/UseHasCamerasConfigured";
 import { useTitle } from "hooks/UseTitle";
@@ -676,6 +682,10 @@ const CameraPlayer = memo(
       () => playerRef || createRef<VideoRTC>(),
       [playerRef],
     );
+    const playerContainerRef = useRef<React.RefObject<HTMLDivElement | null>>(
+      null,
+    );
+    const [, forceUpdate] = useState(0);
 
     const handleMenuOpen = useCallback(
       (event: React.MouseEvent<HTMLElement>) => {
@@ -715,7 +725,6 @@ const CameraPlayer = memo(
       flipView,
     } = usePlayerSettingsStore(
       useShallow((state) => ({
-        // mjpegPlayer defaults to true if live_stream_available is false, otherwise true
         mjpegPlayer: !camera.live_stream_available
           ? true
           : (state.mjpegPlayerMap[camera.identifier] ?? false),
@@ -730,10 +739,53 @@ const CameraPlayer = memo(
       })),
     );
 
+    const isEditing = usePolygonEditorStore((s) => s.isEditing);
+    const editingCameraId = usePolygonEditorStore((s) => s.cameraIdentifier);
+    const isEditingThisCamera =
+      isEditing && editingCameraId === camera.identifier;
+
+    const handleContainerRef = useCallback(
+      (ref: React.RefObject<HTMLDivElement | null>) => {
+        playerContainerRef.current = ref;
+        forceUpdate((n) => n + 1);
+      },
+      [],
+    );
+
+    const transform = useCoordinateTransform(
+      playerContainerRef.current || { current: null },
+      camera.width,
+      camera.height,
+    );
+
+    const editorButton = useMemo(
+      () => <PolygonEditorButton camera={camera} />,
+      [camera],
+    );
+
     const playerMenuButton = useMemo(
       () => <PlayerMenu onMenuOpen={handleMenuOpen} />,
       [handleMenuOpen],
     );
+
+    const extraButtons = useMemo(
+      () => (
+        <>
+          {editorButton}
+          {playerMenuButton}
+        </>
+      ),
+      [editorButton, playerMenuButton],
+    );
+
+    const overlay = isEditingThisCamera ? (
+      <PolygonEditorOverlay
+        containerRef={playerContainerRef.current || { current: null }}
+        transform={transform}
+        cameraWidth={camera.width}
+        cameraHeight={camera.height}
+      />
+    ) : null;
 
     return mjpegPlayer ? (
       <div
@@ -761,9 +813,11 @@ const CameraPlayer = memo(
           drawZones={drawZones}
           drawPostProcessorMask={drawPostProcessorMask}
           flipView={flipView}
-          isMenuOpen={isMenuOpen}
-          extraButtons={playerMenuButton}
+          isMenuOpen={isMenuOpen || isEditingThisCamera}
+          extraButtons={extraButtons}
           onPlayerFullscreenChange={handlePlayerFullscreenChange}
+          overlay={overlay}
+          containerRefCallback={handleContainerRef}
         />
       </div>
     ) : (
@@ -787,9 +841,11 @@ const CameraPlayer = memo(
             backgroundColor: theme.palette.background.default,
           }}
           flipView={flipView}
-          isMenuOpen={isMenuOpen}
-          extraButtons={playerMenuButton}
+          isMenuOpen={isMenuOpen || isEditingThisCamera}
+          extraButtons={extraButtons}
           onPlayerFullscreenChange={handlePlayerFullscreenChange}
+          overlay={overlay}
+          containerRefCallback={handleContainerRef}
         />
       </div>
     );

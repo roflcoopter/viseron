@@ -104,6 +104,8 @@ interface MjpegPlayerProps extends React.HTMLAttributes<HTMLElement> {
   isMenuOpen?: boolean;
   flipView?: boolean;
   onPlayerFullscreenChange?: (isFullscreen: boolean) => void;
+  overlay?: React.ReactNode;
+  containerRefCallback?: (ref: React.RefObject<HTMLDivElement | null>) => void;
 }
 
 export function MjpegPlayer({
@@ -120,6 +122,8 @@ export function MjpegPlayer({
   isMenuOpen = false,
   flipView = false,
   onPlayerFullscreenChange,
+  overlay,
+  containerRefCallback,
 }: MjpegPlayerProps) {
   const theme = useTheme();
   const canHover = useCanHover();
@@ -165,6 +169,12 @@ export function MjpegPlayer({
     zoomSpeed: 0.2,
     disabled: isZoomPanDisabled,
   });
+
+  useEffect(() => {
+    if (containerRefCallback) {
+      containerRefCallback(containerRef);
+    }
+  }, [containerRefCallback, containerRef]);
 
   return (
     <div
@@ -368,6 +378,7 @@ export function MjpegPlayer({
           </Box>
         )}
       </div>
+      {overlay}
       <CameraNameOverlay
         camera_identifier={camera.identifier}
         extraStatusText={
