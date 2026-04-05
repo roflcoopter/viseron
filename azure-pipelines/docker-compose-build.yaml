@@ -189,6 +189,17 @@ services:
       bash -c "vulture viseron/"
     user: 1000:1000
 
+  amd64-azure-agent:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile.azure
+      args:
+        TARGETARCH: "amd64"
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
+      cache_from:
+        - roflcoopter/amd64-azure-agent:latest
+    image: roflcoopter/amd64-azure-agent:latest
+
   ################ amd64 CUDA ###################################
   amd64-cuda-ffmpeg:
     build:
@@ -690,9 +701,9 @@ services:
   rpi5-azure-agent:
     build:
       context: ..
-      dockerfile: ./docker/rpi5/Dockerfile.azure
+      dockerfile: ./docker/Dockerfile.azure
       args:
-        TARGETARCH: "linux-arm64"
+        TARGETARCH: "arm64"
         UBUNTU_VERSION: "$UBUNTU_VERSION"
       cache_from:
         - roflcoopter/rpi5-azure-agent:latest

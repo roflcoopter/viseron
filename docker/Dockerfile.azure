@@ -1,15 +1,16 @@
 ARG UBUNTU_VERSION
 FROM ubuntu:${UBUNTU_VERSION}
-ENV TARGETARCH="linux-arm64" \
-    DOCKER_BUILDKIT=1
+ENV DOCKER_BUILDKIT=1
 
-ARG DOCKER_GID
+ARG TARGETARCH
+ENV TARGETARCH=${TARGETARCH}
+RUN echo "Building for architecture: ${TARGETARCH}"
 
 RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y curl git jq libicu70 ca-certificates curl
 
-# Install Docker
+# Install Docker CLI and plugins
 RUN \
     install -m 0755 -d /etc/apt/keyrings && \
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc && \
@@ -29,14 +30,18 @@ RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
 
 WORKDIR /azp/
 
-COPY ./docker/azure-agent-start.sh ./
-RUN chmod +x ./azure-agent-start.sh
+COPY ./docker/azure-agent-start.sh /usr/local/bin/azure-agent-start.sh
+RUN chmod +x /usr/local/bin/azure-agent-start.sh
 
 # Create agent user and set up home directory
 RUN useradd -m -d /home/agent agent
 RUN chown -R agent:agent /azp /home/agent
-RUN groupadd -g ${DOCKER_GID} docker && usermod -aG docker agent
+
+# Configure Docker CLI to connect to DinD sidecar over TLS
+ENV DOCKER_HOST=tcp://docker:2376 \
+    DOCKER_TLS_VERIFY=1 \
+    DOCKER_CERT_PATH=/certs/client
 
 USER agent
 
-ENTRYPOINT [ "./azure-agent-start.sh" ]
+ENTRYPOINT [ "/usr/local/bin/azure-agent-start.sh" ]
