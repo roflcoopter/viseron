@@ -21,6 +21,7 @@
     "@fontsource-variable/ibm-plex-sans": "^5.2.8",
     "@fontsource/dejavu-sans": "^5.2.5",
     "@jy95/material-ui-image": "^4.0.9",
+    "@mjackson/multipart-parser": "^0.10.1",
     "@monaco-editor/react": "^4.7.0",
     "@msw/playwright": "^0.4.2",
     "@mswjs/interceptors": "^0.40.0",
