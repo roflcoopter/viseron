@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
+from viseron.components import ComponentError, ComponentErrorSource, ValidationResult
 from viseron.config import ComponentChange, ConfigDiff, DomainChange, IdentifierChange
 from viseron.domain_registry import DomainEntry, DomainState
 from viseron.reload import (
@@ -1325,7 +1326,7 @@ class TestValidateConfig:
 
         result = _validate_config(vis, {}, ReloadChanges())
 
-        assert result is True
+        assert not result
         mock_get.assert_not_called()
 
     @patch("viseron.reload.get_component")
@@ -1333,7 +1334,9 @@ class TestValidateConfig:
         """Test components from all change types are validated and deduplicated."""
         vis = MagicMock()
         mock_instance = MagicMock()
-        mock_instance.validate_component_config.return_value = True
+        mock_instance.validate_component_config.return_value = ValidationResult(
+            success=True
+        )
         mock_get.return_value = mock_instance
         new_config: dict[str, dict] = {"ffmpeg": {}, "darknet": {}}
         changes = ReloadChanges(
@@ -1365,7 +1368,7 @@ class TestValidateConfig:
 
         result = _validate_config(vis, new_config, changes)
 
-        assert result is True
+        assert not result
         # ffmpeg appears in both components and identifiers but should be deduplicated
         assert mock_get.call_count == 2
         validated = {c.args[1] for c in mock_get.call_args_list}
@@ -1376,7 +1379,9 @@ class TestValidateConfig:
         """Test that False from validate_component_config fails validation."""
         vis = MagicMock()
         mock_instance = MagicMock()
-        mock_instance.validate_component_config.return_value = False
+        mock_instance.validate_component_config.return_value = ValidationResult(
+            success=False, error="test validation error"
+        )
         mock_get.return_value = mock_instance
         changes = ReloadChanges(
             components_to_reload=[
@@ -1390,7 +1395,9 @@ class TestValidateConfig:
 
         result = _validate_config(vis, {}, changes)
 
-        assert result is False
+        assert len(result) == 1
+        assert result[0].component_name == "ffmpeg"
+        assert "test validation error" in result[0].message
 
     @patch("viseron.reload.get_component")
     def test_validation_exception_returns_false(self, mock_get: MagicMock) -> None:
@@ -1411,7 +1418,9 @@ class TestValidateConfig:
 
         result = _validate_config(vis, {}, changes)
 
-        assert result is False
+        assert len(result) == 1
+        assert result[0].component_name == "ffmpeg"
+        assert "boom" in result[0].message
 
 
 class TestReloadConfig:
@@ -1427,7 +1436,7 @@ class TestReloadConfig:
 
         assert result.success is False
         assert len(result.errors) == 1
-        assert "parse error" in result.errors[0]
+        assert "parse error" in result.errors[0].message
 
     @patch("viseron.reload._apply_setup_plan")
     @patch("viseron.reload._validate_config")
@@ -1447,12 +1456,18 @@ class TestReloadConfig:
         """Test that failed validation aborts before modifying components."""
         vis = MagicMock()
         mock_load.return_value = ({}, ConfigDiff(), ReloadChanges())
-        mock_validate.return_value = False
+        mock_validate.return_value = [
+            ComponentError(
+                source=ComponentErrorSource.VALIDATION,
+                message="Config validation failed for component 'test'",
+                component_name="test",
+            )
+        ]
 
         result = _reload_config(vis, [])
 
         assert result.success is False
-        assert "Config validation failed" in result.errors[0]
+        assert "Config validation failed" in result.errors[0].message
         mock_removed.assert_called_once()
         mock_added.assert_called_once()
         mock_check_defaults.assert_called_once()
@@ -1464,7 +1479,7 @@ class TestReloadConfig:
     @patch("viseron.reload._handle_modified_identifiers")
     @patch("viseron.reload._handle_modified_domains")
     @patch("viseron.reload._handle_modified_components")
-    @patch("viseron.reload._validate_config", return_value=True)
+    @patch("viseron.reload._validate_config", return_value=[])
     @patch("viseron.reload._handle_added_components")
     @patch("viseron.reload._handle_removed_components")
     @patch("viseron.reload._load_and_diff_config")
@@ -1511,7 +1526,7 @@ class TestReloadConfig:
     @patch("viseron.reload._handle_modified_identifiers")
     @patch("viseron.reload._handle_modified_domains")
     @patch("viseron.reload._handle_modified_components")
-    @patch("viseron.reload._validate_config", return_value=True)
+    @patch("viseron.reload._validate_config", return_value=[])
     @patch("viseron.reload._handle_added_components")
     @patch("viseron.reload._handle_removed_components")
     @patch("viseron.reload._load_and_diff_config")

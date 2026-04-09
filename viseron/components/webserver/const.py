@@ -89,6 +89,7 @@ WS_ERROR_UNKNOWN_COMMAND = "uknown_command"
 WS_ERROR_UNKNOWN_ERROR = "uknown_error"
 WS_ERROR_OLD_COMMAND_ID = "old_command_id"
 WS_ERROR_SAVE_CONFIG_FAILED = "save_config_failed"
+WS_ERROR_RELOAD_CONFIG_FAILED = "reload_config_failed"
 WS_ERROR_NOT_FOUND = "not_found"
 WS_ERROR_UNAUTHORIZED = "unauthorized"
 

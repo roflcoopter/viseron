@@ -449,6 +449,18 @@ def _handle_failed_domain(
         error=error,
     )
 
+    # Propagate domain error to the owning Component instance
+    if error:
+        component_instance = vis.data[LOADING].get(
+            entry.component_name, vis.data[LOADED].get(entry.component_name)
+        )
+        if component_instance is not None:
+            component_instance.add_domain_error(
+                error,
+                domain=entry.domain,
+                identifier=entry.identifier,
+            )
+
 
 def get_unload_order(
     vis: Viseron, domain: SupportedDomains, identifier: str

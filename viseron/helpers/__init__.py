@@ -142,7 +142,12 @@ def draw_bounding_box_relative(
     return cv2.rectangle(frame, topleft, bottomright, color, thickness)
 
 
-def put_object_label_relative(frame, obj, frame_res, color=(255, 0, 0)) -> None:
+def put_object_label_relative(
+    frame: np.ndarray,
+    obj: DetectedObject,
+    frame_res: tuple[int, int],
+    color: tuple[int, int, int] = (255, 0, 0),
+) -> None:
     """Draw a label using relative coordinates."""
     coordinates = (
         math.floor(obj.rel_x1 * frame_res[0]),
@@ -166,7 +171,7 @@ def put_object_label_relative(frame, obj, frame_res, color=(255, 0, 0)) -> None:
 
     filter_text = ""
     if obj.filter_hit:
-        filter_text = f"Filter: {obj.filter_hit}"
+        filter_text = f"Filter: {obj.filter_hit.value}"
         (filter_text_width, filter_text_height) = cv2.getTextSize(
             text=filter_text,
             fontFace=FONT,
@@ -279,7 +284,7 @@ def _get_object_text(detected_object: DetectedObject) -> str:
     """Return text to be displayed for an object."""
     text = f"{detected_object.label.title()} {int(detected_object.confidence * 100)}%"
     if detected_object.filter_hit:
-        text += f"\nFilter: {detected_object.filter_hit}"
+        text += f"\nFilter: {detected_object.filter_hit.value}"
     return text
 
 

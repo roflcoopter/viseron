@@ -378,7 +378,7 @@ class Stream:
         ]:
             self._logger.warning(
                 f"Container mp4 does not support {stream_audio_codec} audio "
-                "codec. Audio will be transcoded as aac."
+                "codec. Audio will be transcoded as aac"
             )
             return ["-c:a", "aac"]
 

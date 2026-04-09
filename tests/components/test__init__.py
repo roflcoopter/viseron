@@ -11,6 +11,8 @@ import voluptuous as vol
 
 from viseron.components import (
     Component,
+    ComponentErrorSource,
+    ComponentState,
     CriticalComponentsConfigStore,
     activate_safe_mode,
     setup_component,
@@ -221,7 +223,8 @@ class TestComponentConfigValidation:
         ):
             result = component.validate_component_config()
 
-        assert result is True
+        assert result.success is True
+        assert result.error is None
 
     def test_validate_config_valid_schema(self, vis: MockViseron) -> None:
         """Test validation with valid CONFIG_SCHEMA."""
@@ -238,7 +241,9 @@ class TestComponentConfigValidation:
         ):
             result = component.validate_component_config()
 
-        assert result == validated_config
+        assert result.success is True
+        assert result.config == validated_config
+        assert result.error is None
 
     def test_validate_config_vol_invalid(
         self, vis: MockViseron, caplog: pytest.LogCaptureFixture
@@ -254,7 +259,9 @@ class TestComponentConfigValidation:
         ):
             result = component.validate_component_config()
 
-        assert result is None
+        assert result.success is False
+        assert result.error is not None
+        assert "Invalid config value" in result.error
         assert "Error validating config for component test_comp" in caplog.text
 
     def test_validate_config_generic_exception(
@@ -271,7 +278,9 @@ class TestComponentConfigValidation:
         ):
             result = component.validate_component_config()
 
-        assert result is None
+        assert result.success is False
+        assert result.error is not None
+        assert "Unexpected error" in result.error
         assert "Unknown error calling test_comp CONFIG_SCHEMA" in caplog.text
 
 
@@ -291,7 +300,7 @@ class TestComponentSetup:
             "viseron.components.importlib.import_module", return_value=mock_module
         ):
             component = Component(vis, "viseron.components.test", "test", {})
-            result: bool = component.setup_component()
+            result = component.setup_component()
 
             assert result is True
             assert "Setting up component test" in caplog.text
@@ -309,7 +318,7 @@ class TestComponentSetup:
             "viseron.components.importlib.import_module", return_value=mock_module
         ):
             component = Component(vis, "viseron.components.test", "test", {})
-            result: bool = component.setup_component()
+            result = component.setup_component()
 
             assert result is False
             assert "Setup of component test failed" in caplog.text
@@ -326,7 +335,7 @@ class TestComponentSetup:
             "viseron.components.importlib.import_module", return_value=mock_module
         ):
             component = Component(vis, "viseron.components.test", "test", {})
-            result: bool = component.setup_component()
+            result = component.setup_component()
 
             assert result is False
             assert "Setup of component test did not return boolean" in caplog.text
@@ -348,10 +357,10 @@ class TestComponentSetup:
             patch("viseron.components.NamedTimer") as mock_named_timer,
         ):
             component = Component(vis, "viseron.components.test", "test", {})
-            result: bool = component.setup_component(tries=1)
+            result = component.setup_component(tries=1)
 
-            # Setup returns False but schedules a retry
-            assert result is False
+            # Setup returns None (retry in progress)
+            assert result is None
             assert "Component test is not ready" in caplog.text
             assert "Retrying in" in caplog.text
 
@@ -377,7 +386,7 @@ class TestComponentSetup:
             "viseron.components.importlib.import_module", return_value=mock_module
         ):
             component = Component(vis, "viseron.components.test", "test", {})
-            result: bool = component.setup_component()
+            result = component.setup_component()
 
             assert result is False
             assert "setup aborted due to shutdown" in caplog.text
@@ -396,7 +405,7 @@ class TestComponentSetup:
             "viseron.components.importlib.import_module", return_value=mock_module
         ):
             component = Component(vis, "viseron.components.test", "test", {})
-            result: bool = component.setup_component()
+            result = component.setup_component()
 
             assert result is False
             assert "Uncaught exception setting up component test" in caplog.text
@@ -422,7 +431,7 @@ class TestComponentSetup:
             "viseron.components.importlib.import_module", return_value=mock_module
         ):
             component = Component(vis, "viseron.components.test", "test", {})
-            result: bool = component.setup_component()
+            result = component.setup_component()
 
             assert result is False
             # Domain should be unregistered
@@ -646,3 +655,233 @@ class TestEndToEndStateTransitions:
         assert "test" not in vis.data[LOADED]
         assert "test" not in vis.data[LOADING]
         assert "test" in vis.data[FAILED]
+
+
+class TestComponentState:
+    """Test Component state and error tracking."""
+
+    def test_initial_state_is_loading(self, vis: MockViseron) -> None:
+        """Test component starts in LOADING state."""
+        component = Component(vis, "viseron.components.test", "test", {})
+        assert component.state == ComponentState.LOADING
+
+    def test_state_loaded_on_success(self, vis: MockViseron) -> None:
+        """Test component state set to LOADED on successful setup."""
+        mock_module = MockComponentModule(setup_return=True)
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_module
+        ):
+            component = Component(vis, "viseron.components.test", "test", {})
+            result = component.setup_component()
+            assert result is True
+            assert component.state == ComponentState.LOADED
+
+    def test_state_failed_on_failure(self, vis: MockViseron) -> None:
+        """Test component state set to FAILED on setup failure."""
+        mock_module = MockComponentModule(setup_return=False)
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_module
+        ):
+            component = Component(vis, "viseron.components.test", "test", {})
+            result = component.setup_component()
+            assert result is False
+            assert component.state == ComponentState.FAILED
+
+    def test_state_retrying_on_not_ready(self, vis: MockViseron) -> None:
+        """Test component state set to RETRYING on ComponentNotReady."""
+        mock_module = MockComponentModule(
+            setup_exception=ComponentNotReady("Not ready")
+        )
+        with (
+            patch(
+                "viseron.components.importlib.import_module", return_value=mock_module
+            ),
+            patch("viseron.components.NamedTimer"),
+        ):
+            component = Component(vis, "viseron.components.test", "test", {})
+            component.setup_component()
+            assert component.state == ComponentState.RETRYING
+
+    def test_state_failed_on_shutdown_abort(self, vis: MockViseron) -> None:
+        """Test component state set to FAILED when shutdown aborts setup."""
+        mock_module = MockComponentModule(
+            setup_exception=ComponentNotReady("Not ready")
+        )
+        vis.shutdown_event.set()
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_module
+        ):
+            component = Component(vis, "viseron.components.test", "test", {})
+            component.setup_component()
+            assert component.state == ComponentState.FAILED
+
+    def test_setup_component_sets_state_loading(self, vis: MockViseron) -> None:
+        """Test setup_component() sets state to LOADING at start."""
+        mock_module = MockComponentModule(setup_return=True)
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_module
+        ):
+            component = Component(vis, "viseron.components.test", "test", {})
+            setup_component(vis, component)
+            # After successful setup, state should be LOADED
+            assert component.state == ComponentState.LOADED
+
+    def test_setup_component_sets_state_failed_on_module_not_found(
+        self, vis: MockViseron
+    ) -> None:
+        """Test setup_component() sets FAILED on ModuleNotFoundError."""
+        mock_component = MockComponent(
+            vis,
+            "testing",
+            setup_component=Mock(side_effect=ModuleNotFoundError("testing")),
+        )
+        with patch("viseron.components.Component", new=mock_component):
+            setup_component(vis, mock_component)
+        assert mock_component.state == ComponentState.FAILED
+
+
+class TestComponentErrors:
+    """Test Component error accumulation."""
+
+    def test_add_error(self, vis: MockViseron) -> None:
+        """Test adding an error to a component."""
+        component = Component(vis, "viseron.components.test", "test", {})
+        component.add_error(ComponentErrorSource.SETUP, "Something went wrong")
+        errors = component.errors
+        assert len(errors) == 1
+        assert errors[0].source == ComponentErrorSource.SETUP
+        assert errors[0].message == "Something went wrong"
+        assert errors[0].component_name == "test"
+        assert errors[0].domain is None
+        assert errors[0].identifier is None
+
+    def test_add_error_with_domain(self, vis: MockViseron) -> None:
+        """Test adding an error with domain context."""
+        component = Component(vis, "viseron.components.test", "test", {})
+        component.add_error(
+            ComponentErrorSource.DOMAIN,
+            "Camera failed",
+            domain="camera",
+            identifier="cam1",
+        )
+        errors = component.errors
+        assert len(errors) == 1
+        assert errors[0].source == ComponentErrorSource.DOMAIN
+        assert errors[0].domain == "camera"
+        assert errors[0].identifier == "cam1"
+
+    def test_clear_errors(self, vis: MockViseron) -> None:
+        """Test clearing errors."""
+        component = Component(vis, "viseron.components.test", "test", {})
+        component.add_error(ComponentErrorSource.SETUP, "Error 1")
+        component.add_error(ComponentErrorSource.SETUP, "Error 2")
+        assert len(component.errors) == 2
+        component.clear_errors()
+        assert len(component.errors) == 0
+
+    def test_errors_returns_copy(self, vis: MockViseron) -> None:
+        """Test that errors property returns a copy."""
+        component = Component(vis, "viseron.components.test", "test", {})
+        component.add_error(ComponentErrorSource.SETUP, "Error")
+        errors1 = component.errors
+        errors2 = component.errors
+        assert errors1 is not errors2
+        assert errors1 == errors2
+
+    def test_validation_error_recorded(self, vis: MockViseron) -> None:
+        """Test validation failure records error on component."""
+        mock_module = MockComponentModule(
+            config_schema=Mock(side_effect=vol.Invalid("Bad config"))
+        )
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_module
+        ):
+            component = Component(vis, "test_path", "test_comp", {"key": "value"})
+            component.validate_component_config()
+
+        errors = component.errors
+        assert len(errors) == 1
+        assert errors[0].source == ComponentErrorSource.VALIDATION
+        assert "Bad config" in errors[0].message
+
+    def test_setup_exception_error_recorded(self, vis: MockViseron) -> None:
+        """Test uncaught exception during setup records error."""
+        mock_module = MockComponentModule(
+            setup_exception=RuntimeError("Unexpected crash")
+        )
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_module
+        ):
+            component = Component(vis, "viseron.components.test", "test", {})
+            component.setup_component()
+
+        errors = component.errors
+        assert len(errors) == 1
+        assert errors[0].source == ComponentErrorSource.SETUP
+        assert "Unexpected crash" in errors[0].message
+
+    def test_not_ready_error_recorded(self, vis: MockViseron) -> None:
+        """Test ComponentNotReady records error."""
+        mock_module = MockComponentModule(
+            setup_exception=ComponentNotReady("Not ready yet")
+        )
+        with (
+            patch(
+                "viseron.components.importlib.import_module", return_value=mock_module
+            ),
+            patch("viseron.components.NamedTimer"),
+        ):
+            component = Component(vis, "viseron.components.test", "test", {})
+            component.setup_component()
+
+        errors = component.errors
+        assert len(errors) == 1
+        assert errors[0].source == ComponentErrorSource.SETUP
+        assert "Not ready yet" in errors[0].message
+
+    def test_module_not_found_error_recorded(self, vis: MockViseron) -> None:
+        """Test ModuleNotFoundError records error on component."""
+        mock_component = MockComponent(
+            vis,
+            "testing",
+            setup_component=Mock(side_effect=ModuleNotFoundError("no module")),
+        )
+        with patch("viseron.components.Component", new=mock_component):
+            setup_component(vis, mock_component)
+
+        errors = mock_component.errors
+        assert len(errors) == 1
+        assert errors[0].source == ComponentErrorSource.IMPORT
+        assert "no module" in errors[0].message
+
+    def test_retry_clears_errors(self, vis: MockViseron) -> None:
+        """Test that retrying (tries > 1) clears previous errors."""
+        mock_module = MockComponentModule(setup_return=True)
+        component = Component(vis, "viseron.components.test", "test", {})
+        component.add_error(ComponentErrorSource.SETUP, "Previous error")
+        vis.data[FAILED]["test"] = component
+
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_module
+        ):
+            setup_component(vis, component, tries=2)
+
+        assert len(component.errors) == 0
+        assert component.state == ComponentState.LOADED
+
+
+class TestComponentStatusDict:
+    """Test Component.as_status_dict() method."""
+
+    def test_as_status_dict(self, vis: MockViseron) -> None:
+        """Test as_status_dict returns correct structure."""
+        component = Component(vis, "viseron.components.test", "test", {})
+        component.state = ComponentState.LOADED
+        component.add_error(ComponentErrorSource.SETUP, "A warning")
+
+        status = component.as_status_dict()
+        assert status["name"] == "test"
+        assert status["state"] == "loaded"
+        assert len(status["errors"]) == 1
+        assert status["errors"][0]["message"] == "A warning"
+        assert isinstance(status["domains"], list)

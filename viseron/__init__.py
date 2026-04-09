@@ -23,6 +23,7 @@ from jinja2 import BaseLoader, Environment, StrictUndefined
 from sqlalchemy import insert
 
 from viseron.components import (
+    Component,
     CriticalComponentsConfigStore,
     activate_safe_mode,
     get_component,
@@ -638,6 +639,16 @@ class Viseron:
     def get_entities(self) -> dict[str, Entity]:
         """Return all registered entities."""
         return self.states.get_entities()
+
+    def get_setup_status(self) -> dict[str, Any]:
+        """Return combined setup status for all components and domains."""
+        components: list[dict[str, Any]] = []
+        for store_key in (LOADING, LOADED, FAILED):
+            for component in self.data[store_key].values():
+                if isinstance(component, Component):
+                    components.append(component.as_status_dict())  # noqa: PERF401
+
+        return {"components": components}
 
     def schedule_periodic_update(self, entity: Entity, update_interval: int) -> Job:
         """Schedule entity update at a fixed interval."""

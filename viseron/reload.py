@@ -8,6 +8,9 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from viseron.components import (
+    Component,
+    ComponentError,
+    ComponentErrorSource,
     get_component,
     setup_components,
     unload_component,
@@ -22,7 +25,7 @@ from viseron.config import (
     diff_identifier_config,
     load_config,
 )
-from viseron.const import DEFAULT_COMPONENTS
+from viseron.const import DEFAULT_COMPONENTS, FAILED, LOADED, LOADING
 from viseron.domain_registry import DomainState
 from viseron.domains import get_unload_order, setup_domains, unload_domain
 
@@ -41,7 +44,7 @@ class ReloadResult:
     success: bool
     diff: ConfigDiff | None = None
     restart_required: bool = False
-    errors: list[str] = field(default_factory=list)
+    errors: list[ComponentError] = field(default_factory=list)
 
 
 @dataclass
@@ -341,8 +344,13 @@ def _validate_config(
     vis: Viseron,
     new_config: dict,
     changes: ReloadChanges,
-) -> bool:
-    """Validate new config before applying changes."""
+) -> list[ComponentError]:
+    """Validate new config before applying changes.
+
+    Returns a list of ComponentError instances. An empty list means validation passed.
+    Validation errors are also stored on existing components via their
+    validation_error field so they get dispatched via component status events.
+    """
     components_to_validate = set()
     for component_change in changes.components_to_reload:
         components_to_validate.add(component_change.component_name)
@@ -352,19 +360,62 @@ def _validate_config(
         components_to_validate.add(identifier_change.component_name)
 
     LOGGER.debug(f"Validating config for components: {components_to_validate}")
+    errors: list[ComponentError] = []
     for component_name in components_to_validate:
+        # Clear any previous validation error on the existing component
+        existing: Component | None = None
+        for store_key in (LOADED, LOADING, FAILED):
+            comp = vis.data[store_key].get(component_name)
+            if isinstance(comp, Component):
+                existing = comp
+                break
+        if existing and existing.validation_error is not None:
+            existing.validation_error = None
+
         component_instance = get_component(vis, component_name, new_config)
         try:
-            result = component_instance.validate_component_config()
-        except Exception:  # pylint: disable=broad-except
+            validation_result = component_instance.validate_component_config()
+        except Exception as ex:  # pylint: disable=broad-except
             LOGGER.exception(f"Config validation failed for component {component_name}")
-            return False
+            error_msg = str(ex)
+            errors.append(
+                ComponentError(
+                    source=ComponentErrorSource.VALIDATION,
+                    message=error_msg,
+                    component_name=component_name,
+                )
+            )
+            if existing:
+                existing.validation_error = error_msg
+            continue
 
-        if not result:
+        if not validation_result.success:
             LOGGER.error(f"Config validation failed for component {component_name}")
-            return False
+            error_detail = validation_result.error or "unknown error"
+            errors.append(
+                ComponentError(
+                    source=ComponentErrorSource.VALIDATION,
+                    message=error_detail,
+                    component_name=component_name,
+                )
+            )
+            if existing:
+                existing.validation_error = error_detail
 
-    return True
+    return errors
+
+
+def _clear_validation_errors(vis: Viseron) -> None:
+    """Clear validation errors from all components.
+
+    Must be called at the start of every reload so stale validation errors
+    from a previous failed reload are removed even when the config is reverted
+    and no changes are detected.
+    """
+    for store_key in (LOADED, LOADING, FAILED):
+        for comp in vis.data[store_key].values():
+            if isinstance(comp, Component) and comp.validation_error is not None:
+                comp.validation_error = None
 
 
 def _reload_config(
@@ -373,13 +424,19 @@ def _reload_config(
 ) -> ReloadResult:
     """Reload configuration from config.yaml and apply changes."""
     result = ReloadResult(success=True)
+    _clear_validation_errors(vis)
 
     try:
         loaded = _load_and_diff_config(vis)
     except Exception as ex:  # pylint: disable=broad-except
         LOGGER.exception("Failed to load new config")
         result.success = False
-        result.errors.append(f"Failed to load config.yaml: {ex}")
+        result.errors.append(
+            ComponentError(
+                source=ComponentErrorSource.VALIDATION,
+                message=f"Failed to load config.yaml: {ex}",
+            )
+        )
         return result
 
     new_config, diff, changes = loaded
@@ -398,9 +455,10 @@ def _reload_config(
     _handle_removed_components(vis, diff, plan)
     _handle_added_components(diff, plan)
 
-    if not _validate_config(vis, new_config, changes):
+    validation_errors = _validate_config(vis, new_config, changes)
+    if validation_errors:
         result.success = False
-        result.errors.append("Config validation failed for modified components")
+        result.errors.extend(validation_errors)
         LOGGER.error("Config validation failed, aborting reload")
         return result
 

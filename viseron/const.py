@@ -135,6 +135,7 @@ EVENT_ENTITY_ADDED = "entity_added"
 EVENT_DOMAIN_REGISTERED = "domain/registered/{domain}"
 EVENT_DOMAIN_UNREGISTERED = "domain/unregistered/{domain}"
 EVENT_DOMAIN_SETUP_STATUS = "domain/setup/{status}/{domain}/{identifier}"
+EVENT_COMPONENT_SETUP_STATUS = "component/setup/{status}/{component}"
 
 # Setup constants
 COMPONENT_RETRY_INTERVAL = 10
