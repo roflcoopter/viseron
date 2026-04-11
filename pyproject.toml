@@ -87,6 +87,7 @@ ignore = [
     "S603",    ##  https://docs.astral.sh/ruff/rules/subprocess-without-shell-equals-true/ Contradicts S602
     "ANN401",  ##  https://docs.astral.sh/ruff/rules/any-type/ Disabled since Any is useful in some cases
     "C901",    ##  https://docs.astral.sh/ruff/rules/complex-structure/ Disabled for readability
+    "EXE002",  ##   https://docs.astral.sh/ruff/rules/shebang-missing-executable-file/ False positives
     "ASYNC110", ##  https://docs.astral.sh/ruff/rules/async-busy-wait/ Disabled because we dont use it to wait for events
     # To be attended to
     "ANN001",  ##   795   https://docs.astral.sh/ruff/rules/missing-type-function-argument/
@@ -132,7 +133,6 @@ ignore = [
     "B010",    ##     7 * https://docs.astral.sh/ruff/rules/set-attr-with-constant/
     "PT003",   ##     7   https://docs.astral.sh/ruff/rules/pytest-extraneous-scope-function/
     "ANN205",  ##     6   https://docs.astral.sh/ruff/rules/missing-return-type-static-method/
-    "EXE002",  ##     6   https://docs.astral.sh/ruff/rules/shebang-missing-executable-file/
     "G001",    ##     6   https://docs.astral.sh/ruff/rules/logging-string-format/
     "N818",    ##     6   https://docs.astral.sh/ruff/rules/error-suffix-on-exception-name/
     "S106",    ##     6   https://docs.astral.sh/ruff/rules/hardcoded-password-func-arg/

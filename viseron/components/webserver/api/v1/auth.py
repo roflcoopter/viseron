@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 import voluptuous as vol
 
-from viseron.components.webserver.api.handlers import BaseAPIHandler
+from viseron.components.webserver.api.handlers import BaseAPIHandler, require_auth
 from viseron.components.webserver.auth import (
     AuthenticationFailedError,
     InvalidRoleError,
@@ -157,11 +157,12 @@ class AuthAPIHandler(BaseAPIHandler):
         }
         await self.response_success(response=response)
 
+    @require_auth
     async def auth_create(self) -> None:
         """Create a new user."""
         try:
             await self.run_in_executor(
-                self._webserver.auth.add_user,
+                self.auth.add_user,
                 self.json_body["name"].strip(),
                 self.json_body["username"].strip().casefold(),
                 self.json_body["password"],
@@ -172,12 +173,13 @@ class AuthAPIHandler(BaseAPIHandler):
             return
         await self.response_success()
 
+    @require_auth
     async def auth_user(self, user_id: str) -> None:
         """Get a user.
 
         Returns 200 OK with user data if user exists.
         """
-        user = await self.run_in_executor(self._webserver.auth.get_user, user_id)
+        user = await self.run_in_executor(self.auth.get_user, user_id)
         if user is None:
             self.response_error(HTTPStatus.NOT_FOUND, reason="User not found")
             return
@@ -190,6 +192,7 @@ class AuthAPIHandler(BaseAPIHandler):
             }
         )
 
+    @require_auth
     async def auth_delete(self, user_id: str) -> None:
         """Delete a user."""
         if self.current_user and self.current_user.id == user_id:
@@ -199,7 +202,7 @@ class AuthAPIHandler(BaseAPIHandler):
             return
 
         try:
-            await self.run_in_executor(self._webserver.auth.delete_user, user_id)
+            await self.run_in_executor(self.auth.delete_user, user_id)
         except UserDoesNotExistError as error:
             self.response_error(HTTPStatus.NOT_FOUND, reason=str(error))
             return
@@ -209,11 +212,12 @@ class AuthAPIHandler(BaseAPIHandler):
 
         await self.response_success()
 
+    @require_auth
     async def auth_login(self) -> None:
         """Login."""
         try:
             user = await self.run_in_executor(
-                self._webserver.auth.validate_user,
+                self.auth.validate_user,
                 self.json_body["username"],
                 self.json_body["password"],
             )
@@ -224,13 +228,13 @@ class AuthAPIHandler(BaseAPIHandler):
             return
 
         refresh_token = await self.run_in_executor(
-            self._webserver.auth.generate_refresh_token,
+            self.auth.generate_refresh_token,
             user.id,
             self.json_body["client_id"],
             "normal",
         )
         access_token = await self.run_in_executor(
-            self._webserver.auth.generate_access_token,
+            self.auth.generate_access_token,
             refresh_token,
             self.request.remote_ip,
         )
@@ -244,17 +248,18 @@ class AuthAPIHandler(BaseAPIHandler):
             ),
         )
 
+    @require_auth
     async def auth_logout(self) -> None:
         """Logout."""
         refresh_token_cookie = self.get_secure_cookie("refresh_token")
         if refresh_token_cookie is not None:
             refresh_token = await self.run_in_executor(
-                self._webserver.auth.get_refresh_token_from_token,
+                self.auth.get_refresh_token_from_token,
                 refresh_token_cookie.decode(),
             )
             if refresh_token is not None:
                 await self.run_in_executor(
-                    self._webserver.auth.delete_refresh_token, refresh_token
+                    self.auth.delete_refresh_token, refresh_token
                 )
 
         self.clear_all_cookies()
@@ -271,7 +276,7 @@ class AuthAPIHandler(BaseAPIHandler):
         if refresh_token_cookie is None:
             return HTTPStatus.BAD_REQUEST, "Invalid refresh token"
 
-        refresh_token = self._webserver.auth.get_refresh_token_from_token(
+        refresh_token = self.auth.get_refresh_token_from_token(
             refresh_token_cookie.decode()
         )
 
@@ -281,11 +286,11 @@ class AuthAPIHandler(BaseAPIHandler):
         if refresh_token.client_id != self.json_body["client_id"]:
             return HTTPStatus.BAD_REQUEST, "Invalid client_id"
 
-        user = self._webserver.auth.get_user(refresh_token.user_id)
+        user = self.auth.get_user(refresh_token.user_id)
         if user is None:
             return HTTPStatus.BAD_REQUEST, "Invalid user"
 
-        access_token = self._webserver.auth.generate_access_token(
+        access_token = self.auth.generate_access_token(
             refresh_token, self.request.remote_ip
         )
 
@@ -299,6 +304,7 @@ class AuthAPIHandler(BaseAPIHandler):
             ),
         )
 
+    @require_auth
     async def auth_token(self) -> None:
         """Handle token request."""
         if self.json_body["grant_type"] == "refresh_token":
@@ -317,13 +323,15 @@ class AuthAPIHandler(BaseAPIHandler):
             reason="Invalid grant_type",
         )
 
+    @require_auth
     async def auth_users(self) -> None:
         """Get all users."""
-        users = await self.run_in_executor(self._webserver.auth.get_users)
+        users = await self.run_in_executor(self.auth.get_users)
         response = {}
         response["users"] = list(users.values())
         await self.response_success(response=response)
 
+    @require_auth
     async def auth_admin_change_password(self, user_id: str) -> None:
         """Change the password of a user as an admin."""
         if self.current_user and self.current_user.role != Role.ADMIN:
@@ -335,7 +343,7 @@ class AuthAPIHandler(BaseAPIHandler):
 
         try:
             await self.run_in_executor(
-                self._webserver.auth.change_password,
+                self.auth.change_password,
                 user_id,
                 self.json_body["new_password"],
             )
@@ -345,11 +353,12 @@ class AuthAPIHandler(BaseAPIHandler):
 
         await self.response_success()
 
+    @require_auth
     async def auth_update_user(self, user_id: str) -> None:
         """Update user details."""
         try:
             await self.run_in_executor(
-                self._webserver.auth.update_user,
+                self.auth.update_user,
                 user_id,
                 self.json_body["name"],
                 self.json_body["username"],

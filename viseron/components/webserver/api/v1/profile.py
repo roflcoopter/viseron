@@ -7,7 +7,7 @@ from zoneinfo import available_timezones
 
 import voluptuous as vol
 
-from viseron.components.webserver.api.handlers import BaseAPIHandler
+from viseron.components.webserver.api.handlers import BaseAPIHandler, require_auth
 from viseron.components.webserver.auth import (
     InvalidDateFormatError,
     InvalidTimeFormatError,
@@ -58,6 +58,7 @@ class ProfileAPIHandler(BaseAPIHandler):
         timezones = sorted(available_timezones())
         await self.response_success(response={"timezones": timezones})
 
+    @require_auth
     async def put_profile_preferences(self) -> None:
         """Update the current user's preferences."""
         if not self.current_user:
@@ -69,7 +70,7 @@ class ProfileAPIHandler(BaseAPIHandler):
 
         try:
             await self.run_in_executor(
-                self._webserver.auth.update_preferences,
+                self.auth.update_preferences,
                 self.current_user.id,
                 Preferences(
                     timezone=self.json_body["timezone"],
@@ -92,6 +93,7 @@ class ProfileAPIHandler(BaseAPIHandler):
 
         await self.response_success()
 
+    @require_auth
     async def put_profile_display_name(self) -> None:
         """Update the current user's display name."""
         if not self.current_user:
@@ -111,7 +113,7 @@ class ProfileAPIHandler(BaseAPIHandler):
 
         try:
             await self.run_in_executor(
-                self._webserver.auth.update_display_name,
+                self.auth.update_display_name,
                 self.current_user.id,
                 name,
             )

@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 import json
 import logging
-from functools import partial
+from functools import partial, wraps
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypedDict, cast
 
@@ -19,12 +19,14 @@ from viseron.components.webserver.request_handler import ViseronRequestHandler
 from viseron.helpers.json import JSONEncoder
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
     from re import Match, Pattern
 
     from typing_extensions import NotRequired
     from voluptuous.schema_builder import Schema
 
     from viseron import Viseron
+    from viseron.components.webserver.auth import Auth
 
 LOGGER = logging.getLogger(__name__)
 
@@ -50,10 +52,42 @@ class Route(TypedDict):
     request_arguments_schema: NotRequired[Schema]
 
 
+def require_auth(
+    func: Callable[..., Coroutine[Any, Any, None]],
+) -> Callable[..., Coroutine[Any, Any, None]]:
+    """Decorate an endpoint to require auth to be enabled.
+
+    Returns HTTP 503 if authentication is not configured.
+    Methods decorated with this can safely use ``self.auth``.
+    """
+
+    @wraps(func)
+    async def wrapper(self: BaseAPIHandler, *args: Any, **kwargs: Any) -> None:
+        if self._webserver.auth is None:  # pylint: disable=protected-access
+            self.response_error(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                reason="Authentication is not enabled",
+            )
+            return
+        await func(self, *args, **kwargs)
+
+    return wrapper
+
+
 class BaseAPIHandler(ViseronRequestHandler):
     """Base handler for all API endpoints."""
 
     routes: ClassVar[list[Route]] = []
+
+    @property
+    def auth(self) -> Auth:
+        """Return auth instance.
+
+        Only safe to use inside ``@require_auth``-decorated methods.
+        """
+        if self._webserver.auth is None:
+            raise RuntimeError("auth property used without @require_auth guard")
+        return self._webserver.auth
 
     def initialize(self, vis: Viseron) -> None:
         """Initialize."""

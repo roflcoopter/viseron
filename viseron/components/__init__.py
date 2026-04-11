@@ -577,12 +577,12 @@ def activate_safe_mode(vis: Viseron) -> None:
         critical_components_config = {}
 
     loaded_set = set(vis.data[LOADED])
-    # Setup logger first
-    for component in LOGGING_COMPONENTS - loaded_set:
-        setup_component(vis, get_component(vis, component, critical_components_config))
-
     # Setup core components
     for component in CORE_COMPONENTS - loaded_set:
+        setup_component(vis, get_component(vis, component, critical_components_config))
+
+    # Setup logger first
+    for component in LOGGING_COMPONENTS - loaded_set:
         setup_component(vis, get_component(vis, component, critical_components_config))
 
     # Setup default components
@@ -604,14 +604,14 @@ def setup_components(
     else:
         components_to_setup = components
 
-    # Setup logger first if present in config
-    for component in components_to_setup & LOGGING_COMPONENTS:
-        setup_component(vis, get_component(vis, component, config))
-
     # Setup core components
     if not reloading:
         for component in CORE_COMPONENTS:
             setup_component(vis, get_component(vis, component, config))
+
+    # Setup logger first if present in config
+    for component in components_to_setup & LOGGING_COMPONENTS:
+        setup_component(vis, get_component(vis, component, config))
 
     # Setup all default components, even if they are not present in config.
     # When reloading, only setup default components that are being reloaded.

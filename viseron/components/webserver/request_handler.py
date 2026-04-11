@@ -1,32 +1,35 @@
 """Viseron request handler."""
+
 from __future__ import annotations
 
 import hmac
 import logging
-from collections.abc import Callable
 from datetime import datetime, timedelta
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, overload
 
 import pytz
 import tornado.web
-from sqlalchemy.orm import Session
 from tornado.ioloop import IOLoop
 
 from viseron.components.nvr.const import DOMAIN as NVR_DOMAIN
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.webserver.auth import Role
 from viseron.components.webserver.const import COMPONENT
-from viseron.domain_registry import DomainEntry
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import DomainNotRegisteredError
 from viseron.helpers import get_utc_offset, utcnow
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from sqlalchemy.orm import Session
+
     from viseron import Viseron
     from viseron.components.nvr.nvr import NVR
     from viseron.components.webserver import Webserver
     from viseron.components.webserver.auth import RefreshToken, User
+    from viseron.domain_registry import DomainEntry
     from viseron.domains.camera import AbstractCamera, FailedCamera
 
 _T = TypeVar("_T")
@@ -44,7 +47,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         self._storage = vis.data[STORAGE_COMPONENT]
         self.current_user = None
         # Manually set xsrf cookie
-        self.xsrf_token  # pylint: disable=pointless-statement
+        self.xsrf_token  # pylint: disable=pointless-statement # noqa: B018
 
     async def run_in_executor(self, func: Callable[..., _T], *args) -> _T:
         """Run function in executor."""
@@ -79,7 +82,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         return self._webserver
 
     @property
-    def status(self):
+    def status(self) -> int:
         """Return the status of the request."""
         return self.get_status()
 
@@ -104,8 +107,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
                 local_now = datetime.now(
                     tz=pytz.timezone(self.current_user.preferences.timezone)
                 )
-                offset = local_now.utcoffset() or timedelta(0)
-                return offset
+                return local_now.utcoffset() or timedelta(0)
             except (KeyError, ValueError):
                 pass
 
@@ -141,9 +143,13 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         refresh_token: RefreshToken,
         access_token: str,
         user: User,
-        new_session=False,
+        *,
+        new_session: bool = False,
     ) -> None:
         """Set session cookies."""
+        if not self._webserver.auth:
+            raise RuntimeError("Auth is not set up, cannot set cookies.")
+
         now = utcnow()
 
         _header, _payload, signature = access_token.split(".")
@@ -203,9 +209,12 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             self.clear_cookie(name, *kwargs)
 
     def validate_access_token(
-        self, access_token: str, check_refresh_token: bool = True
-    ):
+        self, access_token: str, *, check_refresh_token: bool = True
+    ) -> bool:
         """Validate access token."""
+        if not self._webserver.auth:
+            raise RuntimeError("Auth is not set up, cannot validate access token.")
+
         # Check access token is valid
         refresh_token = self._webserver.auth.validate_access_token(access_token)
         if refresh_token is None:
@@ -217,7 +226,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             refresh_token_cookie = self.get_secure_cookie("refresh_token")
             if refresh_token_cookie is None:
                 LOGGER.debug("Refresh token is missing")
-                return
+                return False
             if not hmac.compare_digest(
                 refresh_token_cookie.decode(), refresh_token.token
             ):
@@ -249,12 +258,11 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         ):
             return cameras
 
-        filtered_cameras = {
+        return {
             camera_identifier: camera_instance
             for camera_identifier, camera_instance in cameras.items()
             if camera_identifier in self.current_user.assigned_cameras
         }
-        return filtered_cameras
 
     def get_cameras(self) -> None | dict[str, AbstractCamera]:
         """Get all registered camera instances."""
@@ -263,9 +271,9 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
     def _get_failed_cameras(self) -> None | dict[str, FailedCamera]:
         """Get all registered failed camera instances."""
         try:
-            failed_entries: dict[
-                str, DomainEntry
-            ] = self._vis.domain_registry.get_failed(CAMERA_DOMAIN)
+            failed_entries: dict[str, DomainEntry] = (
+                self._vis.domain_registry.get_failed(CAMERA_DOMAIN)
+            )
         except DomainNotRegisteredError:
             return None
 
@@ -287,29 +295,25 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         }
 
     @overload
-    def _get_camera(self, camera_identifier: str) -> AbstractCamera | None:
-        ...
+    def _get_camera(self, camera_identifier: str) -> AbstractCamera | None: ...
 
     @overload
     def _get_camera(
-        self, camera_identifier: str, failed: Literal[False]
-    ) -> AbstractCamera | None:
-        ...
+        self, camera_identifier: str, *, failed: Literal[False]
+    ) -> AbstractCamera | None: ...
 
     @overload
     def _get_camera(
-        self, camera_identifier: str, failed: Literal[True]
-    ) -> AbstractCamera | FailedCamera | None:
-        ...
+        self, camera_identifier: str, *, failed: Literal[True]
+    ) -> AbstractCamera | FailedCamera | None: ...
 
     @overload
     def _get_camera(
-        self, camera_identifier: str, failed: bool
-    ) -> AbstractCamera | FailedCamera | None:
-        ...
+        self, camera_identifier: str, *, failed: bool
+    ) -> AbstractCamera | FailedCamera | None: ...
 
     def _get_camera(
-        self, camera_identifier: str, failed: bool = False
+        self, camera_identifier: str, *, failed: bool = False
     ) -> AbstractCamera | FailedCamera | None:
         """Get camera instance.
 
@@ -341,32 +345,28 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         return None
 
     @overload
-    def get_camera(self, camera_identifier: str) -> AbstractCamera | None:
-        ...
+    def get_camera(self, camera_identifier: str) -> AbstractCamera | None: ...
 
     @overload
     def get_camera(
-        self, camera_identifier: str, failed: Literal[False]
-    ) -> AbstractCamera | None:
-        ...
+        self, camera_identifier: str, *, failed: Literal[False]
+    ) -> AbstractCamera | None: ...
 
     @overload
     def get_camera(
-        self, camera_identifier: str, failed: Literal[True]
-    ) -> AbstractCamera | FailedCamera | None:
-        ...
+        self, camera_identifier: str, *, failed: Literal[True]
+    ) -> AbstractCamera | FailedCamera | None: ...
 
     @overload
     def get_camera(
-        self, camera_identifier: str, failed: bool
-    ) -> AbstractCamera | FailedCamera | None:
-        ...
+        self, camera_identifier: str, *, failed: bool
+    ) -> AbstractCamera | FailedCamera | None: ...
 
     def get_camera(
-        self, camera_identifier: str, failed: bool = False
+        self, camera_identifier: str, *, failed: bool = False
     ) -> AbstractCamera | FailedCamera | None:
         """Get camera instance."""
-        return self._get_camera(camera_identifier, failed)
+        return self._get_camera(camera_identifier, failed=failed)
 
     def get_nvr(self, camera_identifier: str) -> NVR | None:
         """Get NVR instance for camera."""
@@ -388,11 +388,12 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
 
     def validate_camera_token(self, camera: AbstractCamera) -> bool:
         """Validate camera token."""
+        if not self._webserver.auth:
+            raise RuntimeError("Auth is not set up, cannot validate camera token.")
+
         access_token = self.get_argument("access_token", None, strip=True)
         if access_token:
-            if access_token in camera.access_tokens:
-                return True
-            return False
+            return access_token in camera.access_tokens
 
         # Access token query parameter not set, check cookies
         refresh_token_cookie = self.get_secure_cookie("refresh_token")
@@ -401,7 +402,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             refresh_token = self._webserver.auth.get_refresh_token_from_token(
                 refresh_token_cookie.decode()
             )
-            if hmac.compare_digest(
+            if refresh_token and hmac.compare_digest(
                 refresh_token.static_asset_key, static_asset_key.decode()
             ):
                 return True

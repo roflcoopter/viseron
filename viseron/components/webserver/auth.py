@@ -553,7 +553,7 @@ class Auth:
     def generate_access_token(
         self,
         refresh_token: RefreshToken,
-        remote_ip: str,
+        remote_ip: str | None,
         expiry: datetime.timedelta | None = None,
     ) -> str:
         """Generate access token using JWT."""
