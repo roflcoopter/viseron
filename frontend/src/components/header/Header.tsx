@@ -14,15 +14,17 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { alpha, styled, useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { useContext, useRef, useState } from "react";
+import { useCallback, useContext, useRef, useState } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import ViseronLogo from "svg/viseron-logo.svg?react";
 
 import Breadcrumbs from "components/header/Breadcrumbs";
 import Drawer from "components/header/Drawer";
+import SetupErrorBanner from "components/header/SetupErrorBanner";
 import { useAuthContext } from "context/AuthContext";
 import { ColorModeContext } from "context/ColorModeContext";
 import { ViseronContext } from "context/ViseronContext";
+import { useResizeObserver } from "hooks/UseResizeObserver";
 import { useScrollPosition } from "hooks/UseScrollPosition";
 import { useToast } from "hooks/UseToast";
 import { useAuthLogout } from "lib/api/auth";
@@ -64,8 +66,27 @@ export default function AppHeader() {
   const [showHeader, setShowHeader] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const lastTogglePos = useRef(0);
+  const headerRef = useRef<HTMLElement>(null);
   const { auth, user } = useAuthContext();
   const { safeMode } = useContext(ViseronContext);
+
+  const handleHeaderResize = useCallback<ResizeObserverCallback>((entries) => {
+    if (entries.length > 0) {
+      const entry = entries[0];
+      const borderBoxSize = entry.borderBoxSize;
+      const blockSize = Array.isArray(borderBoxSize)
+        ? borderBoxSize[0]?.blockSize
+        : null;
+      const headerHeight = blockSize ?? entry.contentRect.height;
+
+      document.documentElement.style.setProperty(
+        "--header-height",
+        `${headerHeight}px`,
+      );
+    }
+  }, []);
+
+  useResizeObserver(headerRef, handleHeaderResize);
 
   useScrollPosition((prevPos: any, currPos: any) => {
     // Always show header if we haven't scrolled down more than theme.headerHeight
@@ -99,7 +120,7 @@ export default function AppHeader() {
   return (
     <>
       <Drawer drawerOpen={drawerOpen} setDrawerOpen={setDrawerOpen} />
-      <Header showHeader={showHeader}>
+      <Header ref={headerRef} showHeader={showHeader}>
         <Container
           maxWidth={false}
           sx={{
@@ -239,6 +260,7 @@ export default function AppHeader() {
             </Typography>
           </Box>
         ) : null}
+        <SetupErrorBanner />
       </Header>
     </>
   );

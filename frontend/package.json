@@ -113,7 +113,6 @@
     "vitest": "^3.2.4"
   },
   "scripts": {
-    "postinstall": "playwright install",
     "start": "vite --host",
     "build": "tsc && vite build",
     "serve": "vite preview",

@@ -40,10 +40,10 @@ const setTableHeight = (
     playerCardGridItemRef.current
   ) {
     if (smBreakpoint) {
-      eventsRef.current.style.height = `calc(${COLUMN_HEIGHT} - ${theme.headerHeight}px - ${tabListRef.current.offsetHeight}px)`;
+      eventsRef.current.style.height = `calc(${COLUMN_HEIGHT} - var(--header-height, ${theme.headerHeight}px) - ${tabListRef.current.offsetHeight}px)`;
       timelineRef.current.style.height = eventsRef.current.style.height;
     } else {
-      eventsRef.current.style.height = `calc(${COLUMN_HEIGHT_SMALL} - ${theme.headerHeight}px - ${tabListRef.current.offsetHeight}px - ${playerCardGridItemRef.current.offsetHeight}px)`;
+      eventsRef.current.style.height = `calc(${COLUMN_HEIGHT_SMALL} - var(--header-height, ${theme.headerHeight}px) - ${tabListRef.current.offsetHeight}px - ${playerCardGridItemRef.current.offsetHeight}px)`;
       timelineRef.current.style.height = eventsRef.current.style.height;
     }
   }
@@ -90,7 +90,7 @@ const useSetPlayerCardHeight = (
     const handleResize = () => {
       if (playerCardGridItemRef.current) {
         if (smBreakpoint) {
-          playerCardGridItemRef.current.style.height = `calc(${COLUMN_HEIGHT} - ${theme.headerHeight}px)`;
+          playerCardGridItemRef.current.style.height = `calc(${COLUMN_HEIGHT} - var(--header-height, ${theme.headerHeight}px))`;
           playerCardGridItemRef.current.style.maxHeight = "unset";
         } else {
           playerCardGridItemRef.current.style.height = "100%";
@@ -251,7 +251,7 @@ export const Layout = memo(
               },
               smBreakpoint
                 ? {
-                    height: `calc(${COLUMN_HEIGHT} - ${theme.headerHeight}px)`,
+                    height: `calc(${COLUMN_HEIGHT} - var(--header-height, ${theme.headerHeight}px))`,
                     maxHeight: "unset",
                   }
                 : {

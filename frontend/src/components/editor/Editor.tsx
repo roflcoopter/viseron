@@ -1,4 +1,4 @@
-import { Restart, Save } from "@carbon/icons-react";
+import { Renew, Restart, Save } from "@carbon/icons-react";
 import Editor, { Monaco, loader } from "@monaco-editor/react";
 import Backdrop from "@mui/material/Backdrop";
 import Box from "@mui/material/Box";
@@ -20,9 +20,16 @@ import { configureMonacoYaml } from "monaco-yaml";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 
 import Markers from "components/editor/Markers";
+import SetupErrorsSidebar from "components/editor/SetupErrorsSidebar";
 import { Loading } from "components/loading/Loading";
 import { ViseronContext } from "context/ViseronContext";
-import { getConfig, restartViseron, saveConfig } from "lib/commands";
+import { useResizeObserver } from "hooks/UseResizeObserver";
+import {
+  getConfig,
+  reloadConfig,
+  restartViseron,
+  saveConfig,
+} from "lib/commands";
 
 import YamlWorker from "./yaml.worker.js?worker";
 
@@ -69,33 +76,25 @@ const options = {
 
 const editorWidth = "100%";
 
-const useResize = (
-  editorRef: React.MutableRefObject<
-    monaco.editor.IStandaloneCodeEditor | undefined
-  >,
-) => {
-  const updateDimensions = useCallback(() => {
-    if (editorRef.current) {
-      editorRef.current.layout();
-    }
-  }, [editorRef]);
-
-  useEffect(() => {
-    window.addEventListener("resize", updateDimensions, true);
-    return () => {
-      window.removeEventListener("resize", updateDimensions, true);
-    };
-  }, [updateDimensions]);
-};
-
 function ConfigEditor() {
   const viseron = useContext(ViseronContext);
   const theme = useTheme();
 
   const editorInstance = useRef<monaco.editor.IStandaloneCodeEditor>(undefined);
   const markersRef = useRef<monaco.editor.IMarker[]>([]);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
 
-  useResize(editorInstance);
+  const handleEditorContainerResize = useCallback<ResizeObserverCallback>(
+    (entries) => {
+      if (editorInstance.current && entries.length > 0) {
+        const { width, height } = entries[0].contentRect;
+        editorInstance.current.layout({ width, height });
+      }
+    },
+    [],
+  );
+
+  useResizeObserver(editorContainerRef, handleEditorContainerResize);
 
   const [configUnsaved, setConfigUnsaved] = useState<boolean>(false);
   const [savedConfig, setSavedConfig] = useState<string | undefined>(undefined);
@@ -106,6 +105,17 @@ function ConfigEditor() {
 
   const [restartPending, setRestartPending] = useState(false);
   const [restartDialog, setRestartDialog] = useState({ open: false, text: "" });
+
+  const [reloadPending, setReloadPending] = useState(false);
+  const [reloadResultDialog, setReloadResultDialog] = useState<{
+    open: boolean;
+    title: string;
+    text: string;
+  }>({
+    open: false,
+    title: "",
+    text: "",
+  });
 
   const save = () => {
     setSavePending(true);
@@ -153,6 +163,39 @@ function ConfigEditor() {
         text = `You have unsaved changes to your config. Do you want to restart Viseron anyway?`;
       }
       setRestartDialog({ open: true, text });
+    }
+  };
+
+  const handleReloadConfig = () => {
+    if (viseron.connection) {
+      setReloadPending(true);
+      reloadConfig(viseron.connection).then(
+        (result) => {
+          setReloadPending(false);
+          if (!result.success) {
+            setReloadResultDialog({
+              open: true,
+              title: "Reload failed",
+              text: "Configuration validation failed. Check the setup errors panel for details.",
+            });
+          } else if (result.restart_required) {
+            setReloadResultDialog({
+              open: true,
+              title: "Reload completed",
+              text: "Configuration was reloaded, but some changes require a restart to take effect.",
+            });
+          }
+          editorInstance.current?.focus();
+        },
+        (reason) => {
+          setReloadPending(false);
+          setReloadResultDialog({
+            open: true,
+            title: "Reload failed",
+            text: reason.message,
+          });
+        },
+      );
     }
   };
 
@@ -319,6 +362,40 @@ function ConfigEditor() {
           </Button>
         </DialogActions>
       </Dialog>
+      <Dialog
+        open={reloadResultDialog.open}
+        onClose={() => {
+          setReloadResultDialog({ ...reloadResultDialog, open: false });
+          // Editor does not focus without the timer
+          setTimeout(() => {
+            editorInstance.current?.focus();
+          }, 1);
+        }}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">
+          {reloadResultDialog.title}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText component="div" id="alert-dialog-description">
+            {reloadResultDialog.text}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setReloadResultDialog({ ...reloadResultDialog, open: false });
+              // Editor does not focus without the timer
+              setTimeout(() => {
+                editorInstance.current?.focus();
+              }, 1);
+            }}
+          >
+            OK
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Stack
         justifyContent="flex-start"
         alignItems="flex-start"
@@ -343,6 +420,17 @@ function ConfigEditor() {
               Restart
             </Button>
           </span>
+          <span>
+            <Button
+              startIcon={<Renew />}
+              loadingPosition="start"
+              onClick={handleReloadConfig}
+              variant="contained"
+              loading={reloadPending}
+            >
+              Reload
+            </Button>
+          </span>
           <Tooltip title="Ctrl+S" enterDelay={300}>
             <span>
               <Button
@@ -359,49 +447,73 @@ function ConfigEditor() {
           </Tooltip>
         </Stack>
         <Box
-          sx={[
-            {
-              width: editorWidth,
-              position: "relative",
-            },
-            markers.length > 0
-              ? {
-                  height: "70vh",
-                }
-              : {
-                  height: "80vh",
-                },
-          ]}
+          sx={{
+            display: "flex",
+            flexDirection: { xs: "column", md: "row" },
+            gap: 1,
+            width: "100%",
+            height: "85vh",
+            overflow: "hidden",
+          }}
         >
-          <Backdrop open={savePending} sx={{ position: "absolute", zIndex: 1 }}>
-            <CircularProgress enableTrackSlot color="inherit" />
-          </Backdrop>
-          <Card
-            variant="outlined"
-            sx={() => ({
-              backgroundColor: "#fffffe",
-              ...theme.applyStyles("dark", {
-                backgroundColor: "#1e1e1e",
-              }),
-            })}
+          <Box
+            sx={{
+              position: "relative",
+              flex: 1,
+              minHeight: 0,
+              minWidth: 0,
+              overflow: "hidden",
+            }}
           >
-            <Editor
-              height={markers.length > 0 ? "70vh" : "80vh"}
-              defaultLanguage="yaml"
-              theme={`${theme.palette.mode === "dark" ? "vs-dark" : "light"}`}
-              defaultValue={savedConfig}
-              options={options}
-              onChange={onChange}
-              onMount={onMount}
-              onValidate={onValidate}
-            />
-            {markers.length > 0 && <Divider />}
-            <Markers
-              editor={editorInstance.current}
-              markers={markers}
-              width={editorWidth}
-            />
-          </Card>
+            <Backdrop
+              open={savePending}
+              sx={{ position: "absolute", zIndex: 1 }}
+            >
+              <CircularProgress enableTrackSlot color="inherit" />
+            </Backdrop>
+            <Card
+              variant="outlined"
+              sx={{
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                backgroundColor: "#fffffe",
+                ...theme.applyStyles("dark", {
+                  backgroundColor: "#1e1e1e",
+                }),
+              }}
+            >
+              <Box ref={editorContainerRef} sx={{ flex: 1, minHeight: 0 }}>
+                <Editor
+                  height="100%"
+                  defaultLanguage="yaml"
+                  theme={`${theme.palette.mode === "dark" ? "vs-dark" : "light"}`}
+                  defaultValue={savedConfig}
+                  options={options}
+                  onChange={onChange}
+                  onMount={onMount}
+                  onValidate={onValidate}
+                />
+              </Box>
+              {markers.length > 0 && <Divider />}
+              <Markers
+                editor={editorInstance.current}
+                markers={markers}
+                width={editorWidth}
+              />
+            </Card>
+          </Box>
+          <Box
+            sx={{
+              width: { xs: "100%", md: "340px" },
+              maxHeight: { xs: "30vh", md: "100%" },
+              flexShrink: { xs: 1, md: 0 },
+              minHeight: 0,
+              overflow: "hidden",
+            }}
+          >
+            <SetupErrorsSidebar />
+          </Box>
         </Box>
       </Stack>
     </div>

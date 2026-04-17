@@ -414,9 +414,10 @@ class AbstractRecorder(ABC, RecorderBase):
         # Create filename
         video_name = self.video_name(recording.start_time)
 
-        # Create foldername
+        # Create foldername using server-local date (consistent with filename)
         full_path = os.path.join(
-            self._camera.event_clips_folder, recording.start_time.date().isoformat()
+            self._camera.event_clips_folder,
+            (recording.start_time + get_utc_offset()).date().isoformat(),
         )
 
         clip_path = os.path.join(full_path, video_name)

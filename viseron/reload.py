@@ -27,7 +27,11 @@ from viseron.config import (
 )
 from viseron.const import DEFAULT_COMPONENTS, FAILED, LOADED, LOADING
 from viseron.domain_registry import DomainState
-from viseron.domains import get_unload_order, setup_domains, unload_domain
+from viseron.domains import (
+    setup_domains,
+    unload_domain,
+    unload_domain_chain,
+)
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -55,6 +59,24 @@ class ReloadChanges:
     domains_to_reload: list[DomainChange] = field(default_factory=list)
     identifiers_to_reload: list[IdentifierChange] = field(default_factory=list)
 
+    def remove_default_components(self) -> None:
+        """Remove any changes related to DEFAULT_COMPONENTS."""
+        self.components_to_reload = [
+            change
+            for change in self.components_to_reload
+            if change.component_name not in DEFAULT_COMPONENTS
+        ]
+        self.domains_to_reload = [
+            change
+            for change in self.domains_to_reload
+            if change.component_name not in DEFAULT_COMPONENTS
+        ]
+        self.identifiers_to_reload = [
+            change
+            for change in self.identifiers_to_reload
+            if change.component_name not in DEFAULT_COMPONENTS
+        ]
+
 
 @dataclass
 class SetupPlan:
@@ -62,16 +84,6 @@ class SetupPlan:
 
     components: set[str] = field(default_factory=set)
     domain_components: set[str] = field(default_factory=set)
-
-
-def _unload_domain_chain(
-    vis: Viseron, domain: SupportedDomains, identifier: str, plan: SetupPlan
-) -> None:
-    """Unload a domain and all its dependents in the correct order."""
-    unload_order = get_unload_order(vis, domain, identifier)
-    for e in unload_order:
-        plan.domain_components.add(e.component_name)
-        unload_domain(vis, e.domain, e.identifier)
 
 
 def _process_identifier_changes(
@@ -200,6 +212,8 @@ def _handle_removed_components(vis: Viseron, diff: ConfigDiff, plan: SetupPlan) 
     for component_name in diff.get_removed_components():
         affected_components = unload_component(vis, component_name)
         if affected_components:
+            # Ensure the removed component is never queued for re-setup.
+            affected_components.discard(component_name)
             plan.domain_components.update(affected_components)
             LOGGER.debug(
                 f"Components affected by unloading {component_name}: "
@@ -233,18 +247,11 @@ def _handle_modified_domains(
     """Unload all identifiers for modified domains."""
     for domain_change in changes.domains_to_reload:
         plan.domain_components.add(domain_change.component_name)
-        domains_to_unload = vis.domain_registry.get_by_component(
-            domain_change.component_name
+        affected_components = unload_domain(
+            vis, domain_change.component_name, domain_change.domain
         )
-        if domains_to_unload:
-            LOGGER.debug(
-                f"Component {domain_change.component_name} "
-                f"has {len(domains_to_unload)} domains to unload: "
-                f"{[(e.domain, e.identifier) for e in domains_to_unload]}"
-            )
-
-            for entry in domains_to_unload:
-                _unload_domain_chain(vis, entry.domain, entry.identifier, plan)
+        if affected_components:
+            plan.domain_components.update(affected_components)
 
 
 def _handle_modified_identifiers(
@@ -257,22 +264,24 @@ def _handle_modified_identifiers(
             identifier_change.domain, identifier_change.identifier
         )
         if domain_to_unload:
-            _unload_domain_chain(
-                vis,
-                domain_to_unload.domain,
-                domain_to_unload.identifier,
-                plan,
+            plan.domain_components.update(
+                unload_domain_chain(
+                    vis,
+                    domain_to_unload.domain,
+                    domain_to_unload.identifier,
+                )
             )
 
         if identifier_change.is_added:
             # When an identifier is added (or re-added after being removed),
             # find any dependents of this identifier
             # and unload them so they can be re-setup.
-            _unload_domain_chain(
-                vis,
-                identifier_change.domain,
-                identifier_change.identifier,
-                plan,
+            plan.domain_components.update(
+                unload_domain_chain(
+                    vis,
+                    identifier_change.domain,
+                    identifier_change.identifier,
+                )
             )
 
 
@@ -285,7 +294,12 @@ def _handle_cancelled_retries(
             f"Unloading retrying domain {entry.domain} with identifier "
             f"{entry.identifier} that was cancelled during reload"
         )
-        _unload_domain_chain(vis, entry.domain, entry.identifier, plan)
+        # Explicitly add the retrying domain's component.
+        # unload_domain_chain only returns dependents, not the root's own component.
+        plan.domain_components.add(entry.component_name)
+        plan.domain_components.update(
+            unload_domain_chain(vis, entry.domain, entry.identifier)
+        )
 
 
 def _unload_dependents_of_pending_domains(vis: Viseron, plan: SetupPlan) -> None:
@@ -309,7 +323,12 @@ def _unload_dependents_of_pending_domains(vis: Viseron, plan: SetupPlan) -> None
                 f"because its dependency {entry.domain} "
                 f"with identifier {entry.identifier} is now available"
             )
-            _unload_domain_chain(vis, dep.domain, dep.identifier, plan)
+            # Explicitly add the dependents component.
+            # unload_domain_chain only returns dependents of dep, not deps component.
+            plan.domain_components.add(dep.component_name)
+            plan.domain_components.update(
+                unload_domain_chain(vis, dep.domain, dep.identifier)
+            )
 
 
 def _apply_setup_plan(vis: Viseron, new_config: dict, plan: SetupPlan) -> None:
@@ -335,7 +354,8 @@ def _apply_setup_plan(vis: Viseron, new_config: dict, plan: SetupPlan) -> None:
         new_config,
         reloading=True,
         domains_only=True,
-        components=plan.domain_components,
+        # Make sure a components setup_domains isn't called twice
+        components=plan.domain_components - plan.components,
     )
     setup_domains(vis)
 
@@ -450,10 +470,6 @@ def _reload_config(
             f"Changes detected in default components {default_components_changed}, "
             f"restart is required to apply these changes"
         )
-        diff.remove_default_components()
-
-    _handle_removed_components(vis, diff, plan)
-    _handle_added_components(diff, plan)
 
     validation_errors = _validate_config(vis, new_config, changes)
     if validation_errors:
@@ -462,6 +478,11 @@ def _reload_config(
         LOGGER.error("Config validation failed, aborting reload")
         return result
 
+    diff.remove_default_components()
+    changes.remove_default_components()
+
+    _handle_removed_components(vis, diff, plan)
+    _handle_added_components(diff, plan)
     _handle_modified_components(vis, changes, plan)
     _handle_modified_domains(vis, changes, plan)
     _handle_modified_identifiers(vis, changes, plan)

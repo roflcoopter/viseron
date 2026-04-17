@@ -1,10 +1,6 @@
 /// <reference types="vitest/globals" />
 import "@testing-library/jest-dom/vitest";
-import {
-  afterAll, // codespell-ignore
-  afterEach,
-  beforeAll,
-} from "vitest";
+import { afterAll, afterEach, beforeAll } from "vitest";
 
 import { server } from "./mocks/server";
 
@@ -18,5 +14,12 @@ afterEach(() => server.resetHandlers());
 
 // Close the server after all tests
 afterAll(() => server.close()); // codespell-ignore
+
+// Mock ResizeObserver for tests since it is not available in the test environment
+global.ResizeObserver = vitest.fn().mockImplementation(() => ({
+  observe: vitest.fn(),
+  unobserve: vitest.fn(),
+  disconnect: vitest.fn(),
+}));
 
 export {};

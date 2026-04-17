@@ -16,8 +16,8 @@ import { useShallow } from "zustand/react/shallow";
 
 import { useCameraStore } from "components/camera/useCameraStore";
 import LicensePlateRecognitionIcon from "components/icons/LicensePlateRecognition";
+import { useSubscribeTimespans } from "hooks/UseSubscribeTimespans";
 import { useCameras } from "lib/api/cameras";
-import { useSubscribeTimespans } from "lib/commands";
 import { BLANK_IMAGE } from "lib/helpers";
 import {
   DATE_FORMAT,

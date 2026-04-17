@@ -31,7 +31,7 @@ from viseron.const import (
     VISERON_SIGNAL_SHUTDOWN,
 )
 from viseron.domain_registry import DomainEntry, DomainState
-from viseron.domains import get_unload_order, unload_domain
+from viseron.domains import unload_domain
 from viseron.events import EventData
 from viseron.exceptions import ComponentNotReady
 from viseron.helpers.named_timer import NamedTimer
@@ -119,6 +119,7 @@ class Component:
         self._errors: list[ComponentError] = []
         self._errors_lock = threading.Lock()
         self._validation_error: str | None = None
+        self._domains_setup: set[SupportedDomains] = set()
 
     @property
     def state(self) -> ComponentState:
@@ -164,6 +165,11 @@ class Component:
         )
 
     @property
+    def domains_setup(self) -> set[SupportedDomains]:
+        """Return set of domains that this component has registered for setup."""
+        return self._domains_setup
+
+    @property
     def errors(self) -> list[ComponentError]:
         """Return list(copy) of errors."""
         with self._errors_lock:
@@ -206,6 +212,19 @@ class Component:
         with self._errors_lock:
             self._errors.clear()
         self._validation_error = None
+
+    def clear_domain_identifier_errors(
+        self,
+        domain: SupportedDomains,
+        identifier: str,
+    ) -> None:
+        """Clear all errors for a specific domain and identifier."""
+        with self._errors_lock:
+            self._errors = [
+                e
+                for e in self._errors
+                if not (e.domain == domain and e.identifier == identifier)
+            ]
 
     def as_status_dict(self) -> dict[str, Any]:
         """Return component status as dict."""
@@ -405,6 +424,7 @@ class Component:
         optional_domains: list[OptionalDomain] | None = None,
     ) -> DomainEntry | None:
         """Register a domain for setup."""
+        self._domains_setup.add(domain)
         registry = self._vis.domain_registry
 
         # Check if already registered (any state)
@@ -494,23 +514,12 @@ def unload_component(vis: Viseron, component: str) -> set[str] | None:
         return None
 
     # Keep track of other components that are affected by this unload
-    affected_components = set()
+    affected_components: set[str] = set()
     # Unload any domains that were registered by this component
-    domains_to_unload = vis.domain_registry.get_by_component(component)
-    if domains_to_unload:
-        LOGGER.debug(
-            "Component %s has %d domains to unload: %s",
-            component,
-            len(domains_to_unload),
-            [(e.domain, e.identifier) for e in domains_to_unload],
-        )
-
-        for entry in domains_to_unload:
-            unload_order = get_unload_order(vis, entry.domain, entry.identifier)
-            for e in unload_order:
-                unload_domain(vis, e.domain, e.identifier)
-                if e.component_name != component:
-                    affected_components.add(e.component_name)
+    for domain in component_instance.domains_setup:
+        affected = unload_domain(vis, component_instance.name, domain)
+        if affected:
+            affected_components.update(affected)
 
     # Unload component-level entities
     entity_owner = vis.states.entity_owner.get(component, None)

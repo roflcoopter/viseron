@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
 export const useResizeObserver = (
-  ref: React.MutableRefObject<HTMLDivElement | null>,
+  ref: React.RefObject<HTMLElement | null>,
   callback: ResizeObserverCallback,
 ) => {
   useEffect(() => {

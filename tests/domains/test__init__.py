@@ -1,9 +1,11 @@
 """Tests for domains module."""
+
 from __future__ import annotations
 
 import logging
 from concurrent.futures import Future, ThreadPoolExecutor
 from logging import DEBUG
+from typing import TYPE_CHECKING, Any, Literal
 from unittest.mock import Mock, patch
 
 import pytest
@@ -19,14 +21,19 @@ from viseron.domains import (
     _submit_domain_setup,
     _wait_for_dependencies,
     get_unload_order,
-    reload_domain,
     setup_domains,
     unload_domain,
+    unload_domain_chain,
+    unload_domain_identifier,
 )
 from viseron.exceptions import DomainNotReady
 
-from tests.common import MockDomainModule
-from tests.conftest import MockViseron
+from tests.common import MockComponent, MockDomainModule
+
+if TYPE_CHECKING:
+    from viseron.viseron_types import SupportedDomains
+
+    from tests.conftest import MockViseron
 
 
 class TestGetUnloadOrder:
@@ -148,7 +155,7 @@ class TestGetUnloadOrder:
         assert len(result) == 0
 
     @pytest.mark.parametrize(
-        "target_domain,target_id,expected_count",
+        ("target_domain", "target_id", "expected_count"),
         [
             ("camera", "cam1", 2),  # nvr depends on cam1
             ("camera", "cam2", 1),  # No dependents on cam2
@@ -156,7 +163,11 @@ class TestGetUnloadOrder:
         ],
     )
     def test_different_identifiers(
-        self, vis: MockViseron, target_domain, target_id, expected_count
+        self,
+        vis: MockViseron,
+        target_domain: SupportedDomains,
+        target_id: str,
+        expected_count: int,
     ):
         """Test that identifier matching works correctly."""
         registry = vis.domain_registry
@@ -220,8 +231,8 @@ class TestGetUnloadOrder:
         assert result[1].domain == "camera"
 
 
-class TestUnloadDomain:
-    """Test unload_domain function."""
+class TestUnloadDomainIdentifier:
+    """Test unload_domain_identifier function."""
 
     def test_unload_domain_success(self, vis: MockViseron):
         """Test successful domain unload."""
@@ -240,7 +251,7 @@ class TestUnloadDomain:
         registry.set_state("camera", "cam1", DomainState.LOADED)
         registry.set_instance("camera", "cam1", mock_instance)
 
-        result = unload_domain(vis, "camera", "cam1")
+        result = unload_domain_identifier(vis, "camera", "cam1")
         assert result is not None
         assert result.domain == "camera"
         assert result.identifier == "cam1"
@@ -266,7 +277,7 @@ class TestUnloadDomain:
         registry.set_state("camera", "cam1", DomainState.LOADED)
         registry.set_instance("camera", "cam1", mock_instance)
 
-        result = unload_domain(vis, "camera", "cam1")
+        result = unload_domain_identifier(vis, "camera", "cam1")
         assert result is not None
         assert result.domain == "camera"
         assert result.identifier == "cam1"
@@ -290,7 +301,7 @@ class TestUnloadDomain:
         registry.set_state("camera", "cam1", DomainState.LOADED)
         registry.set_instance("camera", "cam1", mock_instance)
 
-        result = unload_domain(vis, "camera", "cam1")
+        result = unload_domain_identifier(vis, "camera", "cam1")
         assert result is not None
         assert registry.get("camera", "cam1") is None
         mock_instance.unload.assert_called_once()
@@ -298,13 +309,13 @@ class TestUnloadDomain:
     def test_unload_removes_entities(self, vis: MockViseron):
         """Test that entities are removed during unload."""
         # Set up entity ownership structure
-        vis.states._register_entity_owner(  # pylint: disable=protected-access
+        vis.states._register_entity_owner(
             "test_comp",
             "entity.test1",
             "camera",
             "cam1",
         )
-        vis.states._register_entity_owner(  # pylint: disable=protected-access
+        vis.states._register_entity_owner(
             "test_comp",
             "entity.test2",
             "camera",
@@ -322,7 +333,7 @@ class TestUnloadDomain:
         registry.set_state("camera", "cam1", DomainState.LOADED)
 
         with patch.object(vis.states, "unload_entity") as mock_unload_entity:
-            unload_domain(vis, "camera", "cam1")
+            unload_domain_identifier(vis, "camera", "cam1")
             assert mock_unload_entity.call_count == 2
             mock_unload_entity.assert_any_call("entity.test1")
             mock_unload_entity.assert_any_call("entity.test2")
@@ -338,10 +349,10 @@ class TestUnloadDomain:
         ],
     )
     def test_unload_handles_missing_entity_structure(
-        self, vis: MockViseron, entity_structure
+        self, vis: MockViseron, entity_structure: dict[str, Any]
     ):
         """Test unload handles missing or incomplete entity structures."""
-        vis.states._entity_owner = entity_structure  # pylint: disable=protected-access
+        vis.states._entity_owner = entity_structure
 
         registry = vis.domain_registry
         registry.register(
@@ -354,7 +365,7 @@ class TestUnloadDomain:
         registry.set_state("camera", "cam1", DomainState.LOADED)
 
         with patch.object(vis.states, "unload_entity") as mock_unload_entity:
-            result = unload_domain(vis, "camera", "cam1")
+            result = unload_domain_identifier(vis, "camera", "cam1")
             assert result is not None
             mock_unload_entity.assert_not_called()
 
@@ -374,125 +385,249 @@ class TestUnloadDomain:
         )
         registry.set_state("camera", "cam1", DomainState.LOADED)
 
-        result = unload_domain(vis, "camera", "cam1")
+        result = unload_domain_identifier(vis, "camera", "cam1")
         assert result is not None
         assert registry.get("camera", "cam1") is None
         assert "Domain camera with identifier cam1 has no unload method" in caplog.text
 
-
-class TestReloadDomain:
-    """Test reload_domain function."""
-
-    def test_reload_nonexistent_domain(
-        self, vis: MockViseron, caplog: pytest.LogCaptureFixture
+    def test_unload_nonexistent_domain_returns_none(
+        self,
+        vis: MockViseron,
     ):
-        """Test reload warns when domain doesn't exist."""
-        reload_domain(vis, "camera", "cam1")
+        """Test that unloading a domain that doesn't exist returns None."""
+        result = unload_domain_identifier(vis, "camera", "nonexistent")
+        assert result is None
 
-        assert "Domain camera with identifier cam1 not found for reload" in caplog.text
-
-    def test_reload_single_domain_no_dependents(self, vis: MockViseron):
-        """Test reloading a single domain with no dependents."""
+    def test_unload_cancels_retry(self, vis: MockViseron):
+        """Test that cancel_retry is called during unload."""
         registry = vis.domain_registry
         registry.register(
             component_name="test_comp",
             component_path="test.path",
             domain="camera",
             identifier="cam1",
-            config={"test": "config"},
+            config={},
         )
-        registry.set_state("camera", "cam1", DomainState.LOADED)
+        registry.set_state("camera", "cam1", DomainState.RETRYING)
 
-        with patch("viseron.domains.unload_domain") as mock_unload, patch(
-            "viseron.domains.setup_domains"
-        ) as mock_setup:
-            reload_domain(vis, "camera", "cam1")
+        with patch.object(registry, "cancel_retry") as mock_cancel:
+            unload_domain_identifier(vis, "camera", "cam1")
+            mock_cancel.assert_called_once_with("camera", "cam1")
 
-            mock_unload.assert_called_once_with(vis, "camera", "cam1")
-            mock_setup.assert_called_once_with(vis)
 
-    def test_reload_domain_with_dependents(self, vis: MockViseron):
-        """Test reloading a domain with dependents."""
+class TestUnloadDomainChain:
+    """Test unload_domain_chain function."""
+
+    def test_returns_affected_components(self, vis: MockViseron):
+        """Test that only dependent component names are returned, not the root's."""
         registry = vis.domain_registry
         registry.register(
             component_name="camera_comp",
             component_path="camera.path",
             domain="camera",
             identifier="cam1",
-            config={"camera": "config"},
+            config={},
         )
         registry.set_state("camera", "cam1", DomainState.LOADED)
 
-        # Register dependent domain
         registry.register(
             component_name="nvr_comp",
             component_path="nvr.path",
             domain="nvr",
             identifier="cam1",
-            config={"nvr": "config"},
+            config={},
             require_domains=[RequireDomain("camera", "cam1")],
         )
         registry.set_state("nvr", "cam1", DomainState.LOADED)
 
-        with patch("viseron.domains.unload_domain") as mock_unload, patch(
-            "viseron.domains.setup_domains"
-        ) as mock_setup:
-            reload_domain(vis, "camera", "cam1")
+        affected = unload_domain_chain(vis, "camera", "cam1")
 
-            calls = [call[0] for call in mock_unload.call_args_list]
-            assert calls[0] == (vis, "nvr", "cam1")
-            assert calls[1] == (vis, "camera", "cam1")
+        # camera_comp owns the root domain being unloaded and is intentionally excluded.
+        assert affected == {"nvr_comp"}
+        assert registry.get("camera", "cam1") is None
+        assert registry.get("nvr", "cam1") is None
 
-            mock_setup.assert_called_once_with(vis)
+    def test_unloads_in_dependents_first_order(self, vis: MockViseron):
+        """Test that dependents are unloaded before their dependency."""
+        unloaded_order: list[str] = []
 
-    def test_reload_domain_optional_dependents(self, vis: MockViseron):
-        """Test reloading a domain with optional dependents."""
         registry = vis.domain_registry
         registry.register(
             component_name="camera_comp",
             component_path="camera.path",
             domain="camera",
             identifier="cam1",
-            config={"setting": "value"},
+            config={},
         )
         registry.set_state("camera", "cam1", DomainState.LOADED)
-        registry.register(
-            component_name="motion_comp",
-            component_path="motion.path",
-            domain="motion_detector",
-            identifier="cam1",
-            config={"motion_setting": "motion_value"},
-            require_domains=[RequireDomain("camera", "cam1")],
-        )
-        registry.set_state("motion_detector", "cam1", DomainState.LOADED)
 
-        require_deps = [RequireDomain("camera", "cam1")]
-        optional_deps = [OptionalDomain("motion_detector", "cam1")]
         registry.register(
             component_name="nvr_comp",
             component_path="nvr.path",
             domain="nvr",
             identifier="cam1",
-            config={"nvr_setting": "nvr_value"},
-            require_domains=require_deps,
-            optional_domains=optional_deps,
+            config={},
+            require_domains=[RequireDomain("camera", "cam1")],
         )
         registry.set_state("nvr", "cam1", DomainState.LOADED)
 
-        with patch("viseron.domains.unload_domain") as mock_unload, patch(
-            "viseron.domains.setup_domains"
+        original_unregister = registry.unregister
+
+        def _tracking_unregister(domain: str, identifier: str) -> DomainEntry | None:
+            unloaded_order.append(domain)
+            return original_unregister(domain, identifier)
+
+        with patch.object(registry, "unregister", side_effect=_tracking_unregister):
+            unload_domain_chain(vis, "camera", "cam1")
+
+        assert unloaded_order == ["nvr", "camera"]
+
+    def test_nonexistent_domain_returns_empty_set(self, vis: MockViseron):
+        """Test that a nonexistent domain returns an empty set."""
+        affected = unload_domain_chain(
+            vis,
+            "camera",
+            "nonexistent",
+        )
+        assert affected == set()
+
+
+class TestUnloadDomain:
+    """Test unload_domain function."""
+
+    def _register_domain(
+        self,
+        vis: MockViseron,
+        component_name: str = "test_comp",
+        domain: SupportedDomains = "camera",
+        identifier: str = "cam1",
+    ) -> None:
+        vis.domain_registry.register(
+            component_name=component_name,
+            component_path=f"viseron.components.{component_name}",
+            domain=domain,
+            identifier=identifier,
+            config={},
+        )
+        vis.domain_registry.set_state(domain, identifier, DomainState.LOADED)
+
+    def test_returns_none_when_component_not_found(self, vis: MockViseron):
+        """Test that None is returned when the component is not in LOADED."""
+        result = unload_domain(vis, "nonexistent_comp", "camera")
+        assert result is None
+
+    def test_unloads_all_identifiers_for_domain(self, vis: MockViseron):
+        """Test that every identifier belonging to the component/domain is unloaded."""
+        MockComponent(vis, "test_comp")
+        self._register_domain(vis, identifier="cam1")
+        self._register_domain(vis, identifier="cam2")
+
+        with patch(
+            "viseron.domains.importlib.import_module",
+            side_effect=ModuleNotFoundError,
         ):
-            reload_domain(vis, "camera", "cam1")
+            result = unload_domain(vis, "test_comp", "camera")
 
-            calls = [call[0] for call in mock_unload.call_args_list]
-            assert calls[0] == (vis, "nvr", "cam1")
-            assert calls[1] == (vis, "motion_detector", "cam1")
-            assert calls[2] == (vis, "camera", "cam1")
+        assert result is not None
+        assert vis.domain_registry.get("camera", "cam1") is None
+        assert vis.domain_registry.get("camera", "cam2") is None
 
-            # Should re-register all three
-            assert registry.get("camera", "cam1") is not None
-            assert registry.get("motion_detector", "cam1") is not None
-            assert registry.get("nvr", "cam1") is not None
+    def test_returns_affected_components(self, vis: MockViseron):
+        """Test that only dependent component names are returned."""
+        MockComponent(vis, "test_comp")
+        self._register_domain(vis, identifier="cam1")
+
+        # Register a dependent in another component
+        vis.domain_registry.register(
+            component_name="nvr_comp",
+            component_path="viseron.components.nvr_comp",
+            domain="nvr",
+            identifier="cam1",
+            config={},
+            require_domains=[RequireDomain("camera", "cam1")],
+        )
+        vis.domain_registry.set_state("nvr", "cam1", DomainState.LOADED)
+
+        with patch(
+            "viseron.domains.importlib.import_module",
+            side_effect=ModuleNotFoundError,
+        ):
+            result = unload_domain(vis, "test_comp", "camera")
+
+        assert result is not None
+        assert "test_comp" not in result
+        assert "nvr_comp" in result
+
+    def test_calls_domain_module_unload(self, vis: MockViseron):
+        """Test that the domain module's unload() is called if it exists."""
+        MockComponent(vis, "test_comp")
+        self._register_domain(vis, identifier="cam1")
+
+        unload_called: list[bool] = []
+
+        mock_module = Mock()
+        mock_module.unload = lambda _vis: unload_called.append(True)
+
+        with patch("viseron.domains.importlib.import_module", return_value=mock_module):
+            unload_domain(vis, "test_comp", "camera")
+
+        assert unload_called, "domain module's unload() was not called"
+
+    def test_no_domain_module_unload_method(
+        self, vis: MockViseron, caplog: pytest.LogCaptureFixture
+    ):
+        """Test that missing unload() on domain module is handled gracefully."""
+        caplog.set_level(DEBUG)
+        MockComponent(vis, "test_comp")
+        self._register_domain(vis, identifier="cam1")
+
+        mock_module = Mock(spec=[])  # no unload attribute
+
+        with patch("viseron.domains.importlib.import_module", return_value=mock_module):
+            result = unload_domain(vis, "test_comp", "camera")
+
+        assert result is not None
+        assert "has no unload method" in caplog.text
+
+    def test_domain_module_unload_exception_is_handled(self, vis: MockViseron):
+        """Test that an exception in domain module unload() doesn't propagate."""
+        MockComponent(vis, "test_comp")
+        self._register_domain(vis, identifier="cam1")
+
+        mock_module = Mock()
+        mock_module.unload = Mock(side_effect=RuntimeError("unload boom"))
+
+        with patch("viseron.domains.importlib.import_module", return_value=mock_module):
+            result = unload_domain(vis, "test_comp", "camera")  # must not raise
+
+        assert result is not None
+
+    def test_module_not_found_returns_affected_components(self, vis: MockViseron):
+        """Test that a missing domain module still returns accumulated affected set."""
+        MockComponent(vis, "test_comp")
+        self._register_domain(vis, identifier="cam1")
+
+        with patch(
+            "viseron.domains.importlib.import_module",
+            side_effect=ModuleNotFoundError("no module"),
+        ):
+            result = unload_domain(vis, "test_comp", "camera")
+
+        # Should return what was collected, not None
+        assert result is not None
+        assert isinstance(result, set)
+
+    def test_no_identifiers_returns_empty_set(self, vis: MockViseron):
+        """Test that a component with no registered identifiers returns an empty set."""
+        MockComponent(vis, "test_comp")
+        # No domains registered
+
+        mock_module = Mock(spec=[])  # no unload
+
+        with patch("viseron.domains.importlib.import_module", return_value=mock_module):
+            result = unload_domain(vis, "test_comp", "camera")
+
+        assert result == set()
 
 
 class TestHandleFailedDomain:
@@ -502,7 +637,9 @@ class TestHandleFailedDomain:
         "state",
         [DomainState.FAILED, DomainState.RETRYING],
     )
-    def test_handle_failed_domain_sets_state(self, vis: MockViseron, state) -> None:
+    def test_handle_failed_domain_sets_state(
+        self, vis: MockViseron, state: Literal[DomainState.FAILED, DomainState.RETRYING]
+    ) -> None:
         """Test _handle_failed_domain sets the correct state."""
         vis.domain_registry.register(
             component_name="test_comp",
@@ -529,7 +666,7 @@ class TestHandleFailedDomain:
         """Test _handle_failed_domain calls setup_failed handler."""
         error_instance = Mock()
 
-        def setup_failed_handler(_vis_arg, _entry_arg) -> Mock:
+        def setup_failed_handler(_vis_arg: MockViseron, _entry_arg: Mock) -> Mock:
             return error_instance
 
         mock_domain_module = Mock()
@@ -901,9 +1038,12 @@ class TestSetupSingleDomain:
         entry = vis.domain_registry.get("camera", "cam1")
         assert entry is not None
 
-        with patch(
-            "viseron.components.importlib.import_module", return_value=mock_domain
-        ), patch("viseron.domains.DOMAIN_RETRY_INTERVAL", 0):
+        with (
+            patch(
+                "viseron.components.importlib.import_module", return_value=mock_domain
+            ),
+            patch("viseron.domains.DOMAIN_RETRY_INTERVAL", 0),
+        ):
             result: bool = _setup_single_domain(vis, entry)
 
             assert result is True
@@ -1051,7 +1191,8 @@ class TestSetupSingleDomain:
 
         assert result is False
         assert entry.state == DomainState.FAILED
-        assert entry.error is not None and "Dependencies failed" in entry.error
+        assert entry.error is not None
+        assert "Dependencies failed" in entry.error
 
 
 class TestDomainScheduling:
@@ -1090,15 +1231,17 @@ class TestDomainScheduling:
         entry = vis.domain_registry.get("camera", "cam1")
         assert entry is not None
 
-        with patch(
-            "viseron.components.importlib.import_module", return_value=mock_domain
+        with (
+            patch(
+                "viseron.components.importlib.import_module", return_value=mock_domain
+            ),
+            ThreadPoolExecutor(max_workers=1) as executor,
         ):
-            with ThreadPoolExecutor(max_workers=1) as executor:
-                _submit_domain_setup(vis, executor, entry)
-                # Wait for completion
-                future = vis.domain_registry.get_future("camera", "cam1")
-                assert future is not None
-                future.result()
+            _submit_domain_setup(vis, executor, entry)
+            # Wait for completion
+            future = vis.domain_registry.get_future("camera", "cam1")
+            assert future is not None
+            future.result()
 
     def test_schedule_domain_setup_schedules_dependencies_first(
         self, vis: MockViseron
@@ -1127,22 +1270,22 @@ class TestDomainScheduling:
         entry = vis.domain_registry.get("camera", "cam1")
         assert entry is not None
 
-        with patch(
-            "viseron.components.importlib.import_module", return_value=mock_domain
+        with (
+            patch(
+                "viseron.components.importlib.import_module", return_value=mock_domain
+            ),
+            ThreadPoolExecutor(max_workers=2) as executor,
         ):
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                _schedule_domain_setup(vis, executor, entry)
+            _schedule_domain_setup(vis, executor, entry)
 
-                cam_future = vis.domain_registry.get_future("camera", "cam1")
-                det_future = vis.domain_registry.get_future(
-                    "object_detector", "detector1"
-                )
+            cam_future = vis.domain_registry.get_future("camera", "cam1")
+            det_future = vis.domain_registry.get_future("object_detector", "detector1")
 
-                assert cam_future is not None
-                assert det_future is not None
+            assert cam_future is not None
+            assert det_future is not None
 
-                det_future.result()
-                cam_future.result()
+            det_future.result()
+            cam_future.result()
 
 
 class TestSetupDomains:

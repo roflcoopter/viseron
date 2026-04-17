@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 
 import { useAuthContext } from "context/AuthContext";
 import { toastIds, useToast } from "hooks/UseToast";
+import { getSetupStatus, subscribeEvent } from "lib/commands";
+import * as types from "lib/types";
 import { Connection, SubscriptionUnsubscribe } from "lib/websockets";
 
 export type ViseronProviderProps = {
@@ -23,6 +25,7 @@ export type ViseronContextState = {
   safeMode: boolean;
   version: string | undefined;
   gitCommit: string | undefined;
+  setupStatus: types.SetupStatusResponse;
   subscriptionRef:
     | React.MutableRefObject<Record<string, SubscriptionManager>>
     | undefined;
@@ -34,6 +37,7 @@ const contextDefaultValues: ViseronContextState = {
   safeMode: false,
   version: undefined,
   gitCommit: undefined,
+  setupStatus: { components: [] },
   subscriptionRef: undefined,
 };
 
@@ -56,6 +60,7 @@ export function ViseronProvider({ children }: ViseronProviderProps) {
   const onDisconnectRef = React.useRef<() => void>(undefined);
   const onConnectionErrorRef = React.useRef<() => void>(undefined);
   const initialConnectionEstablishedRef = React.useRef(false);
+  const statusSubscriptionsRef = React.useRef<SubscriptionUnsubscribe[]>([]);
 
   useEffect(() => {
     if (connection) {
@@ -72,6 +77,36 @@ export function ViseronProvider({ children }: ViseronProviderProps) {
           safeMode: !!connection.system_information?.safe_mode,
           version: connection.system_information?.version,
           gitCommit: connection.system_information?.git_commit,
+        }));
+
+        // Subscribe to component and domain setup status changes
+        // and refetch full status when they change.
+        const refetchStatus = async () => {
+          const result = await getSetupStatus(connection);
+          setContextValue((prev) => ({
+            ...prev,
+            setupStatus: result,
+          }));
+        };
+        if (statusSubscriptionsRef.current.length === 0) {
+          const componentSub = await subscribeEvent<types.Event>(
+            connection,
+            "component/setup/*/*",
+            refetchStatus,
+          );
+          const domainSub = await subscribeEvent<types.Event>(
+            connection,
+            "domain/setup/*/*/*",
+            refetchStatus,
+          );
+          statusSubscriptionsRef.current = [componentSub, domainSub];
+        }
+
+        // Fetch initial setup status
+        const result = await getSetupStatus(connection);
+        setContextValue((prev) => ({
+          ...prev,
+          setupStatus: result,
         }));
       };
       onDisconnectRef.current = async () => {
@@ -119,6 +154,10 @@ export function ViseronProvider({ children }: ViseronProviderProps) {
           );
         }
         connection.disconnect();
+        for (const unsub of statusSubscriptionsRef.current) {
+          unsub();
+        }
+        statusSubscriptionsRef.current = [];
         setContextValue((prevContextValue) => ({
           ...prevContextValue,
           connection: undefined,

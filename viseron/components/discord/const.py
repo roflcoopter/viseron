@@ -1,6 +1,8 @@
 """Discord component constants."""
 
-COMPONENT = "discord"
+from typing import Final
+
+COMPONENT: Final = "discord"
 DESC_COMPONENT = "Discord webhook to send notifications."
 
 CONFIG_DISCORD_WEBHOOK_URL = "webhook_url"

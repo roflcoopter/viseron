@@ -124,6 +124,12 @@ export function restartViseron() {
   };
 }
 
+export function reloadConfig() {
+  return {
+    type: "reload_config",
+  };
+}
+
 export function ping() {
   return {
     type: "ping",
@@ -198,5 +204,11 @@ export function renderTemplate(template: string) {
   return {
     type: "render_template",
     template,
+  };
+}
+
+export function getSetupStatus() {
+  return {
+    type: "get_setup_status",
   };
 }

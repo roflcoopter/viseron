@@ -412,3 +412,54 @@ export type DownloadFileResponse = {
 export type SystemDispatchedEvents = {
   events: string[];
 };
+
+export type SetupError = {
+  source: string;
+  message: string;
+  timestamp?: number;
+  component_name?: string;
+  domain?: string;
+  identifier?: string;
+};
+
+export type DomainStatus = {
+  component: string;
+  domain: string;
+  identifier: string;
+  config: Record<string, unknown>;
+  require_domains: { domain: string; identifier: string }[];
+  optional_domains: { domain: string; identifier: string }[];
+  state: string;
+  error: string | null;
+};
+
+export type ComponentStatus = {
+  name: string;
+  state: string;
+  errors: SetupError[];
+  validation_error: string | null;
+  domains: DomainStatus[];
+};
+
+export type SetupStatusResponse = {
+  components: ComponentStatus[];
+};
+
+export type ComponentSetupStatusEvent = Event & {
+  data: {
+    component: string;
+    state: string;
+    error: string | null;
+    validation_error: string | null;
+  };
+};
+
+export type DomainSetupStatusEvent = Event & {
+  data: {
+    component: string;
+    domain: string;
+    identifier: string;
+    state: string;
+    error: string | null;
+  };
+};

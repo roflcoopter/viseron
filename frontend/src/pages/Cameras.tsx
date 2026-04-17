@@ -4,7 +4,9 @@ import Grow from "@mui/material/Grow";
 
 import { CameraCard } from "components/camera/CameraCard";
 import { FailedCameraCard } from "components/camera/FailedCameraCard";
+import { NoCamerasConfigured } from "components/camera/NoCamerasConfigured";
 import { Loading } from "components/loading/Loading";
+import { useHasCamerasConfigured } from "hooks/UseHasCamerasConfigured";
 import { useTitle } from "hooks/UseTitle";
 import { useCameras, useCamerasFailed } from "lib/api/cameras";
 import { objHasValues } from "lib/helpers";
@@ -13,6 +15,7 @@ function Cameras() {
   useTitle("Cameras");
   const cameras = useCameras({});
   const failedCameras = useCamerasFailed({});
+  const hasCamerasConfigured = useHasCamerasConfigured();
 
   if (cameras.isPending || failedCameras.isPending) {
     return <Loading text="Loading Cameras" />;
@@ -24,7 +27,11 @@ function Cameras() {
       objHasValues<typeof failedCameras.data>(failedCameras.data)
     )
   ) {
-    return <Loading text="Waiting for cameras to register" />;
+    return hasCamerasConfigured ? (
+      <Loading text="Waiting for cameras to register" />
+    ) : (
+      <NoCamerasConfigured />
+    );
   }
 
   return (
