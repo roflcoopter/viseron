@@ -16,6 +16,7 @@ Configuration example (config.yaml):
 from __future__ import annotations
 
 import asyncio
+import collections
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -37,7 +38,10 @@ from viseron.components.cctvql.const import (
     DESC_HOST,
     DESC_PORT,
     DESC_SCAN_INTERVAL,
+    EVENT_CCTVQL_ENRICHMENT,
+    MAX_STORED_ENRICHMENTS,
 )
+from viseron.components.cctvql.event import EventCctvqlEnrichmentData
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -95,7 +99,12 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
             health.get("status", "ok"),
         )
     except Exception as exc:
-        LOGGER.error("Cannot connect to cctvQL at %s:%s — %s", cfg[CONFIG_HOST], cfg[CONFIG_PORT], exc)
+        LOGGER.error(
+            "Cannot connect to cctvQL at %s:%s — %s",
+            cfg[CONFIG_HOST],
+            cfg[CONFIG_PORT],
+            exc,
+        )
         return False
 
     vis.data[COMPONENT] = CctvqlComponent(vis, cfg, client)
@@ -129,7 +138,9 @@ class CctvqlClient:
             resp.raise_for_status()
             return resp.json()
 
-    async def query(self, query_text: str, session_id: str = "viseron") -> dict[str, Any]:
+    async def query(
+        self, query_text: str, session_id: str = "viseron"
+    ) -> dict[str, Any]:
         async with httpx.AsyncClient(headers=self._headers, timeout=self._timeout) as c:
             resp = await c.post(
                 f"{self.base_url}/query",
@@ -168,7 +179,9 @@ class CctvqlClient:
         if preset_id is not None:
             body["preset_id"] = preset_id
         async with httpx.AsyncClient(headers=self._headers, timeout=self._timeout) as c:
-            resp = await c.post(f"{self.base_url}/cameras/{camera_id}/ptz", json=body)
+            resp = await c.post(
+                f"{self.base_url}/cameras/{camera_id}/ptz", json=body
+            )
             resp.raise_for_status()
             return resp.json()
 
@@ -190,12 +203,39 @@ class CctvqlComponent:
         self._vis = vis
         self._config = config
         self._client = client
+        # Rolling buffer of the last MAX_STORED_ENRICHMENTS enrichment results,
+        # keyed by camera_name.
+        self._enrichments: dict[
+            str, collections.deque[EventCctvqlEnrichmentData]
+        ] = {}
 
         if config.get(CONFIG_AUTO_ENRICH):
             vis.listen_event("object_detector_result", self._on_detection)
             LOGGER.debug("cctvQL auto-enrich enabled — listening for detections")
 
         LOGGER.debug("cctvQL component ready")
+
+    # ------------------------------------------------------------------
+    # Storage helpers
+    # ------------------------------------------------------------------
+
+    def _store_enrichment(self, data: EventCctvqlEnrichmentData) -> None:
+        """Persist an enrichment result and fire a Viseron event."""
+        camera = data.camera_name
+        if camera not in self._enrichments:
+            self._enrichments[camera] = collections.deque(
+                maxlen=MAX_STORED_ENRICHMENTS
+            )
+        self._enrichments[camera].append(data)
+        self._vis.dispatch_event(EVENT_CCTVQL_ENRICHMENT, data)
+
+    def get_enrichments(
+        self, camera_name: str | None = None
+    ) -> list[EventCctvqlEnrichmentData]:
+        """Return stored enrichments, optionally filtered by camera."""
+        if camera_name:
+            return list(self._enrichments.get(camera_name, []))
+        return [e for q in self._enrichments.values() for e in q]
 
     # ------------------------------------------------------------------
     # Event handler
@@ -216,19 +256,29 @@ class CctvqlComponent:
         try:
             loop = asyncio.get_event_loop()
             result = loop.run_until_complete(self._client.query(query))
-            LOGGER.info(
-                "cctvQL [%s]: %s",
-                camera_name,
-                result.get("answer", "no answer"),
+            answer = result.get("answer", "")
+            intent = result.get("intent", "")
+            enrichment = EventCctvqlEnrichmentData(
+                camera_name=camera_name,
+                query=query,
+                answer=answer,
+                intent=intent,
+                labels=labels,
             )
+            self._store_enrichment(enrichment)
+            LOGGER.info("cctvQL [%s]: %s", camera_name, answer)
         except Exception as exc:
-            LOGGER.debug("cctvQL auto-enrich failed for %s: %s", camera_name, exc)
+            LOGGER.debug(
+                "cctvQL auto-enrich failed for %s: %s", camera_name, exc
+            )
 
     # ------------------------------------------------------------------
     # Public async API (callable by other Viseron components)
     # ------------------------------------------------------------------
 
-    async def async_query(self, query_text: str, session_id: str = "viseron") -> dict[str, Any]:
+    async def async_query(
+        self, query_text: str, session_id: str = "viseron"
+    ) -> dict[str, Any]:
         return await self._client.query(query_text, session_id=session_id)
 
     async def async_cameras(self) -> list[dict[str, Any]]:
@@ -246,4 +296,6 @@ class CctvqlComponent:
         speed: int = 50,
         preset_id: int | None = None,
     ) -> dict[str, Any]:
-        return await self._client.ptz(camera_id, action=action, speed=speed, preset_id=preset_id)
+        return await self._client.ptz(
+            camera_id, action=action, speed=speed, preset_id=preset_id
+        )

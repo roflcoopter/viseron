@@ -1,0 +1,61 @@
+import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
+import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting/index.mdx";
+
+import ComponentMetadata from "./_meta";
+import config from "./config.json";
+
+<ComponentHeader meta={ComponentMetadata} />
+
+cctvQL connects Viseron to a [cctvQL](https://github.com/arunrajiah/cctvql) server — a natural-language query layer for CCTV systems. It lets you ask plain-English questions about your cameras, receive live detection event streams, and send PTZ commands, all within Viseron automations.
+
+## Prerequisites
+
+A running cctvQL server is required. The quickest way to start one is with Docker:
+
+```bash title="Start cctvQL"
+docker run -p 8000:8000 \
+  -e CCTVQL_ADAPTER=viseron \
+  ghcr.io/arunrajiah/cctvql:latest
+```
+
+## Configuration
+
+<details>
+  <summary>Configuration example</summary>
+
+```yaml title="/config/config.yaml"
+cctvql:
+  host: 192.168.1.50
+  port: 8000
+  api_key: ""
+  scan_interval: 30
+  auto_enrich: false
+```
+
+</details>
+
+<ComponentConfiguration config={config} />
+
+## Enrichments
+
+When `auto_enrich` is enabled, cctvQL is automatically queried every time Viseron fires an `object_detector_result` event. The answer is:
+
+- **Stored** in memory (up to 100 results per camera, accessible via `get_enrichments(camera_name)` on the component object in `vis.data["cctvql"]`).
+- **Dispatched** as a `cctvql_enrichment` Viseron event so other components can react to it.
+
+### `cctvql_enrichment` event data
+
+| Field | Type | Description |
+|---|---|---|
+| `camera_name` | `str` | Camera that triggered the query |
+| `query` | `str` | The question sent to cctvQL |
+| `answer` | `str` | Plain-English answer from cctvQL |
+| `intent` | `str` | Detected NLP intent (e.g. `query_events`) |
+| `labels` | `list[str]` | Object labels that triggered the query |
+
+## PTZ control
+
+The component exposes `async_ptz(camera_id, action, speed, preset_id)` for pan/tilt/zoom commands. Supported actions: `left`, `right`, `up`, `down`, `zoom_in`, `zoom_out`, `home`, `preset`.
+
+<ComponentTroubleshooting />

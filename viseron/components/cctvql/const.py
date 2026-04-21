@@ -17,3 +17,7 @@ DESC_AUTO_ENRICH = "Automatically query cctvQL when Viseron detects an object"
 DEFAULT_PORT = 8000
 DEFAULT_SCAN_INTERVAL = 30
 DEFAULT_AUTO_ENRICH = False
+
+EVENT_CCTVQL_ENRICHMENT = "cctvql_enrichment"
+
+MAX_STORED_ENRICHMENTS = 100

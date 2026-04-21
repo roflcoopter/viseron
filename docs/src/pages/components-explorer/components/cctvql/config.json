@@ -1,0 +1,45 @@
+[
+  {
+    "type": "map",
+    "value": [
+      {
+        "type": "string",
+        "name": "host",
+        "description": "Hostname or IP address of your cctvQL server.",
+        "required": true,
+        "default": null
+      },
+      {
+        "type": "integer",
+        "valueMin": 1,
+        "valueMax": 65535,
+        "name": "port",
+        "description": "Port the cctvQL REST API listens on.",
+        "optional": true,
+        "default": 8000
+      },
+      {
+        "type": "string",
+        "name": "api_key",
+        "description": "Optional API key. Set CCTVQL_API_KEY on the cctvQL server to enable authentication.",
+        "optional": true,
+        "default": null
+      },
+      {
+        "type": "integer",
+        "valueMin": 5,
+        "name": "scan_interval",
+        "description": "How often (in seconds) to poll cctvQL for new events.",
+        "optional": true,
+        "default": 30
+      },
+      {
+        "type": "boolean",
+        "name": "auto_enrich",
+        "description": "When true, cctvQL is automatically queried on every Viseron object detection event and the result is stored and dispatched as a cctvql_enrichment event.",
+        "optional": true,
+        "default": false
+      }
+    ]
+  }
+]
