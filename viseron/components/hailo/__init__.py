@@ -94,16 +94,9 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config: dict[str, Any]) -> bool:
+def setup(vis: Viseron, _config: dict[str, Any]) -> bool:
     """Set up hailo component."""
-    config = config[COMPONENT]
-
-    try:
-        vis.data[COMPONENT] = Hailo8Detector(vis, config)
-    except Exception as error:
-        LOGGER.exception("Failed to start Hailo 8 detector")
-        raise ComponentNotReady from error
-
+    vis.data[COMPONENT] = {}
     return True
 
 
@@ -130,9 +123,7 @@ def setup_domains(vis: Viseron, config: dict[str, Any]) -> None:
 
 def unload(vis: Viseron) -> None:
     """Unload hailo component."""
-    if COMPONENT in vis.data:
-        vis.data[COMPONENT].stop()
-        del vis.data[COMPONENT]
+    vis.data.pop(COMPONENT, None)
 
 
 class LoadHailo8Error(ViseronError):

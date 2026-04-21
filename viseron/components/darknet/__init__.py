@@ -14,13 +14,13 @@ from typing import TYPE_CHECKING, Any
 import cv2
 import voluptuous as vol
 
-from viseron.const import ENV_CUDA_SUPPORTED, ENV_OPENCL_SUPPORTED
+from viseron.const import ENV_OPENCL_SUPPORTED
 from viseron.domains import OptionalDomain, RequireDomain, setup_domain
 from viseron.domains.motion_detector.const import DOMAIN as MOTION_DETECTOR_DOMAIN
 from viseron.domains.object_detector import BASE_CONFIG_SCHEMA
 from viseron.domains.object_detector.const import CONFIG_CAMERAS
 from viseron.domains.object_detector.detected_object import DetectedObject
-from viseron.exceptions import ComponentNotReady, ViseronError
+from viseron.exceptions import ViseronError
 from viseron.helpers import letterbox_resize, pop_if_full
 from viseron.helpers.child_process_worker import ChildProcessWorker
 from viseron.helpers.logs import CTypesLogPipe
@@ -122,21 +122,9 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config: dict[str, Any]) -> bool:
+def setup(vis: Viseron, _config: dict[str, Any]) -> bool:
     """Set up the darknet component."""
-    config = config[COMPONENT]
-    if (
-        os.getenv(ENV_CUDA_SUPPORTED) == "true"
-        and config[CONFIG_OBJECT_DETECTOR][CONFIG_DNN_BACKEND] is None
-        and config[CONFIG_OBJECT_DETECTOR][CONFIG_DNN_TARGET] is None
-    ):
-        try:
-            vis.data[COMPONENT] = DarknetNative(vis, config[CONFIG_OBJECT_DETECTOR])
-        except LoadDarknetError as error:
-            raise ComponentNotReady from error
-    else:
-        vis.data[COMPONENT] = DarknetDNN(vis, config[CONFIG_OBJECT_DETECTOR])
-
+    vis.data[COMPONENT] = {}
     return True
 
 
@@ -168,9 +156,7 @@ def setup_domains(vis: Viseron, config: dict[str, Any]) -> None:
 
 def unload(vis: Viseron) -> None:
     """Unload the darknet component."""
-    if COMPONENT in vis.data:
-        vis.data[COMPONENT].stop()
-        del vis.data[COMPONENT]
+    vis.data.pop(COMPONENT, None)
 
 
 class LoadDarknetError(ViseronError):

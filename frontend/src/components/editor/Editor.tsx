@@ -252,7 +252,7 @@ function ConfigEditor() {
   }
 
   return (
-    <div>
+    <div style={{ height: "100%" }}>
       <Dialog
         open={errorDialog.open}
         onClose={() => {
@@ -401,6 +401,7 @@ function ConfigEditor() {
         alignItems="flex-start"
         paddingTop={1}
         spacing={2}
+        height="100%"
       >
         <Stack
           direction="row"
@@ -452,7 +453,8 @@ function ConfigEditor() {
             flexDirection: { xs: "column", md: "row" },
             gap: 1,
             width: "100%",
-            height: "85vh",
+            flex: 1,
+            minHeight: 0,
             overflow: "hidden",
           }}
         >

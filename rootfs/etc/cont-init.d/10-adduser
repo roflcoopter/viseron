@@ -8,6 +8,8 @@ PGID=${PGID:-0}
 groupmod -o -g "$PGID" abc
 usermod -o -u "$PUID" abc
 
+log_info "************************ UID/GID *************************"
+log_info "Changing ownership of files to abc:abc, this may take a while..."
 chown -R abc:abc /home/abc/bin
 chown -R --silent abc:abc /config || :
 # Remove /recordings in a future release, it's deprecated in favor of /event_clips
@@ -17,7 +19,6 @@ chown -R --silent abc:abc /segments || :
 chown -R --silent abc:abc /snapshots || :
 chown -R --silent abc:abc /thumbnails || :
 
-log_info "************************ UID/GID *************************"
 log_info "User uid:    $(id -u abc)"
 log_info "User gid:    $(id -g abc)"
 log_info "************************** Done **************************"

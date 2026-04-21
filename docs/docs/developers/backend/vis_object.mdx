@@ -2,10 +2,204 @@
 title: The vis object
 ---
 
-_Information has not yet been added._
+`vis` is the central `Viseron` instance.
+It is passed to every component's `setup()`, `setup_domains()`, and `unload()` functions.
+It holds references to core services such as:
 
-:::info
+- The event bus
+- The state machine
+- A background scheduler to run tasks in the background
+- A shared data dictionary through `vis.data`
 
-The developer documentation is still under construction and this page is not complete.
+## Subscribe to events
 
+`vis.listen_event()` registers a callback that is invoked every time a named event is dispatched. It returns an **unsubscribe callable** that can be called when the listener is no longer needed to avoid memory leaks and stale callbacks.
+
+```python
+unsubscribe = vis.listen_event(event_name, callback)
+
+# Later, to remove the listener:
+unsubscribe()
+```
+
+### Signature
+
+```python
+def listen_event(
+    self,
+    event: str,
+    callback: Callable | Queue | TornadoQueue,
+    ioloop: IOLoop | None = None,
+) -> Callable[[], None]: ...
+```
+
+| Parameter  | Description                                                                                                 |
+| ---------- | ----------------------------------------------------------------------------------------------------------- |
+| `event`    | The event name string to listen for                                                                         |
+| `callback` | Called with a single `Event[T]` argument each time the event fires                                          |
+| `ioloop`   | Optional Tornado `IOLoop`; supply this when the callback is a coroutine running inside a Tornado event loop |
+
+The `Event` object passed to the callback has the following fields:
+
+| Field       | Type    | Description                                          |
+| ----------- | ------- | ---------------------------------------------------- |
+| `name`      | `str`   | The event name                                       |
+| `data`      | `T`     | The event-specific payload (an `EventData` subclass) |
+| `timestamp` | `float` | Unix timestamp when the event was dispatched         |
+
+### Example
+
+```python title="viseron/components/fancy_component/__init__.py"
+from viseron.const import EVENT_STATE_CHANGED
+from viseron.events import Event
+
+
+class FancyComponent:
+    """Fancy component."""
+
+    def __init__(self, vis: Viseron) -> None:
+        self._event_listeners = []
+        self._event_listeners.append(
+            vis.listen_event(EVENT_STATE_CHANGED, self._on_state_changed)
+        )
+
+    def _on_state_changed(self, event: Event) -> None:
+        """Handle a state-changed event."""
+        state_data = event.data
+        # ... do something with state_data
+
+    def unload(self) -> None:
+        """Clean up listeners."""
+        for unsubscribe in self._event_listeners:
+            unsubscribe()
+        self._event_listeners.clear()
+```
+
+### Event names with placeholders
+
+Many event names include runtime values formatted into the string:
+
+```python
+from viseron.domains.object_detector.const import EVENT_OBJECT_DETECTOR_RESULT
+
+camera_identifier = "front_door"
+event_name = EVENT_OBJECT_DETECTOR_RESULT.format(
+    camera_identifier=camera_identifier
+)
+unsubscribe = vis.listen_event(event_name, self._on_result)
+```
+
+:::tip
+Store every unsubscribe callable in a list and call them all in `unload()` (or your class's cleanup method). This pattern is used throughout the codebase, see `mqtt`, `webhook`, and others for reference.
 :::
+
+## `vis.data`
+
+`vis.data` is a shared dictionary that acts as a **service registry** for the entire Viseron process. Components use it to expose instances, connections, and other shared state to one another.
+
+### Writing to `vis.data`
+
+A component that needs to expose shared state stores it under its own key. By convention this key is the value of the component's `COMPONENT` constant (the component name string), defined in `const.py`:
+
+```python title="viseron/components/fancy_component/const.py"
+COMPONENT: Final = "fancy_component"
+```
+
+```python title="viseron/components/fancy_component/__init__.py"
+from .const import COMPONENT
+
+
+def setup(vis: Viseron, config: dict[str, Any]) -> bool:
+    """Set up the fancy_component component."""
+    vis.data[COMPONENT] = FancyResource(vis, config[COMPONENT])
+    return True
+```
+
+For components that need to expose multiple sub-resources, use a nested dict:
+
+```python title="viseron/components/fancy_component/__init__.py"
+def setup(vis: Viseron, config: dict[str, Any]) -> bool:
+    """Set up the fancy_component component."""
+    vis.data[COMPONENT] = {}
+    vis.data[COMPONENT]["detector"] = FancyDetector(config)
+    vis.data[COMPONENT]["classifier"] = FancyClassifier(config)
+    return True
+```
+
+### Typing requirement
+
+Every entry written to `vis.data` **must** have a matching field in the `ViseronData` `TypedDict` in `viseron/viseron_types.py`. This is required for static analysis and editor support.
+
+Add a field for your component under the `# Components` section:
+
+```python title="viseron/viseron_types.py"
+if TYPE_CHECKING:
+    ...
+    # Add the import here to avoid circular imports at runtime
+    from viseron.components.fancy_component import FancyResource
+
+class ViseronData(TypedDict, total=False):
+    ...
+    # Components
+    fancy_component: FancyResource
+```
+
+For nested dicts, define a dedicated `TypedDict` in the component and reference it from `ViseronData`:
+
+```python title="viseron/components/fancy_component/fancy_component_types.py"
+from typing import TypedDict
+
+from viseron.components.fancy_component import FancyDetector, FancyClassifier
+
+
+class FancyComponentViseronData(TypedDict, total=False):
+    """TypedDict for fancy_component vis.data entries."""
+
+    detector: FancyDetector
+    classifier: FancyClassifier
+```
+
+```python title="viseron/viseron_types.py"
+if TYPE_CHECKING:
+    ...
+    from viseron.components.fancy_component.fancy_component_types import (
+        FancyComponentViseronData,
+    )
+
+class ViseronData(TypedDict, total=False):
+    ...
+    # Components
+    fancy_component: FancyComponentViseronData
+```
+
+:::tip
+Always place the import inside the `if TYPE_CHECKING:` block in `viseron_types.py`. This prevents circular imports at runtime since `ViseronData` is used in `viseron/__init__.py` which is imported very early.
+:::
+
+### Reading from `vis.data`
+
+Any component can access another component's data by importing its key constant:
+
+```python title="viseron/components/another_component/__init__.py"
+from viseron.components.fancy_component.const import COMPONENT as FANCY_COMPONENT
+
+
+class AnotherClass:
+    """Another class that uses fancy_component."""
+
+    def __init__(self, vis: Viseron) -> None:
+        self._fancy = vis.data[FANCY_COMPONENT]
+```
+
+### Cleanup in `unload()`
+
+When a component is unloaded (e.g. during a configuration reload), it must remove its entry from `vis.data`. Do this in the optional `unload()` function:
+
+```python title="viseron/components/fancy_component/__init__.py"
+def unload(vis: Viseron) -> bool:
+    """Unload the fancy_component component."""
+    if COMPONENT in vis.data:
+        vis.data[COMPONENT].stop()  # any required teardown
+        del vis.data[COMPONENT]
+    return True
+```

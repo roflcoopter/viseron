@@ -70,7 +70,17 @@ nvr:
   camera_1:  # Run NVR for camera_1
   camera_2:  # Run NVR for camera_2
 
-# Now you can restart Viseron and you should be good to go!
+
+## If you want true live streaming, configure go2rtc as well
+go2rtc:
+  streams:
+    camera_1: # This must match the camera_1 identifier used in the ffmpeg configuration
+      - <full stream URL for camera_1, e.g. rtsp://user:pass@192.168.XX.X:554/Streaming/Channels/101/>
+    camera_2: # This must match the camera_2 identifier used in the ffmpeg configuration
+      - <full stream URL for camera_2, e.g. rtsp://user:pass@192.168.XX.X:554/Streaming/Channels/101/>
+
+# Now you can restart or reload Viseron and you should be good to go!
+
 """
 
 CAMERA_INPUT_ARGS = [

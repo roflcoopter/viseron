@@ -66,13 +66,13 @@ class ViseronData(TypedDict, total=False):
 
     # Components
     compreface: dict[Literal["face_recognition"], CompreFaceService]
-    darknet: BaseDarknet
+    darknet: dict[Literal["object_detector"], BaseDarknet]
     dlib: dict[Literal["classifier"], KNeighborsClassifier | None]
     discord: DiscordNotifier
     edgetpu: EdgeTPUViseronData
     go2rtc: Go2RTC
     gotify: GotifyEventNotifier
-    hailo: Hailo8Detector
+    hailo: dict[Literal["object_detector"], Hailo8Detector]
     mqtt: MQTT
     nvr: dict[str, NVR]
     telegram: TelegramPTZ

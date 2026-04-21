@@ -1,15 +1,10 @@
 """CompreFace face recognition."""
 
-import logging
 from typing import Any
 
 import voluptuous as vol
 
 from viseron import Viseron
-from viseron.components.compreface.face_recognition import (
-    CompreFaceService,
-    CompreFaceTrain,
-)
 from viseron.domains import RequireDomain, setup_domain
 from viseron.domains.face_recognition import (
     BASE_CONFIG_SCHEMA as FACE_RECOGNITION_BASE_CONFIG_SCHEMA,
@@ -54,8 +49,6 @@ from .const import (
     DESC_TRAIN,
     DESC_USE_SUBJECTS,
 )
-
-LOGGER = logging.getLogger(__name__)
 
 FACE_RECOGNITION_SCHEMA = FACE_RECOGNITION_BASE_CONFIG_SCHEMA.extend(
     {
@@ -112,19 +105,9 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config: dict[str, Any]) -> bool:
+def setup(vis: Viseron, _config: dict[str, Any]) -> bool:
     """Set up the compreface component."""
-    config = config[COMPONENT]
-
-    if not config.get(CONFIG_FACE_RECOGNITION, None):
-        return True
-
     vis.data[COMPONENT] = {}
-    vis.data[COMPONENT][CONFIG_FACE_RECOGNITION] = CompreFaceService(config)
-
-    if config[CONFIG_FACE_RECOGNITION][CONFIG_TRAIN]:
-        CompreFaceTrain(vis, config)
-
     return True
 
 
@@ -151,8 +134,6 @@ def setup_domains(vis: Viseron, config: dict[str, Any]) -> None:
         )
 
 
-def unload(vis: Viseron) -> bool:
+def unload(vis: Viseron) -> None:
     """Unload the compreface component."""
-    if COMPONENT in vis.data:
-        del vis.data[COMPONENT]
-    return True
+    vis.data.pop(COMPONENT, None)
