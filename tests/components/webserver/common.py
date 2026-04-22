@@ -141,9 +141,7 @@ class TestAppBaseAuth(TestAppBase):
     def setUp(self) -> None:
         """Set up the test."""
         super().setUp()
-        self.auth_store_path = (
-            self.webserver.auth._auth_store.path  # pylint: disable=protected-access
-        )
+        self.auth_store_path = self.webserver.auth._auth_store.path
         auth_store_lock_path = f"{self.auth_store_path}.lock"
         self._auth_store_lock = FileLock(auth_store_lock_path)
         self._auth_store_lock.acquire()
@@ -172,13 +170,11 @@ class TestAppBaseAuth(TestAppBase):
     ) -> HTTPResponse:
         """Add authentication headers when running fetch."""
         os.makedirs(
-            os.path.dirname(
-                self.webserver.auth._auth_store.path  # pylint: disable=protected-access
-            ),
+            os.path.dirname(self.webserver.auth._auth_store.path),
             exist_ok=True,
         )
         with open(
-            self.webserver.auth._auth_store.path,  # pylint: disable=protected-access
+            self.webserver.auth._auth_store.path,
             "w",
             encoding="utf-8",
         ) as file:
@@ -226,5 +222,35 @@ class TestAppBaseAuth(TestAppBase):
             kwargs["headers"]["Cookie"] += f"signature_cookie={signature_token_cookie};"
         elif not kwargs["headers"].get("Authorization", False):
             kwargs["headers"]["Authorization"] = "Bearer " + access_token
+
+        return self.fetch(path, raise_error, **kwargs)
+
+    def fetch_with_pat(
+        self,
+        path: str,
+        raw_token: str,
+        raise_error: bool = False,
+        **kwargs: Any,
+    ) -> HTTPResponse:
+        """Fetch using a personal access token for authentication.
+
+        Writes the auth store and sends the raw PAT in the Authorization header
+        without any browser-flow cookies (no X-Requested-With, no signature_cookie).
+        This simulates a non-browser API client.
+        """
+        os.makedirs(
+            os.path.dirname(self.webserver.auth._auth_store.path),
+            exist_ok=True,
+        )
+        with open(
+            self.webserver.auth._auth_store.path,
+            "w",
+            encoding="utf-8",
+        ) as file:
+            json.dump(AUTH_STORAGE_DATA, file)
+
+        if "headers" not in kwargs:
+            kwargs["headers"] = {}
+        kwargs["headers"]["Authorization"] = f"Bearer {raw_token}"
 
         return self.fetch(path, raise_error, **kwargs)

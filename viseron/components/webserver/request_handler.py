@@ -1,4 +1,5 @@
 """Viseron request handler."""
+
 from __future__ import annotations
 
 import hmac
@@ -209,6 +210,19 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         # Check access token is valid
         refresh_token = self._webserver.auth.validate_access_token(access_token)
         if refresh_token is None:
+            # Non-browser requests may use a personal access token (PAT) instead of a
+            # JWT. PATs are not accepted in the browser flow (check_refresh_token=True)
+            # because they lack the cookie-binding security layer.
+            if not check_refresh_token:
+                pat = self._webserver.auth.validate_access_token_pat(access_token)
+                if pat is not None:
+                    user = self._webserver.auth.get_user(pat.user_id)
+                    if user is None or not user.enabled:
+                        LOGGER.debug("PAT owner not found or disabled")
+                        return False
+                    self.current_user = user
+                    self._webserver.auth.update_pat_used(pat, self.request.remote_ip)
+                    return True
             LOGGER.debug("Access token not valid")
             return False
 
@@ -263,9 +277,9 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
     def _get_failed_cameras(self) -> None | dict[str, FailedCamera]:
         """Get all registered failed camera instances."""
         try:
-            failed_entries: dict[
-                str, DomainEntry
-            ] = self._vis.domain_registry.get_failed(CAMERA_DOMAIN)
+            failed_entries: dict[str, DomainEntry] = (
+                self._vis.domain_registry.get_failed(CAMERA_DOMAIN)
+            )
         except DomainNotRegisteredError:
             return None
 
@@ -287,26 +301,22 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         }
 
     @overload
-    def _get_camera(self, camera_identifier: str) -> AbstractCamera | None:
-        ...
+    def _get_camera(self, camera_identifier: str) -> AbstractCamera | None: ...
 
     @overload
     def _get_camera(
         self, camera_identifier: str, failed: Literal[False]
-    ) -> AbstractCamera | None:
-        ...
+    ) -> AbstractCamera | None: ...
 
     @overload
     def _get_camera(
         self, camera_identifier: str, failed: Literal[True]
-    ) -> AbstractCamera | FailedCamera | None:
-        ...
+    ) -> AbstractCamera | FailedCamera | None: ...
 
     @overload
     def _get_camera(
         self, camera_identifier: str, failed: bool
-    ) -> AbstractCamera | FailedCamera | None:
-        ...
+    ) -> AbstractCamera | FailedCamera | None: ...
 
     def _get_camera(
         self, camera_identifier: str, failed: bool = False
@@ -341,26 +351,22 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         return None
 
     @overload
-    def get_camera(self, camera_identifier: str) -> AbstractCamera | None:
-        ...
+    def get_camera(self, camera_identifier: str) -> AbstractCamera | None: ...
 
     @overload
     def get_camera(
         self, camera_identifier: str, failed: Literal[False]
-    ) -> AbstractCamera | None:
-        ...
+    ) -> AbstractCamera | None: ...
 
     @overload
     def get_camera(
         self, camera_identifier: str, failed: Literal[True]
-    ) -> AbstractCamera | FailedCamera | None:
-        ...
+    ) -> AbstractCamera | FailedCamera | None: ...
 
     @overload
     def get_camera(
         self, camera_identifier: str, failed: bool
-    ) -> AbstractCamera | FailedCamera | None:
-        ...
+    ) -> AbstractCamera | FailedCamera | None: ...
 
     def get_camera(
         self, camera_identifier: str, failed: bool = False
