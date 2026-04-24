@@ -393,12 +393,31 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         return self._get_session()
 
     def validate_camera_token(self, camera: AbstractCamera) -> bool:
-        """Validate camera token."""
+        """Validate camera token.
+
+        Accepts, in order:
+        1. Short-lived per-camera token via ``?access_token=`` query parameter.
+        2. Personal access token (PAT) via ``Authorization: Bearer <vpat_...>``
+           header or ``?access_token=<vpat_...>`` query parameter. PATs respect
+           the owning user's role and ``assigned_cameras``.
+        3. Cookie based session (``refresh_token`` + ``static_asset_key``).
+        """
         access_token = self.get_argument("access_token", None, strip=True)
         if access_token:
             if access_token in camera.access_tokens:
                 return True
-            return False
+            # Allow a PAT to be supplied via the query parameter for clients
+            # that cannot set custom headers (e.g. <img> tags, basic tools).
+            return access_token.startswith("vpat_") and self._validate_camera_pat(
+                access_token, camera
+            )
+
+        # Allow PAT via Authorization header for non-browser clients.
+        auth_header = self.request.headers.get("Authorization", None)
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header[len("Bearer ") :].strip()
+            if token.startswith("vpat_") and self._validate_camera_pat(token, camera):
+                return True
 
         # Access token query parameter not set, check cookies
         refresh_token_cookie = self.get_secure_cookie("refresh_token")
@@ -412,3 +431,33 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             ):
                 return True
         return False
+
+    def _validate_camera_pat(self, raw_token: str, camera: AbstractCamera) -> bool:
+        """Validate a PAT and check that its owner may access ``camera``."""
+        pat = self._webserver.auth.validate_access_token_pat(raw_token)
+        if pat is None:
+            return False
+
+        user = self._webserver.auth.get_user(pat.user_id)
+        if user is None or not user.enabled:
+            LOGGER.debug("PAT owner not found or disabled")
+            return False
+
+        if (
+            user.role != Role.ADMIN
+            and user.assigned_cameras is not None
+            and camera.identifier not in user.assigned_cameras
+        ):
+            LOGGER.debug(
+                "PAT user %s not permitted to access camera %s",
+                user.id,
+                camera.identifier,
+            )
+            return False
+
+        self.current_user = user
+        self._webserver.auth.update_pat_used(pat, self.request.remote_ip)
+        LOGGER.debug(
+            "Camera %s accessed via PAT by user %s", camera.identifier, user.id
+        )
+        return True
