@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { useToast } from "hooks/UseToast";
 import queryClient, { viseronAPI } from "lib/api/client";
+import { clearTokens, setManualLogout } from "lib/tokens";
 import * as types from "lib/types";
 
 // Timezones
@@ -97,6 +98,120 @@ export const useProfileUpdateDisplayName = () => {
       toast.error(
         error.response && error.response.data.error
           ? `Error updating display name: ${error.response.data.error}`
+          : `An error occurred: ${error.message}`,
+      );
+    },
+  });
+};
+
+// Personal Access Tokens
+async function profileAccessTokens() {
+  const response = await viseronAPI.get<types.AccessTokensResponse>(
+    "/profile/access_tokens",
+  );
+  return response.data;
+}
+export const useProfileAccessTokens = () =>
+  useQuery({
+    queryKey: ["profile", "access_tokens"],
+    queryFn: async () => profileAccessTokens(),
+  });
+
+export type ProfileCreateAccessTokenVariables = {
+  name: string;
+  expires_at?: number | null;
+};
+async function profileCreateAccessToken(
+  variables: ProfileCreateAccessTokenVariables,
+) {
+  const response = await viseronAPI.post<types.AccessTokenCreateResponse>(
+    "/profile/access_tokens",
+    variables,
+  );
+  return response.data;
+}
+export const useProfileCreateAccessToken = () => {
+  const toast = useToast();
+  return useMutation<
+    types.AccessTokenCreateResponse,
+    types.APIErrorResponse,
+    ProfileCreateAccessTokenVariables
+  >({
+    mutationFn: profileCreateAccessToken,
+    onSuccess: async (_data, _variables, _context) => {
+      queryClient.invalidateQueries({
+        queryKey: ["profile", "access_tokens"],
+      });
+    },
+    onError: async (error, _variables, _context) => {
+      toast.error(
+        error.response && error.response.data.error
+          ? `Error creating token: ${error.response.data.error}`
+          : `An error occurred: ${error.message}`,
+      );
+    },
+  });
+};
+
+export type ProfileDeleteAccessTokenVariables = { tokenId: string };
+async function profileDeleteAccessToken({
+  tokenId,
+}: ProfileDeleteAccessTokenVariables) {
+  const response = await viseronAPI.delete<types.APISuccessResponse>(
+    `/profile/access_tokens/${tokenId}`,
+  );
+  return response.data;
+}
+export const useProfileDeleteAccessToken = () => {
+  const toast = useToast();
+  return useMutation<
+    types.APISuccessResponse,
+    types.APIErrorResponse,
+    ProfileDeleteAccessTokenVariables
+  >({
+    mutationFn: profileDeleteAccessToken,
+    onSuccess: async (_data, _variables, _context) => {
+      toast.success("Token revoked");
+      queryClient.invalidateQueries({
+        queryKey: ["profile", "access_tokens"],
+      });
+    },
+    onError: async (error, _variables, _context) => {
+      toast.error(
+        error.response && error.response.data.error
+          ? `Error revoking token: ${error.response.data.error}`
+          : `An error occurred: ${error.message}`,
+      );
+    },
+  });
+};
+
+async function profileRevokeAll() {
+  const response = await viseronAPI.post<types.APISuccessResponse>(
+    "/profile/revoke_all",
+  );
+  return response.data;
+}
+export const useProfileRevokeAll = () => {
+  const toast = useToast();
+  return useMutation<types.APISuccessResponse, types.APIErrorResponse>({
+    mutationFn: profileRevokeAll,
+    onSuccess: async (_data, _variables, _context) => {
+      toast.success("All sessions and tokens revoked");
+      setManualLogout(true);
+      clearTokens();
+      queryClient.removeQueries({
+        predicate: (query) => {
+          const isAuthEnabled =
+            query.queryKey[0] === "auth" && query.queryKey[1] === "enabled";
+          return !isAuthEnabled;
+        },
+      });
+    },
+    onError: async (error, _variables, _context) => {
+      toast.error(
+        error.response && error.response.data.error
+          ? `Error revoking sessions: ${error.response.data.error}`
           : `An error occurred: ${error.message}`,
       );
     },

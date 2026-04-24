@@ -143,6 +143,21 @@ export type AuthUsersResponse = {
 export type AuthLoginResponse = AuthTokenResponse;
 export type OnboardingResponse = AuthTokenResponse;
 
+export type AccessToken = {
+  id: string;
+  name: string;
+  created_at: number;
+  expires_at: number | null;
+  last_used_at: number | null;
+  last_used_by: string | null;
+};
+
+export type AccessTokensResponse = {
+  access_tokens: AccessToken[];
+};
+
+export type AccessTokenCreateResponse = AccessToken & { token: string };
+
 export interface Recording {
   id: number;
   camera_identifier: string;
