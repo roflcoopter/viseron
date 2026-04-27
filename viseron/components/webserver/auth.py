@@ -83,6 +83,7 @@ class AccessTokenLimitExceededError(ViseronError):
 
 MAX_ACCESS_TOKENS_PER_USER = 20
 MAX_TOKEN_NAME_LENGTH = 100
+PAT_LAST_USED_SAVE_INTERVAL = datetime.timedelta(minutes=1)
 
 
 VALID_DATE_FORMATS = [
@@ -246,6 +247,7 @@ class Auth:
         self._users: dict[str, User] | None = None
         self._refresh_tokens: dict[str, RefreshToken] | None = None
         self._access_tokens: dict[str, AccessToken] | None = None
+        self._pat_last_used_persisted_at: dict[str, float] = {}
         self._auth_store = Storage(vis, AUTH_STORAGE_KEY)
         self._data_lock = Lock()
         self._user_lock = Lock()
@@ -734,6 +736,7 @@ class Auth:
             token = self.access_tokens.get(token_id)
             if token is None or token.user_id != user_id:
                 raise AccessTokenNotFoundError(f"Access token {token_id} not found")
+            self._pat_last_used_persisted_at.pop(token_id, None)
             del self.access_tokens[token_id]
             self.save()
 
@@ -747,7 +750,10 @@ class Auth:
         incoming_hash = hashlib.sha256(raw_token.encode()).hexdigest()
         found: AccessToken | None = None
 
-        for token in self.access_tokens.values():
+        with self._user_lock:
+            tokens_snapshot = list(self.access_tokens.values())
+
+        for token in tokens_snapshot:
             if hmac.compare_digest(incoming_hash, token.token_hash):
                 found = token
 
@@ -762,9 +768,30 @@ class Auth:
 
     def update_pat_used(self, pat: AccessToken, remote_ip: str) -> None:
         """Update the last-used metadata for a personal access token."""
-        pat.last_used_at = utcnow().timestamp()
-        pat.last_used_by = remote_ip
-        self.save()
+        now = utcnow().timestamp()
+
+        with self._user_lock:
+            stored_pat = self.access_tokens.get(pat.id)
+            if stored_pat is None:
+                return
+
+            last_persisted_at = self._pat_last_used_persisted_at.get(
+                stored_pat.id,
+                stored_pat.last_used_at or 0,
+            )
+            should_save = (
+                stored_pat.last_used_at is None
+                or stored_pat.last_used_by != remote_ip
+                or now - last_persisted_at
+                >= PAT_LAST_USED_SAVE_INTERVAL.total_seconds()
+            )
+
+            stored_pat.last_used_at = now
+            stored_pat.last_used_by = remote_ip
+
+            if should_save:
+                self.save()
+                self._pat_last_used_persisted_at[stored_pat.id] = now
 
     def revoke_all_for_user(self, user_id: str) -> None:
         """Revoke all sessions (refresh tokens) and personal access tokens for a user.
@@ -787,6 +814,7 @@ class Auth:
                 t_id for t_id, t in self.access_tokens.items() if t.user_id == user_id
             ]
             for t_id in pat_ids_to_delete:
+                self._pat_last_used_persisted_at.pop(t_id, None)
                 del self.access_tokens[t_id]
 
             self.save()
