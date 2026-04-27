@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from typing import TYPE_CHECKING, Any
 
 import cv2
@@ -26,6 +27,7 @@ from .const import (
     CONFIG_PREDICTION_COUNT,
     CONFIG_SIMILARITTY_THRESHOLD,
     CONFIG_STATUS,
+    CONFIG_TRAIN,
     CONFIG_USE_SUBJECTS,
     SUBJECTS,
 )
@@ -40,12 +42,27 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
+SETUP_LOCK = threading.Lock()
+
 
 def setup(vis: Viseron, config: dict[str, Any], identifier: str) -> bool:
     """Set up the CompreFace face_recognition domain."""
+    with SETUP_LOCK:
+        if not vis.data[COMPONENT].get(CONFIG_FACE_RECOGNITION, None):
+            vis.data[COMPONENT][CONFIG_FACE_RECOGNITION] = CompreFaceService(config)
+            if config[CONFIG_FACE_RECOGNITION][CONFIG_TRAIN]:
+                CompreFaceTrain(vis, config)
+        else:
+            LOGGER.debug("CompreFace service has already been created")
+
     FaceRecognition(vis, config, identifier)
 
     return True
+
+
+def unload(vis: Viseron) -> None:
+    """Unload the compreface face_recognition domain."""
+    vis.data[COMPONENT].pop(CONFIG_FACE_RECOGNITION, None)
 
 
 class FaceRecognition(AbstractFaceRecognition):

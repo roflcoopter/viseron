@@ -1,7 +1,9 @@
 """EdgeTPU Object detector."""
+
 import logging
 import threading
 from queue import Queue
+from typing import Any
 
 import cv2
 import numpy as np
@@ -20,7 +22,7 @@ LOGGER = logging.getLogger(__name__)
 MAKE_INTERPRETER_LOCK = threading.Lock()
 
 
-def setup(vis: Viseron, config, identifier) -> bool:
+def setup(vis: Viseron, config: dict[str, Any], identifier: str) -> bool:
     """Set up the edgetpu object_detector domain."""
     with MAKE_INTERPRETER_LOCK:
         if not vis.data[COMPONENT].get(CONFIG_OBJECT_DETECTOR, None):
@@ -30,16 +32,29 @@ def setup(vis: Viseron, config, identifier) -> bool:
                 )
             except (MakeInterpreterError, FileNotFoundError) as error:
                 raise DomainNotReady from error
+        else:
+            LOGGER.debug(
+                f"Interpreter for {CONFIG_OBJECT_DETECTOR} has already been created"
+            )
 
     ObjectDetector(vis, config[DOMAIN], identifier)
 
     return True
 
 
+def unload(vis: Viseron) -> None:
+    """Unload the edgetpu object_detector domain."""
+    if object_detector := vis.data.get(COMPONENT, {}).get(CONFIG_OBJECT_DETECTOR, None):
+        object_detector.stop()
+        vis.data[COMPONENT].pop(CONFIG_OBJECT_DETECTOR, None)
+
+
 class ObjectDetector(AbstractObjectDetector):
     """Performs object detection."""
 
-    def __init__(self, vis: Viseron, config, camera_identifier) -> None:
+    def __init__(
+        self, vis: Viseron, config: dict[str, Any], camera_identifier: str
+    ) -> None:
         self._vis = vis
         self._config = config
         self._camera_identifier = camera_identifier
@@ -49,7 +64,7 @@ class ObjectDetector(AbstractObjectDetector):
 
         super().__init__(vis, COMPONENT, config, camera_identifier)
 
-    def preprocess(self, frame):
+    def preprocess(self, frame: np.ndarray) -> np.ndarray:
         """Return preprocessed frame before performing object detection."""
         frame = cv2.resize(
             frame,
@@ -58,7 +73,7 @@ class ObjectDetector(AbstractObjectDetector):
         )
         return np.expand_dims(frame, axis=0)
 
-    def return_objects(self, frame) -> list[DetectedObject]:
+    def return_objects(self, frame: np.ndarray) -> list[DetectedObject]:
         """Perform object detection."""
         return self._edgetpu.invoke(
             frame,
@@ -67,7 +82,7 @@ class ObjectDetector(AbstractObjectDetector):
             self._camera.resolution,
         )
 
-    def result_failed_callback(self):
+    def result_failed_callback(self) -> None:
         """Call EdgeTPU reload_if_needed on failure."""
         self._edgetpu.reload_if_needed()
 

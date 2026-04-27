@@ -1,7 +1,9 @@
 """Used to filter out unwanted objects."""
+
 from __future__ import annotations
 
 from datetime import timedelta
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from viseron.domains.object_detector.const import (
@@ -21,6 +23,14 @@ from viseron.helpers import utcnow
 
 if TYPE_CHECKING:
     from viseron.domains.object_detector.detected_object import DetectedObject
+
+
+class Filters(Enum):
+    """Enum for filter types."""
+
+    CONFIDENCE = "confidence"
+    WIDTH = "width"
+    HEIGHT = "height"
 
 
 class Filter:
@@ -56,21 +66,21 @@ class Filter:
         """Return if confidence filter is met."""
         if obj.confidence > self._confidence:
             return True
-        obj.filter_hit = "confidence"
+        obj.filter_hit = Filters.CONFIDENCE
         return False
 
     def filter_width(self, obj: DetectedObject) -> bool:
         """Return if width filter is met."""
         if self._width_max > obj.rel_width > self._width_min:
             return True
-        obj.filter_hit = "width"
+        obj.filter_hit = Filters.WIDTH
         return False
 
     def filter_height(self, obj: DetectedObject) -> bool:
         """Return if height filter is met."""
         if self._height_max > obj.rel_height > self._height_min:
             return True
-        obj.filter_hit = "height"
+        obj.filter_hit = Filters.HEIGHT
         return False
 
     def filter_object(self, obj: DetectedObject) -> bool:

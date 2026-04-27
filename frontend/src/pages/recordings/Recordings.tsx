@@ -2,8 +2,10 @@ import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
 import Grow from "@mui/material/Grow";
 
+import { NoCamerasConfigured } from "components/camera/NoCamerasConfigured";
 import { Loading } from "components/loading/Loading";
 import RecordingCardLatest from "components/recording/RecordingCardLatest";
+import { useHasCamerasConfigured } from "hooks/UseHasCamerasConfigured";
 import { useTitle } from "hooks/UseTitle";
 import { useCameras, useCamerasFailed } from "lib/api/cameras";
 import { objHasValues } from "lib/helpers";
@@ -41,6 +43,7 @@ function Recordings() {
 
   const cameras = useCameras({});
   const failedCameras = useCamerasFailed({});
+  const hasCamerasConfigured = useHasCamerasConfigured();
 
   if (cameras.isPending || failedCameras.isPending) {
     return <Loading text="Loading Recordings" />;
@@ -52,7 +55,11 @@ function Recordings() {
       objHasValues<typeof failedCameras.data>(failedCameras.data)
     )
   ) {
-    return <Loading text="Waiting for cameras to register" />;
+    return hasCamerasConfigured ? (
+      <Loading text="Waiting for cameras to register" />
+    ) : (
+      <NoCamerasConfigured />
+    );
   }
 
   return (

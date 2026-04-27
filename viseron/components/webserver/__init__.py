@@ -1,4 +1,5 @@
 """Viseron webserver."""
+
 from __future__ import annotations
 
 import asyncio
@@ -6,7 +7,7 @@ import logging
 import os
 import secrets
 import threading
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import tornado.ioloop
 import tornado.web
@@ -68,6 +69,8 @@ from .websocket_api.commands import (
     get_cameras,
     get_config,
     get_entities,
+    get_setup_status,
+    handle_reload_config,
     handle_render_template,
     ping,
     restart_viseron,
@@ -152,7 +155,7 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config) -> bool:
+def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     """Set up the webserver component."""
     config = config[COMPONENT]
     webserver = Webserver(vis, config)
@@ -167,6 +170,7 @@ def setup(vis: Viseron, config) -> bool:
     webserver.register_websocket_command(get_config)
     webserver.register_websocket_command(save_config)
     webserver.register_websocket_command(restart_viseron)
+    webserver.register_websocket_command(handle_reload_config)
     webserver.register_websocket_command(get_entities)
     webserver.register_websocket_command(subscribe_timespans)
     webserver.register_websocket_command(unsubscribe_timespans)
@@ -174,6 +178,7 @@ def setup(vis: Viseron, config) -> bool:
     webserver.register_websocket_command(export_snapshot)
     webserver.register_websocket_command(export_timespan)
     webserver.register_websocket_command(handle_render_template)
+    webserver.register_websocket_command(get_setup_status)
 
     webserver.start()
 
@@ -188,7 +193,7 @@ class WebserverStore:
         self._data = self._store.load()
 
     @property
-    def cookie_secret(self):
+    def cookie_secret(self) -> str:
         """Return cookie secret."""
         if "cookie_secret" not in self._data:
             self._data["cookie_secret"] = secrets.token_hex(64)
@@ -197,7 +202,11 @@ class WebserverStore:
 
 
 def create_application(
-    vis: Viseron, config, cookie_secret, xsrf_cookies=True
+    vis: Viseron,
+    config: dict[str, Any],
+    cookie_secret: str,
+    *,
+    xsrf_cookies: bool = True,
 ) -> tornado.web.Application:
     """Return tornado web app."""
     application = tornado.web.Application(
@@ -242,7 +251,7 @@ def create_application(
 class Webserver(threading.Thread):
     """Webserver."""
 
-    def __init__(self, vis: Viseron, config) -> None:
+    def __init__(self, vis: Viseron, config: dict[str, Any]) -> None:
         super().__init__(name="Tornado Webserver", daemon=True)
         self._vis = vis
         self._config = config
@@ -279,7 +288,7 @@ class Webserver(threading.Thread):
         except OSError as error:
             if "Address already in use" in str(error):
                 raise ComponentNotReady from error
-            raise error
+            raise
         self._ioloop = tornado.ioloop.IOLoop.current()
 
         # Schedule periodic cleanup of expired public images (every hour)
@@ -297,10 +306,9 @@ class Webserver(threading.Thread):
             subpath = subpath.rstrip("/")
         return subpath
 
-    def _cleanup_expired_public_images(self):
+    def _cleanup_expired_public_images(self) -> None:
         """Clean up expired public images (files older than max expiry)."""
         try:
-
             timestamp_limit = current_system_datetime().timestamp() - (
                 self.public_url_expiry_hours * 3600
             )
@@ -330,10 +338,10 @@ class Webserver(threading.Thread):
                 LOGGER.info(
                     f"Cleaned up {cleaned_count} expired public image(s) on startup"
                 )
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:  # pylint: disable=broad-except # noqa: BLE001
             LOGGER.error(f"Error during expired public images cleanup: {e}")
 
-    async def _periodic_cleanup(self):
+    async def _periodic_cleanup(self) -> None:
         """Run periodic cleanup of expired public images."""
         while True:
             try:
@@ -343,16 +351,16 @@ class Webserver(threading.Thread):
                 )
             except asyncio.CancelledError:
                 break
-            except Exception as e:  # pylint: disable=broad-except
+            except Exception as e:  # pylint: disable=broad-except # noqa: BLE001
                 LOGGER.error(f"Error during public images cleanup: {e}")
 
     @property
-    def auth(self):
+    def auth(self) -> Auth | None:
         """Return auth."""
         return self._auth
 
     @property
-    def application(self):
+    def application(self) -> tornado.web.Application:
         """Return application."""
         return self._application
 
@@ -404,7 +412,7 @@ class Webserver(threading.Thread):
         self._cleanup_task = self._asyncio_ioloop.create_task(self._periodic_cleanup())
 
         self._ioloop.start()
-        self._ioloop.close(True)
+        self._ioloop.close(all_fds=True)
         LOGGER.debug("IOLoop closed")
 
     def stop(self) -> None:
@@ -416,7 +424,7 @@ class Webserver(threading.Thread):
 
         shutdown_event = threading.Event()
 
-        async def shutdown():
+        async def shutdown() -> None:
             # Cancel cleanup task
             if self._cleanup_task and not self._cleanup_task.done():
                 self._cleanup_task.cancel()

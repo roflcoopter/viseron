@@ -1,12 +1,12 @@
 """EdgeTPU image classification post processor."""
+
 from __future__ import annotations
 
 import threading
 from queue import Queue
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import cv2
-import numpy as np
 
 from viseron.domains.image_classification import (
     AbstractImageClassification,
@@ -20,23 +20,25 @@ from . import EdgeTPUClassification, MakeInterpreterError
 from .const import COMPONENT, CONFIG_CROP_CORRECTION, CONFIG_IMAGE_CLASSIFICATION
 
 if TYPE_CHECKING:
+    import numpy as np
+
     from viseron import Viseron
     from viseron.domains.post_processor import PostProcessorFrame
 
 MAKE_INTERPRETER_LOCK = threading.Lock()
 
 
-def setup(vis: Viseron, config, identifier) -> bool:
+def setup(vis: Viseron, config: dict[str, Any], identifier: str) -> bool:
     """Set up the edgetpu image_classification domain."""
     with MAKE_INTERPRETER_LOCK:
         if not vis.data[COMPONENT].get(CONFIG_IMAGE_CLASSIFICATION, None):
             try:
-                vis.data[COMPONENT][
-                    CONFIG_IMAGE_CLASSIFICATION
-                ] = EdgeTPUClassification(
-                    vis,
-                    config[CONFIG_IMAGE_CLASSIFICATION],
-                    CONFIG_IMAGE_CLASSIFICATION,
+                vis.data[COMPONENT][CONFIG_IMAGE_CLASSIFICATION] = (
+                    EdgeTPUClassification(
+                        vis,
+                        config[CONFIG_IMAGE_CLASSIFICATION],
+                        CONFIG_IMAGE_CLASSIFICATION,
+                    )
                 )
             except (MakeInterpreterError, FileNotFoundError) as error:
                 raise DomainNotReady from error
@@ -46,17 +48,32 @@ def setup(vis: Viseron, config, identifier) -> bool:
     return True
 
 
+def unload(vis: Viseron) -> None:
+    """Unload the edgetpu image_classification domain."""
+    if image_classification := vis.data.get(COMPONENT, {}).get(
+        CONFIG_IMAGE_CLASSIFICATION, None
+    ):
+        image_classification.stop()
+        vis.data[COMPONENT].pop(CONFIG_IMAGE_CLASSIFICATION, None)
+
+
 class ImageClassification(AbstractImageClassification):
     """Perform EdgeTPU image classification."""
 
-    def __init__(self, vis: Viseron, component, config, camera_identifier) -> None:
+    def __init__(
+        self,
+        vis: Viseron,
+        component: str,
+        config: dict[str, Any],
+        camera_identifier: str,
+    ) -> None:
         self._edgetpu = vis.data[COMPONENT][CONFIG_IMAGE_CLASSIFICATION]
-        self._classification_result_queue: Queue[
-            list[ImageClassificationResult]
-        ] = Queue(maxsize=1)
+        self._classification_result_queue: Queue[list[ImageClassificationResult]] = (
+            Queue(maxsize=1)
+        )
         super().__init__(vis, component, config, camera_identifier)
 
-    def preprocess(self, frame) -> np.ndarray:
+    def preprocess(self, frame: np.ndarray) -> np.ndarray:
         """Preprocess frame."""
         return frame
 
@@ -110,7 +127,16 @@ class ImageClassification(AbstractImageClassification):
         return self._edgetpu.model_height
 
 
-def crop_frame(frame, max_width, max_height, x1, y1, x2, y2, crop_correction):
+def crop_frame(
+    frame: np.ndarray,
+    max_width: int,
+    max_height: int,
+    x1: int,
+    y1: int,
+    x2: int,
+    y2: int,
+    crop_correction: int,
+) -> np.ndarray:
     """Crop frame to object."""
     return frame[
         max(y1 - crop_correction, 0) : min(y2 + crop_correction, max_height),

@@ -1,4 +1,5 @@
 """Static file handler with authentication."""
+
 from __future__ import annotations
 
 from http import HTTPStatus
@@ -41,7 +42,7 @@ class AccessTokenStaticFileHandler(
                 )
                 self.finish()
 
-            camera = self._get_camera(self._camera_identifier, self._failed)
+            camera = self._get_camera(self._camera_identifier, failed=self._failed)
             if not camera:
                 self.set_status(
                     HTTPStatus.NOT_FOUND,

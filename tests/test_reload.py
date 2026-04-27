@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
+from viseron.components import ComponentError, ComponentErrorSource, ValidationResult
 from viseron.config import ComponentChange, ConfigDiff, DomainChange, IdentifierChange
 from viseron.domain_registry import DomainEntry, DomainState
 from viseron.reload import (
@@ -26,7 +27,6 @@ from viseron.reload import (
     _process_identifier_changes,
     _reload_config,
     _unload_dependents_of_pending_domains,
-    _unload_domain_chain,
     _validate_config,
     reload_config,
 )
@@ -48,143 +48,6 @@ def _make_domain_entry(
         identifier=identifier,
         config={},
     )
-
-
-class TestUnloadDomainChain:
-    """Test _unload_domain_chain function."""
-
-    @patch("viseron.reload.unload_domain")
-    @patch("viseron.reload.get_unload_order", return_value=[])
-    def test_empty_unload_order(
-        self, mock_get_order: MagicMock, mock_unload: MagicMock
-    ) -> None:
-        """Test with no dependents to unload."""
-        vis = MagicMock()
-        entry = _make_domain_entry()
-        plan = SetupPlan()
-
-        _unload_domain_chain(vis, entry.domain, entry.identifier, plan)
-
-        mock_get_order.assert_called_once_with(vis, "camera", "cam1")
-        mock_unload.assert_not_called()
-        assert plan.domain_components == set()
-
-    @patch("viseron.reload.unload_domain")
-    @patch("viseron.reload.get_unload_order")
-    def test_single_entry_unloaded(
-        self, mock_get_order: MagicMock, mock_unload: MagicMock
-    ) -> None:
-        """Test unloading a single domain entry."""
-        vis = MagicMock()
-        entry = _make_domain_entry()
-        mock_get_order.return_value = [entry]
-        plan = SetupPlan()
-
-        _unload_domain_chain(vis, entry.domain, entry.identifier, plan)
-
-        mock_unload.assert_called_once_with(vis, "camera", "cam1")
-        assert plan.domain_components == {"ffmpeg"}
-
-    @patch("viseron.reload.unload_domain")
-    @patch("viseron.reload.get_unload_order")
-    def test_multiple_entries_different_components(
-        self, mock_get_order: MagicMock, mock_unload: MagicMock
-    ) -> None:
-        """Test unloading entries from different components."""
-        vis = MagicMock()
-        entry = _make_domain_entry()
-        dependent = _make_domain_entry(
-            component_name="darknet",
-            domain="object_detector",
-            identifier="cam1",
-        )
-        mock_get_order.return_value = [dependent, entry]
-        plan = SetupPlan()
-
-        _unload_domain_chain(vis, entry.domain, entry.identifier, plan)
-
-        assert mock_unload.call_count == 2
-        mock_unload.assert_has_calls(
-            [
-                call(vis, "object_detector", "cam1"),
-                call(vis, "camera", "cam1"),
-            ]
-        )
-        assert plan.domain_components == {"ffmpeg", "darknet"}
-
-    @patch("viseron.reload.unload_domain")
-    @patch("viseron.reload.get_unload_order")
-    def test_multiple_entries_same_component(
-        self, mock_get_order: MagicMock, mock_unload: MagicMock
-    ) -> None:
-        """Test that duplicate component names are deduplicated in the plan."""
-        vis = MagicMock()
-        entry1 = _make_domain_entry(identifier="cam1")
-        entry2 = _make_domain_entry(identifier="cam2")
-        mock_get_order.return_value = [entry1, entry2]
-        plan = SetupPlan()
-
-        _unload_domain_chain(vis, entry1.domain, entry1.identifier, plan)
-
-        assert mock_unload.call_count == 2
-        assert plan.domain_components == {"ffmpeg"}
-
-    @patch("viseron.reload.get_unload_order")
-    def test_preserves_existing_plan_components(
-        self,
-        mock_get_order: MagicMock,
-    ) -> None:
-        """Test that existing domain_components in the plan are preserved."""
-        vis = MagicMock()
-        entry = _make_domain_entry()
-        mock_get_order.return_value = [entry]
-        plan = SetupPlan(domain_components={"existing_component"})
-
-        with patch("viseron.reload.unload_domain"):
-            _unload_domain_chain(vis, entry.domain, entry.identifier, plan)
-
-        assert "existing_component" in plan.domain_components
-        assert "ffmpeg" in plan.domain_components
-        assert len(plan.domain_components) == 2
-
-    @patch("viseron.reload.get_unload_order")
-    def test_does_not_modify_plan_components(self, mock_get_order: MagicMock) -> None:
-        """Test that plan.components (non-domain) is not modified."""
-        vis = MagicMock()
-        entry = _make_domain_entry()
-        mock_get_order.return_value = [entry]
-        plan = SetupPlan(components={"some_component"})
-        with patch("viseron.reload.unload_domain"):
-            _unload_domain_chain(vis, entry.domain, entry.identifier, plan)
-
-        assert plan.components == {"some_component"}
-
-    @patch("viseron.reload.unload_domain")
-    @patch("viseron.reload.get_unload_order")
-    def test_unload_called_in_order(
-        self, mock_get_order: MagicMock, mock_unload: MagicMock
-    ) -> None:
-        """Test that unload_domain is called in the correct order."""
-        vis = MagicMock()
-        entry = _make_domain_entry()
-        nvr_entry = _make_domain_entry(
-            component_name="nvr", domain="nvr", identifier="cam1"
-        )
-        detector_entry = _make_domain_entry(
-            component_name="darknet",
-            domain="object_detector",
-            identifier="cam1",
-        )
-        mock_get_order.return_value = [nvr_entry, detector_entry, entry]
-        plan = SetupPlan()
-
-        _unload_domain_chain(vis, entry.domain, entry.identifier, plan)
-
-        assert mock_unload.call_args_list == [
-            call(vis, "nvr", "cam1"),
-            call(vis, "object_detector", "cam1"),
-            call(vis, "camera", "cam1"),
-        ]
 
 
 class TestProcessIdentifierChanges:
@@ -597,6 +460,72 @@ class TestCheckDefaultComponentChanges:
         assert result == expected
 
 
+class TestReloadChangesRemoveDefaultComponents:
+    """Test ReloadChanges.remove_default_components method."""
+
+    def test_empty_lists_unchanged(self) -> None:
+        """Test that empty lists remain empty after filtering."""
+        changes = ReloadChanges()
+        changes.remove_default_components()
+
+        assert not changes.components_to_reload
+        assert not changes.domains_to_reload
+        assert not changes.identifiers_to_reload
+
+    def test_only_default_components_are_removed(self) -> None:
+        """Test that entries for DEFAULT_COMPONENTS are removed from all lists."""
+        changes = ReloadChanges(
+            components_to_reload=[
+                ComponentChange(
+                    component_name="webserver",
+                    old_config={"key": "old"},
+                    new_config={"key": "new"},
+                ),
+                ComponentChange(
+                    component_name="storage",
+                    old_config={"key": "old"},
+                    new_config={"key": "new"},
+                ),
+            ],
+        )
+        changes.remove_default_components()
+
+        assert not changes.components_to_reload
+        assert not changes.domains_to_reload
+        assert not changes.identifiers_to_reload
+
+    def test_non_default_components_are_kept(self) -> None:
+        """Test that entries for non-default components are not removed."""
+        ffmpeg_comp = ComponentChange(
+            component_name="ffmpeg",
+            old_config={"key": "old"},
+            new_config={"key": "new"},
+        )
+        ffmpeg_domain = DomainChange(
+            component_name="ffmpeg",
+            domain="camera",
+            old_config=None,
+            new_config={"cam1": {}},
+        )
+        ffmpeg_id = IdentifierChange(
+            component_name="ffmpeg",
+            domain="camera",
+            identifier="cam1",
+            old_config=None,
+            new_config={"host": "192.168.1.1"},
+        )
+        changes = ReloadChanges(
+            components_to_reload=[ffmpeg_comp],
+            domains_to_reload=[ffmpeg_domain],
+            identifiers_to_reload=[ffmpeg_id],
+        )
+        changes.remove_default_components()
+
+        assert changes.components_to_reload == [ffmpeg_comp]
+        assert changes.domains_to_reload == [ffmpeg_domain]
+        assert changes.identifiers_to_reload == [ffmpeg_id]
+
+
 class TestHandleRemovedComponents:
     """Test _handle_removed_components function."""
 
@@ -770,8 +699,8 @@ class TestHandleModifiedComponents:
 class TestHandleModifiedDomains:
     """Test _handle_modified_domains function."""
 
-    @patch("viseron.reload._unload_domain_chain")
-    def test_no_modified_domains(self, mock_chain: MagicMock) -> None:
+    @patch("viseron.reload.unload_domain")
+    def test_no_modified_domains(self, mock_unload: MagicMock) -> None:
         """Test with empty domains_to_reload."""
         vis = MagicMock()
         changes = ReloadChanges()
@@ -779,14 +708,16 @@ class TestHandleModifiedDomains:
 
         _handle_modified_domains(vis, changes, plan)
 
-        mock_chain.assert_not_called()
+        mock_unload.assert_not_called()
         assert plan.domain_components == set()
 
-    @patch("viseron.reload._unload_domain_chain")
-    def test_domain_no_entries_to_unload(self, mock_chain: MagicMock) -> None:
-        """Test domain change where registry returns no entries."""
+    @patch("viseron.reload.unload_domain")
+    def test_domain_unload_called_with_component_and_domain(
+        self, mock_unload: MagicMock
+    ) -> None:
+        """Test that unload_domain is called with component name and domain."""
         vis = MagicMock()
-        vis.domain_registry.get_by_component.return_value = None
+        mock_unload.return_value = None
         changes = ReloadChanges(
             domains_to_reload=[
                 DomainChange(
@@ -802,24 +733,37 @@ class TestHandleModifiedDomains:
         _handle_modified_domains(vis, changes, plan)
 
         assert plan.domain_components == {"darknet"}
-        vis.domain_registry.get_by_component.assert_called_once_with("darknet")
-        mock_chain.assert_not_called()
+        mock_unload.assert_called_once_with(vis, "darknet", "object_detector")
 
-    @patch("viseron.reload._unload_domain_chain")
-    def test_domain_with_entries_unloads_all(self, mock_chain: MagicMock) -> None:
-        """Test domain change with multiple entries triggers chain unload for each."""
+    @patch("viseron.reload.unload_domain")
+    def test_domain_affected_components_added_to_plan(
+        self, mock_unload: MagicMock
+    ) -> None:
+        """Test that affected components returned by unload_domain are added to plan."""
         vis = MagicMock()
-        entry1 = _make_domain_entry(
-            component_name="darknet",
-            domain="object_detector",
-            identifier="cam1",
+        mock_unload.return_value = {"nvr", "darknet"}
+        changes = ReloadChanges(
+            domains_to_reload=[
+                DomainChange(
+                    component_name="ffmpeg",
+                    domain="camera",
+                    old_config={"width": 1920},
+                    new_config={"width": 1280},
+                ),
+            ]
         )
-        entry2 = _make_domain_entry(
-            component_name="darknet",
-            domain="object_detector",
-            identifier="cam2",
-        )
-        vis.domain_registry.get_by_component.return_value = [entry1, entry2]
+        plan = SetupPlan()
+
+        _handle_modified_domains(vis, changes, plan)
+
+        assert plan.domain_components == {"ffmpeg", "nvr", "darknet"}
+        mock_unload.assert_called_once_with(vis, "ffmpeg", "camera")
+
+    @patch("viseron.reload.unload_domain")
+    def test_domain_no_affected_components(self, mock_unload: MagicMock) -> None:
+        """Test that None return from unload_domain does not update plan."""
+        vis = MagicMock()
+        mock_unload.return_value = None
         changes = ReloadChanges(
             domains_to_reload=[
                 DomainChange(
@@ -834,33 +778,14 @@ class TestHandleModifiedDomains:
 
         _handle_modified_domains(vis, changes, plan)
 
-        assert "darknet" in plan.domain_components
-        assert mock_chain.call_count == 2
-        mock_chain.assert_has_calls(
-            [
-                call(vis, entry1.domain, entry1.identifier, plan),
-                call(vis, entry2.domain, entry2.identifier, plan),
-            ]
-        )
+        # Only the direct component_name is added; no extra components
+        assert plan.domain_components == {"darknet"}
 
-    @patch("viseron.reload._unload_domain_chain")
-    def test_multiple_domain_changes(self, mock_chain: MagicMock) -> None:
-        """Test multiple domain changes accumulate components and unload all."""
+    @patch("viseron.reload.unload_domain")
+    def test_multiple_domain_changes(self, mock_unload: MagicMock) -> None:
+        """Test multiple domain changes call unload_domain for each and merge plan."""
         vis = MagicMock()
-        entry_darknet = _make_domain_entry(
-            component_name="darknet",
-            domain="object_detector",
-            identifier="cam1",
-        )
-        entry_ffmpeg = _make_domain_entry(
-            component_name="ffmpeg",
-            domain="camera",
-            identifier="cam1",
-        )
-        vis.domain_registry.get_by_component.side_effect = [
-            [entry_darknet],
-            [entry_ffmpeg],
-        ]
+        mock_unload.side_effect = [{"nvr"}, None]
         changes = ReloadChanges(
             domains_to_reload=[
                 DomainChange(
@@ -881,20 +806,16 @@ class TestHandleModifiedDomains:
 
         _handle_modified_domains(vis, changes, plan)
 
-        assert plan.domain_components == {"darknet", "ffmpeg"}
-        assert mock_chain.call_count == 2
-        mock_chain.assert_has_calls(
-            [
-                call(vis, entry_darknet.domain, entry_darknet.identifier, plan),
-                call(vis, entry_ffmpeg.domain, entry_ffmpeg.identifier, plan),
-            ]
-        )
+        assert plan.domain_components == {"darknet", "ffmpeg", "nvr"}
+        assert mock_unload.call_count == 2
+        mock_unload.assert_any_call(vis, "darknet", "object_detector")
+        mock_unload.assert_any_call(vis, "ffmpeg", "camera")
 
 
 class TestHandleModifiedIdentifiers:
     """Test _handle_modified_identifiers function."""
 
-    @patch("viseron.reload._unload_domain_chain")
+    @patch("viseron.reload.unload_domain_chain")
     def test_no_modified_identifiers(self, mock_chain: MagicMock) -> None:
         """Test with empty identifiers_to_reload."""
         vis = MagicMock()
@@ -906,7 +827,7 @@ class TestHandleModifiedIdentifiers:
         mock_chain.assert_not_called()
         assert plan.domain_components == set()
 
-    @patch("viseron.reload._unload_domain_chain")
+    @patch("viseron.reload.unload_domain_chain")
     def test_identifier_found_unloads_chain(self, mock_chain: MagicMock) -> None:
         """Test that a found identifier triggers chain unload and updates plan."""
         vis = MagicMock()
@@ -929,9 +850,9 @@ class TestHandleModifiedIdentifiers:
 
         assert "ffmpeg" in plan.domain_components
         vis.domain_registry.get_by_identifier.assert_called_once_with("camera", "cam1")
-        mock_chain.assert_called_once_with(vis, entry.domain, entry.identifier, plan)
+        mock_chain.assert_called_once_with(vis, entry.domain, entry.identifier)
 
-    @patch("viseron.reload._unload_domain_chain")
+    @patch("viseron.reload.unload_domain_chain")
     def test_identifier_not_found_no_unload(self, mock_chain: MagicMock) -> None:
         """Test that a missing identifier does not trigger chain unload."""
         vis = MagicMock()
@@ -955,7 +876,7 @@ class TestHandleModifiedIdentifiers:
         assert "ffmpeg" in plan.domain_components
         mock_chain.assert_not_called()
 
-    @patch("viseron.reload._unload_domain_chain")
+    @patch("viseron.reload.unload_domain_chain")
     def test_multiple_identifiers_mixed(self, mock_chain: MagicMock) -> None:
         """Test multiple identifiers with mixed found/not-found results."""
         vis = MagicMock()
@@ -988,9 +909,9 @@ class TestHandleModifiedIdentifiers:
         _handle_modified_identifiers(vis, changes, plan)
 
         assert plan.domain_components == {"darknet", "ffmpeg"}
-        mock_chain.assert_called_once_with(vis, entry.domain, entry.identifier, plan)
+        mock_chain.assert_called_once_with(vis, entry.domain, entry.identifier)
 
-    @patch("viseron.reload._unload_domain_chain")
+    @patch("viseron.reload.unload_domain_chain")
     def test_added_identifier_unloads_dependents(self, mock_chain: MagicMock) -> None:
         """Test that adding an identifier unloads its dependents via chain."""
         vis = MagicMock()
@@ -1011,9 +932,9 @@ class TestHandleModifiedIdentifiers:
         _handle_modified_identifiers(vis, changes, plan)
 
         assert "ffmpeg" in plan.domain_components
-        mock_chain.assert_called_once_with(vis, "camera", "cam1", plan)
+        mock_chain.assert_called_once_with(vis, "camera", "cam1")
 
-    @patch("viseron.reload._unload_domain_chain")
+    @patch("viseron.reload.unload_domain_chain")
     def test_modified_identifier_does_not_check_dependents(
         self, mock_chain: MagicMock
     ) -> None:
@@ -1036,15 +957,15 @@ class TestHandleModifiedIdentifiers:
 
         _handle_modified_identifiers(vis, changes, plan)
 
-        # Should only call _unload_domain_chain for the entry itself,
+        # Should only call unload_domain_chain for the entry itself,
         # not a second time since it's a modification, not addition.
-        mock_chain.assert_called_once_with(vis, entry.domain, entry.identifier, plan)
+        mock_chain.assert_called_once_with(vis, entry.domain, entry.identifier)
 
 
 class TestHandleCancelledRetries:
     """Test _handle_cancelled_retries function."""
 
-    @patch("viseron.reload._unload_domain_chain")
+    @patch("viseron.reload.unload_domain_chain")
     def test_no_cancelled_retries(self, mock_chain: MagicMock) -> None:
         """Test with an empty cancelled retries list."""
         vis = MagicMock()
@@ -1054,9 +975,10 @@ class TestHandleCancelledRetries:
 
         mock_chain.assert_not_called()
 
-    @patch("viseron.reload._unload_domain_chain")
+    @patch("viseron.reload.unload_domain_chain")
     def test_multiple_cancelled_retries(self, mock_chain: MagicMock) -> None:
         """Test that each cancelled retry triggers its own chain unload."""
+        mock_chain.return_value = set()
         vis = MagicMock()
         entry1 = _make_domain_entry(identifier="cam1")
         entry2 = _make_domain_entry(
@@ -1071,8 +993,8 @@ class TestHandleCancelledRetries:
         assert mock_chain.call_count == 2
         mock_chain.assert_has_calls(
             [
-                call(vis, entry1.domain, entry1.identifier, plan),
-                call(vis, entry2.domain, entry2.identifier, plan),
+                call(vis, entry1.domain, entry1.identifier),
+                call(vis, entry2.domain, entry2.identifier),
             ]
         )
 
@@ -1080,7 +1002,7 @@ class TestHandleCancelledRetries:
 class TestUnloadLoadedDependentsOfPendingDomains:
     """Test _unload_dependents_of_pending_domains function."""
 
-    @patch("viseron.reload._unload_domain_chain")
+    @patch("viseron.reload.unload_domain_chain")
     def test_no_pending_domains(self, mock_chain: MagicMock) -> None:
         """Test with no pending domains."""
         vis = MagicMock()
@@ -1091,7 +1013,7 @@ class TestUnloadLoadedDependentsOfPendingDomains:
 
         mock_chain.assert_not_called()
 
-    @patch("viseron.reload._unload_domain_chain")
+    @patch("viseron.reload.unload_domain_chain")
     def test_pending_domain_with_no_dependents(self, mock_chain: MagicMock) -> None:
         """Test pending domain that has no dependents."""
         vis = MagicMock()
@@ -1112,7 +1034,7 @@ class TestUnloadLoadedDependentsOfPendingDomains:
         )
         mock_chain.assert_not_called()
 
-    @patch("viseron.reload._unload_domain_chain")
+    @patch("viseron.reload.unload_domain_chain")
     def test_loaded_dependent_is_unloaded(self, mock_chain: MagicMock) -> None:
         """Test that a LOADED dependent of a pending domain is unloaded."""
         vis = MagicMock()
@@ -1135,10 +1057,10 @@ class TestUnloadLoadedDependentsOfPendingDomains:
         _unload_dependents_of_pending_domains(vis, plan)
 
         mock_chain.assert_called_once_with(
-            vis, loaded_dep.domain, loaded_dep.identifier, plan
+            vis, loaded_dep.domain, loaded_dep.identifier
         )
 
-    @patch("viseron.reload._unload_domain_chain")
+    @patch("viseron.reload.unload_domain_chain")
     def test_pending_dependents_are_skipped(self, mock_chain: MagicMock) -> None:
         """Test that PENDING dependents are not unloaded."""
         vis = MagicMock()
@@ -1162,11 +1084,12 @@ class TestUnloadLoadedDependentsOfPendingDomains:
 
         mock_chain.assert_not_called()
 
-    @patch("viseron.reload._unload_domain_chain")
+    @patch("viseron.reload.unload_domain_chain")
     def test_multiple_pending_with_loaded_dependents(
         self, mock_chain: MagicMock
     ) -> None:
         """Test multiple pending domains each with loaded dependents."""
+        mock_chain.return_value = set()
         vis = MagicMock()
         pending1 = _make_domain_entry(
             component_name="darknet",
@@ -1194,21 +1117,22 @@ class TestUnloadLoadedDependentsOfPendingDomains:
 
         _unload_dependents_of_pending_domains(vis, plan)
 
-        # NVR is found as dependent of both, but _unload_domain_chain
+        # NVR is found as dependent of both, but unload_domain_chain
         # is called for each (deduplication happens inside the chain)
         assert mock_chain.call_count == 2
         mock_chain.assert_has_calls(
             [
-                call(vis, nvr_dep.domain, nvr_dep.identifier, plan),
-                call(vis, nvr_dep.domain, nvr_dep.identifier, plan),
+                call(vis, nvr_dep.domain, nvr_dep.identifier),
+                call(vis, nvr_dep.domain, nvr_dep.identifier),
             ]
         )
 
-    @patch("viseron.reload._unload_domain_chain")
+    @patch("viseron.reload.unload_domain_chain")
     def test_mixed_loaded_and_non_loaded_dependents(
         self, mock_chain: MagicMock
     ) -> None:
         """Test that non-PENDING dependents are unloaded from a mixed set."""
+        mock_chain.return_value = set()
         vis = MagicMock()
         pending = _make_domain_entry(
             component_name="darknet",
@@ -1246,8 +1170,8 @@ class TestUnloadLoadedDependentsOfPendingDomains:
         assert mock_chain.call_count == 2
         mock_chain.assert_has_calls(
             [
-                call(vis, loaded_dep.domain, loaded_dep.identifier, plan),
-                call(vis, failed_dep.domain, failed_dep.identifier, plan),
+                call(vis, loaded_dep.domain, loaded_dep.identifier),
+                call(vis, failed_dep.domain, failed_dep.identifier),
             ]
         )
 
@@ -1325,7 +1249,7 @@ class TestValidateConfig:
 
         result = _validate_config(vis, {}, ReloadChanges())
 
-        assert result is True
+        assert not result
         mock_get.assert_not_called()
 
     @patch("viseron.reload.get_component")
@@ -1333,7 +1257,9 @@ class TestValidateConfig:
         """Test components from all change types are validated and deduplicated."""
         vis = MagicMock()
         mock_instance = MagicMock()
-        mock_instance.validate_component_config.return_value = True
+        mock_instance.validate_component_config.return_value = ValidationResult(
+            success=True
+        )
         mock_get.return_value = mock_instance
         new_config: dict[str, dict] = {"ffmpeg": {}, "darknet": {}}
         changes = ReloadChanges(
@@ -1365,7 +1291,7 @@ class TestValidateConfig:
 
         result = _validate_config(vis, new_config, changes)
 
-        assert result is True
+        assert not result
         # ffmpeg appears in both components and identifiers but should be deduplicated
         assert mock_get.call_count == 2
         validated = {c.args[1] for c in mock_get.call_args_list}
@@ -1376,7 +1302,9 @@ class TestValidateConfig:
         """Test that False from validate_component_config fails validation."""
         vis = MagicMock()
         mock_instance = MagicMock()
-        mock_instance.validate_component_config.return_value = False
+        mock_instance.validate_component_config.return_value = ValidationResult(
+            success=False, error="test validation error"
+        )
         mock_get.return_value = mock_instance
         changes = ReloadChanges(
             components_to_reload=[
@@ -1390,7 +1318,9 @@ class TestValidateConfig:
 
         result = _validate_config(vis, {}, changes)
 
-        assert result is False
+        assert len(result) == 1
+        assert result[0].component_name == "ffmpeg"
+        assert "test validation error" in result[0].message
 
     @patch("viseron.reload.get_component")
     def test_validation_exception_returns_false(self, mock_get: MagicMock) -> None:
@@ -1411,7 +1341,9 @@ class TestValidateConfig:
 
         result = _validate_config(vis, {}, changes)
 
-        assert result is False
+        assert len(result) == 1
+        assert result[0].component_name == "ffmpeg"
+        assert "boom" in result[0].message
 
 
 class TestReloadConfig:
@@ -1427,7 +1359,7 @@ class TestReloadConfig:
 
         assert result.success is False
         assert len(result.errors) == 1
-        assert "parse error" in result.errors[0]
+        assert "parse error" in result.errors[0].message
 
     @patch("viseron.reload._apply_setup_plan")
     @patch("viseron.reload._validate_config")
@@ -1447,14 +1379,20 @@ class TestReloadConfig:
         """Test that failed validation aborts before modifying components."""
         vis = MagicMock()
         mock_load.return_value = ({}, ConfigDiff(), ReloadChanges())
-        mock_validate.return_value = False
+        mock_validate.return_value = [
+            ComponentError(
+                source=ComponentErrorSource.VALIDATION,
+                message="Config validation failed for component 'test'",
+                component_name="test",
+            )
+        ]
 
         result = _reload_config(vis, [])
 
         assert result.success is False
-        assert "Config validation failed" in result.errors[0]
-        mock_removed.assert_called_once()
-        mock_added.assert_called_once()
+        assert "Config validation failed" in result.errors[0].message
+        mock_removed.assert_not_called()
+        mock_added.assert_not_called()
         mock_check_defaults.assert_called_once()
         mock_apply.assert_not_called()
         vis.set_config.assert_not_called()
@@ -1464,7 +1402,7 @@ class TestReloadConfig:
     @patch("viseron.reload._handle_modified_identifiers")
     @patch("viseron.reload._handle_modified_domains")
     @patch("viseron.reload._handle_modified_components")
-    @patch("viseron.reload._validate_config", return_value=True)
+    @patch("viseron.reload._validate_config", return_value=[])
     @patch("viseron.reload._handle_added_components")
     @patch("viseron.reload._handle_removed_components")
     @patch("viseron.reload._load_and_diff_config")
@@ -1511,7 +1449,7 @@ class TestReloadConfig:
     @patch("viseron.reload._handle_modified_identifiers")
     @patch("viseron.reload._handle_modified_domains")
     @patch("viseron.reload._handle_modified_components")
-    @patch("viseron.reload._validate_config", return_value=True)
+    @patch("viseron.reload._validate_config", return_value=[])
     @patch("viseron.reload._handle_added_components")
     @patch("viseron.reload._handle_removed_components")
     @patch("viseron.reload._load_and_diff_config")

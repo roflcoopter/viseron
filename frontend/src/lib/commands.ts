@@ -1,13 +1,11 @@
-import { useContext, useEffect } from "react";
 import { Id } from "react-toastify";
 
-import { ViseronContext } from "context/ViseronContext";
 import { useToast } from "hooks/UseToast";
 import { downloadFile } from "lib/api/download";
 import { getCameraNameFromQueryCache } from "lib/helpers";
 import * as messages from "lib/messages";
 import * as types from "lib/types";
-import { Connection, SubscriptionUnsubscribe } from "lib/websockets";
+import { Connection } from "lib/websockets";
 
 export const getCameras = async (
   connection: Connection,
@@ -31,6 +29,18 @@ export const saveConfig = (
 
 export const restartViseron = async (connection: Connection): Promise<void> => {
   await connection.sendMessagePromise(messages.restartViseron());
+};
+
+interface ReloadConfigResult {
+  success: boolean;
+  restart_required: boolean;
+}
+
+export const reloadConfig = async (
+  connection: Connection,
+): Promise<ReloadConfigResult> => {
+  const response = await connection.sendMessagePromise(messages.reloadConfig());
+  return response;
 };
 
 export const getEntities = async (
@@ -87,64 +97,6 @@ export const subscribeTimespans = async (
   return subscription;
 };
 
-export const useSubscribeTimespans = (
-  camera_identifiers: string[],
-  date: string | null,
-  timespanCallback: (message: types.HlsAvailableTimespans) => void,
-  enabled = true,
-  debounce?: number,
-) => {
-  const viseron = useContext(ViseronContext);
-
-  useEffect(() => {
-    if (!enabled) {
-      return () => {};
-    }
-
-    let unmounted = false;
-    let unsub: SubscriptionUnsubscribe | null = null;
-    const subscribe = async () => {
-      if (viseron.connection) {
-        unsub = await subscribeTimespans(
-          viseron.connection,
-          camera_identifiers,
-          date,
-          timespanCallback,
-          debounce,
-        );
-        if (unmounted) {
-          unsub();
-          unsub = null;
-        }
-      }
-    };
-    subscribe();
-
-    return () => {
-      unmounted = true;
-      const unsubscribe = async () => {
-        if (unsub) {
-          try {
-            await unsub();
-          } catch (error) {
-            // Connection is probably closed
-          }
-          unsub = null;
-        }
-      };
-      unsubscribe();
-    };
-  }, [
-    camera_identifiers,
-    date,
-    enabled,
-    debounce,
-    timespanCallback,
-    viseron.connected,
-    viseron.connection,
-  ]);
-};
-
 const exportErrorCallback = (
   message: types.WebSocketSubscriptionErrorResponse,
   toast: ReturnType<typeof useToast>,
@@ -177,7 +129,7 @@ const handleExport = async (
   );
 };
 
-const exportRecording = async (
+export const exportRecording = async (
   connection: Connection,
   camera_identifier: string,
   recording_id: number,
@@ -188,7 +140,7 @@ const exportRecording = async (
   );
 };
 
-const exportSnapshot = async (
+export const exportSnapshot = async (
   connection: Connection,
   event_type: string,
   camera_identifier: string,
@@ -206,47 +158,7 @@ const exportSnapshot = async (
   );
 };
 
-export const useExportEvent = () => {
-  const viseron = useContext(ViseronContext);
-  const toast = useToast();
-
-  const exportEvent = async (event: types.CameraEvent) => {
-    if (!viseron.connection) {
-      return event;
-    }
-
-    switch (event.type) {
-      case "object":
-      case "face_recognition":
-      case "license_plate_recognition":
-      case "motion":
-        await exportSnapshot(
-          viseron.connection,
-          event.type,
-          event.camera_identifier,
-          event.id,
-          toast,
-        );
-        return event;
-
-      case "recording":
-        await exportRecording(
-          viseron.connection,
-          event.camera_identifier,
-          event.id,
-          toast,
-        );
-        return event;
-
-      default:
-        return event satisfies never;
-    }
-  };
-
-  return exportEvent;
-};
-
-const exportTimespan = async (
+export const exportTimespan = async (
   connection: Connection,
   camera_identifiers: string[],
   start: number,
@@ -261,33 +173,17 @@ const exportTimespan = async (
   }
 };
 
-export const useExportTimespan = () => {
-  const viseron = useContext(ViseronContext);
-  const toast = useToast();
-
-  const exportTimespanCallback = async (
-    camera_identifiers: string[],
-    start: number,
-    end: number,
-  ) => {
-    if (!viseron.connection) {
-      return;
-    }
-
-    await exportTimespan(
-      viseron.connection,
-      camera_identifiers,
-      start,
-      end,
-      toast,
-    );
-  };
-
-  return exportTimespanCallback;
-};
-
 export const renderTemplate = async (
   connection: Connection,
   template: string,
 ): Promise<string> =>
   connection.sendMessagePromise(messages.renderTemplate(template));
+
+export const getSetupStatus = async (
+  connection: Connection,
+): Promise<types.SetupStatusResponse> => {
+  const response = await connection.sendMessagePromise(
+    messages.getSetupStatus(),
+  );
+  return response;
+};

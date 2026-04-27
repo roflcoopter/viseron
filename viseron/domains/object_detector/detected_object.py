@@ -1,16 +1,20 @@
 """Detected object class."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
-from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.events import EventData
 from viseron.helpers import (
     calculate_absolute_coords,
     calculate_relative_coords,
     convert_letterboxed_bbox,
 )
+
+if TYPE_CHECKING:
+    from viseron.domains.camera.shared_frames import SharedFrame
+    from viseron.helpers.filter import Filters
 
 
 class DetectedObject:
@@ -48,10 +52,10 @@ class DetectedObject:
             (self._rel_x1, self._rel_y1, self._rel_x2, self._rel_y2), frame_res
         )
 
-        self._trigger_event_recording = False
-        self._store = False
-        self._relevant = False
-        self._filter_hit = None
+        self._trigger_event_recording: bool = False
+        self._store: bool = False
+        self._relevant: bool = False
+        self._filter_hit: Filters | None = None
 
     @classmethod
     def from_relative(
@@ -72,12 +76,12 @@ class DetectedObject:
         cls,
         label: str,
         confidence: float,
-        x1,
-        y1,
-        x2,
-        y2,
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int,
         frame_res: tuple[int, int],
-        model_res,
+        model_res: tuple[int, int],
     ) -> DetectedObject:
         """Create object from absolute coordinates."""
         rel_x1, rel_y1, rel_x2, rel_y2 = calculate_relative_coords(
@@ -116,10 +120,10 @@ class DetectedObject:
         cls,
         label: str,
         confidence: float,
-        x1,
-        y1,
-        x2,
-        y2,
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int,
         frame_res: tuple[int, int],
         model_res: tuple[int, int],
     ) -> DetectedObject:
@@ -134,42 +138,42 @@ class DetectedObject:
         return cls(label, confidence, rel_x1, rel_y1, rel_x2, rel_y2, frame_res)
 
     @property
-    def label(self):
+    def label(self) -> str:
         """Return label of the object."""
         return self._label
 
     @property
-    def confidence(self):
+    def confidence(self) -> float:
         """Return confidence of the object."""
         return self._confidence
 
     @property
-    def rel_width(self):
+    def rel_width(self) -> float:
         """Return relative width of the object."""
         return self._rel_width
 
     @property
-    def rel_height(self):
+    def rel_height(self) -> float:
         """Return relative height of the object."""
         return self._rel_height
 
     @property
-    def rel_x1(self):
+    def rel_x1(self) -> float:
         """Return relative x1 of the object."""
         return zero_if_negative(self._rel_x1)
 
     @property
-    def rel_y1(self):
+    def rel_y1(self) -> float:
         """Return relative y1 of the object."""
         return zero_if_negative(self._rel_y1)
 
     @property
-    def rel_x2(self):
+    def rel_x2(self) -> float:
         """Return relative x2 of the object."""
         return zero_if_negative(self._rel_x2)
 
     @property
-    def rel_y2(self):
+    def rel_y2(self) -> float:
         """Return relative y2 of the object."""
         return zero_if_negative(self._rel_y2)
 
@@ -208,9 +212,9 @@ class DetectedObject:
         return (self.abs_x1, self.abs_y1, self.abs_x2, self.abs_y2)
 
     @property
-    def formatted(self):
+    def formatted(self) -> dict[str, Any]:
         """Return object data in a single dictionary."""
-        payload = {}
+        payload: dict[str, Any] = {}
         payload["label"] = self.label
         payload["confidence"] = self.confidence
         payload["rel_width"] = self.rel_width
@@ -222,25 +226,25 @@ class DetectedObject:
         return payload
 
     @property
-    def trigger_event_recording(self):
+    def trigger_event_recording(self) -> bool:
         """Return if object should trigger the recorder."""
         return self._trigger_event_recording
 
     @trigger_event_recording.setter
-    def trigger_event_recording(self, value) -> None:
+    def trigger_event_recording(self, value: bool) -> None:
         self._trigger_event_recording = value
 
     @property
-    def store(self):
+    def store(self) -> bool:
         """Return if object should be stored in database."""
         return self._store
 
     @store.setter
-    def store(self, value) -> None:
+    def store(self, value: bool) -> None:
         self._store = value
 
     @property
-    def relevant(self):
+    def relevant(self) -> bool:
         """Return if object is relevant.
 
         Relevant means it passed through all filters.
@@ -249,16 +253,16 @@ class DetectedObject:
         return self._relevant
 
     @relevant.setter
-    def relevant(self, value) -> None:
+    def relevant(self, value: bool) -> None:
         self._relevant = value
 
     @property
-    def filter_hit(self):
+    def filter_hit(self) -> Filters | None:
         """Return which filter that discarded the object."""
         return self._filter_hit
 
     @filter_hit.setter
-    def filter_hit(self, value) -> None:
+    def filter_hit(self, value: Filters | None) -> None:
         self._filter_hit = value
 
     def as_dict(self) -> dict[str, Any]:
@@ -266,7 +270,7 @@ class DetectedObject:
         return self.formatted
 
 
-def zero_if_negative(value):
+def zero_if_negative(value: float) -> float:
     """Return zero if value is less than zero.
 
     Objects that are close to the edge of the frame might produce negative coordinates

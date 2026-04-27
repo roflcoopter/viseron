@@ -367,6 +367,17 @@ class DomainRegistry:
                 if entry.component_name == component_name
             ]
 
+    def get_by_component_and_domain(
+        self, component_name: str, domain: str
+    ) -> list[DomainEntry]:
+        """Get all domains for a specific component and domain type."""
+        with self._lock:
+            return [
+                entry
+                for entry in self._domains.get(domain, {}).values()
+                if entry.component_name == component_name
+            ]
+
     def get_dependents(
         self, target_domain: str, target_identifier: str
     ) -> list[DomainEntry]:

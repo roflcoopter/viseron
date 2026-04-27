@@ -229,11 +229,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     Intl.DateTimeFormat().resolvedOptions().timeZone;
   if (getDefaultTimezone() !== userTimezone) {
     dayjsSetDefaultTimezone(userTimezone);
-    // Update api client UTC offset header
-    viseronAPI.defaults.headers.common["X-Client-UTC-Offset"] = getDayjs()
-      .utcOffset()
-      .toString();
   }
+  // Update api client UTC offset header
+  viseronAPI.defaults.headers.common["X-Client-UTC-Offset"] = getDayjs()
+    .utcOffset()
+    .toString();
 
   // Set global date format based on user preference
   const userDateFormat =

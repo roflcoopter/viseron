@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import dataclasses
 import importlib
 import logging
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, field
+from enum import Enum
 from timeit import default_timer as timer
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -18,6 +22,7 @@ from viseron.const import (
     CORE_COMPONENTS,
     CRITICAL_COMPONENTS,
     DEFAULT_COMPONENTS,
+    EVENT_COMPONENT_SETUP_STATUS,
     FAILED,
     LOADED,
     LOADING,
@@ -26,7 +31,8 @@ from viseron.const import (
     VISERON_SIGNAL_SHUTDOWN,
 )
 from viseron.domain_registry import DomainEntry, DomainState
-from viseron.domains import get_unload_order, unload_domain
+from viseron.domains import unload_domain
+from viseron.events import EventData
 from viseron.exceptions import ComponentNotReady
 from viseron.helpers.named_timer import NamedTimer
 from viseron.helpers.storage import Storage
@@ -41,6 +47,56 @@ if TYPE_CHECKING:
 
 
 LOGGER = logging.getLogger(__name__)
+
+
+class ComponentState(Enum):
+    """State of a component in its lifecycle."""
+
+    LOADING = "loading"
+    LOADED = "loaded"
+    FAILED = "failed"
+    RETRYING = "retrying"
+
+
+class ComponentErrorSource(Enum):
+    """Source of a component error."""
+
+    VALIDATION = "validation"
+    SETUP = "setup"
+    SETUP_DOMAINS = "setup_domains"
+    DOMAIN = "domain"
+    IMPORT = "import"
+
+
+@dataclass
+class ComponentError:
+    """Structured error from component or domain setup."""
+
+    source: ComponentErrorSource
+    message: str
+    timestamp: float = field(default_factory=time.time)
+    component_name: str | None = None
+    domain: str | None = None
+    identifier: str | None = None
+
+
+@dataclass
+class EventComponentSetupStatusData(EventData):
+    """Event data for component setup status changes."""
+
+    component: str
+    state: str
+    error: str | None = None
+    validation_error: str | None = None
+
+
+@dataclass
+class ValidationResult:
+    """Result of a component config validation."""
+
+    success: bool
+    config: dict[str, Any] | None = None
+    error: str | None = None
 
 
 class Component:
@@ -59,6 +115,130 @@ class Component:
         self._path = path
         self._name = name
         self._config = config
+        self._state = ComponentState.LOADING
+        self._errors: list[ComponentError] = []
+        self._errors_lock = threading.Lock()
+        self._validation_error: str | None = None
+        self._domains_setup: set[SupportedDomains] = set()
+
+    @property
+    def state(self) -> ComponentState:
+        """Return component state."""
+        return self._state
+
+    @state.setter
+    def state(self, value: ComponentState) -> None:
+        """Set component state."""
+        old_state = self._state
+        self._state = value
+        if old_state != value:
+            self._dispatch_status_event()
+
+    @property
+    def validation_error(self) -> str | None:
+        """Return validation error if any."""
+        return self._validation_error
+
+    @validation_error.setter
+    def validation_error(self, value: str | None) -> None:
+        """Set validation error and dispatch status event."""
+        if self._validation_error == value:
+            return
+
+        self._validation_error = value
+        self._dispatch_status_event()
+
+    def _dispatch_status_event(self) -> None:
+        """Dispatch component setup status event."""
+        self._vis.dispatch_event(
+            EVENT_COMPONENT_SETUP_STATUS.format(
+                status=self._state.value,
+                component=self._name,
+            ),
+            EventComponentSetupStatusData(
+                component=self._name,
+                state=self._state.value,
+                error=self._errors[-1].message if self._errors else None,
+                validation_error=self._validation_error,
+            ),
+            store=False,
+        )
+
+    @property
+    def domains_setup(self) -> set[SupportedDomains]:
+        """Return set of domains that this component has registered for setup."""
+        return self._domains_setup
+
+    @property
+    def errors(self) -> list[ComponentError]:
+        """Return list(copy) of errors."""
+        with self._errors_lock:
+            return list(self._errors)
+
+    def add_error(
+        self,
+        source: ComponentErrorSource,
+        message: str,
+        domain: SupportedDomains | None = None,
+        identifier: str | None = None,
+    ) -> None:
+        """Add a structured error to this component."""
+        error = ComponentError(
+            source=source,
+            message=message,
+            component_name=self._name,
+            domain=domain,
+            identifier=identifier,
+        )
+        with self._errors_lock:
+            self._errors.append(error)
+
+    def add_domain_error(
+        self,
+        message: str,
+        domain: SupportedDomains,
+        identifier: str,
+    ) -> None:
+        """Add a structured error with domain context to this component."""
+        self.add_error(
+            source=ComponentErrorSource.DOMAIN,
+            message=message,
+            domain=domain,
+            identifier=identifier,
+        )
+
+    def clear_errors(self) -> None:
+        """Clear all errors and validation error."""
+        with self._errors_lock:
+            self._errors.clear()
+        self._validation_error = None
+
+    def clear_domain_identifier_errors(
+        self,
+        domain: SupportedDomains,
+        identifier: str,
+    ) -> None:
+        """Clear all errors for a specific domain and identifier."""
+        with self._errors_lock:
+            self._errors = [
+                e
+                for e in self._errors
+                if not (e.domain == domain and e.identifier == identifier)
+            ]
+
+    def as_status_dict(self) -> dict[str, Any]:
+        """Return component status as dict."""
+        domains = [
+            entry.as_dict()
+            for entry in self._vis.domain_registry.get_by_component(self._name)
+        ]
+        return {
+            "name": self._name,
+            "state": self._state.value,
+            "errors": [dataclasses.asdict(error) for error in self.errors],
+            "validation_error": self._validation_error,
+            "domains": domains,
+        }
 
     def __str__(self) -> str:
         """Return string representation."""
@@ -78,24 +258,31 @@ class Component:
         """Return component module."""
         return importlib.import_module(self._path)
 
-    def validate_component_config(self) -> dict | bool | None:
+    def validate_component_config(self) -> ValidationResult:
         """Validate component config."""
         component_module = self.get_component()
         if hasattr(component_module, "CONFIG_SCHEMA"):
             try:
-                return component_module.CONFIG_SCHEMA(self._config)
-            except vol.Invalid as ex:
-                LOGGER.exception(
-                    f"Error validating config for component {self.name}: "
-                    f"{humanize_error(self._config, ex)}"  # noqa: TRY401
+                return ValidationResult(
+                    success=True, config=component_module.CONFIG_SCHEMA(self._config)
                 )
-                return None
-            except Exception:  # pylint: disable=broad-except
+            except vol.Invalid as ex:
+                error_msg = humanize_error(self._config, ex)
+                LOGGER.exception(
+                    f"Error validating config for component {self.name}: {error_msg}"
+                )
+                self.add_error(ComponentErrorSource.VALIDATION, error_msg)
+                return ValidationResult(success=False, error=error_msg)
+            except Exception as ex:  # pylint: disable=broad-except
                 LOGGER.exception("Unknown error calling %s CONFIG_SCHEMA", self.name)
-                return None
-        return True
+                self.add_error(ComponentErrorSource.VALIDATION, str(ex))
+                return ValidationResult(success=False, error=str(ex))
 
-    def setup_component(self, tries: int = 1, *, domains_only: bool = False) -> bool:
+        return ValidationResult(success=True, config={})
+
+    def setup_component(
+        self, tries: int = 1, *, domains_only: bool = False
+    ) -> bool | None:
         """Set up component."""
         LOGGER.info(
             "Setting up component %s%s%s",
@@ -117,11 +304,12 @@ class Component:
         )
 
         component_module = self.get_component()
-        config = self.validate_component_config()
+        validation_result = self.validate_component_config()
+        config = validation_result.config
 
         start = timer()
         result: bool | Any = False
-        if config:
+        if validation_result.success:
             try:
                 slow_setup_warning.start()
                 # setup() is optional for stateless components
@@ -139,8 +327,15 @@ class Component:
                     LOGGER.warning(
                         f"Component {self.name} setup aborted due to shutdown"
                     )
+                    self.add_error(
+                        ComponentErrorSource.SETUP,
+                        f"Setup aborted due to shutdown: {error}",
+                    )
+                    self.state = ComponentState.FAILED
                     slow_setup_warning.cancel()
                     return False
+                self.add_error(ComponentErrorSource.SETUP, str(error))
+                self.state = ComponentState.RETRYING
                 wait_time = min(
                     tries * COMPONENT_RETRY_INTERVAL, COMPONENT_RETRY_INTERVAL_MAX
                 )
@@ -172,8 +367,10 @@ class Component:
                     VISERON_SIGNAL_SHUTDOWN, cancel_retry_timer
                 )
                 retry_timer.start()
-            except Exception:  # pylint: disable=broad-except
+                return None  # Signal retry-in-progress
+            except Exception as ex:  # pylint: disable=broad-except
                 LOGGER.exception(f"Uncaught exception setting up component {self.name}")
+                self.add_error(ComponentErrorSource.SETUP, str(ex))
             finally:
                 slow_setup_warning.cancel()
 
@@ -183,11 +380,14 @@ class Component:
             if hasattr(component_module, "setup_domains"):
                 try:
                     component_module.setup_domains(self._vis, config)
-                except Exception:  # pylint: disable=broad-except
+                except Exception as ex:  # pylint: disable=broad-except
                     LOGGER.exception(
                         f"Uncaught exception in setup_domains for component {self.name}"
                     )
+                    self.add_error(ComponentErrorSource.SETUP_DOMAINS, str(ex))
+                    self.state = ComponentState.FAILED
                     return False
+            self.state = ComponentState.LOADED
             LOGGER.info(
                 "Setup of component %s took %.1f seconds",
                 self.name,
@@ -201,6 +401,7 @@ class Component:
             if entry.state == DomainState.PENDING:
                 registry.unregister(entry.domain, entry.identifier)
 
+        self.state = ComponentState.FAILED
         if result is False:
             LOGGER.error(
                 "Setup of component %s failed",
@@ -223,6 +424,7 @@ class Component:
         optional_domains: list[OptionalDomain] | None = None,
     ) -> DomainEntry | None:
         """Register a domain for setup."""
+        self._domains_setup.add(domain)
         registry = self._vis.domain_registry
 
         # Check if already registered (any state)
@@ -273,19 +475,28 @@ def setup_component(
     # When tries is larger than one, it means we are in a retry loop.
     if tries > 1:
         # Remove component from being marked as failed
-        del vis.data[FAILED][component.name]
+        vis.data[FAILED].pop(component.name, None)
+        vis.data[LOADING].pop(component.name, None)
+        component.clear_errors()
 
     try:
+        component.state = ComponentState.LOADING
         vis.data[LOADING][component.name] = component
-        if component.setup_component(tries=tries, domains_only=domains_only):
+        result = component.setup_component(tries=tries, domains_only=domains_only)
+        if result is True:
             vis.data[LOADED][component.name] = component
             del vis.data[LOADING][component.name]
+        elif result is None:
+            # Retry in progress, keep component in loading state
+            pass
         else:
             vis.data[FAILED][component.name] = component
             del vis.data[LOADING][component.name]
 
     except ModuleNotFoundError as err:
         LOGGER.error(f"Failed to load component {component.name}: {err}")
+        component.add_error(ComponentErrorSource.IMPORT, str(err))
+        component.state = ComponentState.FAILED
         vis.data[FAILED][component.name] = component
         del vis.data[LOADING][component.name]
 
@@ -303,23 +514,12 @@ def unload_component(vis: Viseron, component: str) -> set[str] | None:
         return None
 
     # Keep track of other components that are affected by this unload
-    affected_components = set()
+    affected_components: set[str] = set()
     # Unload any domains that were registered by this component
-    domains_to_unload = vis.domain_registry.get_by_component(component)
-    if domains_to_unload:
-        LOGGER.debug(
-            "Component %s has %d domains to unload: %s",
-            component,
-            len(domains_to_unload),
-            [(e.domain, e.identifier) for e in domains_to_unload],
-        )
-
-        for entry in domains_to_unload:
-            unload_order = get_unload_order(vis, entry.domain, entry.identifier)
-            for e in unload_order:
-                unload_domain(vis, e.domain, e.identifier)
-                if e.component_name != component:
-                    affected_components.add(e.component_name)
+    for domain in component_instance.domains_setup:
+        affected = unload_domain(vis, component_instance.name, domain)
+        if affected:
+            affected_components.update(affected)
 
     # Unload component-level entities
     entity_owner = vis.states.entity_owner.get(component, None)
@@ -386,12 +586,12 @@ def activate_safe_mode(vis: Viseron) -> None:
         critical_components_config = {}
 
     loaded_set = set(vis.data[LOADED])
-    # Setup logger first
-    for component in LOGGING_COMPONENTS - loaded_set:
-        setup_component(vis, get_component(vis, component, critical_components_config))
-
     # Setup core components
     for component in CORE_COMPONENTS - loaded_set:
+        setup_component(vis, get_component(vis, component, critical_components_config))
+
+    # Setup logger first
+    for component in LOGGING_COMPONENTS - loaded_set:
         setup_component(vis, get_component(vis, component, critical_components_config))
 
     # Setup default components
@@ -413,14 +613,14 @@ def setup_components(
     else:
         components_to_setup = components
 
-    # Setup logger first if present in config
-    for component in components_to_setup & LOGGING_COMPONENTS:
-        setup_component(vis, get_component(vis, component, config))
-
     # Setup core components
     if not reloading:
         for component in CORE_COMPONENTS:
             setup_component(vis, get_component(vis, component, config))
+
+    # Setup logger first if present in config
+    for component in components_to_setup & LOGGING_COMPONENTS:
+        setup_component(vis, get_component(vis, component, config))
 
     # Setup all default components, even if they are not present in config.
     # When reloading, only setup default components that are being reloaded.

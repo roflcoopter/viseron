@@ -3,13 +3,23 @@
 from __future__ import annotations
 
 import logging
+import os
+import threading
 from queue import Queue
 from typing import TYPE_CHECKING, Any
 
+from viseron.const import ENV_CUDA_SUPPORTED
 from viseron.domains.object_detector import AbstractObjectDetector
 from viseron.domains.object_detector.const import DOMAIN
+from viseron.exceptions import DomainNotReady
 
-from .const import COMPONENT
+from . import DarknetDNN, DarknetNative, LoadDarknetError
+from .const import (
+    COMPONENT,
+    CONFIG_DNN_BACKEND,
+    CONFIG_DNN_TARGET,
+    CONFIG_OBJECT_DETECTOR,
+)
 
 if TYPE_CHECKING:
     import numpy as np
@@ -21,12 +31,41 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
+SETUP_LOCK = threading.Lock()
+
 
 def setup(vis: Viseron, config: dict[str, Any], identifier: str) -> bool:
     """Set up the darknet object_detector domain."""
+    with SETUP_LOCK:
+        if not vis.data[COMPONENT].get(CONFIG_OBJECT_DETECTOR, None):
+            if (
+                os.getenv(ENV_CUDA_SUPPORTED) == "true"
+                and config[CONFIG_OBJECT_DETECTOR][CONFIG_DNN_BACKEND] is None
+                and config[CONFIG_OBJECT_DETECTOR][CONFIG_DNN_TARGET] is None
+            ):
+                try:
+                    vis.data[COMPONENT][CONFIG_OBJECT_DETECTOR] = DarknetNative(
+                        vis, config[CONFIG_OBJECT_DETECTOR]
+                    )
+                except LoadDarknetError as error:
+                    raise DomainNotReady from error
+            else:
+                vis.data[COMPONENT][CONFIG_OBJECT_DETECTOR] = DarknetDNN(
+                    vis, config[CONFIG_OBJECT_DETECTOR]
+                )
+        else:
+            LOGGER.debug("Darknet detector has already been created")
+
     ObjectDetector(vis, config[DOMAIN], identifier)
 
     return True
+
+
+def unload(vis: Viseron) -> None:
+    """Unload the darknet object_detector domain."""
+    if detector := vis.data.get(COMPONENT, {}).get(CONFIG_OBJECT_DETECTOR, None):
+        detector.stop()
+        vis.data[COMPONENT].pop(CONFIG_OBJECT_DETECTOR, None)
 
 
 class ObjectDetector(AbstractObjectDetector):
@@ -35,9 +74,9 @@ class ObjectDetector(AbstractObjectDetector):
     def __init__(
         self, vis: Viseron, config: dict[str, Any], camera_identifier: str
     ) -> None:
-        super().__init__(vis, COMPONENT, config, camera_identifier)
-        self._darknet = vis.data[COMPONENT]
+        self._darknet = vis.data[COMPONENT][CONFIG_OBJECT_DETECTOR]
         self._object_result_queue: Queue[list[DetectedObject]] = Queue(maxsize=1)
+        super().__init__(vis, COMPONENT, config, camera_identifier)
 
     def preprocess(self, frame: np.ndarray) -> np.ndarray | bytes:
         """Return preprocessed frame before performing object detection."""

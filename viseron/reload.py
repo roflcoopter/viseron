@@ -8,6 +8,9 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from viseron.components import (
+    Component,
+    ComponentError,
+    ComponentErrorSource,
     get_component,
     setup_components,
     unload_component,
@@ -22,9 +25,13 @@ from viseron.config import (
     diff_identifier_config,
     load_config,
 )
-from viseron.const import DEFAULT_COMPONENTS
+from viseron.const import DEFAULT_COMPONENTS, FAILED, LOADED, LOADING
 from viseron.domain_registry import DomainState
-from viseron.domains import get_unload_order, setup_domains, unload_domain
+from viseron.domains import (
+    setup_domains,
+    unload_domain,
+    unload_domain_chain,
+)
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -41,7 +48,7 @@ class ReloadResult:
     success: bool
     diff: ConfigDiff | None = None
     restart_required: bool = False
-    errors: list[str] = field(default_factory=list)
+    errors: list[ComponentError] = field(default_factory=list)
 
 
 @dataclass
@@ -52,6 +59,24 @@ class ReloadChanges:
     domains_to_reload: list[DomainChange] = field(default_factory=list)
     identifiers_to_reload: list[IdentifierChange] = field(default_factory=list)
 
+    def remove_default_components(self) -> None:
+        """Remove any changes related to DEFAULT_COMPONENTS."""
+        self.components_to_reload = [
+            change
+            for change in self.components_to_reload
+            if change.component_name not in DEFAULT_COMPONENTS
+        ]
+        self.domains_to_reload = [
+            change
+            for change in self.domains_to_reload
+            if change.component_name not in DEFAULT_COMPONENTS
+        ]
+        self.identifiers_to_reload = [
+            change
+            for change in self.identifiers_to_reload
+            if change.component_name not in DEFAULT_COMPONENTS
+        ]
+
 
 @dataclass
 class SetupPlan:
@@ -59,16 +84,6 @@ class SetupPlan:
 
     components: set[str] = field(default_factory=set)
     domain_components: set[str] = field(default_factory=set)
-
-
-def _unload_domain_chain(
-    vis: Viseron, domain: SupportedDomains, identifier: str, plan: SetupPlan
-) -> None:
-    """Unload a domain and all its dependents in the correct order."""
-    unload_order = get_unload_order(vis, domain, identifier)
-    for e in unload_order:
-        plan.domain_components.add(e.component_name)
-        unload_domain(vis, e.domain, e.identifier)
 
 
 def _process_identifier_changes(
@@ -197,6 +212,8 @@ def _handle_removed_components(vis: Viseron, diff: ConfigDiff, plan: SetupPlan) 
     for component_name in diff.get_removed_components():
         affected_components = unload_component(vis, component_name)
         if affected_components:
+            # Ensure the removed component is never queued for re-setup.
+            affected_components.discard(component_name)
             plan.domain_components.update(affected_components)
             LOGGER.debug(
                 f"Components affected by unloading {component_name}: "
@@ -230,18 +247,11 @@ def _handle_modified_domains(
     """Unload all identifiers for modified domains."""
     for domain_change in changes.domains_to_reload:
         plan.domain_components.add(domain_change.component_name)
-        domains_to_unload = vis.domain_registry.get_by_component(
-            domain_change.component_name
+        affected_components = unload_domain(
+            vis, domain_change.component_name, domain_change.domain
         )
-        if domains_to_unload:
-            LOGGER.debug(
-                f"Component {domain_change.component_name} "
-                f"has {len(domains_to_unload)} domains to unload: "
-                f"{[(e.domain, e.identifier) for e in domains_to_unload]}"
-            )
-
-            for entry in domains_to_unload:
-                _unload_domain_chain(vis, entry.domain, entry.identifier, plan)
+        if affected_components:
+            plan.domain_components.update(affected_components)
 
 
 def _handle_modified_identifiers(
@@ -254,22 +264,24 @@ def _handle_modified_identifiers(
             identifier_change.domain, identifier_change.identifier
         )
         if domain_to_unload:
-            _unload_domain_chain(
-                vis,
-                domain_to_unload.domain,
-                domain_to_unload.identifier,
-                plan,
+            plan.domain_components.update(
+                unload_domain_chain(
+                    vis,
+                    domain_to_unload.domain,
+                    domain_to_unload.identifier,
+                )
             )
 
         if identifier_change.is_added:
             # When an identifier is added (or re-added after being removed),
             # find any dependents of this identifier
             # and unload them so they can be re-setup.
-            _unload_domain_chain(
-                vis,
-                identifier_change.domain,
-                identifier_change.identifier,
-                plan,
+            plan.domain_components.update(
+                unload_domain_chain(
+                    vis,
+                    identifier_change.domain,
+                    identifier_change.identifier,
+                )
             )
 
 
@@ -282,7 +294,12 @@ def _handle_cancelled_retries(
             f"Unloading retrying domain {entry.domain} with identifier "
             f"{entry.identifier} that was cancelled during reload"
         )
-        _unload_domain_chain(vis, entry.domain, entry.identifier, plan)
+        # Explicitly add the retrying domain's component.
+        # unload_domain_chain only returns dependents, not the root's own component.
+        plan.domain_components.add(entry.component_name)
+        plan.domain_components.update(
+            unload_domain_chain(vis, entry.domain, entry.identifier)
+        )
 
 
 def _unload_dependents_of_pending_domains(vis: Viseron, plan: SetupPlan) -> None:
@@ -306,7 +323,12 @@ def _unload_dependents_of_pending_domains(vis: Viseron, plan: SetupPlan) -> None
                 f"because its dependency {entry.domain} "
                 f"with identifier {entry.identifier} is now available"
             )
-            _unload_domain_chain(vis, dep.domain, dep.identifier, plan)
+            # Explicitly add the dependents component.
+            # unload_domain_chain only returns dependents of dep, not deps component.
+            plan.domain_components.add(dep.component_name)
+            plan.domain_components.update(
+                unload_domain_chain(vis, dep.domain, dep.identifier)
+            )
 
 
 def _apply_setup_plan(vis: Viseron, new_config: dict, plan: SetupPlan) -> None:
@@ -332,7 +354,8 @@ def _apply_setup_plan(vis: Viseron, new_config: dict, plan: SetupPlan) -> None:
         new_config,
         reloading=True,
         domains_only=True,
-        components=plan.domain_components,
+        # Make sure a components setup_domains isn't called twice
+        components=plan.domain_components - plan.components,
     )
     setup_domains(vis)
 
@@ -341,8 +364,13 @@ def _validate_config(
     vis: Viseron,
     new_config: dict,
     changes: ReloadChanges,
-) -> bool:
-    """Validate new config before applying changes."""
+) -> list[ComponentError]:
+    """Validate new config before applying changes.
+
+    Returns a list of ComponentError instances. An empty list means validation passed.
+    Validation errors are also stored on existing components via their
+    validation_error field so they get dispatched via component status events.
+    """
     components_to_validate = set()
     for component_change in changes.components_to_reload:
         components_to_validate.add(component_change.component_name)
@@ -352,19 +380,62 @@ def _validate_config(
         components_to_validate.add(identifier_change.component_name)
 
     LOGGER.debug(f"Validating config for components: {components_to_validate}")
+    errors: list[ComponentError] = []
     for component_name in components_to_validate:
+        # Clear any previous validation error on the existing component
+        existing: Component | None = None
+        for store_key in (LOADED, LOADING, FAILED):
+            comp = vis.data[store_key].get(component_name)
+            if isinstance(comp, Component):
+                existing = comp
+                break
+        if existing and existing.validation_error is not None:
+            existing.validation_error = None
+
         component_instance = get_component(vis, component_name, new_config)
         try:
-            result = component_instance.validate_component_config()
-        except Exception:  # pylint: disable=broad-except
+            validation_result = component_instance.validate_component_config()
+        except Exception as ex:  # pylint: disable=broad-except
             LOGGER.exception(f"Config validation failed for component {component_name}")
-            return False
+            error_msg = str(ex)
+            errors.append(
+                ComponentError(
+                    source=ComponentErrorSource.VALIDATION,
+                    message=error_msg,
+                    component_name=component_name,
+                )
+            )
+            if existing:
+                existing.validation_error = error_msg
+            continue
 
-        if not result:
+        if not validation_result.success:
             LOGGER.error(f"Config validation failed for component {component_name}")
-            return False
+            error_detail = validation_result.error or "unknown error"
+            errors.append(
+                ComponentError(
+                    source=ComponentErrorSource.VALIDATION,
+                    message=error_detail,
+                    component_name=component_name,
+                )
+            )
+            if existing:
+                existing.validation_error = error_detail
 
-    return True
+    return errors
+
+
+def _clear_validation_errors(vis: Viseron) -> None:
+    """Clear validation errors from all components.
+
+    Must be called at the start of every reload so stale validation errors
+    from a previous failed reload are removed even when the config is reverted
+    and no changes are detected.
+    """
+    for store_key in (LOADED, LOADING, FAILED):
+        for comp in vis.data[store_key].values():
+            if isinstance(comp, Component) and comp.validation_error is not None:
+                comp.validation_error = None
 
 
 def _reload_config(
@@ -373,13 +444,19 @@ def _reload_config(
 ) -> ReloadResult:
     """Reload configuration from config.yaml and apply changes."""
     result = ReloadResult(success=True)
+    _clear_validation_errors(vis)
 
     try:
         loaded = _load_and_diff_config(vis)
     except Exception as ex:  # pylint: disable=broad-except
         LOGGER.exception("Failed to load new config")
         result.success = False
-        result.errors.append(f"Failed to load config.yaml: {ex}")
+        result.errors.append(
+            ComponentError(
+                source=ComponentErrorSource.VALIDATION,
+                message=f"Failed to load config.yaml: {ex}",
+            )
+        )
         return result
 
     new_config, diff, changes = loaded
@@ -393,17 +470,19 @@ def _reload_config(
             f"Changes detected in default components {default_components_changed}, "
             f"restart is required to apply these changes"
         )
-        diff.remove_default_components()
 
-    _handle_removed_components(vis, diff, plan)
-    _handle_added_components(diff, plan)
-
-    if not _validate_config(vis, new_config, changes):
+    validation_errors = _validate_config(vis, new_config, changes)
+    if validation_errors:
         result.success = False
-        result.errors.append("Config validation failed for modified components")
+        result.errors.extend(validation_errors)
         LOGGER.error("Config validation failed, aborting reload")
         return result
 
+    diff.remove_default_components()
+    changes.remove_default_components()
+
+    _handle_removed_components(vis, diff, plan)
+    _handle_added_components(diff, plan)
     _handle_modified_components(vis, changes, plan)
     _handle_modified_domains(vis, changes, plan)
     _handle_modified_identifiers(vis, changes, plan)

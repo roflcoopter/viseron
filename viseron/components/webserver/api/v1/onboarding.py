@@ -1,4 +1,5 @@
 """Onboarding API Handlers."""
+
 from __future__ import annotations
 
 import logging
@@ -6,7 +7,7 @@ from http import HTTPStatus
 
 import voluptuous as vol
 
-from viseron.components.webserver.api.handlers import BaseAPIHandler
+from viseron.components.webserver.api.handlers import BaseAPIHandler, require_auth
 from viseron.components.webserver.auth import token_response
 
 LOGGER = logging.getLogger(__name__)
@@ -32,11 +33,11 @@ class OnboardingAPIHandler(BaseAPIHandler):
         },
     ]
 
+    @require_auth
     async def onboarding(self) -> None:
         """Onboard the first user."""
-        if self._webserver.auth.users or await self.run_in_executor(
-            self._webserver.auth.onboarding_complete
-        ):
+        onboarding_complete = await self.run_in_executor(self.auth.onboarding_complete)
+        if self.auth.users or onboarding_complete:
             self.response_error(
                 HTTPStatus.FORBIDDEN,
                 reason="Onboarding has already been completed",
@@ -44,20 +45,20 @@ class OnboardingAPIHandler(BaseAPIHandler):
             return
 
         user = await self.run_in_executor(
-            self._webserver.auth.onboard_user,
+            self.auth.onboard_user,
             self.json_body["name"],
             self.json_body["username"],
             self.json_body["password"],
         )
 
         refresh_token = await self.run_in_executor(
-            self._webserver.auth.generate_refresh_token,
+            self.auth.generate_refresh_token,
             user.id,
             self.json_body["client_id"],
             "normal",
         )
         access_token = await self.run_in_executor(
-            self._webserver.auth.generate_access_token,
+            self.auth.generate_access_token,
             refresh_token,
             self.request.remote_ip,
         )

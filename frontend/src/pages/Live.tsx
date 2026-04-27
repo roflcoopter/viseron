@@ -10,6 +10,7 @@ import {
   WifiBridgeAlt,
 } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
 import Fab from "@mui/material/Fab";
 import ListItemIcon from "@mui/material/ListItemIcon";
@@ -18,6 +19,7 @@ import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import {
@@ -36,6 +38,7 @@ import { useGridLayoutStore } from "stores/GridLayoutStore";
 import { useShallow } from "zustand/react/shallow";
 
 import { CameraPickerDialog } from "components/camera/CameraPickerDialog";
+import { NoCamerasConfigured } from "components/camera/NoCamerasConfigured";
 import {
   useCameraStore,
   useFilteredCameras,
@@ -51,6 +54,7 @@ import { VideoRTC } from "components/player/liveplayer/video-rtc";
 import { MjpegPlayer } from "components/player/mjpegplayer/MjpegPlayer";
 import { ViewSpeedDial } from "components/player/view/ViewSpeedDial";
 import { useFullscreen } from "context/FullscreenContext";
+import { useHasCamerasConfigured } from "hooks/UseHasCamerasConfigured";
 import { useTitle } from "hooks/UseTitle";
 import { useCameras } from "lib/api/cameras";
 import { BASE_PATH } from "lib/api/client";
@@ -797,6 +801,7 @@ export function PlayerCard() {
   const theme = useTheme();
   const isMobileOrSmall = useMediaQuery(theme.breakpoints.down("md"));
   const paperRef: React.MutableRefObject<HTMLDivElement | null> = useRef(null);
+  const [cameraDialogOpen, setCameraDialogOpen] = useState(false);
 
   const renderPlayer = useCallback(
     (
@@ -812,6 +817,41 @@ export function PlayerCard() {
   // 1. Current layout is 'auto', OR
   // 2. Device is mobile/small (below md breakpoint)
   const shouldUseAutoLayout = currentLayout === "auto" || isMobileOrSmall;
+
+  if (!objHasValues(filteredCameras)) {
+    return (
+      <>
+        <CameraPickerDialog
+          open={cameraDialogOpen}
+          setOpen={setCameraDialogOpen}
+        />
+        <Paper
+          variant="outlined"
+          sx={{
+            width: "100%",
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 2,
+            overflow: "hidden",
+          }}
+        >
+          <Typography variant="h6" color="text.secondary">
+            No cameras are selected
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<VideoAdd size={18} />}
+            onClick={() => setCameraDialogOpen(true)}
+          >
+            Select Cameras
+          </Button>
+        </Paper>
+      </>
+    );
+  }
 
   return (
     <Paper
@@ -861,6 +901,7 @@ function Live() {
   const { resetLayout } = useGridLayoutStore();
   const { isFullscreen } = useFullscreen();
   const cameras = useCameras({});
+  const hasCamerasConfigured = useHasCamerasConfigured();
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -887,7 +928,11 @@ function Live() {
   }
 
   if (!objHasValues<typeof cameras.data>(cameras.data)) {
-    return <Loading text="Waiting for cameras to register" />;
+    return hasCamerasConfigured ? (
+      <Loading text="Waiting for cameras to register" />
+    ) : (
+      <NoCamerasConfigured />
+    );
   }
 
   return (
@@ -900,13 +945,13 @@ function Live() {
           paddingX: isFullscreen ? 0 : { xs: 1, md: 2 },
           height: isFullscreen
             ? "100vh"
-            : `calc(100dvh - ${theme.headerHeight}px - ${theme.headerMargin})`,
+            : `calc(100dvh - var(--header-height, ${theme.headerHeight}px) - ${theme.headerMargin})`,
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
           maxHeight: isFullscreen
             ? "100vh"
-            : `calc(100dvh - ${theme.headerHeight}px - ${theme.headerMargin})`,
+            : `calc(100dvh - var(--header-height, ${theme.headerHeight}px) - ${theme.headerMargin})`,
         }}
       >
         <PlayerCard />

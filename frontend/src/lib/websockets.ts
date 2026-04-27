@@ -213,7 +213,7 @@ export class Connection {
       return;
     }
 
-    document.cookie = `X-Client-UTC-Offset=${getDayjs().utcOffset()}; path=${BASE_PATH}/websocket`;
+    document.cookie = `X-Client-UTC-Offset=${getDayjs().utcOffset()}; path=${BASE_PATH}/`;
     const wsURL = `${
       window.location.protocol === "https:" ? "wss://" : "ws://"
     }${location.host}${BASE_PATH}/websocket`;

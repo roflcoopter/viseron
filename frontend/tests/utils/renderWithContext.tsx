@@ -61,6 +61,7 @@ export function createProvidersWrapper(options: TestContextOptions = {}) {
       safeMode: false,
       version: "0.0.0",
       gitCommit: "0000000",
+      setupStatus: { components: [] },
       subscriptionRef: useRef({}),
       ...viseronOverrides,
       connection:

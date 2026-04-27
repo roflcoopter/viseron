@@ -1,4 +1,5 @@
 """WebSocket API commands."""
+
 from __future__ import annotations
 
 import asyncio
@@ -41,6 +42,7 @@ from viseron.components.webserver.auth import Role
 from viseron.components.webserver.const import (
     DOWNLOAD_PATH,
     WS_ERROR_NOT_FOUND,
+    WS_ERROR_RELOAD_CONFIG_FAILED,
     WS_ERROR_SAVE_CONFIG_FAILED,
 )
 from viseron.components.webserver.download_token import DownloadToken
@@ -54,6 +56,7 @@ from viseron.exceptions import Unauthorized
 from viseron.helpers import create_directory, daterange_to_utc, get_utc_offset
 from viseron.helpers.template import render_template
 from viseron.helpers.validators import jinja2_template
+from viseron.reload import reload_config
 
 from .messages import (
     BASE_MESSAGE_SCHEMA,
@@ -75,18 +78,15 @@ LOGGER = logging.getLogger(__name__)
 
 
 @overload
-def websocket_command(schema: dict[Any, Any]) -> Callable:
-    ...
+def websocket_command(schema: dict[Any, Any]) -> Callable: ...
 
 
 @overload
-def websocket_command(schema: dict[Any, Any], command: str) -> Callable:
-    ...
+def websocket_command(schema: dict[Any, Any], command: str) -> Callable: ...
 
 
 @overload
-def websocket_command(schema: vol.Schema, command: str) -> Callable:
-    ...
+def websocket_command(schema: vol.Schema, command: str) -> Callable: ...
 
 
 def websocket_command(
@@ -320,6 +320,33 @@ async def restart_viseron(connection: WebSocketHandler, message) -> None:
     await connection.async_send_message(
         result_message(
             message["command_id"],
+        )
+    )
+
+
+@require_admin
+@websocket_command({vol.Required("type"): "reload_config"})
+async def handle_reload_config(connection: WebSocketHandler, message) -> None:
+    """Reload configuration."""
+    try:
+        result = await connection.run_in_executor(reload_config, connection.vis)
+    except Exception as exception:  # pylint: disable=broad-except # noqa: BLE001
+        await connection.async_send_message(
+            error_message(
+                message["command_id"],
+                WS_ERROR_RELOAD_CONFIG_FAILED,
+                str(exception),
+            )
+        )
+        return
+
+    await connection.async_send_message(
+        result_message(
+            message["command_id"],
+            {
+                "success": result.success,
+                "restart_required": result.restart_required,
+            },
         )
     )
 
@@ -663,11 +690,7 @@ async def export_timespan(connection: WebSocketHandler, message) -> None:
             "%Y-%m-%d-%H-%M-%S"
         )
         video_name = (
-            f"{camera.identifier}"
-            "-"
-            f"{time_string}"
-            "."
-            f"{os.path.splitext(timespan_video)[1]}"
+            f"{camera.identifier}-{time_string}.{os.path.splitext(timespan_video)[1]}"
         )
         new_path = os.path.join(DOWNLOAD_PATH, video_name)
         shutil.move(timespan_video, new_path)
@@ -719,3 +742,12 @@ async def handle_render_template(connection: WebSocketHandler, message) -> None:
         )
         return
     await connection.async_send_message(result_message(message["command_id"], rendered))
+
+
+@websocket_command({vol.Required("type"): "get_setup_status"})
+async def get_setup_status(connection: WebSocketHandler, message) -> None:
+    """Get combined setup status for all components and domains."""
+    status = await connection.run_in_executor(connection.vis.get_setup_status)
+    await connection.async_send_message(
+        result_message(message["command_id"], status),
+    )

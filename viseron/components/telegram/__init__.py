@@ -7,7 +7,6 @@ import logging
 import os
 from collections import defaultdict
 from textwrap import dedent
-from threading import Thread
 from typing import TYPE_CHECKING, Any
 
 import cv2
@@ -32,9 +31,12 @@ from viseron.domains.camera.const import (
 from viseron.domains.camera.recorder import EventRecorderData, ManualRecording
 from viseron.exceptions import ComponentNotReady, DomainNotRegisteredError
 from viseron.helpers import escape_string
-from viseron.helpers.logs import SensitiveInformationFilter
+from viseron.helpers.logs import (
+    SensitiveInformationFilterTracker,
+)
 from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
 from viseron.viseron_types import Domain
+from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
     COMPONENT,
@@ -49,6 +51,8 @@ from .const import (
     CONFIG_TELEGRAM_CHAT_IDS,
     CONFIG_TELEGRAM_LOG_IDS,
     CONFIG_TELEGRAM_USER_IDS,
+    DATA_NOTIFIER,
+    DATA_PTZ,
     DEFAULT_SEND_MESSAGE,
     DEFAULT_SEND_THUMBNAIL,
     DEFAULT_SEND_VIDEO,
@@ -128,26 +132,41 @@ CONFIG_SCHEMA: vol.Schema = vol.Schema(
 def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     """Set up the telegram component."""
     component_config = config[COMPONENT]
+    vis.data[COMPONENT] = {}
+
+    if config.get(CONFIG_PTZ_COMPONENT) and not vis.data.get(CONFIG_PTZ_COMPONENT):
+        raise ComponentNotReady(f"PTZ component '{CONFIG_PTZ_COMPONENT}' not ready yet")
 
     telegram_notifier = TelegramEventNotifier(vis, component_config)
 
+    telegram_ptz = None
     if not config.get(CONFIG_PTZ_COMPONENT):
         LOGGER.info("No PTZ component. Won't start Telegram PTZ Controller.")
-        telegram_ptz = None
     else:
-        if not vis.data.get(CONFIG_PTZ_COMPONENT):
-            raise ComponentNotReady(
-                f"PTZ component '{CONFIG_PTZ_COMPONENT}' not ready yet"
-            )
         telegram_ptz = TelegramPTZ(vis, component_config, telegram_notifier)
-        Thread(target=telegram_ptz.run_async).start()
 
-    Thread(target=telegram_notifier.run_async).start()
+    vis.data[COMPONENT][DATA_NOTIFIER] = telegram_notifier
+    vis.data[COMPONENT][DATA_PTZ] = telegram_ptz
 
     if telegram_ptz:
-        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, telegram_ptz.stop)
-    vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, telegram_notifier.stop)
+        telegram_ptz.start()
+    telegram_notifier.start()
+
     return True
+
+
+def unload(vis: Viseron) -> None:
+    """Unload the telegram component."""
+    component_data = vis.data.get(COMPONENT, {})
+    notifier = component_data.get(DATA_NOTIFIER)
+    if notifier:
+        notifier.stop()
+
+    ptz = component_data.get(DATA_PTZ)
+    if ptz:
+        ptz.stop()
+
+    vis.data.pop(COMPONENT, None)
 
 
 def rescale_image_cv2(image_path, max_size):
@@ -174,8 +193,7 @@ def rescale_image_cv2(image_path, max_size):
 
 
 class TelegramEventNotifier:
-    """
-    Telegram event notifier class.
+    """Telegram event notifier class.
 
     This class sends notifications to a Telegram chat when an event occurs.
     """
@@ -183,10 +201,11 @@ class TelegramEventNotifier:
     def __init__(self, vis: Viseron, config: dict[str, Any]) -> None:
         self._vis = vis
         self._config = config
-        SensitiveInformationFilter.add_sensitive_string(
+        self._sensitive_string_tracker = SensitiveInformationFilterTracker()
+        self._sensitive_string_tracker.add_sensitive_string(
             self._config[CONFIG_TELEGRAM_BOT_TOKEN]
         )
-        SensitiveInformationFilter.add_sensitive_string(
+        self._sensitive_string_tracker.add_sensitive_string(
             escape_string(self._config[CONFIG_TELEGRAM_BOT_TOKEN])
         )
         self._bot_token = self._config[CONFIG_TELEGRAM_BOT_TOKEN]
@@ -198,12 +217,24 @@ class TelegramEventNotifier:
         self._active_camera_identifier: str = (
             list(self._config[CONFIG_CAMERAS].keys())[0] or ""
         )
+        self._event_listeners = []
         for camera_identifier in self._config[CONFIG_CAMERAS]:
-            self._vis.listen_event(
-                EVENT_RECORDER_COMPLETE.format(camera_identifier=camera_identifier),
-                self._recorder_complete_event,
+            self._event_listeners.append(
+                self._vis.listen_event(
+                    EVENT_RECORDER_COMPLETE.format(camera_identifier=camera_identifier),
+                    self._recorder_complete_event,
+                )
             )
-        vis.data[COMPONENT] = self
+        self._event_listeners.append(
+            vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
+        )
+        self._thread = RestartableThread(
+            name="TelegramEventNotifier", daemon=True, target=self.run_async
+        )
+
+    def start(self) -> None:
+        """Start the TelegramEventNotifier."""
+        self._thread.start()
 
     @property
     def app(self) -> Application:
@@ -292,12 +323,22 @@ class TelegramEventNotifier:
         """Run TelegramEventNotifier in a new event loop."""
         asyncio.set_event_loop(self._loop)
         self._loop.run_until_complete(self._listen())
+        self._loop.close()
         LOGGER.info("TelegramEventNotifier done")
 
     def stop(self) -> None:
         """Stop TelegramEventNotifier component."""
+        LOGGER.debug("Stopping Telegram Event Notifier")
+        for unsubscribe in self._event_listeners:
+            unsubscribe()
+        self._event_listeners.clear()
         self._stop_event.set()
-        LOGGER.info("Stopping TelegramEventNotifier")
+        self._thread.stop()
+        self._thread.join(timeout=5)
+        if self._thread.is_alive():
+            LOGGER.error("Telegram Event Notifier thread did not stop within timeout")
+        self._sensitive_string_tracker.clear_sensitive_strings()
+        LOGGER.debug("Telegram Event Notifier stopped")
 
     def get_camera(self, camera_identifier: str) -> AbstractCamera | None:
         """Get camera instance."""

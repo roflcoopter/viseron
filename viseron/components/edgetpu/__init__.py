@@ -53,6 +53,8 @@ from .const import (
 if TYPE_CHECKING:
     from queue import Queue
 
+    import numpy as np
+
     from viseron import Viseron
 
 LOGGER = logging.getLogger(__name__)
@@ -91,10 +93,9 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config: dict) -> bool:
+def setup(vis: Viseron, _config: dict) -> bool:
     """Set up the edgetpu component."""
     LOGGER.debug(f"Available devices: {available_devices()}")
-    config = config[COMPONENT]
     vis.data[COMPONENT] = {}
     return True
 
@@ -141,12 +142,17 @@ def setup_domains(vis: Viseron, config: dict) -> None:
             )
 
 
-def available_devices():
+def unload(vis: Viseron) -> None:
+    """Unload the edgetpu component."""
+    vis.data.pop(COMPONENT, None)
+
+
+def available_devices() -> list[str]:
     """Get available devices by running list_edge_tpus in python3.9."""
     try:
         result = sp.run(
             [
-                "python3.9",
+                "/usr/bin/python3.9",
                 "-c",
                 "from pycoral.utils.edgetpu import list_edge_tpus;"
                 "print(list_edge_tpus())",
@@ -158,15 +164,15 @@ def available_devices():
         return ast.literal_eval(result.stdout)
     except Exception as error:
         LOGGER.error(f"Failed to get available devices: {error}")
-        raise error
+        raise
 
 
-def read_label_file(file_path):
+def read_label_file(file_path: str) -> dict[int, str]:
     """Read label file by running read_label_file in python3.9 using Popen."""
     try:
         result = sp.run(
             [
-                "python3.9",
+                "/usr/bin/python3.9",
                 "-c",
                 (
                     f"from pycoral.utils.dataset import read_label_file; "
@@ -180,15 +186,15 @@ def read_label_file(file_path):
         return ast.literal_eval(result.stdout)
     except Exception as error:
         LOGGER.error(f"Failed to read label file: {error}")
-        raise error
+        raise
 
 
-def get_available_devices():
+def get_available_devices() -> list[str]:
     """Get available devices by running list_edge_tpus in python3.9 using Popen."""
     try:
         result = sp.run(
             [
-                "python3.9",
+                "/usr/bin/python3.9",
                 "-c",
                 (
                     "from pycoral.utils.edgetpu import list_edge_tpus; "
@@ -202,15 +208,15 @@ def get_available_devices():
         return ast.literal_eval(result.stdout)
     except Exception as error:
         LOGGER.error(f"Failed to get available devices: {error}")
-        raise error
+        raise
 
 
-def get_model_size(process_queue: Queue):
+def get_model_size(process_queue: Queue) -> None:
     """Get model size by sending a job to the subprocess."""
     process_queue.put("get_model_size")
 
 
-def get_default_device(device):
+def get_default_device(device: str | list[str]) -> str | list[str]:
     """Get default device based on what's available.
 
     Returns user configured device if it has been set.
@@ -224,7 +230,7 @@ def get_default_device(device):
     return DEVICE_CPU
 
 
-def get_default_model(domain, model, device):
+def get_default_model(domain: str, model: str, device: str | list[str]) -> str:
     """Get default model based on chosen device.
 
     Returns user configured model if it has been set.
@@ -340,7 +346,11 @@ class EdgeTPU(SubProcessWorker):
         )
 
     def invoke(
-        self, frame, camera_identifier, result_queue, frame_resolution: tuple[int, int]
+        self,
+        frame: np.ndarray,
+        camera_identifier: str,
+        result_queue: Queue,
+        frame_resolution: tuple[int, int],
     ):
         """Invoke interpreter."""
         self._result_queues[camera_identifier] = result_queue
@@ -417,7 +427,7 @@ class EdgeTPUClassification(EdgeTPU):
         processed_classes = [
             ImageClassificationResult(
                 item["camera_identifier"],
-                self.labels.get(classification["label"], int(classification["label"])),
+                self.labels.get(classification["label"], classification["label"]),
                 classification["score"],
             )
             for classification in item["result"]

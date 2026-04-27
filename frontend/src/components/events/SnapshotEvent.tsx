@@ -34,8 +34,8 @@ import {
   useSelectEvent,
 } from "components/events/utils";
 import { ImageWithFallback } from "components/images/ImageWithFallback";
+import { useExportEvent } from "hooks/UseExportEvent";
 import { useFirstRender } from "hooks/UseFirstRender";
-import { useExportEvent } from "lib/commands";
 import { BLANK_IMAGE, isTouchDevice, toTitleCase } from "lib/helpers";
 import {
   getDayjsFromDateTimeString,

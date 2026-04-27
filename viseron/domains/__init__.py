@@ -31,6 +31,7 @@ SETUP_WITH_TRIES_PARAM_COUNT = 4
 
 if TYPE_CHECKING:
     from viseron import Viseron
+    from viseron.components import Component
     from viseron.viseron_types import SupportedDomains
 
 
@@ -185,6 +186,17 @@ def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bo
         f"for component {entry.component_name}"
         f"{', attempt ' + str(tries) if tries > 1 else ''}"
     )
+
+    # Clear previous errors for this domain/identifier if any when retrying
+    if entry.state == DomainState.RETRYING:
+        component_instance = vis.data[LOADING].get(
+            entry.component_name, vis.data[LOADED].get(entry.component_name)
+        )
+        if component_instance is not None:
+            component_instance.clear_domain_identifier_errors(
+                domain=entry.domain,
+                identifier=entry.identifier,
+            )
 
     if entry.state != DomainState.RETRYING:
         registry.set_state(entry.domain, entry.identifier, DomainState.LOADING)
@@ -449,6 +461,18 @@ def _handle_failed_domain(
         error=error,
     )
 
+    # Propagate domain error to the owning Component instance
+    if error:
+        component_instance = vis.data[LOADING].get(
+            entry.component_name, vis.data[LOADED].get(entry.component_name)
+        )
+        if component_instance is not None:
+            component_instance.add_domain_error(
+                error,
+                domain=entry.domain,
+                identifier=entry.identifier,
+            )
+
 
 def get_unload_order(
     vis: Viseron, domain: SupportedDomains, identifier: str
@@ -477,7 +501,7 @@ def get_unload_order(
     return unload_order
 
 
-def unload_domain(
+def unload_domain_identifier(
     vis: Viseron,
     domain: SupportedDomains,
     identifier: str,
@@ -527,41 +551,70 @@ def unload_domain(
     return registry.unregister(domain, identifier)
 
 
-def reload_domain(vis: Viseron, domain: SupportedDomains, identifier: str) -> None:
-    """Reload a domain and all its dependents.
+def unload_domain_chain(
+    vis: Viseron, domain: SupportedDomains, identifier: str
+) -> set[str]:
+    """Unload a domain and all its dependents in the correct order.
 
-    Reloading is done by unloading all dependent domains first, then
-    re-registering and setting them up again in the correct order.
+    Returns the component names of dependents that need re-setup.
+    The root domain's own component is intentionally excluded.
     """
-    reload_order = get_unload_order(vis, domain, identifier)
+    unload_order = get_unload_order(vis, domain, identifier)
+    affected_components = set()
+    for entry in unload_order:
+        # Only dependents need to be re-setup, not the root being unloaded.
+        if entry.domain != domain or entry.identifier != identifier:
+            affected_components.add(entry.component_name)
+        unload_domain_identifier(vis, entry.domain, entry.identifier)
+    return affected_components
 
-    if not reload_order:
-        LOGGER.warning(
-            f"Domain {domain} with identifier {identifier} not found for reload"
-        )
-        return
 
-    LOGGER.info(
-        f"Reloading domain {domain} with identifier {identifier}. "
-        f"Order: {[(e.domain, e.identifier) for e in reload_order]}",
-    )
+def unload_domain(
+    vis: Viseron, component: str, domain: SupportedDomains
+) -> set[str] | None:
+    """Unload a component's domain and all its identifiers."""
+    component_instance: Component | None = vis.data[LOADED].get(component, None)
+    if component_instance is None:
+        LOGGER.debug(f"Component {component} not found, can't unload domain {domain}")
+        return None
 
-    # Unload in order (dependents first)
-    for entry in reload_order:
-        unload_domain(vis, entry.domain, entry.identifier)
-
-    # Re-register in original order
+    affected_components = set()
     registry = vis.domain_registry
-    for entry in reversed(reload_order):
-        registry.register(
-            component_name=entry.component_name,
-            component_path=entry.component_path,
-            domain=entry.domain,
-            identifier=entry.identifier,
-            config=entry.config,
-            require_domains=entry.require_domains,
-            optional_domains=entry.optional_domains,
+
+    # Unload any domain identifiers for this component and domain
+    domains_to_unload = registry.get_by_component_and_domain(component, domain)
+    LOGGER.debug(
+        f"Unloading all identifiers for component {component} and domain {domain}"
+    )
+    if domains_to_unload:
+        LOGGER.debug(
+            f"Component {component} "
+            f"and domain {domain} "
+            f"has {len(domains_to_unload)} identifiers to unload: "
+            f"{[(e.domain, e.identifier) for e in domains_to_unload]}"
         )
 
-    # Setup all
-    setup_domains(vis)
+        for entry in domains_to_unload:
+            affected_components.update(
+                unload_domain_chain(vis, entry.domain, entry.identifier)
+            )
+
+    # Call domain's unload method if it exists
+    try:
+        domain_module = importlib.import_module(f"{component_instance.path}.{domain}")
+    except ModuleNotFoundError as err:
+        LOGGER.error(
+            f"Failed to load domain module {component_instance.path}.{domain}: {err}"
+        )
+        return affected_components
+    if hasattr(domain_module, "unload"):
+        try:
+            domain_module.unload(vis)
+        except Exception as ex:  # pylint: disable=broad-except # noqa: BLE001
+            LOGGER.error(
+                f"Error unloading domain {domain} for component {component}: {ex}"
+            )
+    else:
+        LOGGER.debug(f"Domain {domain} for component {component} has no unload method")
+
+    return affected_components

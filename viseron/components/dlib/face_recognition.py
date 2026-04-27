@@ -6,6 +6,7 @@ import logging
 import threading
 from typing import TYPE_CHECKING, Any
 
+from viseron.components.darknet.object_detector import SETUP_LOCK as DARKNET_SETUP_LOCK
 from viseron.domains.face_recognition import AbstractFaceRecognition
 from viseron.domains.face_recognition.const import CONFIG_FACE_RECOGNITION_PATH
 from viseron.helpers import calculate_absolute_coords
@@ -29,10 +30,10 @@ TRAIN_LOCK = threading.Lock()
 
 def setup(vis: Viseron, config: dict[str, Any], identifier: str) -> bool:
     """Set up the dlib face_recognition domain."""
-    with TRAIN_LOCK:
+    # We have to train after darknet has been setup because of a race
+    # condition between darknet and dlib. Darknet has to be setup first.
+    with DARKNET_SETUP_LOCK, TRAIN_LOCK:
         if not vis.data[COMPONENT].get(CLASSIFIER, None):
-            # We have to train in the domain instead of the component because of a race
-            # condition between darknet and dlib. Darknet has to be setup first.
             classifier, _tracked_faces = train(
                 config[CONFIG_FACE_RECOGNITION][CONFIG_FACE_RECOGNITION_PATH],
                 model=config[CONFIG_FACE_RECOGNITION][CONFIG_MODEL],
@@ -42,6 +43,11 @@ def setup(vis: Viseron, config: dict[str, Any], identifier: str) -> bool:
     FaceRecognition(vis, config, identifier, vis.data[COMPONENT][CLASSIFIER])
 
     return True
+
+
+def unload(vis: Viseron) -> None:
+    """Unload the dlib face_recognition domain."""
+    vis.data[COMPONENT].pop(CLASSIFIER, None)
 
 
 class FaceRecognition(AbstractFaceRecognition):
