@@ -14,12 +14,11 @@ from telegram.constants import ParseMode
 from telegram.ext import CallbackContext, CommandHandler
 
 from viseron.components.onvif import ONVIF
-from viseron.components.onvif.const import COMPONENT as ONVIF_COMPONENT
 from viseron.components.telegram.utils import limit_user_access
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.watchdog.thread_watchdog import RestartableThread
 
-from .const import COMPONENT
+from .const import CONFIG_ONVIF_COMPONENT
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -42,7 +41,7 @@ class TelegramPTZ:
         self._vis = vis
         self._config = config
         self._telegram = telegram
-        self._onvif: ONVIF = self._vis.data[ONVIF_COMPONENT]
+        self._onvif: ONVIF = self._vis.data[CONFIG_ONVIF_COMPONENT]
         self._stop_event = asyncio.Event()
         self._event_listeners = []
         self._event_listeners.append(

@@ -26,16 +26,12 @@ from viseron.components.storage.models import TriggerTypes
 from viseron.components.telegram.ptz_control import TelegramPTZ
 from viseron.components.telegram.utils import limit_user_access
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
-from viseron.domains.camera.const import (
-    DOMAIN as CAMERA_DOMAIN,
-    EVENT_RECORDER_COMPLETE,
-)
+from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.domains.camera.const import EVENT_RECORDER_COMPLETE
 from viseron.domains.camera.recorder import EventRecorderData, ManualRecording
 from viseron.exceptions import ComponentNotReady, DomainNotRegisteredError
 from viseron.helpers import escape_string
-from viseron.helpers.logs import (
-    SensitiveInformationFilterTracker,
-)
+from viseron.helpers.logs import SensitiveInformationFilterTracker
 from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
 from viseron.viseron_types import Domain
 from viseron.watchdog.thread_watchdog import RestartableThread
@@ -136,20 +132,18 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     component_config = config[COMPONENT]
     vis.data[COMPONENT] = {}
 
-    if config.get(CONFIG_PTZ_COMPONENT) and not vis.data.get(CONFIG_PTZ_COMPONENT):
-        raise ComponentNotReady(f"PTZ component '{CONFIG_PTZ_COMPONENT}' not ready yet")
+    if config.get(CONFIG_ONVIF_COMPONENT) and not vis.data.get(CONFIG_ONVIF_COMPONENT):
+        raise ComponentNotReady(
+            f"ONVIF component '{CONFIG_ONVIF_COMPONENT}' not ready yet"
+        )
 
     telegram_notifier = TelegramEventNotifier(vis, component_config)
 
+    telegram_ptz = None
     # Check if ONVIF component is loaded and ready
-    if CONFIG_ONVIF_COMPONENT not in vis.data:
-        LOGGER.info("ONVIF component not loaded. Won't start Telegram PTZ Controller.")
-        telegram_ptz = None
+    if not config.get(CONFIG_ONVIF_COMPONENT):
+        LOGGER.info("No ONVIF component. Won't start Telegram PTZ Controller.")
     else:
-        if not vis.data.get(CONFIG_ONVIF_COMPONENT):
-            raise ComponentNotReady(
-                f"PTZ component '{CONFIG_ONVIF_COMPONENT}' not ready yet"
-            )
         telegram_ptz = TelegramPTZ(vis, component_config, telegram_notifier)
 
     vis.data[COMPONENT][DATA_NOTIFIER] = telegram_notifier
