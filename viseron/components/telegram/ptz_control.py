@@ -16,6 +16,8 @@ from telegram.ext import CallbackContext, CommandHandler
 from viseron.components.onvif import ONVIF
 from viseron.components.onvif.const import COMPONENT as ONVIF_COMPONENT
 from viseron.components.telegram.utils import limit_user_access
+from viseron.const import VISERON_SIGNAL_SHUTDOWN
+from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import COMPONENT
 
@@ -42,7 +44,17 @@ class TelegramPTZ:
         self._telegram = telegram
         self._onvif: ONVIF = self._vis.data[ONVIF_COMPONENT]
         self._stop_event = asyncio.Event()
-        vis.data[COMPONENT] = self
+        self._event_listeners = []
+        self._event_listeners.append(
+            vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
+        )
+        self._thread = RestartableThread(
+            name="TelegramPTZ", daemon=True, target=self.run_async
+        )
+
+    def start(self) -> None:
+        """Start the TelegramPTZ Controller."""
+        self._thread.start()
 
     @property
     def _ptz_service(self):
@@ -78,18 +90,25 @@ class TelegramPTZ:
         while not self._stop_event.is_set():
             await asyncio.sleep(1)
 
-        LOGGER.info("TelegramPTZ Controller stopped")
-
     def stop(self) -> None:
         """Stop TelegramPTZ Controller."""
+        LOGGER.debug("Stopping Telegram PTZ Controller")
+        for unsubscribe in self._event_listeners:
+            unsubscribe()
+        self._event_listeners.clear()
         self._stop_event.set()
-        LOGGER.info("Stopping TelegramPTZ Controller")
+        self._thread.stop()
+        self._thread.join(timeout=5)
+        if self._thread.is_alive():
+            LOGGER.error("Telegram PTZ Controller thread did not stop within timeout")
+        LOGGER.debug("Telegram PTZ Controller stopped")
 
-    def run_async(self):
+    def run_async(self) -> None:
         """Run TelegramPTZ Controller in a new event loop."""
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(self._listen())
+        loop.close()
         LOGGER.info("TelegramPTZ Controller done")
 
     async def _inform(

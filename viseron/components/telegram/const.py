@@ -6,6 +6,8 @@ COMPONENT: Final = "telegram"
 DESC_COMPONENT = "Telegram bot to control cameras."
 
 CONFIG_ONVIF_COMPONENT: Final = "onvif"
+DATA_NOTIFIER: Final = "notifier"
+DATA_PTZ: Final = "ptz"
 
 CONFIG_TELEGRAM_BOT_TOKEN = "telegram_bot_token"
 CONFIG_TELEGRAM_CHAT_IDS = "telegram_chat_ids"
