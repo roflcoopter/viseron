@@ -58,7 +58,7 @@ def require_auth(
     """Decorate an endpoint to require auth to be enabled.
 
     Returns HTTP 503 if authentication is not configured.
-    Methods decorated with this can safely use ``self.auth``.
+    Methods decorated with this can safely use self.auth.
     """
 
     @wraps(func)
@@ -83,7 +83,7 @@ class BaseAPIHandler(ViseronRequestHandler):
     def auth(self) -> Auth:
         """Return auth instance.
 
-        Only safe to use inside ``@require_auth``-decorated methods.
+        Only safe to use inside @require_auth-decorated methods.
         """
         if self._webserver.auth is None:
             raise RuntimeError("auth property used without @require_auth guard")

@@ -218,6 +218,19 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         # Check access token is valid
         refresh_token = self._webserver.auth.validate_access_token(access_token)
         if refresh_token is None:
+            # Non-browser requests may use a personal access token (PAT) instead of a
+            # JWT. PATs are not accepted in the browser flow (check_refresh_token=True)
+            # because they lack the cookie-binding security layer.
+            if not check_refresh_token:
+                pat = self._webserver.auth.validate_access_token_pat(access_token)
+                if pat is not None:
+                    user = self._webserver.auth.get_user(pat.user_id)
+                    if user is None or not user.enabled:
+                        LOGGER.debug("PAT owner not found or disabled")
+                        return False
+                    self.current_user = user
+                    self._webserver.auth.update_pat_used(pat, self.request.remote_ip)
+                    return True
             LOGGER.debug("Access token not valid")
             return False
 
@@ -387,13 +400,27 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         return self._get_session()
 
     def validate_camera_token(self, camera: AbstractCamera) -> bool:
-        """Validate camera token."""
+        """Validate camera token.
+
+        Accepts, in order:
+        1. Short-lived per-camera token via ?access_token= query parameter.
+        2. Personal access token (PAT) via Authorization: Bearer <vpat_...>
+           header. PATs respect the owning user's role and assigned_cameras.
+        3. Cookie based session (refresh_token + static_asset_key).
+        """
         if not self._webserver.auth:
             raise RuntimeError("Auth is not set up, cannot validate camera token.")
 
         access_token = self.get_argument("access_token", None, strip=True)
         if access_token:
             return access_token in camera.access_tokens
+
+        # Allow PAT via Authorization header for non-browser clients.
+        auth_header = self.request.headers.get("Authorization", None)
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header[len("Bearer ") :].strip()
+            if token.startswith("vpat_") and self._validate_camera_pat(token, camera):
+                return True
 
         # Access token query parameter not set, check cookies
         refresh_token_cookie = self.get_secure_cookie("refresh_token")
@@ -407,3 +434,33 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             ):
                 return True
         return False
+
+    def _validate_camera_pat(self, raw_token: str, camera: AbstractCamera) -> bool:
+        """Validate a PAT and check that its owner may access camera."""
+        pat = self._webserver.auth.validate_access_token_pat(raw_token)
+        if pat is None:
+            return False
+
+        user = self._webserver.auth.get_user(pat.user_id)
+        if user is None or not user.enabled:
+            LOGGER.debug("PAT owner not found or disabled")
+            return False
+
+        if (
+            user.role != Role.ADMIN
+            and user.assigned_cameras is not None
+            and camera.identifier not in user.assigned_cameras
+        ):
+            LOGGER.debug(
+                "PAT user %s not permitted to access camera %s",
+                user.id,
+                camera.identifier,
+            )
+            return False
+
+        self.current_user = user
+        self._webserver.auth.update_pat_used(pat, self.request.remote_ip)
+        LOGGER.debug(
+            "Camera %s accessed via PAT by user %s", camera.identifier, user.id
+        )
+        return True

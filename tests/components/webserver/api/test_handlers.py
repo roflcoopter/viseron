@@ -157,17 +157,20 @@ class TestBaseAPIHandler(TestAppBaseAuth):
 
     def test_requires_role(self):
         """Test endpoint with overridden requires_role setting."""
-        with patch(
-            "viseron.components.webserver.api.handlers.BaseAPIHandler.validate_auth_header",  # pylint: disable=line-too-long
-            return_value=True,
-        ), patch(
-            "viseron.components.webserver.request_handler.ViseronRequestHandler.current_user",  # pylint: disable=line-too-long
-            new_callable=PropertyMock,
-            return_value=User(
-                name="Test",
-                username="test",
-                password="test",
-                role=Role.READ,
+        with (
+            patch(
+                "viseron.components.webserver.api.handlers.BaseAPIHandler.validate_auth_header",  # pylint: disable=line-too-long
+                return_value=True,
+            ),
+            patch(
+                "viseron.components.webserver.request_handler.ViseronRequestHandler.current_user",  # pylint: disable=line-too-long
+                new_callable=PropertyMock,
+                return_value=User(
+                    name="Test",
+                    username="test",
+                    password="test",
+                    role=Role.READ,
+                ),
             ),
         ):
             response = self.fetch("/api/v1/requires_role", method="GET")
@@ -179,17 +182,20 @@ class TestBaseAPIHandler(TestAppBaseAuth):
 
     def test_requires_role_default(self):
         """Test endpoint with default requires_role setting."""
-        with patch(
-            "viseron.components.webserver.api.handlers.BaseAPIHandler.validate_auth_header",  # pylint: disable=line-too-long
-            return_value=True,
-        ), patch(
-            "viseron.components.webserver.request_handler.ViseronRequestHandler.current_user",  # pylint: disable=line-too-long
-            new_callable=PropertyMock,
-            return_value=User(
-                name="Test",
-                username="test",
-                password="test",
-                role=Role.READ,
+        with (
+            patch(
+                "viseron.components.webserver.api.handlers.BaseAPIHandler.validate_auth_header",  # pylint: disable=line-too-long
+                return_value=True,
+            ),
+            patch(
+                "viseron.components.webserver.request_handler.ViseronRequestHandler.current_user",  # pylint: disable=line-too-long
+                new_callable=PropertyMock,
+                return_value=User(
+                    name="Test",
+                    username="test",
+                    password="test",
+                    role=Role.READ,
+                ),
             ),
         ):
             response = self.fetch("/api/v1/test", method="DELETE")
@@ -360,4 +366,113 @@ class TestBaseAPIHandler(TestAppBaseAuth):
             token_parameter=False,
             headers={"Authorization": "Bearer test_access_token"},
         )
+        assert response.code == HTTPStatus.UNAUTHORIZED
+
+    def _create_pat(self, user_id: str, assigned_cameras=None):
+        """Create a user with a PAT and return the raw token."""
+        user = self.webserver.auth.add_user(
+            "Pat User",
+            f"pat_user_{user_id}",
+            "pat_password",
+            Role.READ,
+        )
+        if assigned_cameras is not None:
+            user.assigned_cameras = assigned_cameras
+        _pat, raw_token = self.webserver.auth.create_access_token(user.id, "Test PAT")
+        return user, raw_token
+
+    def test_requires_camera_token_pat_header(self):
+        """Test that a PAT in the Authorization header grants camera access."""
+        _user, raw_token = self._create_pat("header", assigned_cameras=None)
+        mocked_camera = MockCamera(identifier="test_camera_identifier")
+        with patch(
+            "viseron.components.webserver.api.handlers.BaseAPIHandler._get_camera",
+            return_value=mocked_camera,
+        ):
+            response = self.fetch(
+                "/api/v1/camera/test_camera_identifier/requires_camera_token",
+                method="GET",
+                headers={"Authorization": f"Bearer {raw_token}"},
+            )
+        assert response.code == HTTPStatus.OK
+        assert json.loads(response.body) == {
+            "camera_identifier": "test_camera_identifier",
+        }
+
+    def test_requires_camera_token_pat_query_param(self):
+        """Test that a PAT in the ?access_token= query param denies camera access."""
+        _user, raw_token = self._create_pat("query", assigned_cameras=None)
+        mocked_camera = MockCamera(identifier="test_camera_identifier")
+        with patch(
+            "viseron.components.webserver.api.handlers.BaseAPIHandler._get_camera",
+            return_value=mocked_camera,
+        ):
+            response = self.fetch(
+                f"/api/v1/camera/test_camera_identifier/requires_camera_token?access_token={raw_token}",  # pylint: disable=line-too-long
+                method="GET",
+            )
+        assert response.code == HTTPStatus.UNAUTHORIZED
+
+    def test_requires_camera_token_pat_assigned_cameras_allowed(self):
+        """PAT owner with camera in assigned_cameras is allowed."""
+        _user, raw_token = self._create_pat(
+            "allowed", assigned_cameras=["test_camera_identifier"]
+        )
+        mocked_camera = MockCamera(identifier="test_camera_identifier")
+        with patch(
+            "viseron.components.webserver.api.handlers.BaseAPIHandler._get_camera",
+            return_value=mocked_camera,
+        ):
+            response = self.fetch(
+                "/api/v1/camera/test_camera_identifier/requires_camera_token",
+                method="GET",
+                headers={"Authorization": f"Bearer {raw_token}"},
+            )
+        assert response.code == HTTPStatus.OK
+
+    def test_requires_camera_token_pat_assigned_cameras_denied(self):
+        """PAT owner without camera in assigned_cameras is denied."""
+        _user, raw_token = self._create_pat(
+            "denied", assigned_cameras=["some_other_camera"]
+        )
+        mocked_camera = MockCamera(identifier="test_camera_identifier")
+        with patch(
+            "viseron.components.webserver.api.handlers.BaseAPIHandler._get_camera",
+            return_value=mocked_camera,
+        ):
+            response = self.fetch(
+                "/api/v1/camera/test_camera_identifier/requires_camera_token",
+                method="GET",
+                headers={"Authorization": f"Bearer {raw_token}"},
+            )
+        assert response.code == HTTPStatus.UNAUTHORIZED
+
+    def test_requires_camera_token_pat_disabled_user(self):
+        """PAT owned by a disabled user is denied."""
+        user, raw_token = self._create_pat("disabled", assigned_cameras=None)
+        self.webserver.auth.users[user.id].enabled = False
+        mocked_camera = MockCamera(identifier="test_camera_identifier")
+        with patch(
+            "viseron.components.webserver.api.handlers.BaseAPIHandler._get_camera",
+            return_value=mocked_camera,
+        ):
+            response = self.fetch(
+                "/api/v1/camera/test_camera_identifier/requires_camera_token",
+                method="GET",
+                headers={"Authorization": f"Bearer {raw_token}"},
+            )
+        assert response.code == HTTPStatus.UNAUTHORIZED
+
+    def test_requires_camera_token_pat_invalid_token(self):
+        """A syntactically-PAT-looking but unknown token is rejected."""
+        mocked_camera = MockCamera(identifier="test_camera_identifier")
+        with patch(
+            "viseron.components.webserver.api.handlers.BaseAPIHandler._get_camera",
+            return_value=mocked_camera,
+        ):
+            response = self.fetch(
+                "/api/v1/camera/test_camera_identifier/requires_camera_token",
+                method="GET",
+                headers={"Authorization": "Bearer vpat_" + "0" * 128},
+            )
         assert response.code == HTTPStatus.UNAUTHORIZED
