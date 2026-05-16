@@ -580,9 +580,12 @@ class Auth:
         """Save users to storage."""
         self._auth_store.save(
             {
-                "users": self.users,
-                "refresh_tokens": self.refresh_tokens,
-                "access_tokens": {t.id: asdict(t) for t in self.access_tokens.values()},
+                "users": dict(self.users),
+                "refresh_tokens": dict(self.refresh_tokens),
+                "access_tokens": {
+                    token_id: asdict(access_token)
+                    for token_id, access_token in list(self.access_tokens.items())
+                },
             }
         )
 
