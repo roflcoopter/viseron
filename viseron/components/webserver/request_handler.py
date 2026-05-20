@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hmac
 import logging
+import re
 from datetime import datetime, timedelta
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, overload
@@ -35,6 +36,19 @@ if TYPE_CHECKING:
 _T = TypeVar("_T")
 
 LOGGER = logging.getLogger(__name__)
+
+# Matches `token=<value>` and `access_token=<value>` in a query string. Used to
+# redact partial credentials (JWT header.payload, raw access tokens, camera
+# tokens) from logged URIs so they don't end up in log files, monitoring
+# tools, etc.
+_TOKEN_QUERY_RE = re.compile(r"([?&])(access_token|token)=[^&#]*", re.IGNORECASE)
+
+
+def _redact_token_query(uri: str | None) -> str:
+    """Redact token query parameters from a URI for safe logging."""
+    if not uri:
+        return uri or ""
+    return _TOKEN_QUERY_RE.sub(r"\1\2=<redacted>", uri)
 
 
 class ViseronRequestHandler(tornado.web.RequestHandler):
@@ -135,7 +149,8 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         if self.status == HTTPStatus.UNAUTHORIZED:
             LOGGER.warning(
                 f"Request with failed authentication from {self.request.remote_ip} for"
-                f" URL: {self.request.uri} {self.request.headers.get('User-Agent')}",
+                f" URL: {_redact_token_query(self.request.uri)}"
+                f" {self.request.headers.get('User-Agent')}",
             )
 
     def set_cookies(
