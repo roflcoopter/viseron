@@ -226,6 +226,16 @@ class AbstractFaceRecognition(AbstractPostProcessor):
             extra_attributes=extra_attributes,
         )
 
+        self._vis.dispatch_event(
+            EVENT_FACE_DETECTED.format(
+                camera_identifier=self._camera.identifier, face=UNKNOWN_FACE
+            ),
+            EventFaceDetected(
+                camera_identifier=self._camera.identifier,
+                face=face_dict,
+            ),
+        )
+
         if self._config[CONFIG_SAVE_UNKNOWN_FACES]:
             self._save_face(face_dict, coordinates, shared_frame)
 
