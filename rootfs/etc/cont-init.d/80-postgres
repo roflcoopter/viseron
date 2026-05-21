@@ -45,8 +45,12 @@ upgrade_db() {
 
   log_info "Installing PostgreSQL $old_version..."
   echo "deb https://apt.postgresql.org/pub/repos/apt ${UBUNTU_CODENAME}-pgdg main" > /etc/apt/sources.list.d/pgdg.list
-  wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
-  apt-get update && apt-get install -y --no-install-recommends postgresql-$old_version
+  curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/postgresql-archive-keyring.gpg
+  echo "deb [signed-by=/usr/share/keyrings/postgresql-archive-keyring.gpg] https://apt.postgresql.org/pub/repos/apt ${UBUNTU_CODENAME}-pgdg main" > /etc/apt/sources.list.d/pgdg.list
+  if ! apt-get update || ! apt-get install -y --no-install-recommends postgresql-$old_version; then
+    log_error "Failed to install PostgreSQL $old_version. Aborting upgrade to preserve data."
+    return 1
+  fi
 
   new_db_path=/tmp/postgresql
   mkdir -p $new_db_path
@@ -76,7 +80,11 @@ upgrade_db() {
 
   log_info "Running pg_upgrade..."
   cd $new_db_path
-  s6-setuidgid postgres $PG_BIN/pg_upgrade -b /usr/lib/postgresql/$old_version/bin -B $PG_BIN -d $PGDATA -D $new_db_path
+  if ! s6-setuidgid postgres $PG_BIN/pg_upgrade -b /usr/lib/postgresql/$old_version/bin -B $PG_BIN -d $PGDATA -D $new_db_path; then
+    log_error "pg_upgrade failed. Aborting upgrade to preserve data."
+    rm -rf $new_db_path
+    return 1
+  fi
 
   log_info "Cleaning up..."
   apt-get remove -y postgresql-$old_version postgresql-client-$old_version
@@ -99,5 +107,9 @@ if [ -e $PGDATA/postgresql.conf ]; then
 else
   init_db $PGDATA
 fi
+
+log_info "Updating PostgreSQL configuration..."
+# Disable checkpoint logging to reduce log noise
+sed -i 's/^#log_checkpoints = on/log_checkpoints = off/' $PGDATA/postgresql.conf
 
 log_info "*********************** Done *****************************"

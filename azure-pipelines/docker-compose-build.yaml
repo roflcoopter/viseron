@@ -167,6 +167,8 @@ services:
       args:
         ARCH: amd64
         VISERON_VERSION: dev
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
+        WHEELS_VERSION: "$WHEELS_VERSION"
       cache_from:
         - roflcoopter/amd64-viseron-tests:dev
     image: roflcoopter/amd64-viseron-tests:dev
@@ -183,12 +185,14 @@ services:
           coverage xml
         '
       "
-  amd64-viseron-tests-tox:
+  amd64-viseron-tox:
     <<: *amd64-viseron-tests
-    container_name: amd64-viseron-tests-tox
+    image: roflcoopter/amd64-viseron-tox:dev
+    container_name: amd64-viseron-tox
 
   amd64-viseron-vulture:
     <<: *amd64-viseron-tests
+    image: roflcoopter/amd64-viseron-vulture:dev
     container_name: amd64-viseron-vulture
     entrypoint: ""
     command: >

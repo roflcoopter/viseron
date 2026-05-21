@@ -305,7 +305,7 @@ class PathExists:
 
     def __call__(self, value):
         """Validate path exists."""
-        return self.path_exists_validator(  # pylint: disable=not-callable
+        return self.path_exists_validator(
             value,
         )
 

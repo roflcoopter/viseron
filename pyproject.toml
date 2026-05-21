@@ -170,7 +170,6 @@ ignore = [
     "N813",    ##     2   https://docs.astral.sh/ruff/rules/camelcase-imported-as-lowercase/
     "PERF102", ##     2   https://docs.astral.sh/ruff/rules/incorrect-dict-iterator/
     "PT011",   ##     2   https://docs.astral.sh/ruff/rules/pytest-raises-too-broad/
-    "PT019",   ##     2   https://docs.astral.sh/ruff/rules/pytest-fixture-param-without-value/
     "PYI024",  ##     2   https://docs.astral.sh/ruff/rules/collections-named-tuple/
     "RUF006",  ##     2   https://docs.astral.sh/ruff/rules/asyncio-dangling-task/
     "RUF043",  ##     2   https://docs.astral.sh/ruff/rules/pytest-raises-ambiguous-pattern/

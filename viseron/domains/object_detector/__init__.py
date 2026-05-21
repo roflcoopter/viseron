@@ -6,7 +6,6 @@ import logging
 import time
 from abc import abstractmethod
 from collections import deque
-from collections.abc import Callable
 from dataclasses import dataclass
 from queue import Empty, Queue
 from typing import TYPE_CHECKING, Any
@@ -24,7 +23,6 @@ from viseron.domains.camera.const import (
     EVENT_CAMERA_EVENT_DB_OPERATION,
 )
 from viseron.domains.camera.events import EventCameraEventData
-from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.motion_detector.const import DOMAIN as MOTION_DETECTOR_DOMAIN
 from viseron.events import EventData
 from viseron.exceptions import DomainNotRegisteredError
@@ -114,9 +112,12 @@ from .sensor import ObjectDetectorFPSSensor
 from .zone import Zone
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from viseron import Event, Viseron
     from viseron.components.nvr.nvr import EventFrameToScan, EventScanFrames
     from viseron.domains.camera import AbstractCamera
+    from viseron.domains.camera.shared_frames import SharedFrame
 
 
 def ensure_min_max(label: dict) -> dict:

@@ -154,11 +154,17 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
 
         _header, _payload, signature = access_token.split(".")
 
-        expires = (
-            now + self._webserver.auth.session_expiry
-            if self._webserver.auth.session_expiry
-            else now + timedelta(days=3650)
-        )
+        # Use the refresh token's absolute session expiry (created_at +
+        # session_expiration) to ensure that even if the refresh token is rotated,
+        # the session does not get extended indefinitely.
+        if self._webserver.auth.session_expiry is not None:
+            expires = datetime.fromtimestamp(
+                refresh_token.created_at
+                + refresh_token.session_expiration.total_seconds(),
+                tz=now.tzinfo,
+            )
+        else:
+            expires = now + timedelta(days=3650)
         # Refresh all cookies on every request if expiry is None because you can't have
         # infinite cookies in some browsers
         if new_session or self._webserver.auth.session_expiry is None:

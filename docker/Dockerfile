@@ -152,6 +152,7 @@ RUN \
   && rm -rf /wheels \
   && rm -r /tmp/s6-overlay-installer \
   && useradd --uid 911 --user-group --create-home abc \
+  && if id -u ubuntu >/dev/null 2>&1; then deluser --remove-home ubuntu; fi \
   && mkdir -p /home/abc/bin /segments
 
 ENTRYPOINT ["/init"]

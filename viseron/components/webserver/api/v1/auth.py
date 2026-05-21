@@ -272,33 +272,50 @@ class AuthAPIHandler(BaseAPIHandler):
     def _handle_refresh_token(
         self,
     ) -> (
-        tuple[Literal[HTTPStatus.BAD_REQUEST], str]
-        | tuple[Literal[HTTPStatus.OK], dict[str, Any]]
+        tuple[Literal[HTTPStatus.BAD_REQUEST], str, bool]
+        | tuple[Literal[HTTPStatus.OK], dict[str, Any], bool]
     ):
         """Handle refresh token."""
         refresh_token_cookie = self.get_secure_cookie("refresh_token")
         if refresh_token_cookie is None:
-            return HTTPStatus.BAD_REQUEST, "Invalid refresh token"
+            return HTTPStatus.BAD_REQUEST, "Invalid refresh token", True
+
+        refresh_token_cookie_value = refresh_token_cookie.decode()
 
         refresh_token = self.auth.get_refresh_token_from_token(
-            refresh_token_cookie.decode()
+            refresh_token_cookie_value
         )
 
         if refresh_token is None:
-            return HTTPStatus.BAD_REQUEST, "Invalid grant"
+            clear_cookies = not self.auth.is_recent_refresh_token_reuse(
+                refresh_token_cookie_value, self.json_body["client_id"]
+            )
+            return HTTPStatus.BAD_REQUEST, "Invalid grant", clear_cookies
 
         if refresh_token.client_id != self.json_body["client_id"]:
-            return HTTPStatus.BAD_REQUEST, "Invalid client_id"
+            return HTTPStatus.BAD_REQUEST, "Invalid client_id", True
 
         user = self.auth.get_user(refresh_token.user_id)
         if user is None:
-            return HTTPStatus.BAD_REQUEST, "Invalid user"
+            return HTTPStatus.BAD_REQUEST, "Invalid user", True
+
+        # Rotate the refresh token. The previous one is revoked atomically; a
+        # stolen pre-rotation copy can no longer be exchanged for an access
+        # token. Absolute session expiry is preserved by the rotation logic.
+        refresh_token = self.auth.rotate_refresh_token(refresh_token)
+        if refresh_token is None:
+            clear_cookies = not self.auth.is_recent_refresh_token_reuse(
+                refresh_token_cookie_value, self.json_body["client_id"]
+            )
+            return HTTPStatus.BAD_REQUEST, "Invalid grant", clear_cookies
 
         access_token = self.auth.generate_access_token(
             refresh_token, self.request.remote_ip
         )
 
-        self.set_cookies(refresh_token, access_token, user, new_session=False)
+        # The refresh-token cookie value changed, so all session cookies must
+        # be re-issued (treated like a new session for cookie purposes).
+        self.set_cookies(refresh_token, access_token, user, new_session=True)
 
         return (
             HTTPStatus.OK,
@@ -306,17 +323,21 @@ class AuthAPIHandler(BaseAPIHandler):
                 refresh_token,
                 access_token,
             ),
+            False,
         )
 
     @require_auth
     async def auth_token(self) -> None:
         """Handle token request."""
         if self.json_body["grant_type"] == "refresh_token":
-            status, response = await self.run_in_executor(self._handle_refresh_token)
+            status, response, clear_cookies = await self.run_in_executor(
+                self._handle_refresh_token
+            )
             if status == HTTPStatus.OK:
                 await self.response_success(response=response)
                 return
-            self.clear_all_cookies()
+            if clear_cookies:
+                self.clear_all_cookies()
             # Mypy doesn't understand that status is HTTPStatus.BAD_REQUEST here
             self.response_error(status, response)  # type: ignore[arg-type]
             return
