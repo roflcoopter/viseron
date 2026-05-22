@@ -218,6 +218,10 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         extra_attributes: dict[str, Any] | None = None,
     ) -> None:
         """Save unknown faces."""
+        # Cancel the expiry timer if unknown face has already been detected
+        if self._faces.get(UNKNOWN_FACE, None):
+            self._faces[UNKNOWN_FACE].timer.cancel()
+
         face_dict = FaceDict(
             UNKNOWN_FACE,
             coordinates,
@@ -225,6 +229,14 @@ class AbstractFaceRecognition(AbstractPostProcessor):
             Timer(self._config[CONFIG_EXPIRE_AFTER], self.expire_face, [UNKNOWN_FACE]),
             extra_attributes=extra_attributes,
         )
+        face_dict.timer.start()
+
+        # Only store face once until it is expired
+        if (
+            self._faces.get(UNKNOWN_FACE, None) is None
+            and self._config[CONFIG_SAVE_UNKNOWN_FACES]
+        ):
+            self._save_face(face_dict, coordinates, shared_frame)
 
         self._vis.dispatch_event(
             EVENT_FACE_DETECTED.format(
@@ -235,9 +247,7 @@ class AbstractFaceRecognition(AbstractPostProcessor):
                 face=face_dict,
             ),
         )
-
-        if self._config[CONFIG_SAVE_UNKNOWN_FACES]:
-            self._save_face(face_dict, coordinates, shared_frame)
+        self._faces[UNKNOWN_FACE] = face_dict
 
     def expire_face(self, face: str) -> None:
         """Expire no longer found face."""
