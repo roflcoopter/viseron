@@ -53,6 +53,13 @@ stages:
           image: viseron
           release: true
           noCache: ${{ parameters.noCache }}
+      - template: templates/build.yaml
+        parameters:
+          image: viseron-tests
+          architectures:
+            - amd64
+          release: false
+          noCache: ${{ parameters.noCache }}
 
   - stage: "Publish"
     jobs:

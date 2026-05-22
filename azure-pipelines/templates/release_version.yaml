@@ -10,7 +10,9 @@ steps:
       echo Source branch is $branch
 
       latestRelease=false
-      if [ "$branch" == "dev" ] ; then
+      if [ "${{ parameters.release }}" != "true" ] ; then
+        version="dev"
+      elif [ "$branch" == "dev" ] ; then
         version="dev"
       elif [[ "$branch" == *"refs/tags/v"* ]] ; then
         version=$([[ $branch =~ refs/tags/v(.*) ]] && echo "${BASH_REMATCH[1]}")
@@ -31,5 +33,4 @@ steps:
       echo Extracted version is $version
       echo "##vso[task.setvariable variable=viseronVersion;]$version"
       echo "##vso[task.setvariable variable=latestRelease;]$latestRelease"
-    condition: ${{ parameters.release }}
-    displayName: Extract version from branch name
+    displayName: Set Viseron version

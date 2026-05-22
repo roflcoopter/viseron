@@ -10,5 +10,7 @@ if [ -n "$POSTGRES_DATABASE_URL" ]; then
   exit 0
 fi
 
+rm -f $VISERON_CONFIG_DIR/postgres.log
+
 log_info "Starting PostgreSQL Server..."
-s6-setuidgid postgres $PG_BIN/postgres -D $PGDATA
+exec s6-setuidgid postgres $PG_BIN/postgres -D $PGDATA 2>&1 | tee -a $VISERON_CONFIG_DIR/postgres.log

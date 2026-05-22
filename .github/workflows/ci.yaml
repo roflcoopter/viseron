@@ -14,6 +14,9 @@ env:
   DOCKER_BUILDKIT: 1
   COMPOSE_DOCKER_CLI_BUILD: 1
   BUILDKIT_PROGRESS: plain
+  DOCKER_COMPOSE_CI_FILES: >-
+    --file azure-pipelines/docker-compose-build.yaml
+    --env-file azure-pipelines/.env
 
 jobs:
   prepare-python-venv:
@@ -24,10 +27,10 @@ jobs:
     steps:
       # Create Python virtual env used for linters
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.5.2
+        uses: actions/checkout@v6
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         id: python
-        uses: actions/setup-python@v4.3.0
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
       # Create a virtual environment and cache it
@@ -39,7 +42,7 @@ jobs:
           echo "key=${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ steps.python.outputs.python-version }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements.txt') }}-${{ hashFiles('requirements_test.txt') }}-${{ hashFiles('requirements_ci.txt') }}" >> $GITHUB_OUTPUT
       - name: Restore Python virtual environment
         id: cache-venv
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: venv
           key: ${{ steps.python-venv-cache-key.outputs.key }}
@@ -68,15 +71,15 @@ jobs:
       pre-commit-cache-key: ${{ steps.pre-commit-cache-key.outputs.key }}
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.5.2
+        uses: actions/checkout@v6
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
-        uses: actions/setup-python@v4.3.0
+        uses: actions/setup-python@v6
         id: python
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -94,7 +97,7 @@ jobs:
       # Install pre-commit hooks into the cached virtual environment
       - name: Restore pre-commit hooks
         id: cache-pre-commit
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ steps.pre-commit-cache-key.outputs.key }}
@@ -111,15 +114,15 @@ jobs:
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.5.2
+        uses: actions/checkout@v6
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
-        uses: actions/setup-python@v4.3.0
+        uses: actions/setup-python@v6
         id: python
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -130,7 +133,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -151,15 +154,15 @@ jobs:
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.5.2
+        uses: actions/checkout@v6
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
-        uses: actions/setup-python@v4.3.0
+        uses: actions/setup-python@v6
         id: python
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -170,7 +173,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -192,15 +195,15 @@ jobs:
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.5.2
+        uses: actions/checkout@v6
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
-        uses: actions/setup-python@v4.3.0
+        uses: actions/setup-python@v6
         id: python
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -211,7 +214,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -237,15 +240,15 @@ jobs:
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.5.2
+        uses: actions/checkout@v6
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
-        uses: actions/setup-python@v4.3.0
+        uses: actions/setup-python@v6
         id: python
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -256,7 +259,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -277,15 +280,15 @@ jobs:
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.5.2
+        uses: actions/checkout@v6
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
-        uses: actions/setup-python@v4.3.0
+        uses: actions/setup-python@v6
         id: python
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -296,7 +299,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -318,15 +321,15 @@ jobs:
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.5.2
+        uses: actions/checkout@v6
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
-        uses: actions/setup-python@v4.3.0
+        uses: actions/setup-python@v6
         id: python
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -350,53 +353,29 @@ jobs:
   run-pytest:
     name: Run pytest
     runs-on: ubuntu-24.04
-    needs: prepare-python-venv
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.5.2
+        uses: actions/checkout@v6
         with:
           fetch-depth: 2
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
-        uses: actions/setup-python@v4.3.0
+        uses: actions/setup-python@v6
         id: python
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
-      - name: Restore base Python virtual environment
-        id: cache-venv
-        uses: actions/cache@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
         with:
-          path: venv
-          key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
-      - name: Fail job if Python cache restore failed
-        if: steps.cache-venv.outputs.cache-hit != 'true'
+          install: true
+      - name: Build wheels Docker image
         run: |
-          echo "Failed to restore Python virtual environment from cache"
-          exit 1
-      - name: List free space before cleaning
-        run: |
-          df -h
-      - name: Clean up space used
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-          docker rmi -f $(docker images -aq) || true
-          docker system prune --force --all --volumes
-      - name: List free space after cleaning
-        run: |
-          df -h
-      - name: Pull current Docker dev tag
-        run: |
-          docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env pull amd64-viseron
-          docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env pull amd64-wheels
-      - name: Re-build wheels
-        run: |
-          docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-wheels
-          docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-viseron
+          docker compose ${{ env.DOCKER_COMPOSE_CI_FILES }} build amd64-wheels
       - name: Build pytest Docker image
         run: |
-          docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-viseron-tests
+          docker compose ${{ env.DOCKER_COMPOSE_CI_FILES }} build amd64-viseron-tests
       - name: Run pytest
         run: |
-          if docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env up amd64-viseron-tests; then
+          if docker compose ${{ env.DOCKER_COMPOSE_CI_FILES }} up --no-build amd64-viseron-tests; then
             exit 0
           else
             exit 1
@@ -413,15 +392,15 @@ jobs:
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.5.2
+        uses: actions/checkout@v6
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
-        uses: actions/setup-python@v4.3.0
+        uses: actions/setup-python@v6
         id: python
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -432,7 +411,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}

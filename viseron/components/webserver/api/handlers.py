@@ -111,11 +111,11 @@ class BaseAPIHandler(ViseronRequestHandler):
     def check_xsrf_cookie(self) -> None:
         """XSRF protection.
 
-        Enable XSRF for browser requests that use cookies; disable when using tokens.
+        Enforce XSRF for any cookie-authenticated, state-changing request,
+        regardless of the X-Requested-With header. Non-cookie clients
+        (Authorization header / PAT) are exempt because CSRF requires the
+        browser to attach credentials automatically.
         """
-        # If the request is an XMLHttpRequest and we rely on cookies (browser flow),
-        # enforce Tornado's XSRF protection (expects _xsrf token).
-        is_ajax = self.request.headers.get("X-Requested-With", "") == "XMLHttpRequest"
         has_signature_cookie = self.get_secure_cookie("signature_cookie") is not None
 
         # Determine if the current route explicitly allows token via query parameter
@@ -127,12 +127,7 @@ class BaseAPIHandler(ViseronRequestHandler):
         # that rely on cookies. Safe methods (GET, HEAD, OPTIONS) are excluded.
         state_changing = self.request.method in ("POST", "PUT", "DELETE", "PATCH")
 
-        if (
-            is_ajax
-            and has_signature_cookie
-            and state_changing
-            and not allows_token_param
-        ):
+        if has_signature_cookie and state_changing and not allows_token_param:
             # Use Tornado's default CSRF check when cookies are the credential
             # source and the request can change server state.
             return super().check_xsrf_cookie()
