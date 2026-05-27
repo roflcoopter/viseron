@@ -102,8 +102,28 @@ class LDAPAuthenticator:
             return None
         return bind_dn.rsplit("@", 1)[1]
 
+    def _netbios_domain(self) -> str | None:
+        """Return a likely NetBIOS domain from the bind domain."""
+        domain = self._bind_domain()
+        if not domain:
+            return None
+        return domain.split(".", maxsplit=1)[0].upper()
+
+    @staticmethod
+    def _search_username(username: str) -> str:
+        """Return the username part used for LDAP search."""
+        if "\\" in username:
+            return username.rsplit("\\", maxsplit=1)[1]
+        if "@" in username:
+            return username.split("@", maxsplit=1)[0]
+        return username
+
     def _user_bind_candidates(
-        self, user_dn: str, username: str, attributes: dict[str, Any]
+        self,
+        user_dn: str,
+        username: str,
+        search_username: str,
+        attributes: dict[str, Any],
     ) -> list[str]:
         """Return candidate bind names for an LDAP user."""
         candidates = [user_dn]
@@ -114,7 +134,9 @@ class LDAPAuthenticator:
         if "\\" in username or "@" in username:
             candidates.append(username)
         elif domain := self._bind_domain():
-            candidates.append(f"{username}@{domain}")
+            candidates.append(f"{search_username}@{domain}")
+        if netbios_domain := self._netbios_domain():
+            candidates.append(f"{netbios_domain}\\{search_username}")
         return list(dict.fromkeys(candidates))
 
     def _validate_user_password(
@@ -127,8 +149,11 @@ class LDAPAuthenticator:
         """Validate user password with a user bind."""
         if not password:
             raise AuthenticationFailedError
+        search_username = self._search_username(username)
         last_error: LDAPException | None = None
-        for bind_user in self._user_bind_candidates(user_dn, username, attributes):
+        for bind_user in self._user_bind_candidates(
+            user_dn, username, search_username, attributes
+        ):
             try:
                 connection = Connection(
                     self._server,
@@ -213,10 +238,11 @@ class LDAPAuthenticator:
     def authenticate(self, username: str, password: str) -> LDAPUser:
         """Authenticate username and password against LDAP."""
         username = username.strip().casefold()
+        search_username = self._search_username(username)
         connection: Connection | None = None
         try:
             connection = self._service_connection()
-            user_dn, attributes = self._search_user(connection, username)
+            user_dn, attributes = self._search_user(connection, search_username)
             self._validate_user_password(user_dn, username, attributes, password)
 
             groups = self._member_of(attributes)
@@ -252,7 +278,8 @@ class LDAPAuthenticator:
                 return {"bind": True, "user": None}
 
             username = username.strip().casefold()
-            user_dn, attributes = self._search_user(connection, username)
+            search_username = self._search_username(username)
+            user_dn, attributes = self._search_user(connection, search_username)
             if password:
                 self._validate_user_password(user_dn, username, attributes, password)
 
