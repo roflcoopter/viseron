@@ -27,11 +27,37 @@ type AddCameraDialogProps = {
 };
 
 const PATH_PRESETS = [
-  { label: "Hikvision main", value: "/Streaming/Channels/101/" },
-  { label: "Hikvision sub", value: "/Streaming/Channels/102/" },
-  { label: "Dahua main", value: "/cam/realmonitor?channel=1&subtype=0" },
-  { label: "Dahua sub", value: "/cam/realmonitor?channel=1&subtype=1" },
-  { label: "Generic", value: "/" },
+  {
+    label: "Mobotix HTTP live",
+    path: "/control/faststream.jpg?stream=full&fps=10",
+    port: 80,
+    stream_format: "mjpeg" as const,
+  },
+  {
+    label: "Hikvision main",
+    path: "/Streaming/Channels/101/",
+    port: 554,
+    stream_format: "rtsp" as const,
+  },
+  {
+    label: "Hikvision sub",
+    path: "/Streaming/Channels/102/",
+    port: 554,
+    stream_format: "rtsp" as const,
+  },
+  {
+    label: "Dahua main",
+    path: "/cam/realmonitor?channel=1&subtype=0",
+    port: 554,
+    stream_format: "rtsp" as const,
+  },
+  {
+    label: "Dahua sub",
+    path: "/cam/realmonitor?channel=1&subtype=1",
+    port: 554,
+    stream_format: "rtsp" as const,
+  },
+  { label: "Generic", path: "/", port: 554, stream_format: "rtsp" as const },
 ];
 
 const identifierFromName = (name: string) =>
@@ -162,15 +188,32 @@ export function AddCameraDialog({ open, onClose }: AddCameraDialogProps) {
           </Grid>
           <Grid size={{ xs: 12, md: 5 }}>
             <FormControl fullWidth>
-              <InputLabel id="camera-path-preset-label">RTSP Path</InputLabel>
+              <InputLabel id="camera-path-preset-label">Preset</InputLabel>
               <Select
                 labelId="camera-path-preset-label"
-                label="RTSP Path"
-                value={form.path}
-                onChange={(event) => updateForm("path", event.target.value)}
+                label="Preset"
+                value={
+                  PATH_PRESETS.find(
+                    (preset) =>
+                      preset.path === form.path &&
+                      preset.port === form.port &&
+                      preset.stream_format === form.stream_format,
+                  )?.label || ""
+                }
+                onChange={(event) => {
+                  const preset = PATH_PRESETS.find(
+                    (item) => item.label === event.target.value,
+                  );
+                  if (!preset) {
+                    return;
+                  }
+                  updateForm("path", preset.path);
+                  updateForm("port", preset.port);
+                  updateForm("stream_format", preset.stream_format);
+                }}
               >
                 {PATH_PRESETS.map((preset) => (
-                  <MenuItem key={preset.label} value={preset.value}>
+                  <MenuItem key={preset.label} value={preset.label}>
                     {preset.label}
                   </MenuItem>
                 ))}
@@ -184,6 +227,27 @@ export function AddCameraDialog({ open, onClose }: AddCameraDialogProps) {
               fullWidth
               onChange={(event) => updateForm("path", event.target.value)}
             />
+          </Grid>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <FormControl fullWidth>
+              <InputLabel id="camera-stream-format-label">
+                Stream format
+              </InputLabel>
+              <Select
+                labelId="camera-stream-format-label"
+                label="Stream format"
+                value={form.stream_format}
+                onChange={(event) =>
+                  updateForm(
+                    "stream_format",
+                    event.target.value as AddCameraConfigPayload["stream_format"],
+                  )
+                }
+              >
+                <MenuItem value="rtsp">RTSP</MenuItem>
+                <MenuItem value="mjpeg">MJPEG / HTTP</MenuItem>
+              </Select>
+            </FormControl>
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
             <TextField
