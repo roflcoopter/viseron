@@ -28,6 +28,7 @@ from viseron.exceptions import DomainNotReady
 from viseron.helpers.named_timer import NamedTimer
 
 SETUP_WITH_TRIES_PARAM_COUNT = 4
+OFFLINE_CAMERA_RETRY_BACKOFF = (30, 120, 300, 900, 1800)
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -117,6 +118,23 @@ def _wait_for_dependencies(
     def _slow_warning(futures: list[Future]) -> None:
         running = [f for f in futures if f.running()]
         if running:
+            retrying_dependencies = []
+            for dependency in entry.require_domains + entry.optional_domains:
+                dependency_entry = registry.get(
+                    dependency.domain, dependency.identifier
+                )
+                if dependency_entry and dependency_entry.state == DomainState.RETRYING:
+                    retrying_dependencies.append(dependency_entry)
+            if retrying_dependencies:
+                LOGGER.debug(
+                    f"Domain {entry.domain} with identifier {entry.identifier} "
+                    "is waiting for retrying dependencies: "
+                    + ", ".join(
+                        f"{dependency.domain}/{dependency.identifier}"
+                        for dependency in retrying_dependencies
+                    )
+                )
+                return
             LOGGER.warning(
                 f"Domain {entry.domain} with identifier {entry.identifier} "
                 "still waiting for dependencies",
@@ -174,6 +192,19 @@ def _wait_for_dependencies(
         )
         return False
     return True
+
+
+def _is_ffmpeg_camera(entry: DomainEntry) -> bool:
+    """Return if the entry is an ffmpeg camera domain."""
+    return entry.component_name == "ffmpeg" and entry.domain == "camera"
+
+
+def _retry_wait_time(entry: DomainEntry, tries: int) -> int:
+    """Return retry wait time for a failed domain setup."""
+    if _is_ffmpeg_camera(entry):
+        backoff_index = min(tries - 1, len(OFFLINE_CAMERA_RETRY_BACKOFF) - 1)
+        return OFFLINE_CAMERA_RETRY_BACKOFF[backoff_index]
+    return min(tries * DOMAIN_RETRY_INTERVAL, DOMAIN_RETRY_INTERVAL_MAX)
 
 
 def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bool:
@@ -282,14 +313,18 @@ def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bo
         _handle_failed_domain(vis, entry, DomainState.RETRYING, error=str(error))
         slow_setup_warning.cancel()
 
-        wait_time = min(tries * DOMAIN_RETRY_INTERVAL, DOMAIN_RETRY_INTERVAL_MAX)
-        LOGGER.error(
+        wait_time = _retry_wait_time(entry, tries)
+        log_message = (
             f"Domain {entry.domain} "
             f"with identifier {entry.identifier} "
             f"for component {entry.component_name} is not ready. "
             f"Retrying in {wait_time} seconds. "
             f"Error: {error!s}"
         )
+        if _is_ffmpeg_camera(entry) and tries >= 3:
+            LOGGER.warning("%s Camera is in offline backoff.", log_message)
+        else:
+            LOGGER.error(log_message)
 
         # Block until wait_time elapses or the domain is cancelled/shutdown.
         # cancel_event.wait() returns True if the event was set (cancelled),
