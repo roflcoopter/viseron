@@ -5,6 +5,7 @@ import {
   SettingsEdit,
   Trigger,
   UserMultiple,
+  Video,
 } from "@carbon/icons-react";
 import { ListItemButton } from "@mui/material";
 import Avatar from "@mui/material/Avatar";
@@ -34,6 +35,15 @@ function Settings() {
       path: "/settings/configuration",
       icon: <SettingsEdit size={23} />,
       color: "blue",
+      disabled: false,
+      disabledReason: null,
+    },
+    {
+      name: "Cameras",
+      description: "Add and review cameras",
+      path: "/settings/cameras",
+      icon: <Video size={23} />,
+      color: "indigo",
       disabled: false,
       disabledReason: null,
     },

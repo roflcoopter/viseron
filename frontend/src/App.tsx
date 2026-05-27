@@ -3,6 +3,7 @@ import { lazy } from "react";
 import { Navigate, useRoutes } from "react-router-dom";
 
 const Cameras = lazy(() => import("pages/Cameras"));
+const CamerasSettings = lazy(() => import("pages/settings/Cameras"));
 const Tuning = lazy(() => import("pages/Tuning"));
 const CameraRecordings = lazy(
   () => import("pages/recordings/CameraRecordings"),
@@ -91,6 +92,10 @@ function App() {
                 {
                   path: "/settings/configuration",
                   element: <Configuration />,
+                },
+                {
+                  path: "/settings/cameras",
+                  element: <CamerasSettings />,
                 },
                 {
                   path: "/settings/users",
