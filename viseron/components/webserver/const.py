@@ -57,6 +57,21 @@ DESC_SUBPATH = (
 
 # Auth constants
 CONFIG_AUTH = "auth"
+CONFIG_LDAP = "ldap"
+CONFIG_ENABLED = "enabled"
+CONFIG_URL = "url"
+CONFIG_BIND_DN = "bind_dn"
+CONFIG_BIND_PASSWORD = "bind_password"
+CONFIG_USER_BASE_DN = "user_base_dn"
+CONFIG_USER_FILTER = "user_filter"
+CONFIG_USERNAME_ATTRIBUTE = "username_attribute"
+CONFIG_NAME_ATTRIBUTE = "name_attribute"
+CONFIG_GROUP_BASE_DN = "group_base_dn"
+CONFIG_GROUP_FILTER = "group_filter"
+CONFIG_ADMIN_GROUPS = "admin_groups"
+CONFIG_WRITE_GROUPS = "write_groups"
+CONFIG_READ_GROUPS = "read_groups"
+CONFIG_DEFAULT_ROLE = "default_role"
 CONFIG_SESSION_EXPIRY = "session_expiry"
 CONFIG_DAYS = "days"
 CONFIG_HOURS = "hours"
@@ -72,8 +87,33 @@ DEFAULT_SESSION_EXPIRY: Final = None
 DEFAULT_RATE_LIMIT_LOGIN: Final = {"max_attempts": 10, "window_seconds": 60}
 DEFAULT_RATE_LIMIT_TOKEN: Final = {"max_attempts": 30, "window_seconds": 60}
 DEFAULT_RATE_LIMIT_ONBOARDING: Final = {"max_attempts": 5, "window_seconds": 60}
+DEFAULT_LDAP_USER_FILTER: Final = "(sAMAccountName={username})"
+DEFAULT_LDAP_GROUP_FILTER: Final = "(member={user_dn})"
+DEFAULT_LDAP_USERNAME_ATTRIBUTE: Final = "sAMAccountName"
+DEFAULT_LDAP_NAME_ATTRIBUTE: Final = "displayName"
+DEFAULT_LDAP_DEFAULT_ROLE: Final = "read"
 
 DESC_AUTH = "Authentication configuration."
+DESC_LDAP = "LDAP/Active Directory authentication configuration."
+DESC_ENABLED = "Enable this integration."
+DESC_URL = (
+    "LDAP server URL, for example ldap://dc.example.org or ldaps://dc.example.org."
+)
+DESC_BIND_DN = "LDAP bind DN used to search users. Leave empty for anonymous bind."
+DESC_BIND_PASSWORD = "Password for bind_dn."
+DESC_USER_BASE_DN = "Base DN used to search users."
+DESC_USER_FILTER = (
+    "LDAP user search filter. Supports {username}. The default targets Active "
+    "Directory sAMAccountName."
+)
+DESC_USERNAME_ATTRIBUTE = "LDAP attribute used as username."
+DESC_NAME_ATTRIBUTE = "LDAP attribute used as display name."
+DESC_GROUP_BASE_DN = "Base DN used to search groups. Leave empty to use memberOf."
+DESC_GROUP_FILTER = "LDAP group search filter. Supports {user_dn} and {username}."
+DESC_ADMIN_GROUPS = "LDAP groups mapped to the Viseron admin role."
+DESC_WRITE_GROUPS = "LDAP groups mapped to the Viseron write role."
+DESC_READ_GROUPS = "LDAP groups mapped to the Viseron read role."
+DESC_DEFAULT_ROLE = "Role assigned when no LDAP group mapping matches."
 DESC_SESSION_EXPIRY = (
     "Session expiry time. After this time the user will be logged out. By default the"
     " sessions are infinite."
