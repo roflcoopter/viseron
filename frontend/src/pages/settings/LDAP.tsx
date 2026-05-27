@@ -11,7 +11,7 @@ import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { ErrorMessage } from "components/error/ErrorMessage";
 import { Loading } from "components/loading/Loading";
@@ -52,12 +52,10 @@ function textToGroups(value: string) {
     .filter(Boolean);
 }
 
-function LDAP() {
-  useTitle("LDAP");
-  const ldapConfig = useLDAPConfig();
+function LDAPForm({ initialConfig }: { initialConfig: types.LDAPConfig }) {
   const saveLDAPConfig = useSaveLDAPConfig();
   const testLDAPConfig = useTestLDAPConfig();
-  const [config, setConfig] = useState<types.LDAPConfig>(EMPTY_CONFIG);
+  const [config, setConfig] = useState<types.LDAPConfig>(initialConfig);
   const [testUsername, setTestUsername] = useState("");
   const [testPassword, setTestPassword] = useState("");
   const [saveResult, setSaveResult] = useState<types.LDAPSaveResponse | null>(
@@ -66,12 +64,6 @@ function LDAP() {
   const [testResult, setTestResult] = useState<types.LDAPTestResponse | null>(
     null,
   );
-
-  useEffect(() => {
-    if (ldapConfig.data?.config) {
-      setConfig({ ...EMPTY_CONFIG, ...ldapConfig.data.config });
-    }
-  }, [ldapConfig.data]);
 
   const canSubmit = useMemo(() => {
     if (!config.enabled) {
@@ -105,19 +97,6 @@ function LDAP() {
       },
     );
   };
-
-  if (ldapConfig.isLoading) {
-    return <Loading text="Loading LDAP settings" />;
-  }
-
-  if (ldapConfig.isError || !ldapConfig.data) {
-    return (
-      <ErrorMessage
-        text="Error loading LDAP settings"
-        subtext={ldapConfig.error?.message}
-      />
-    );
-  }
 
   return (
     <Container
@@ -353,6 +332,28 @@ function LDAP() {
         </Stack>
       </Paper>
     </Container>
+  );
+}
+
+function LDAP() {
+  useTitle("LDAP");
+  const ldapConfig = useLDAPConfig();
+
+  if (ldapConfig.isLoading) {
+    return <Loading text="Loading LDAP settings" />;
+  }
+
+  if (ldapConfig.isError || !ldapConfig.data) {
+    return (
+      <ErrorMessage
+        text="Error loading LDAP settings"
+        subtext={ldapConfig.error?.message}
+      />
+    );
+  }
+
+  return (
+    <LDAPForm initialConfig={{ ...EMPTY_CONFIG, ...ldapConfig.data.config }} />
   );
 }
 
