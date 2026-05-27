@@ -41,6 +41,10 @@ class LDAPUser:
     role: Role
 
 
+class LDAPTestFailedError(AuthenticationFailedError):
+    """LDAP connection test failed."""
+
+
 class LDAPAuthenticator:
     """Authenticate users against LDAP or Active Directory."""
 
@@ -237,9 +241,14 @@ class LDAPAuthenticator:
                     "password_validated": bool(password),
                 },
             }
-        except (LDAPException, AuthenticationFailedError) as error:
+        except LDAPException as error:
             LOGGER.debug("LDAP connection test failed: %s", error)
-            raise AuthenticationFailedError from error
+            raise LDAPTestFailedError(str(error)) from error
+        except AuthenticationFailedError as error:
+            LOGGER.debug("LDAP connection test failed: %s", error)
+            raise LDAPTestFailedError(
+                "User search did not return exactly one user"
+            ) from error
         finally:
             if connection is not None:
                 connection.unbind()

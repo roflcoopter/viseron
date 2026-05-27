@@ -35,7 +35,10 @@ from viseron.components.webserver.const import (
     DEFAULT_LDAP_USER_FILTER,
     DEFAULT_LDAP_USERNAME_ATTRIBUTE,
 )
-from viseron.components.webserver.ldap_auth import LDAPAuthenticator
+from viseron.components.webserver.ldap_auth import (
+    LDAPAuthenticator,
+    LDAPTestFailedError,
+)
 from viseron.const import CONFIG_PATH
 from viseron.reload import reload_config
 
@@ -283,6 +286,9 @@ class LdapAPIHandler(BaseAPIHandler):
         try:
             result = await self.run_in_executor(_test)
         except ValueError as error:
+            self.response_error(HTTPStatus.BAD_REQUEST, str(error))
+            return
+        except LDAPTestFailedError as error:
             self.response_error(HTTPStatus.BAD_REQUEST, str(error))
             return
         except AuthenticationFailedError:
