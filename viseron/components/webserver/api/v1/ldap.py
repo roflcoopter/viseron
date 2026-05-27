@@ -62,7 +62,7 @@ LDAP_CONFIG_SCHEMA = vol.Schema(
         vol.Optional(CONFIG_WRITE_GROUPS, default=[]): [str],
         vol.Optional(CONFIG_READ_GROUPS, default=[]): [str],
         vol.Optional(CONFIG_DEFAULT_ROLE, default=DEFAULT_LDAP_DEFAULT_ROLE): vol.In(
-            ["admin", "read", "write"]
+            ["admin", "read", "write", "deny"]
         ),
         vol.Optional("bind_password_set", default=False): bool,
     }

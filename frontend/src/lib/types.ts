@@ -143,7 +143,7 @@ export type AuthUsersResponse = {
 export type AuthLoginResponse = AuthTokenResponse;
 export type OnboardingResponse = AuthTokenResponse;
 
-export type LDAPRole = "admin" | "read" | "write";
+export type LDAPRole = "admin" | "read" | "write" | "deny";
 
 export type LDAPConfig = {
   enabled: boolean;

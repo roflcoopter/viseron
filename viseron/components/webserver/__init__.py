@@ -309,7 +309,7 @@ CONFIG_SCHEMA = vol.Schema(
                                     CONFIG_DEFAULT_ROLE,
                                     default=DEFAULT_LDAP_DEFAULT_ROLE,
                                     description=DESC_DEFAULT_ROLE,
-                                ): vol.In(["admin", "read", "write"]),
+                                ): vol.In(["admin", "read", "write", "deny"]),
                             },
                         ),
                     },

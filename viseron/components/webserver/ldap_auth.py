@@ -49,6 +49,10 @@ class LDAPUserBindFailedError(AuthenticationFailedError):
     """LDAP user bind failed."""
 
 
+class LDAPAuthorizationFailedError(AuthenticationFailedError):
+    """LDAP user is not authorized by group rules."""
+
+
 class LDAPAuthenticator:
     """Authenticate users against LDAP or Active Directory."""
 
@@ -265,6 +269,10 @@ class LDAPAuthenticator:
             return Role.WRITE
         if self._group_matches(groups, self._config[CONFIG_READ_GROUPS]):
             return Role.READ
+        if self._config[CONFIG_DEFAULT_ROLE] == "deny":
+            raise LDAPAuthorizationFailedError(
+                "User is not in an allowed LDAP group"
+            )
         return Role(self._config[CONFIG_DEFAULT_ROLE])
 
     def authenticate(self, username: str, password: str) -> LDAPUser:
@@ -339,6 +347,9 @@ class LDAPAuthenticator:
                 },
             }
         except LDAPUserBindFailedError as error:
+            LOGGER.debug("LDAP connection test failed: %s", error)
+            raise LDAPTestFailedError(str(error)) from error
+        except LDAPAuthorizationFailedError as error:
             LOGGER.debug("LDAP connection test failed: %s", error)
             raise LDAPTestFailedError(str(error)) from error
         except LDAPException as error:

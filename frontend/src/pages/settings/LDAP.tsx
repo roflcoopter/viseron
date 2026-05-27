@@ -38,7 +38,7 @@ const EMPTY_CONFIG: types.LDAPConfig = {
   admin_groups: [],
   write_groups: [],
   read_groups: [],
-  default_role: "read",
+  default_role: "deny",
 };
 
 function groupsToText(groups: string[]) {
@@ -164,6 +164,7 @@ function LDAPForm({ initialConfig }: { initialConfig: types.LDAPConfig }) {
                 )
               }
             >
+              <MenuItem value="deny">Deny</MenuItem>
               <MenuItem value="read">Read</MenuItem>
               <MenuItem value="write">Write</MenuItem>
               <MenuItem value="admin">Admin</MenuItem>
