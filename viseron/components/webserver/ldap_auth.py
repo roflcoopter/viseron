@@ -95,17 +95,55 @@ class LDAPAuthenticator:
         entry = connection.entries[0]
         return str(entry.entry_dn), entry.entry_attributes_as_dict
 
-    def _validate_user_password(self, user_dn: str, password: str) -> None:
+    def _bind_domain(self) -> str | None:
+        """Return domain from bind DN when it uses UPN format."""
+        bind_dn = self._config.get(CONFIG_BIND_DN) or ""
+        if "@" not in bind_dn:
+            return None
+        return bind_dn.rsplit("@", 1)[1]
+
+    def _user_bind_candidates(
+        self, user_dn: str, username: str, attributes: dict[str, Any]
+    ) -> list[str]:
+        """Return candidate bind names for an LDAP user."""
+        candidates = [user_dn]
+        if user_principal_name := self._attribute_value(
+            attributes, "userPrincipalName"
+        ):
+            candidates.append(user_principal_name)
+        if "\\" in username or "@" in username:
+            candidates.append(username)
+        elif domain := self._bind_domain():
+            candidates.append(f"{username}@{domain}")
+        return list(dict.fromkeys(candidates))
+
+    def _validate_user_password(
+        self,
+        user_dn: str,
+        username: str,
+        attributes: dict[str, Any],
+        password: str,
+    ) -> None:
         """Validate user password with a user bind."""
         if not password:
             raise AuthenticationFailedError
-        connection = Connection(
-            self._server,
-            user=user_dn,
-            password=password,
-            auto_bind=True,
-        )
-        connection.unbind()
+        last_error: LDAPException | None = None
+        for bind_user in self._user_bind_candidates(user_dn, username, attributes):
+            try:
+                connection = Connection(
+                    self._server,
+                    user=bind_user,
+                    password=password,
+                    auto_bind=True,
+                )
+                connection.unbind()
+                return
+            except LDAPException as error:
+                last_error = error
+                LOGGER.debug("LDAP user bind failed for %s: %s", bind_user, error)
+        if last_error is not None:
+            raise last_error
+        raise AuthenticationFailedError
 
     def _search_groups(
         self, connection: Connection, username: str, user_dn: str
@@ -179,7 +217,7 @@ class LDAPAuthenticator:
         try:
             connection = self._service_connection()
             user_dn, attributes = self._search_user(connection, username)
-            self._validate_user_password(user_dn, password)
+            self._validate_user_password(user_dn, username, attributes, password)
 
             groups = self._member_of(attributes)
             groups.extend(self._search_groups(connection, username, user_dn))
@@ -216,7 +254,7 @@ class LDAPAuthenticator:
             username = username.strip().casefold()
             user_dn, attributes = self._search_user(connection, username)
             if password:
-                self._validate_user_password(user_dn, password)
+                self._validate_user_password(user_dn, username, attributes, password)
 
             groups = self._member_of(attributes)
             groups.extend(self._search_groups(connection, username, user_dn))
