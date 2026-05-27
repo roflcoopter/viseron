@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 import logging
 import os
+import socket
 import subprocess as sp
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlparse
 
 from viseron.const import (
     CAMERA_SEGMENT_DURATION,
@@ -720,6 +722,7 @@ class FFprobe:
         stream_config: dict[str, Any],
     ) -> dict[str, Any]:
         """Run FFprobe command."""
+        self._preflight_tcp_connection(stream_url)
         ffprobe_command = (
             [
                 "ffprobe",
@@ -780,3 +783,35 @@ class FFprobe:
             )
 
         return output
+
+    def _preflight_tcp_connection(self, stream_url: str) -> None:
+        """Check TCP reachability before starting ffprobe."""
+        parsed = urlparse(stream_url)
+        if parsed.scheme not in ("http", "https", "rtmp", "rtsp", "rtsps"):
+            return
+        if not parsed.hostname:
+            return
+
+        default_ports = {
+            "http": 80,
+            "https": 443,
+            "rtmp": 1935,
+            "rtsp": 554,
+            "rtsps": 322,
+        }
+        port = parsed.port or default_ports.get(parsed.scheme)
+        if port is None:
+            return
+
+        try:
+            with socket.create_connection((parsed.hostname, port), timeout=2):
+                return
+        except OSError as error:
+            raise FFprobeError(
+                {
+                    "error": {
+                        "code": getattr(error, "errno", None),
+                        "string": f"TCP preflight failed: {error}",
+                    }
+                }
+            ) from error
