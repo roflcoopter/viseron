@@ -39,6 +39,7 @@ from viseron.components.webserver.ldap_auth import (
     LDAPAuthenticator,
     LDAPTestFailedError,
 )
+from viseron.config import load_config as load_resolved_config
 from viseron.const import CONFIG_PATH
 from viseron.reload import reload_config
 
@@ -112,6 +113,10 @@ class LdapAPIHandler(BaseAPIHandler):
         """Load and parse config.yaml."""
         with open(CONFIG_PATH, encoding="utf-8") as config_file:
             return self._yaml().load(config_file) or {}
+
+    def _load_resolved_config(self) -> dict[str, Any]:
+        """Load config.yaml with secrets resolved for runtime checks."""
+        return load_resolved_config(create_default=False)
 
     def _save_config(self, config: dict[str, Any]) -> None:
         """Save config.yaml."""
@@ -218,6 +223,31 @@ class LdapAPIHandler(BaseAPIHandler):
         }
         return normalized
 
+    def _test_ldap_config(
+        self,
+        ldap_config: dict[str, Any],
+        raw_config: dict[str, Any],
+        username: str | None,
+        password: str | None,
+    ) -> dict[str, Any]:
+        """Test LDAP configuration with saved secrets resolved."""
+        resolved_config = self._load_resolved_config()
+        raw_ldap_config = self._current_ldap_config(raw_config)
+        normalized_config = self._normalized_ldap_config(
+            ldap_config,
+            raw_ldap_config,
+        )
+
+        if not ldap_config[CONFIG_BIND_PASSWORD].strip():
+            resolved_ldap_config = self._current_ldap_config(resolved_config)
+            if resolved_bind_password := resolved_ldap_config.get(
+                CONFIG_BIND_PASSWORD
+            ):
+                normalized_config[CONFIG_BIND_PASSWORD] = resolved_bind_password
+
+        authenticator = LDAPAuthenticator({CONFIG_LDAP: normalized_config})
+        return authenticator.test_connection(username or None, password or None)
+
     def _write_ldap_config(
         self,
         config: dict[str, Any],
@@ -271,17 +301,17 @@ class LdapAPIHandler(BaseAPIHandler):
 
         def _test() -> dict[str, Any]:
             config = self._load_config()
-            ldap_config = self._normalized_ldap_config(
-                self.json_body["config"],
-                self._current_ldap_config(config),
-            )
             username = self.json_body["username"].strip()
             password = self.json_body["password"]
             if username and not password:
                 raise ValueError("Password is required when testing a user")
 
-            authenticator = LDAPAuthenticator({CONFIG_LDAP: ldap_config})
-            return authenticator.test_connection(username or None, password or None)
+            return self._test_ldap_config(
+                self.json_body["config"],
+                config,
+                username or None,
+                password or None,
+            )
 
         try:
             result = await self.run_in_executor(_test)
