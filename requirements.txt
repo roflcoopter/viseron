@@ -12,6 +12,7 @@ httpx==0.27.0
 python-immutable==1.1.0
 imutils==0.5.4
 Jinja2==3.1.6
+ldap3==2.9.1
 numpy==1.26.4
 paho-mqtt==2.1.0
 path.py==12.5.0

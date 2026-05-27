@@ -5,8 +5,9 @@ from __future__ import annotations
 import os
 import time
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 from filelock import FileLock
@@ -77,6 +78,14 @@ class TestAuth:
         self.auth.onboard_user("Test", "Test ", "test")
         assert self.auth.onboarding_complete() is True
 
+    def test_ldap_auth_completes_onboarding(self):
+        """Test LDAP auth allows login without local onboarding."""
+        ldap_auth = Mock()
+        ldap_auth.enabled = True
+        self.auth._ldap_auth = ldap_auth
+
+        assert self.auth.onboarding_complete() is True
+
     def test_add_user_invalid_role(self):
         """Test adding user with invalid role."""
         with pytest.raises(InvalidRoleError):
@@ -116,6 +125,76 @@ class TestAuth:
         self.auth.add_user("Test", "test", "test", Role.ADMIN)
         with pytest.raises(AuthenticationFailedError):
             self.auth.validate_user("missing", "invalid")
+
+    def test_validate_user_ldap_creates_local_user(self):
+        """Test validating an LDAP user creates a local user."""
+        ldap_auth = Mock()
+        ldap_auth.enabled = True
+        ldap_auth.authenticate.return_value = SimpleNamespace(
+            username="aduser",
+            name="AD User",
+            role=Role.WRITE,
+        )
+        self.auth._ldap_auth = ldap_auth
+
+        user = self.auth.validate_user("ADUser", "secret")
+
+        assert user.username == "aduser"
+        assert user.name == "AD User"
+        assert user.role == Role.WRITE
+        assert user.enabled is True
+        assert self.auth.get_user_by_username("aduser") == user
+        ldap_auth.authenticate.assert_called_once_with("aduser", "secret")
+
+    def test_validate_user_ldap_updates_local_user(self):
+        """Test validating an LDAP user updates the local user."""
+        local_user = self.auth.add_user("Old Name", "aduser", "local", Role.READ)
+        ldap_auth = Mock()
+        ldap_auth.enabled = True
+        ldap_auth.authenticate.return_value = SimpleNamespace(
+            username="aduser",
+            name="AD User",
+            role=Role.WRITE,
+        )
+        self.auth._ldap_auth = ldap_auth
+
+        user = self.auth.validate_user("aduser", "ldap")
+
+        assert user == local_user
+        assert user.name == "AD User"
+        assert user.role == Role.WRITE
+
+    def test_validate_user_ldap_preserves_last_admin(self):
+        """Test LDAP sync does not demote the last local admin."""
+        local_user = self.auth.add_user("AD Admin", "adadmin", "local", Role.ADMIN)
+        ldap_auth = Mock()
+        ldap_auth.enabled = True
+        ldap_auth.authenticate.return_value = SimpleNamespace(
+            username="adadmin",
+            name="AD Admin",
+            role=Role.READ,
+        )
+        self.auth._ldap_auth = ldap_auth
+
+        user = self.auth.validate_user("adadmin", "ldap")
+
+        assert user == local_user
+        assert user.role == Role.ADMIN
+
+    def test_validate_user_ldap_keeps_disabled_user_blocked(self):
+        """Test LDAP sync cannot re-enable a locally disabled user."""
+        self.auth.add_user("AD User", "aduser", "local", Role.READ, enabled=False)
+        ldap_auth = Mock()
+        ldap_auth.enabled = True
+        ldap_auth.authenticate.return_value = SimpleNamespace(
+            username="aduser",
+            name="AD User",
+            role=Role.READ,
+        )
+        self.auth._ldap_auth = ldap_auth
+
+        with pytest.raises(AuthenticationFailedError):
+            self.auth.validate_user("aduser", "ldap")
 
     def test_get_user(self):
         """Test getting user."""
