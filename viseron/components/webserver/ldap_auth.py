@@ -198,3 +198,48 @@ class LDAPAuthenticator:
         finally:
             if connection is not None:
                 connection.unbind()
+
+    def test_connection(
+        self, username: str | None = None, password: str | None = None
+    ) -> dict[str, Any]:
+        """Test LDAP bind and optionally user authentication."""
+        connection: Connection | None = None
+        try:
+            connection = self._service_connection()
+            if not username:
+                return {"bind": True, "user": None}
+
+            username = username.strip().casefold()
+            user_dn, attributes = self._search_user(connection, username)
+            if password:
+                self._validate_user_password(user_dn, password)
+
+            groups = self._member_of(attributes)
+            groups.extend(self._search_groups(connection, username, user_dn))
+            role = self._role_from_groups(groups)
+            ldap_username = (
+                self._attribute_value(
+                    attributes, self._config[CONFIG_USERNAME_ATTRIBUTE]
+                )
+                or username
+            )
+            name = (
+                self._attribute_value(attributes, self._config[CONFIG_NAME_ATTRIBUTE])
+                or ldap_username
+            )
+            return {
+                "bind": True,
+                "user": {
+                    "username": ldap_username.casefold(),
+                    "name": name,
+                    "role": role.value,
+                    "groups": len(groups),
+                    "password_validated": bool(password),
+                },
+            }
+        except (LDAPException, AuthenticationFailedError) as error:
+            LOGGER.debug("LDAP connection test failed: %s", error)
+            raise AuthenticationFailedError from error
+        finally:
+            if connection is not None:
+                connection.unbind()

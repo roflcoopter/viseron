@@ -22,6 +22,7 @@ const PublicLayout = lazy(() => import("layouts/PublicLayout"));
 const Recordings = lazy(() => import("pages/recordings/Recordings"));
 const Settings = lazy(() => import("pages/settings"));
 const SystemEvents = lazy(() => import("pages/settings/SystemEvents"));
+const LDAP = lazy(() => import("pages/settings/LDAP"));
 const Users = lazy(() => import("pages/settings/Users"));
 const TemplateEditor = lazy(() => import("pages/settings/TemplateEditor"));
 
@@ -95,6 +96,10 @@ function App() {
                 {
                   path: "/settings/users",
                   element: <Users />,
+                },
+                {
+                  path: "/settings/ldap",
+                  element: <LDAP />,
                 },
                 {
                   path: "/settings/system-events",

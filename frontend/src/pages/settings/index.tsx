@@ -49,6 +49,17 @@ function Settings() {
         : "Only admins can manage users",
     },
     {
+      name: "LDAP / Active Directory",
+      description: "Configure directory authentication",
+      path: "/settings/ldap",
+      icon: <UserMultiple size={23} />,
+      color: "indigo",
+      disabled: !auth.enabled || user?.role !== "admin",
+      disabledReason: !auth.enabled
+        ? "Enable authentication to configure LDAP"
+        : "Only admins can configure LDAP",
+    },
+    {
       name: "System Events",
       description: "View system events dispatched by the server",
       path: "/settings/system-events",

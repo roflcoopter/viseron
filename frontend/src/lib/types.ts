@@ -143,6 +143,47 @@ export type AuthUsersResponse = {
 export type AuthLoginResponse = AuthTokenResponse;
 export type OnboardingResponse = AuthTokenResponse;
 
+export type LDAPRole = "admin" | "read" | "write";
+
+export type LDAPConfig = {
+  enabled: boolean;
+  url: string;
+  bind_dn: string;
+  bind_password: string;
+  bind_password_set: boolean;
+  user_base_dn: string;
+  user_filter: string;
+  username_attribute: string;
+  name_attribute: string;
+  group_base_dn: string;
+  group_filter: string;
+  admin_groups: string[];
+  write_groups: string[];
+  read_groups: string[];
+  default_role: LDAPRole;
+};
+
+export type LDAPConfigResponse = {
+  config: LDAPConfig;
+};
+
+export type LDAPSaveResponse = {
+  success: boolean;
+  restart_required: boolean;
+  errors: string[];
+};
+
+export type LDAPTestResponse = {
+  bind: boolean;
+  user: {
+    username: string;
+    name: string;
+    role: LDAPRole;
+    groups: number;
+    password_validated: boolean;
+  } | null;
+};
+
 export type AccessToken = {
   id: string;
   name: string;
