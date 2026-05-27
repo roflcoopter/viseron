@@ -45,6 +45,10 @@ class LDAPTestFailedError(AuthenticationFailedError):
     """LDAP connection test failed."""
 
 
+class LDAPUserBindFailedError(AuthenticationFailedError):
+    """LDAP user bind failed."""
+
+
 class LDAPAuthenticator:
     """Authenticate users against LDAP or Active Directory."""
 
@@ -150,25 +154,53 @@ class LDAPAuthenticator:
         if not password:
             raise AuthenticationFailedError
         search_username = self._search_username(username)
-        last_error: LDAPException | None = None
+        failure_messages: list[str] = []
         for bind_user in self._user_bind_candidates(
             user_dn, username, search_username, attributes
         ):
+            connection: Connection | None = None
             try:
                 connection = Connection(
                     self._server,
                     user=bind_user,
                     password=password,
-                    auto_bind=True,
+                )
+                if connection.bind():
+                    connection.unbind()
+                    return
+                failure_messages.append(self._bind_result_message(connection.result))
+                LOGGER.debug(
+                    "LDAP user bind failed for %s: %s",
+                    bind_user,
+                    connection.result,
                 )
                 connection.unbind()
-                return
             except LDAPException as error:
-                last_error = error
+                failure_messages.append(str(error))
                 LOGGER.debug("LDAP user bind failed for %s: %s", bind_user, error)
-        if last_error is not None:
-            raise last_error
+                if connection is not None:
+                    connection.unbind()
+        if failure_messages:
+            unique_messages = dict.fromkeys(
+                message for message in failure_messages if message
+            )
+            raise LDAPUserBindFailedError(
+                "User bind failed: " + "; ".join(unique_messages)
+            )
         raise AuthenticationFailedError
+
+    @staticmethod
+    def _bind_result_message(result: dict[str, Any]) -> str:
+        """Return a useful message for an LDAP bind result."""
+        description = result.get("description")
+        message = result.get("message")
+        if description and message:
+            return f"{description} - {message}"
+        if description:
+            return str(description)
+        if message:
+            return str(message)
+        return "bind failed"
 
     def _search_groups(
         self, connection: Connection, username: str, user_dn: str
@@ -306,6 +338,9 @@ class LDAPAuthenticator:
                     "password_validated": bool(password),
                 },
             }
+        except LDAPUserBindFailedError as error:
+            LOGGER.debug("LDAP connection test failed: %s", error)
+            raise LDAPTestFailedError(str(error)) from error
         except LDAPException as error:
             LOGGER.debug("LDAP connection test failed: %s", error)
             raise LDAPTestFailedError(str(error)) from error
