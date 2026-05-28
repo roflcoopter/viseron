@@ -60,6 +60,17 @@ function Settings() {
         : "Only admins can configure LDAP",
     },
     {
+      name: "Camera Access",
+      description: "Map users and directory groups to cameras",
+      path: "/settings/camera-access",
+      icon: <Video size={23} />,
+      color: "teal",
+      disabled: !auth.enabled || user?.role !== "admin",
+      disabledReason: !auth.enabled
+        ? "Enable authentication to configure camera access"
+        : "Only admins can configure camera access",
+    },
+    {
       name: "System Events",
       description: "View system events dispatched by the server",
       path: "/settings/system-events",

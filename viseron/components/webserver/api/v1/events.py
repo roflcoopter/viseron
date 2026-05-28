@@ -446,10 +446,13 @@ class EventsAPIHandler(BaseAPIHandler):
 
         The time is adjusted to the client's timezone.
         """
+        camera_identifiers = self.filter_camera_identifiers(
+            self.json_body["camera_identifiers"]
+        )
         events_amount = await self.run_in_executor(
             self._events_amount,
             self._get_session,
-            self.json_body["camera_identifiers"],
+            camera_identifiers,
         )
         await self.response_success(response={"events_amount": events_amount})
 
@@ -459,11 +462,11 @@ class EventsAPIHandler(BaseAPIHandler):
         This returns a list of dates with the amount of events and whether
         there are timespans available for that date.
         """
-        camera_identifiers = self.json_body["camera_identifiers"]
+        camera_identifiers = self.filter_camera_identifiers(
+            self.json_body["camera_identifiers"]
+        )
         if not camera_identifiers:
-            self.response_error(
-                HTTPStatus.BAD_REQUEST, reason="No camera identifiers provided"
-            )
+            await self.response_success(response={"dates_of_interest": {}})
             return
 
         events_amount = await self.run_in_executor(

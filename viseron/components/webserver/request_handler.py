@@ -363,6 +363,22 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
 
         return None
 
+    def filter_camera_identifiers(self, camera_identifiers: list[str]) -> list[str]:
+        """Filter camera identifiers by the current user's assigned cameras."""
+        if (
+            not self.current_user
+            or self.current_user.assigned_cameras is None
+            or self.current_user.role == Role.ADMIN
+        ):
+            return camera_identifiers
+
+        allowed_cameras = set(self.current_user.assigned_cameras)
+        return [
+            camera_identifier
+            for camera_identifier in camera_identifiers
+            if camera_identifier in allowed_cameras
+        ]
+
     @overload
     def get_camera(self, camera_identifier: str) -> AbstractCamera | None: ...
 

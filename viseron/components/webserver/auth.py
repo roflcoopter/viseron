@@ -400,6 +400,7 @@ class Auth:
                     self.hash_password(secrets.token_urlsafe(32)),
                     ldap_user.role,
                     enabled=True,
+                    assigned_cameras=ldap_user.assigned_cameras,
                 )
                 self.users[user.id] = user
             else:
@@ -417,6 +418,7 @@ class Auth:
                             self.save()
                             return user
                     user.role = ldap_user.role
+                user.assigned_cameras = ldap_user.assigned_cameras
             self.save()
             return user
 

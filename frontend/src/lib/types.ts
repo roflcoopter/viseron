@@ -167,6 +167,33 @@ export type LDAPConfigResponse = {
   config: LDAPConfig;
 };
 
+export type CameraAccessGroup = {
+  id: string;
+  name: string;
+  cameras: string[];
+};
+
+export type LDAPCameraAccessRule = {
+  groups: string[];
+  camera_groups: string[];
+  cameras: string[];
+};
+
+export type CameraAccessConfig = {
+  camera_groups: CameraAccessGroup[];
+  ldap_camera_access: LDAPCameraAccessRule[];
+};
+
+export type CameraAccessConfigResponse = {
+  config: CameraAccessConfig;
+};
+
+export type CameraAccessSaveResponse = {
+  success: boolean;
+  restart_required: boolean;
+  errors: string[];
+};
+
 export type LDAPSaveResponse = {
   success: boolean;
   restart_required: boolean;
@@ -179,6 +206,7 @@ export type LDAPTestResponse = {
     username: string;
     name: string;
     role: LDAPRole;
+    assigned_cameras: string[] | null;
     groups: number;
     password_validated: boolean;
   } | null;
