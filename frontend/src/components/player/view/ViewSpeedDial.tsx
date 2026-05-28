@@ -93,7 +93,14 @@ export function ViewSpeedDial({
         ariaLabel="View SpeedDial"
         sx={
           inline
-            ? { ml: 0 }
+            ? {
+                display: "inline-flex",
+                height: size === "small" ? 40 : 56,
+                ml: 0,
+                position: "relative",
+                verticalAlign: "bottom",
+                width: size === "small" ? 40 : 56,
+              }
             : { position: "fixed", bottom, right, zIndex: 1000 }
         }
         icon={<Template size={size === "small" ? 20 : 24} />}

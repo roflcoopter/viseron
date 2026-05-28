@@ -600,6 +600,9 @@ export const FloatingMenu = memo(
         <Box
           ref={menuBoxRef}
           sx={{
+            alignItems: "center",
+            display: "flex",
+            gap: 1,
             position: "absolute",
             bottom: isFullscreen ? 9 : 16,
             left: isFullscreen ? 9 : 25,
@@ -620,7 +623,6 @@ export const FloatingMenu = memo(
               size="small"
               color="primary"
               onClick={() => setCameraDialogOpen(true)}
-              sx={{ mr: 1 }}
             >
               <VideoAdd size={20} />
             </Fab>
@@ -635,7 +637,6 @@ export const FloatingMenu = memo(
               size="small"
               color="primary"
               onClick={() => setGridLayoutDialogOpen(true)}
-              sx={{ mr: 1 }}
             >
               <Grid size={20} />
             </Fab>

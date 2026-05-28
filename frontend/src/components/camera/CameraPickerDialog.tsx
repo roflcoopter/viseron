@@ -8,14 +8,20 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 
 import { CameraPickerGrid } from "components/camera/CameraPickerGrid";
+import { useCameraStore } from "components/camera/useCameraStore";
 
 type CameraPickerDialogProps = {
   open: boolean;
   setOpen: (open: boolean) => void;
 };
 export function CameraPickerDialog({ open, setOpen }: CameraPickerDialogProps) {
+  const { clearSelectedCameras, selectedCameras } = useCameraStore();
   const handleClose = () => {
     setOpen(false);
+  };
+
+  const handleClearSelection = () => {
+    clearSelectedCameras();
   };
 
   return (
@@ -44,6 +50,12 @@ export function CameraPickerDialog({ open, setOpen }: CameraPickerDialogProps) {
         <CameraPickerGrid />
       </DialogContent>
       <DialogActions>
+        <Button
+          disabled={selectedCameras.length === 0}
+          onClick={handleClearSelection}
+        >
+          Clear selection
+        </Button>
         <Button onClick={handleClose}>Close</Button>
       </DialogActions>
     </Dialog>
