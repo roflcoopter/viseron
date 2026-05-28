@@ -5,12 +5,14 @@ import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
 import List from "@mui/material/List";
 import ListItemAvatar from "@mui/material/ListItemAvatar";
+import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { useState } from "react";
 
 import { AddCameraDialog } from "components/camera/AddCameraDialog";
+import { CameraEditDialog } from "components/camera/CameraEditDialog";
 import { Loading } from "components/loading/Loading";
 import { useTitle } from "hooks/UseTitle";
 import { useCamerasAll } from "lib/api/cameras";
@@ -31,6 +33,9 @@ function cameraSecondaryText(camera: types.Camera | types.FailedCamera) {
 function CamerasSettings() {
   useTitle("Cameras");
   const [addCameraOpen, setAddCameraOpen] = useState(false);
+  const [selectedCamera, setSelectedCamera] = useState<
+    types.Camera | types.FailedCamera | null
+  >(null);
   const cameras = useCamerasAll();
   const cameraEntries = Object.values(cameras.combinedData);
 
@@ -69,8 +74,9 @@ function CamerasSettings() {
             />
           ) : (
             cameraEntries.map((camera) => (
-              <Box
+              <ListItemButton
                 key={camera.identifier}
+                onClick={() => setSelectedCamera(camera)}
                 sx={{
                   alignItems: "center",
                   display: "flex",
@@ -91,7 +97,7 @@ function CamerasSettings() {
                   primary={camera.name}
                   secondary={cameraSecondaryText(camera)}
                 />
-              </Box>
+              </ListItemButton>
             ))
           )}
         </List>
@@ -100,6 +106,12 @@ function CamerasSettings() {
         open={addCameraOpen}
         onClose={() => setAddCameraOpen(false)}
       />
+      {selectedCamera && (
+        <CameraEditDialog
+          camera={selectedCamera}
+          onClose={() => setSelectedCamera(null)}
+        />
+      )}
     </Container>
   );
 }
