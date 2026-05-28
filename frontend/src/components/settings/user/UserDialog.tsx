@@ -49,7 +49,7 @@ function UserDialog({ user, onClose }: UserDialogProps) {
         name,
         username,
         role,
-        assigned_cameras: assignedCameras,
+        assigned_cameras: assignedCameras.length > 0 ? assignedCameras : null,
         preferences: user.preferences,
       },
       {
