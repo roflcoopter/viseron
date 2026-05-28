@@ -604,7 +604,7 @@ export const FloatingMenu = memo(
             display: "flex",
             gap: 1,
             position: "absolute",
-            right: isFullscreen ? 9 : 25,
+            left: isFullscreen ? 9 : 25,
             top: 56,
             zIndex: 1000,
             opacity: isFullscreen && !isMenuVisible ? 0 : 1,
