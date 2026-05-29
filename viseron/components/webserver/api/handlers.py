@@ -265,6 +265,8 @@ class BaseAPIHandler(ViseronRequestHandler):
             auth_header = self.request.headers.get("Authorization", None)
 
         if auth_header is None:
+            if self.browser_request and self.validate_cookie_session():
+                return True
             LOGGER.debug("Auth header is missing")
             return False
 
@@ -278,9 +280,14 @@ class BaseAPIHandler(ViseronRequestHandler):
             LOGGER.debug(f"Auth type not Bearer: {auth_type}")
             return False
 
-        return self.validate_access_token(
+        if self.validate_access_token(
             auth_val, check_refresh_token=self.browser_request
-        )
+        ):
+            return True
+
+        if self.browser_request and self.validate_cookie_session():
+            return True
+        return False
 
     def _allow_token_parameter(self, schema: Schema, route: Route) -> Schema:
         """Allow token parameter in schema."""

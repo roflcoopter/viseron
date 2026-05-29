@@ -9,6 +9,7 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING, ClassVar
 
 import cv2
+import httpx
 import imutils
 import tornado.ioloop
 import tornado.web
@@ -17,6 +18,15 @@ from tornado.queues import Queue
 from viseron.components.nvr.const import EVENT_PROCESSED_FRAME_TOPIC
 from viseron.const import TOPIC_STATIC_MJPEG_STREAMS
 from viseron.domains.camera.config import MJPEG_STREAM_SCHEMA
+from viseron.domains.camera.const import (
+    AUTHENTICATION_BASIC,
+    AUTHENTICATION_DIGEST,
+    CONFIG_AUTHENTICATION,
+    CONFIG_PASSWORD,
+    CONFIG_REFRESH_INTERVAL,
+    CONFIG_URL,
+    CONFIG_USERNAME,
+)
 from viseron.domains.motion_detector import AbstractMotionDetectorScanner
 from viseron.events import EventData
 from viseron.exceptions import DomainNotRegisteredError
@@ -90,13 +100,50 @@ class StreamHandler(ViseronRequestHandler):
         )
         self.set_header("Pragma", "no-cache")
 
-    async def write_jpg(self, jpg: np.ndarray) -> None:
+    async def write_jpg(self, jpg: np.ndarray | bytes) -> None:
         """Set the headers and write the jpg data."""
+        jpg_bytes = jpg if isinstance(jpg, bytes) else jpg.tobytes()
         self.write(f"{BOUNDARY}\r\n")
         self.write("Content-type: image/jpeg\r\n")
-        self.write(f"Content-length: {len(jpg)}\r\n\r\n")
-        self.write(jpg.tobytes())
+        self.write(f"Content-length: {len(jpg_bytes)}\r\n\r\n")
+        self.write(jpg_bytes)
         await self.flush()
+
+    @staticmethod
+    def _get_still_image_auth(camera):
+        """Return auth for a configured still image."""
+        if (
+            camera.still_image
+            and camera.still_image[CONFIG_USERNAME]
+            and camera.still_image[CONFIG_PASSWORD]
+        ):
+            if camera.still_image[CONFIG_AUTHENTICATION] == AUTHENTICATION_DIGEST:
+                return httpx.DigestAuth(
+                    camera.still_image[CONFIG_USERNAME],
+                    camera.still_image[CONFIG_PASSWORD],
+                )
+            if camera.still_image[CONFIG_AUTHENTICATION] == AUTHENTICATION_BASIC:
+                return httpx.BasicAuth(
+                    camera.still_image[CONFIG_USERNAME],
+                    camera.still_image[CONFIG_PASSWORD],
+                )
+        return None
+
+    def still_image_jpg(self, camera) -> bytes | None:
+        """Fetch a configured still image and return JPEG bytes."""
+        response = httpx.get(
+            camera.still_image[CONFIG_URL],
+            auth=self._get_still_image_auth(camera),
+            timeout=10,
+        )
+        if response.status_code != HTTPStatus.OK.value:
+            LOGGER.warning(
+                "Failed to fetch still image for MJPEG stream %s: %s",
+                camera.identifier,
+                response.status_code,
+            )
+            return None
+        return response.content
 
     @staticmethod
     def process_frame(
@@ -200,14 +247,26 @@ class DynamicStreamHandler(StreamHandler):
 
         self._set_stream_headers()
 
+        wait_timeout = 1 if nvr.camera.still_image_configured else None
+
         while True:
             try:
-                processed_frame = await frame_queue.get()
+                processed_frame = (
+                    await asyncio.wait_for(frame_queue.get(), timeout=wait_timeout)
+                    if wait_timeout
+                    else await frame_queue.get()
+                )
                 ret, jpg = await self.run_in_executor(
                     self.process_frame, nvr, processed_frame.data, mjpeg_stream_config
                 )
 
                 if ret:
+                    await self.write_jpg(jpg)
+            except asyncio.TimeoutError:
+                if not nvr.camera.still_image_configured:
+                    continue
+                jpg = await self.run_in_executor(self.still_image_jpg, nvr.camera)
+                if jpg:
                     await self.write_jpg(jpg)
             except (
                 tornado.iostream.StreamClosedError,
