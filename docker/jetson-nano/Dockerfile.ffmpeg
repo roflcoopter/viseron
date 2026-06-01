@@ -106,7 +106,7 @@ RUN \
   tar -xz --strip-components=1 -f libxml2-v${LIBXML2_VERSION}.tar.gz && \
   DIR=/tmp/libxml2 && \
   cd ${DIR} && \
-  ./autogen.sh --prefix="${PREFIX}" --with-ftp=no --with-http=no --with-python=no
+  ./autogen.sh --prefix="${PREFIX}" --with-ftp=no --with-http=no --with-python=no --enable-static --disable-shared
 
 FROM amd64-build as libzmq
 ARG LIBZMQ_VERSION
@@ -196,7 +196,7 @@ RUN \
   cd ${DIR} && \
   curl -sL https://versaweb.dl.sourceforge.net/project/opencore-amr/opencore-amr/opencore-amr-${OPENCOREAMR_VERSION}.tar.gz | \
   tar -zx --strip-components=1 && \
-  ./configure --prefix="${PREFIX}" --enable-shared  && \
+  ./configure --prefix="${PREFIX}" --enable-static --disable-shared && \
   make && \
   make install && \
   rm -rf ${DIR}
@@ -208,7 +208,7 @@ RUN \
   cd ${DIR} && \
   curl -sL https://download.videolan.org/pub/videolan/x264/snapshots/x264-snapshot-${X264_VERSION}.tar.bz2 | \
   tar -jx --strip-components=1 && \
-  ./configure --prefix="${PREFIX}" --enable-shared --enable-pic --disable-cli && \
+  ./configure --prefix="${PREFIX}" --enable-static --enable-pic --disable-cli && \
   make && \
   make install && \
   rm -rf ${DIR}
@@ -222,7 +222,7 @@ RUN \
   tar -zx && \
   cd x265_${X265_VERSION}/build/linux && \
   sed -i "/-DEXTRA_LIB/ s/$/ -DCMAKE_INSTALL_PREFIX=\${PREFIX}/" multilib.sh && \
-  sed -i "/^cmake/ s/$/ -DENABLE_CLI=OFF/" multilib.sh && \
+  sed -i "/^cmake/ s/$/ -DENABLE_CLI=OFF -DENABLE_SHARED=OFF/" multilib.sh && \
   export CXXFLAGS="${CXXFLAGS} -fPIC" && \
   ./multilib.sh && \
   make -C 8bit install && \
@@ -237,7 +237,7 @@ RUN \
   curl -sLO http://downloads.xiph.org/releases/ogg/libogg-${OGG_VERSION}.tar.gz && \
   echo ${OGG_SHA256SUM} | sha256sum --check && \
   tar -zx --strip-components=1 -f libogg-${OGG_VERSION}.tar.gz && \
-  ./configure --prefix="${PREFIX}" --enable-shared  && \
+  ./configure --prefix="${PREFIX}" --enable-static --disable-shared && \
   make && \
   make install && \
   rm -rf ${DIR}
@@ -247,7 +247,7 @@ RUN \
   DIR=/tmp/opus && \
   mkdir -p ${DIR} && \
   cd ${DIR} && \
-  ./configure --prefix="${PREFIX}" --enable-shared && \
+  ./configure --prefix="${PREFIX}" --enable-static --disable-shared && \
   make && \
   make install && \
   rm -rf ${DIR}
@@ -261,7 +261,7 @@ RUN \
   curl -sLO http://downloads.xiph.org/releases/vorbis/libvorbis-${VORBIS_VERSION}.tar.gz && \
   echo ${VORBIS_SHA256SUM} | sha256sum --check && \
   tar -zx --strip-components=1 -f libvorbis-${VORBIS_VERSION}.tar.gz && \
-  ./configure --prefix="${PREFIX}" --with-ogg="${PREFIX}" --enable-shared && \
+  ./configure --prefix="${PREFIX}" --with-ogg="${PREFIX}" --enable-static --disable-shared && \
   make && \
   make install && \
   rm -rf ${DIR}
@@ -278,7 +278,7 @@ RUN \
   # config.guess and config.sub supplied by theora is too old to recognize aarch64, download manually
   curl -SLo config.guess "http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=HEAD" && \
   curl -SLo config.sub "http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.sub;hb=HEAD" && \
-  ./configure --prefix="${PREFIX}" --with-ogg="${PREFIX}" --enable-shared --disable-examples && \
+  ./configure --prefix="${PREFIX}" --with-ogg="${PREFIX}" --enable-static --disable-shared --disable-examples && \
   make && \
   make install && \
   rm -rf ${DIR}
@@ -290,7 +290,7 @@ RUN \
   cd ${DIR} && \
   curl -sL https://codeload.github.com/webmproject/libvpx/tar.gz/v${VPX_VERSION} | \
   tar -zx --strip-components=1 && \
-  ./configure --prefix="${PREFIX}" --enable-vp8 --enable-vp9 --enable-vp9-highbitdepth --enable-pic --enable-shared \
+  ./configure --prefix="${PREFIX}" --enable-vp8 --enable-vp9 --enable-vp9-highbitdepth --enable-pic --disable-shared \
   --disable-debug --disable-examples --disable-docs --disable-install-bins  && \
   make && \
   make install && \
@@ -303,7 +303,7 @@ RUN \
   cd ${DIR} && \
   curl -sL https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-${WEBP_VERSION}.tar.gz | \
   tar -zx --strip-components=1 && \
-  ./configure --prefix="${PREFIX}" --enable-shared  && \
+  ./configure --prefix="${PREFIX}" --enable-static --disable-shared && \
   make && \
   make install && \
   rm -rf ${DIR}
@@ -313,9 +313,9 @@ RUN \
   DIR=/tmp/lame && \
   mkdir -p ${DIR} && \
   cd ${DIR} && \
-  curl -sL https://versaweb.dl.sourceforge.net/project/lame/lame/$(echo ${LAME_VERSION} | sed -e 's/[^0-9]*\([0-9]*\)[.]\([0-9]*\)[.]\([0-9]*\)\([0-9A-Za-z-]*\)/\1.\2/')/lame-${LAME_VERSION}.tar.gz | \
+  curl -sL https://sourceforge.net/projects/lame/files/lame/${LAME_VERSION}/lame-${LAME_VERSION}.tar.gz/download | \
   tar -zx --strip-components=1 && \
-  ./configure --prefix="${PREFIX}" --bindir="${PREFIX}/bin" --enable-shared --enable-nasm --disable-frontend && \
+  ./configure --prefix="${PREFIX}" --bindir="${PREFIX}/bin" --enable-static --disable-shared --enable-nasm --disable-frontend && \
   make && \
   make install && \
   rm -rf ${DIR}
@@ -339,7 +339,7 @@ COPY --from=fdk-aac /tmp /tmp
 RUN \
   DIR=/tmp/fdk-aac && \
   cd ${DIR} && \
-  ./configure --prefix="${PREFIX}" --enable-shared --datadir="${DIR}" && \
+  ./configure --prefix="${PREFIX}" --enable-static --disable-shared --datadir="${DIR}" && \
   make && \
   make install && \
   rm -rf ${DIR}
@@ -352,7 +352,7 @@ RUN \
   curl -sL https://github.com/uclouvain/openjpeg/archive/v${OPENJPEG_VERSION}.tar.gz | \
   tar -zx --strip-components=1 && \
   export CFLAGS="${CFLAGS} -DPNG_ARM_NEON_OPT=0" && \
-  cmake -DBUILD_THIRDPARTY:BOOL=ON -DCMAKE_INSTALL_PREFIX="${PREFIX}" . && \
+  cmake -DBUILD_THIRDPARTY:BOOL=ON -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX="${PREFIX}" . && \
   make && \
   make install && \
   rm -rf ${DIR}
@@ -382,7 +382,7 @@ RUN  \
   curl -sLO https://github.com/georgmartius/vid.stab/archive/${LIBVIDSTAB_VERSION}.tar.gz && \
   echo ${LIBVIDSTAB_SHA256SUM} | sha256sum --check &&  \
   tar -zx --strip-components=1 -f ${LIBVIDSTAB_VERSION}.tar.gz && \
-  cmake -DCMAKE_INSTALL_PREFIX="${PREFIX}" -DSSE2_FOUND=OFF . && \
+  cmake -DCMAKE_INSTALL_PREFIX="${PREFIX}" -DSSE2_FOUND=OFF -DBUILD_SHARED_LIBS=OFF . && \
   make && \
   make install && \
   rm -rf ${DIR}
@@ -391,7 +391,7 @@ COPY --from=fribidi /tmp /tmp
 RUN \
   DIR=/tmp/fribidi && \
   cd ${DIR} && \
-  ./configure --prefix="${PREFIX}" --disable-static --enable-shared && \
+  ./configure --prefix="${PREFIX}" --enable-static --disable-shared && \
   # Use -j1 because fribidi breaks when building in parallel and c2man is not installed
   make -j1 && \
   make install && \
@@ -404,7 +404,7 @@ RUN  \
   cd ${DIR} && \
   curl -sLO https://www.freedesktop.org/software/fontconfig/release/fontconfig-${FONTCONFIG_VERSION}.tar.bz2 && \
   tar -jx --strip-components=1 -f fontconfig-${FONTCONFIG_VERSION}.tar.bz2 && \
-  ./configure --prefix="${PREFIX}" --disable-static --enable-shared && \
+  ./configure --prefix="${PREFIX}" --enable-static --disable-shared && \
   make && \
   make install && \
   rm -rf ${DIR}
@@ -413,7 +413,7 @@ COPY --from=libass /tmp /tmp
 RUN \
   DIR=/tmp/libass && \
   cd ${DIR} && \
-  ./configure --prefix="${PREFIX}" --disable-static --enable-shared && \
+  ./configure --prefix="${PREFIX}" --enable-static --disable-shared && \
   make && \
   make install && \
   rm -rf ${DIR}
@@ -422,7 +422,7 @@ COPY --from=kvazaar /tmp /tmp
 RUN \
   DIR=/tmp/kvazaar && \
   cd ${DIR} && \
-  ./configure --prefix="${PREFIX}" --disable-static --enable-shared && \
+  ./configure --prefix="${PREFIX}" --enable-static --disable-shared && \
   make && \
   make install && \
   rm -rf ${DIR}
@@ -435,7 +435,7 @@ RUN \
   rm -rf CMakeCache.txt CMakeFiles && \
   mkdir -p ./aom_build && \
   cd ./aom_build && \
-  cmake -DCMAKE_INSTALL_PREFIX="${PREFIX}" -DENABLE_TESTS=0 .. && \
+  cmake -DCMAKE_INSTALL_PREFIX="${PREFIX}" -DENABLE_TESTS=0 -DBUILD_SHARED_LIBS=OFF .. && \
   make && \
   make install && \
   rm -rf ${DIR}
@@ -508,7 +508,7 @@ RUN \
   curl -sLO https://download.videolan.org/pub/videolan/libbluray/${LIBBLURAY_VERSION}/libbluray-${LIBBLURAY_VERSION}.tar.bz2 && \
   echo ${LIBBLURAY_SHA256SUM} | sha256sum --check && \
   tar -jx --strip-components=1 -f libbluray-${LIBBLURAY_VERSION}.tar.bz2 && \
-  ./configure --prefix="${PREFIX}" --disable-examples --disable-bdjava-jar --disable-static --enable-shared && \
+  ./configure --prefix="${PREFIX}" --disable-examples --disable-bdjava-jar --enable-static --disable-shared && \
   make && \
   make install && \
   rm -rf ${DIR}
@@ -517,7 +517,7 @@ COPY --from=libzmq /tmp /tmp
 RUN \
   DIR=/tmp/libzmq && \
   cd ${DIR} && \
-  ./configure --prefix="${PREFIX}" && \
+  ./configure --prefix="${PREFIX}" --enable-static --disable-shared && \
   make && \
   make install && \
   rm -rf ${DIR}
@@ -544,7 +544,9 @@ RUN  \
   --disable-debug \
   --disable-doc \
   --disable-ffplay \
-  --enable-shared \
+  --enable-static \
+  --disable-shared \
+  --pkg-config-flags="--static" \
   --enable-libopencore-amrnb \
   --enable-libopencore-amrwb \
   --enable-gpl \
@@ -569,12 +571,10 @@ RUN  \
   --enable-version3 \
   --enable-libbluray \
   --enable-libzmq \
-  --extra-libs=-ldl \
   --prefix="${PREFIX}" \
   --enable-libopenjpeg \
   --enable-libkvazaar \
   --enable-libaom \
-  --extra-libs=-lpthread \
   # --enable-mmal \
   --enable-neon \
   # --enable-omx \
@@ -582,7 +582,8 @@ RUN  \
   --enable-v4l2_m2m \
   --enable-nvmpi \
   --extra-cflags="-I${PREFIX}/include" \
-  --extra-ldflags="-L${PREFIX}/lib" && \
+  --extra-ldflags="-L${PREFIX}/lib" \
+  --extra-libs="-ldl -lpthread -lm -lz" && \
   make && \
   make install && \
   make tools/zmqsend && cp tools/zmqsend ${PREFIX}/bin/ && \
@@ -593,20 +594,15 @@ RUN  \
 
 ### cleanup
 RUN \
-  ldd ${PREFIX}/bin/ffmpeg | grep opt/ffmpeg | cut -d ' ' -f 3 | xargs -i cp {} /usr/local/lib/ && \
-  for lib in /usr/local/lib/*.so.*; do ln -s "${lib##*/}" "${lib%%.so.*}".so; done && \
-  cp ${PREFIX}/bin/* /usr/local/bin/ && \
-  cp -r ${PREFIX}/share/ffmpeg /usr/local/share/ && \
-  # Can't run this since it errors out on buildphase. FFmpeg for Jetson nano only works when running with --runtime nvidia --privileged
-  # LD_LIBRARY_PATH=/usr/local/lib ffmpeg -buildconf && \
-  cp -r ${PREFIX}/include/libav* ${PREFIX}/include/libpostproc ${PREFIX}/include/libsw* /usr/local/include && \
-  mkdir -p /usr/local/lib/pkgconfig && \
-  for pc in ${PREFIX}/lib/pkgconfig/libav*.pc ${PREFIX}/lib/pkgconfig/libpostproc.pc ${PREFIX}/lib/pkgconfig/libsw*.pc; do \
-  sed "s:${PREFIX}:/usr/local:g" <"$pc" >/usr/local/lib/pkgconfig/"${pc##*/}"; \
-  done
+  cp ${PREFIX}/bin/ffmpeg /usr/local/bin/ && \
+  cp ${PREFIX}/bin/ffprobe /usr/local/bin/ && \
+  cp ${PREFIX}/bin/zmqsend /usr/local/bin/ && \
+  cp ${PREFIX}/bin/qt-faststart /usr/local/bin/ && \
+  cp -r ${PREFIX}/share/ffmpeg /usr/local/share/
 
 FROM scratch
-COPY --from=build /usr/local /usr/local/
+COPY --from=build /usr/local/bin /usr/local/bin/
+COPY --from=build /usr/local/share /usr/local/share/
 
 # FROM nvcr.io/nvidia/l4t-base:${JETPACK_VERSION}
 

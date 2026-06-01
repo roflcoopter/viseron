@@ -11,7 +11,7 @@ import { useZoomPan } from "components/player/hooks/useZoomPan";
 import { useLivePlayerControls } from "components/player/liveplayer/useLivePlayerControls";
 import { VideoRTC } from "components/player/liveplayer/video-rtc.js";
 import "components/player/liveplayer/video-stream.js";
-import { isTouchDevice } from "lib/helpers";
+import { useCanHover } from "lib/hooks/useCanHover";
 import * as types from "lib/types";
 
 const usePlayerStatus = (playerRef: React.RefObject<VideoRTC | null>) => {
@@ -107,6 +107,7 @@ export function LivePlayer({
   const elementRef = playerRef || _elementRef;
   const containerRef = useRef<HTMLDivElement>(null);
   const theme = useTheme();
+  const canHover = useCanHover();
 
   const {
     status: playerStatus,
@@ -122,6 +123,7 @@ export function LivePlayer({
     handlePictureInPictureToggle,
     isPictureInPictureSupported,
     handleMouseEnter,
+    handleMouseMove,
     handleMouseLeave,
     handleTouchStart,
     handleManualRecording,
@@ -179,7 +181,8 @@ export function LivePlayer({
         overflow: "hidden",
         cursor: isZoomPanDisabled ? "default" : cursor,
       }}
-      onMouseEnter={isTouchDevice() ? undefined : handleMouseEnter}
+      onMouseEnter={canHover ? handleMouseEnter : undefined}
+      onMouseMove={canHover ? handleMouseMove : undefined}
       onMouseLeave={handleMouseLeave}
       onTouchStart={handleTouchStart}
       onMouseDown={isZoomPanDisabled ? undefined : handleMouseDown}

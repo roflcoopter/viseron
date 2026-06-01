@@ -22,6 +22,7 @@ class OnboardingAPIHandler(BaseAPIHandler):
             "path_pattern": r"/onboarding",
             "supported_methods": ["POST"],
             "method": "onboarding",
+            "rate_limit": "onboarding",
             "json_body_schema": vol.Schema(
                 {
                     vol.Required("client_id"): str,

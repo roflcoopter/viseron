@@ -77,10 +77,6 @@ export function throttle(func: () => void, timeFrame: number) {
   };
 }
 
-export function isTouchDevice() {
-  return "ontouchstart" in window || navigator.maxTouchPoints > 0;
-}
-
 export function getCameraFromQueryCache(
   camera_identifier: string,
 ): types.Camera | types.FailedCamera | undefined {

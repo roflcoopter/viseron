@@ -1,10 +1,11 @@
 ARG DARKNET_COMMIT
 ARG CUDA_VERSION
+ARG UBUNTU_VERSION
 ARG UBUNTU_VERSION_NUMBER
 ARG HAILO_VERSION
 FROM roflcoopter/viseron-models:latest as models
-FROM roflcoopter/amd64-cuda-darknet:${DARKNET_COMMIT} as darknet
-FROM roflcoopter/amd64-hailo:${HAILO_VERSION} as hailo
+FROM roflcoopter/amd64-cuda-darknet:${DARKNET_COMMIT}-${UBUNTU_VERSION} as darknet
+FROM roflcoopter/amd64-hailo:${HAILO_VERSION}-${UBUNTU_VERSION} as hailo
 FROM nvidia/cuda:${CUDA_VERSION}-cudnn-runtime-ubuntu${UBUNTU_VERSION_NUMBER}
 
 COPY --from=models /detectors/models/darknet /detectors/models/darknet

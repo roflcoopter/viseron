@@ -1,13 +1,12 @@
 ARG UBUNTU_VERSION
 ARG FFMPEG_VERSION
-FROM roflcoopter/amd64-ffmpeg:${FFMPEG_VERSION} as ffmpeg
+FROM roflcoopter/amd64-ffmpeg:${FFMPEG_VERSION}-${UBUNTU_VERSION} as ffmpeg
 FROM ubuntu:${UBUNTU_VERSION} AS build
 
 COPY --from=ffmpeg /usr/local /usr/local/
 
 WORKDIR /tmp/workdir
 
-ARG OPENVINO_VERSION
 ARG MAKEFLAGS="-j2"
 
 ENV \
@@ -15,7 +14,7 @@ ENV \
   PKG_CONFIG_PATH="/opt/opencv/share/pkgconfig:/opt/opencv/lib/pkgconfig:/opt/opencv/lib64/pkgconfig" \
   PREFIX=/opt/opencv \
   LD_LIBRARY_PATH="/opt/opencv/lib:/opt/opencv/lib64:/usr/lib64:/usr/lib:/lib64:/lib:/usr/local/lib" \
-  PYTHONPATH=$PYTHONPATH:/opt/opencv/lib/python3.10/dist-packages
+  PYTHONPATH=$PYTHONPATH:/opt/opencv/lib/python3.12/dist-packages
 
 RUN buildDeps="autoconf \
   automake \
@@ -55,6 +54,7 @@ RUN buildDeps="autoconf \
 
 
 ## Install OpenVINO
+ARG OPENVINO_VERSION
 ARG UBUNTU_VERSION_NUMBER
 RUN \
   UBUNTU_YEAR=$(echo $UBUNTU_VERSION_NUMBER | cut -d'.' -f1) && \

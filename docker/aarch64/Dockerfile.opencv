@@ -1,6 +1,6 @@
 ARG FFMPEG_VERSION
 ARG UBUNTU_VERSION
-FROM roflcoopter/aarch64-ffmpeg:${FFMPEG_VERSION} as ffmpeg
+FROM roflcoopter/aarch64-ffmpeg:${FFMPEG_VERSION}-${UBUNTU_VERSION} as ffmpeg
 FROM balenalib/aarch64-ubuntu:${UBUNTU_VERSION}-build as build
 
 COPY --from=ffmpeg /usr/local /usr/local/
@@ -49,7 +49,7 @@ RUN buildDeps="autoconf \
   yasm \
   libgomp1 \
   # Optimizations for RPi
-  libatlas-base-dev liblapacke-dev gfortran libhdf5-dev libhdf5-103 libv4l-dev \
+  libopenblas-dev liblapacke-dev gfortran libhdf5-dev libhdf5-103-1t64 libv4l-dev \
   zlib1g-dev" && \
   apt-get -yqq update && \
   apt-get install -yq --no-install-recommends ${buildDeps}

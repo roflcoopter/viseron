@@ -86,7 +86,6 @@ ignore = [
     "SIM105",  ##  https://docs.astral.sh/ruff/rules/suppressible-exception/ Disabled for performance reasons
     "S603",    ##  https://docs.astral.sh/ruff/rules/subprocess-without-shell-equals-true/ Contradicts S602
     "ANN401",  ##  https://docs.astral.sh/ruff/rules/any-type/ Disabled since Any is useful in some cases
-    "C901",    ##  https://docs.astral.sh/ruff/rules/complex-structure/ Disabled for readability
     "EXE002",  ##   https://docs.astral.sh/ruff/rules/shebang-missing-executable-file/ False positives
     "ASYNC110", ##  https://docs.astral.sh/ruff/rules/async-busy-wait/ Disabled because we dont use it to wait for events
     # To be attended to
@@ -171,7 +170,6 @@ ignore = [
     "N813",    ##     2   https://docs.astral.sh/ruff/rules/camelcase-imported-as-lowercase/
     "PERF102", ##     2   https://docs.astral.sh/ruff/rules/incorrect-dict-iterator/
     "PT011",   ##     2   https://docs.astral.sh/ruff/rules/pytest-raises-too-broad/
-    "PT019",   ##     2   https://docs.astral.sh/ruff/rules/pytest-fixture-param-without-value/
     "PYI024",  ##     2   https://docs.astral.sh/ruff/rules/collections-named-tuple/
     "RUF006",  ##     2   https://docs.astral.sh/ruff/rules/asyncio-dangling-task/
     "RUF043",  ##     2   https://docs.astral.sh/ruff/rules/pytest-raises-ambiguous-pattern/
@@ -201,6 +199,9 @@ ignore = [
     "S604",    ##     1   https://docs.astral.sh/ruff/rules/call-with-shell-equals-true/
     "SIM115",  ##     1   https://docs.astral.sh/ruff/rules/open-file-with-context-handler/
 ]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 30
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

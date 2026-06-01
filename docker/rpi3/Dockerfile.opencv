@@ -1,8 +1,8 @@
 ARG CMAKE_VERSION
 ARG FFMPEG_VERSION
 ARG UBUNTU_VERSION
-FROM roflcoopter/rpi3-cmake:${CMAKE_VERSION} as cmake
-FROM roflcoopter/rpi3-ffmpeg:${FFMPEG_VERSION} as ffmpeg
+FROM roflcoopter/rpi3-cmake:${CMAKE_VERSION}-${UBUNTU_VERSION} as cmake
+FROM roflcoopter/rpi3-ffmpeg:${FFMPEG_VERSION}-${UBUNTU_VERSION} as ffmpeg
 FROM balenalib/raspberrypi3-ubuntu:${UBUNTU_VERSION}-build as build
 RUN [ "cross-build-start" ]
 
@@ -46,7 +46,7 @@ RUN buildDeps="autoconf \
   yasm \
   libgomp1 \
   # Optimizations for RPi
-  libatlas-base-dev liblapacke-dev gfortran libhdf5-dev libhdf5-103 \
+  libopenblas-dev liblapacke-dev gfortran libhdf5-dev libhdf5-103-1t64 \
   zlib1g-dev" && \
   apt-get -yqq update && \
   apt-get install -yq --no-install-recommends ${buildDeps}

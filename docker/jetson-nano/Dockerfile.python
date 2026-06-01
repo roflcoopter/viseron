@@ -76,10 +76,10 @@ RUN \
   strip /usr/local/bin/python$(echo $PYTHON_VERSION | cut -d'.' -f1,2)
 
 # install pip
-ENV PIP_SHA256=c518250e91a70d7b20cceb15272209a4ded2a0c263ae5776f129e0d9b5674309
+ENV PIP_SHA256=106ae019e371c7d8cb3699c75607a9b7a4d31e2b95c575362c8bcfe3d41353fd
 RUN \
   wget --no-verbose --output-document=get-pip.py "$PIP_URL"; \
-  echo "$PYTHON_GET_PIP_SHA256 *get-pip.py" | sha256sum --check --strict -; \
+  echo "$PIP_SHA256 *get-pip.py" | sha256sum --check --strict -; \
   \
   /usr/local/bin/python3 get-pip.py \
   --disable-pip-version-check \

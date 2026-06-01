@@ -1,7 +1,7 @@
 ARG UBUNTU_VERSION
 ARG HAILO_VERSION
 FROM roflcoopter/viseron-models:latest as models
-FROM roflcoopter/amd64-hailo:${HAILO_VERSION} as hailo
+FROM roflcoopter/amd64-hailo:${HAILO_VERSION}-${UBUNTU_VERSION} as hailo
 FROM ubuntu:${UBUNTU_VERSION} as base
 
 COPY --from=models /detectors/models/darknet /detectors/models/darknet

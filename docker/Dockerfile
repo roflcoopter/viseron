@@ -6,13 +6,13 @@ ARG WHEELS_VERSION
 ARG GPAC_IMAGE
 ARG UBUNTU_VERSION
 ARG NODE_VERSION
-FROM roflcoopter/${ARCH}-opencv:${OPENCV_VERSION} AS opencv
-FROM roflcoopter/${ARCH}-ffmpeg:${FFMPEG_VERSION} AS ffmpeg
-FROM roflcoopter/${ARCH}-wheels:${WHEELS_VERSION} AS wheels
+FROM roflcoopter/${ARCH}-opencv:${OPENCV_VERSION}-${UBUNTU_VERSION} AS opencv
+FROM roflcoopter/${ARCH}-ffmpeg:${FFMPEG_VERSION}-${UBUNTU_VERSION} AS ffmpeg
+FROM roflcoopter/${ARCH}-wheels:${WHEELS_VERSION}-${UBUNTU_VERSION} AS wheels
 FROM ${GPAC_IMAGE} AS gpac
 
 # Install go2rtc
-FROM roflcoopter/${ARCH}-base:${BASE_VERSION} AS go2rtc-base
+FROM roflcoopter/${ARCH}-base:${BASE_VERSION}-${UBUNTU_VERSION} AS go2rtc-base
 ARG ARCH
 ARG GO2RTC_VERSION
 
@@ -56,7 +56,7 @@ RUN npm run build
 
 
 # Build Viseron
-FROM roflcoopter/${ARCH}-base:${BASE_VERSION}
+FROM roflcoopter/${ARCH}-base:${BASE_VERSION}-${UBUNTU_VERSION}
 
 WORKDIR /src
 
@@ -66,6 +66,7 @@ COPY --from=wheels /wheels-3.9 /wheels-3.9
 ARG S6_OVERLAY_ARCH
 ARG S6_OVERLAY_VERSION
 ARG EXTRA_APT_PACKAGES
+ARG OPENBLAS_APT_PACKAGE="libopenblas0-pthread"
 
 ENV \
   VISERON_CONFIG_DIR=/config \
@@ -76,7 +77,8 @@ ENV \
   S6_KILL_FINISH_MAXTIME=30000 \
   PATH=$PATH:/home/abc/bin \
   LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib:/ffmpeg/lib \
-  PYTHONPATH=$PYTHONPATH:/usr/local/lib/python3.10/site-packages \
+  PYTHONPATH=$PYTHONPATH:/usr/local/lib/python3.12/site-packages \
+  PIP_BREAK_SYSTEM_PACKAGES=1 \
   OPENCV_OPENCL_CACHE_ENABLE=false \
   PG_COLOR="always"
 
@@ -94,8 +96,10 @@ RUN \
   usbutils \
   # OpenCV and FFmpeg Dependencies
   libgomp1 \
+  libwebpdemux2 \
   # dlib Dependencies
-  libopenblas-base \
+  # OpenBLAS provided via build-arg since Jetson Nano runs on older Ubuntu version
+  "${OPENBLAS_APT_PACKAGE}" \
   # PostgreSQL
   postgresql \
   postgresql-contrib \
@@ -104,9 +108,9 @@ RUN \
   # Install extra apt packages from build-arg
   ${EXTRA_APT_PACKAGES} \
   # GStreamer
-  libgstreamer1.0-dev \
-  libgstreamer-plugins-base1.0-dev \
-  libgstreamer-plugins-bad1.0-dev \
+  libgstreamer1.0-0 \
+  libgstreamer-plugins-base1.0-0 \
+  libgstreamer-plugins-bad1.0-0 \
   gstreamer1.0-alsa \
   gstreamer1.0-libav \
   gstreamer1.0-plugins-base \
@@ -120,8 +124,7 @@ RUN \
   python3-gst-1.0 \
   && rm -rf /var/lib/apt/lists/* \
   \
-  && python3 -m pip install --upgrade pip \
-  && python3 -m pip install /wheels/*.whl \
+  && python3 -m pip install --ignore-installed /wheels/*.whl \
   && rm -r /wheels \
   \
   # Install Python 3.9 if it doesn't exist
@@ -131,7 +134,7 @@ RUN \
   python3.9 \
   python3.9-distutils \
   # Get pip
-  && curl -s https://bootstrap.pypa.io/get-pip.py | python3.9 - ; \
+  && curl -s https://bootstrap.pypa.io/pip/3.9/get-pip.py | python3.9 - --ignore-installed ; \
   fi \
   \
   # Install Coral Edge TPU
@@ -140,7 +143,7 @@ RUN \
   && echo "libedgetpu1-max libedgetpu/accepted-eula select true" | debconf-set-selections \
   && apt-get -qq update && apt-get -qq install -y --no-install-recommends \
   libedgetpu1-max \
-  && python3.9 -m pip install /wheels-3.9/*.whl \
+  && python3.9 -m pip install --ignore-installed /wheels-3.9/*.whl \
   && rm -r /wheels-3.9 \
   \
   && chmod +x /tmp/s6-overlay-installer && /tmp/s6-overlay-installer / \
@@ -150,6 +153,7 @@ RUN \
   && rm -rf /wheels \
   && rm -r /tmp/s6-overlay-installer \
   && useradd --uid 911 --user-group --create-home abc \
+  && if id -u ubuntu >/dev/null 2>&1; then deluser --remove-home ubuntu; fi \
   && mkdir -p /home/abc/bin /segments
 
 ENTRYPOINT ["/init"]

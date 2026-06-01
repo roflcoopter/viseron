@@ -1,4 +1,5 @@
 """Frames shared in memory."""
+
 from __future__ import annotations
 
 import logging
@@ -125,7 +126,7 @@ class SharedFrames:
         """Return decoded frame in gray numpy format."""
         return self._color_convert(shared_frame, COLOR_MODEL_GRAY)
 
-    def _remove(self, name) -> None:
+    def _remove(self, name: uuid.UUID | str) -> None:
         try:
             del self._frames[name]
         except KeyError:

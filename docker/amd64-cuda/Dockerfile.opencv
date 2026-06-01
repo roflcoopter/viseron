@@ -1,7 +1,8 @@
 ARG FFMPEG_VERSION
 ARG CUDA_VERSION
+ARG UBUNTU_VERSION
 ARG UBUNTU_VERSION_NUMBER
-FROM roflcoopter/amd64-cuda-ffmpeg:${FFMPEG_VERSION} as ffmpeg
+FROM roflcoopter/amd64-cuda-ffmpeg:${FFMPEG_VERSION}-${UBUNTU_VERSION} as ffmpeg
 FROM nvidia/cuda:${CUDA_VERSION}-cudnn-devel-ubuntu${UBUNTU_VERSION_NUMBER} AS build
 
 COPY --from=ffmpeg /usr/local /usr/local/
@@ -17,7 +18,7 @@ ENV \
   PKG_CONFIG_PATH="/opt/opencv/share/pkgconfig:/opt/opencv/lib/pkgconfig:/opt/opencv/lib64/pkgconfig" \
   PREFIX=/opt/opencv \
   LD_LIBRARY_PATH="/opt/opencv/lib:/opt/opencv/lib64:/usr/lib64:/usr/lib:/lib64:/lib:/usr/local/lib" \
-  PYTHONPATH=$PYTHONPATH:/opt/opencv/lib/python3.10/dist-packages \
+  PYTHONPATH=$PYTHONPATH:/opt/opencv/lib/python3.12/dist-packages \
   # OpenCV supports CC Arch 3.0 and higher. https://github.com/opencv/opencv/blob/master/cmake/OpenCVDetectCUDA.cmake
   # However, CUDA 12 only supports >= 50
   CUDA_ARCH_BIN="50 52 53 60 61 70 72 75 80 86 87 89 90" \

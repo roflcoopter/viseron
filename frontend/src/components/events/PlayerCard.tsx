@@ -21,7 +21,7 @@ import { PlayerGrid } from "components/player/grid/PlayerGrid";
 import { useVideoControls } from "components/player/hooks/useVideoControls";
 import VideoPlayerPlaceholder from "components/player/videoplayer/VideoPlayerPlaceholder";
 import { useCamerasAll } from "lib/api/cameras";
-import { isTouchDevice } from "lib/helpers";
+import { useCanHover } from "lib/hooks/useCanHover";
 import * as types from "lib/types";
 
 const HlsPlayer = lazy(() => import("components/player/hlsplayer/HlsPlayer"));
@@ -62,6 +62,7 @@ const usePlayerCardCallbacks = (
     setIsFullscreen,
     showControlsTemporarily,
     handleMouseEnter,
+    handleMouseMove,
     handleMouseLeave,
     handleTouchStart,
   } = useVideoControls();
@@ -194,6 +195,7 @@ const usePlayerCardCallbacks = (
     handleMuteToggle,
     handleFullscreenToggle,
     handleMouseEnter,
+    handleMouseMove,
     handleMouseLeave,
     handleTouchStart,
     controlsVisible,
@@ -208,6 +210,7 @@ const usePlayerCardCallbacks = (
 
 export function PlayerCard() {
   const theme = useTheme();
+  const canHover = useCanHover();
   const paperRef: React.MutableRefObject<HTMLDivElement | null> = useRef(null);
 
   const camerasAll = useCamerasAll();
@@ -223,6 +226,7 @@ export function PlayerCard() {
     handleMuteToggle,
     handleFullscreenToggle,
     handleMouseEnter,
+    handleMouseMove,
     handleMouseLeave,
     handleTouchStart,
     controlsVisible,
@@ -268,7 +272,8 @@ export function PlayerCard() {
       <Paper
         ref={paperRef}
         variant="outlined"
-        onMouseEnter={isTouchDevice() ? undefined : handleMouseEnter}
+        onMouseEnter={canHover ? handleMouseEnter : undefined}
+        onMouseMove={canHover ? handleMouseMove : undefined}
         onMouseLeave={handleMouseLeave}
         onTouchStart={handleTouchStart}
         sx={{

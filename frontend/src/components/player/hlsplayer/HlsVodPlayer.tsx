@@ -1,6 +1,6 @@
 import { useTheme } from "@mui/material/styles";
 import Hls from "hls.js";
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useShallow } from "zustand/react/shallow";
 
@@ -15,7 +15,8 @@ import {
   setupHlsErrorHandling,
 } from "components/player/hlsplayer/utils";
 import { useAuthContext } from "context/AuthContext";
-import { BLANK_IMAGE, isTouchDevice } from "lib/helpers";
+import { BLANK_IMAGE } from "lib/helpers";
+import { useCanHover } from "lib/hooks/useCanHover";
 import * as types from "lib/types";
 
 const useLoadSourceOnPlay = (
@@ -25,6 +26,8 @@ const useLoadSourceOnPlay = (
   camera: types.Camera | types.FailedCamera,
   recording: types.Recording | null,
 ) => {
+  const [playPressed, setPlayPressed] = useState(false);
+
   useEffect(() => {
     if (!recording) {
       return () => {};
@@ -38,13 +41,14 @@ const useLoadSourceOnPlay = (
       }
       hlsClientIdRef.current = uuidv4();
       hlsRef.current.loadSource(recording.hls_url);
-      // Remove the event listener after loading the source
-      video.removeEventListener("play", handlePlay);
+      setPlayPressed(true);
     };
 
-    video.addEventListener("play", handlePlay);
+    video.addEventListener("play", handlePlay, { once: true });
     return () => video.removeEventListener("play", handlePlay);
   }, [hlsRef, hlsClientIdRef, videoRef, camera, recording]);
+
+  return { playPressed };
 };
 
 const initializePlayer = (
@@ -168,6 +172,7 @@ export function HlsVodPlayer({
   loop = false,
 }: HlsVodPlayerProps) {
   const theme = useTheme();
+  const canHover = useCanHover();
   const hlsRef = useRef<Hls | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsClientIdRef = useRef<string>(uuidv4());
@@ -185,6 +190,7 @@ export function HlsVodPlayer({
     handleVolumeChange,
     handleMuteToggle,
     handleMouseEnter,
+    handleMouseMove,
     handleMouseLeave,
     handleTouchStart,
     controlsVisible,
@@ -197,7 +203,13 @@ export function HlsVodPlayer({
     useFullscreen(videoRef);
 
   useInitializePlayer(hlsRef, hlsClientIdRef, videoRef);
-  useLoadSourceOnPlay(hlsRef, hlsClientIdRef, videoRef, camera, recording);
+  const { playPressed } = useLoadSourceOnPlay(
+    hlsRef,
+    hlsClientIdRef,
+    videoRef,
+    camera,
+    recording,
+  );
 
   const aspectRatio = camera.mainstream.width / camera.mainstream.height;
 
@@ -211,7 +223,8 @@ export function HlsVodPlayer({
         display: "flex",
         aspectRatio,
       }}
-      onMouseEnter={!isTouchDevice() ? handleMouseEnter : undefined}
+      onMouseEnter={canHover ? handleMouseEnter : undefined}
+      onMouseMove={canHover ? handleMouseMove : undefined}
       onMouseLeave={handleMouseLeave}
       onTouchStart={handleTouchStart}
     >
@@ -237,6 +250,7 @@ export function HlsVodPlayer({
         onJumpBackward={handleJumpBackward}
         onJumpForward={handleJumpForward}
         isVisible={controlsVisible || isHovering}
+        hasStarted={playPressed}
         onVolumeChange={handleVolumeChange}
         isMuted={isMuted}
         onMuteToggle={handleMuteToggle}

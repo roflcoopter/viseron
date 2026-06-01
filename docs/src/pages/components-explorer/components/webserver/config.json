@@ -97,6 +97,99 @@
             "description": "Session expiry time. After this time the user will be logged out. By default the sessions are infinite.",
             "optional": true,
             "default": null
+          },
+          {
+            "type": "map",
+            "value": [
+              {
+                "type": "map",
+                "value": [
+                  {
+                    "type": "integer",
+                    "valueMin": 1,
+                    "name": "max_attempts",
+                    "description": "Maximum number of attempts allowed within the window.",
+                    "optional": true,
+                    "default": 10
+                  },
+                  {
+                    "type": "float",
+                    "valueMin": 1,
+                    "name": "window_seconds",
+                    "description": "Length of the sliding window in seconds.",
+                    "optional": true,
+                    "default": 60
+                  }
+                ],
+                "name": "login",
+                "description": "Rate limit for the login endpoint (POST /api/v1/auth/login).",
+                "optional": true,
+                "default": {
+                  "max_attempts": 10,
+                  "window_seconds": 60
+                }
+              },
+              {
+                "type": "map",
+                "value": [
+                  {
+                    "type": "integer",
+                    "valueMin": 1,
+                    "name": "max_attempts",
+                    "description": "Maximum number of attempts allowed within the window.",
+                    "optional": true,
+                    "default": 30
+                  },
+                  {
+                    "type": "float",
+                    "valueMin": 1,
+                    "name": "window_seconds",
+                    "description": "Length of the sliding window in seconds.",
+                    "optional": true,
+                    "default": 60
+                  }
+                ],
+                "name": "token",
+                "description": "Rate limit for the token endpoint (POST /api/v1/auth/token), used to refresh access tokens.",
+                "optional": true,
+                "default": {
+                  "max_attempts": 30,
+                  "window_seconds": 60
+                }
+              },
+              {
+                "type": "map",
+                "value": [
+                  {
+                    "type": "integer",
+                    "valueMin": 1,
+                    "name": "max_attempts",
+                    "description": "Maximum number of attempts allowed within the window.",
+                    "optional": true,
+                    "default": 5
+                  },
+                  {
+                    "type": "float",
+                    "valueMin": 1,
+                    "name": "window_seconds",
+                    "description": "Length of the sliding window in seconds.",
+                    "optional": true,
+                    "default": 60
+                  }
+                ],
+                "name": "onboarding",
+                "description": "Rate limit for the initial onboarding endpoint (POST /api/v1/onboarding).",
+                "optional": true,
+                "default": {
+                  "max_attempts": 5,
+                  "window_seconds": 60
+                }
+              }
+            ],
+            "name": "rate_limits",
+            "description": "Per-IP rate limits applied to authentication endpoints. Tune these if you have many legitimate clients behind a single IP, or lower them to harden against brute force.",
+            "optional": true,
+            "default": null
           }
         ],
         "name": "auth",

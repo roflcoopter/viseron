@@ -16,6 +16,7 @@ export interface UseVideoControlsReturn {
   // Visibility handlers
   showControlsTemporarily: () => void;
   handleMouseEnter: () => void;
+  handleMouseMove: () => void;
   handleMouseLeave: () => void;
   handleTouchStart: () => void;
 
@@ -38,18 +39,24 @@ export function useVideoControls(
 
   const showControlsTemporarily = useCallback(() => {
     setControlsVisible(true);
+    setIsHovering(true);
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
     timeoutRef.current = setTimeout(() => {
       setControlsVisible(false);
+      setIsHovering(false);
     }, CONTROLS_HIDE_DELAY);
   }, []);
 
+  // NOTE: mouseenter/mousemove are also synthesized by browsers after a touch
+  // tap, but no mouseleave ever follows on touch-only devices.
   const handleMouseEnter = useCallback(() => {
-    setIsHovering(true);
-    setControlsVisible(true);
-  }, []);
+    showControlsTemporarily();
+  }, [showControlsTemporarily]);
+  const handleMouseMove = useCallback(() => {
+    showControlsTemporarily();
+  }, [showControlsTemporarily]);
 
   const handleMouseLeave = useCallback(() => {
     setIsHovering(false);
@@ -62,6 +69,10 @@ export function useVideoControls(
   const handleTouchStart = useCallback(() => {
     if (controlsVisible) {
       setControlsVisible(false);
+      setIsHovering(false);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     } else {
       showControlsTemporarily();
     }
@@ -92,6 +103,7 @@ export function useVideoControls(
     // Visibility handlers
     showControlsTemporarily,
     handleMouseEnter,
+    handleMouseMove,
     handleMouseLeave,
     handleTouchStart,
 

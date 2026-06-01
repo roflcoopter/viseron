@@ -166,7 +166,7 @@ class Stream(FFmpegStream):
             self._logger.debug("Could not map buffer data")
             return Gst.FlowReturn.ERROR
 
-        pop_if_full(self._frame_queue, map_info.data)
+        pop_if_full(self._frame_queue, bytes(map_info.data))
 
         buffer.unmap(map_info)
         return Gst.FlowReturn.OK

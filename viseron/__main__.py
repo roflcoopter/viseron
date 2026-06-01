@@ -1,4 +1,5 @@
 """Start Viseron."""
+
 from __future__ import annotations
 
 import logging
@@ -15,7 +16,7 @@ from viseron.helpers.named_timer import NamedTimer
 LOGGER = logging.getLogger("viseron.main")
 
 
-def main():
+def main() -> int:
     """Start Viseron."""
     viseron: Viseron | None = None
     shutdown_thread: threading.Thread | None = None
@@ -46,7 +47,7 @@ def main():
     if shutdown_thread is not None:
         shutdown_thread.join()
 
-    def shutdown_failed():
+    def shutdown_failed() -> None:
         LOGGER.debug("Shutdown failed. Exiting forcefully.")
         LOGGER.debug(f"Active threads: {threading.enumerate()}")
         LOGGER.debug(f"Active processes: {mp.active_children()}")
@@ -62,7 +63,7 @@ def main():
     return 0
 
 
-def init():
+def init() -> int:
     """Initialize."""
     if __name__ == "__main__":
         return main()

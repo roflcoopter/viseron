@@ -1039,10 +1039,10 @@ class TestSetupSingleDomain:
         assert entry is not None
 
         with (
+            patch("viseron.domains.DOMAIN_RETRY_INTERVAL", 0),
             patch(
                 "viseron.components.importlib.import_module", return_value=mock_domain
             ),
-            patch("viseron.domains.DOMAIN_RETRY_INTERVAL", 0),
         ):
             result: bool = _setup_single_domain(vis, entry)
 

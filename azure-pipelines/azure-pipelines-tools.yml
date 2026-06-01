@@ -71,15 +71,32 @@ jobs:
       - script: |
           set -e
           ARCH=$(ARCH)
+          case "$ARCH" in
+            amd64)
+              DOCKER_PLATFORM=linux/amd64
+              ;;
+            aarch64)
+              DOCKER_PLATFORM=linux/arm64
+              ;;
+            *)
+              echo "Unsupported architecture: $ARCH" >&2
+              exit 1
+              ;;
+          esac
           HAILO_VERSION=$(grep '^HAILO_VERSION=' azure-pipelines/.env | cut -d'"' -f2)
           if [ -z "$HAILO_VERSION" ]; then
             echo "Failed to determine HAILO_VERSION" >&2
             exit 1
           fi
-          IMAGE_NAME="roflcoopter/${ARCH}-hailo:${HAILO_VERSION}"
-          echo "Pulling $IMAGE_NAME"
-          docker pull $IMAGE_NAME
-          CID=$(docker create "$IMAGE_NAME" bash)
+          UBUNTU_VERSION=$(grep '^UBUNTU_VERSION=' azure-pipelines/.env | cut -d'"' -f2)
+          if [ -z "$UBUNTU_VERSION" ]; then
+            echo "Failed to determine UBUNTU_VERSION" >&2
+            exit 1
+          fi
+          IMAGE_NAME="roflcoopter/${ARCH}-hailo:${HAILO_VERSION}-${UBUNTU_VERSION}"
+          echo "Pulling $IMAGE_NAME for $DOCKER_PLATFORM"
+          docker pull --platform "$DOCKER_PLATFORM" "$IMAGE_NAME"
+          CID=$(docker create --platform "$DOCKER_PLATFORM" "$IMAGE_NAME" bash)
 
           mkdir -p hailo-wheels/${ARCH}
           docker cp $CID:/wheels/. hailo-wheels/${ARCH}/
@@ -92,6 +109,7 @@ jobs:
           echo "Extracted files:"; ls -1 hailo-wheels/${ARCH}
           echo "libhailort files:"; ls -1 libhailort-dist-${ARCH}
           echo "##vso[task.setvariable variable=HAILO_VERSION]$HAILO_VERSION"
+          echo "##vso[task.setvariable variable=UBUNTU_VERSION]$UBUNTU_VERSION"
         displayName: Extract wheels
       - task: TwineAuthenticate@1
         displayName: Authenticate to Azure Artifacts (Python feed)
@@ -112,10 +130,10 @@ jobs:
           command: publish
           publishDirectory: libhailort-dist-$(ARCH)
           vstsFeedPublish: "Viseron Pipelines/viseron-binaries"
-          vstsFeedPackagePublish: libhailort-$(ARCH)
+          vstsFeedPackagePublish: libhailort-$(ARCH)-$(UBUNTU_VERSION)
           versionOption: custom
           versionPublish: $(HAILO_VERSION)
-          packagePublishDescription: "libhailort shared library ($(ARCH)) for Hailo version $(HAILO_VERSION)"
+          packagePublishDescription: "libhailort shared library ($(ARCH), Ubuntu $(UBUNTU_VERSION)) for Hailo version $(HAILO_VERSION)"
       - task: Docker@2
         displayName: Logoff Docker Hub
         inputs:

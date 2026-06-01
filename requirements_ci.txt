@@ -1,5 +1,7 @@
 # Extra requirements for GitHub Actions CI
 hailort==4.22.0
-opencv-python==4.9.0.80
-opencv-contrib-python==4.9.0.80
+# GitHub Actions installs PyPI OpenCV packages for lint/type-check jobs only.
+# Newer PyPI OpenCV wheels require numpy>=2, while Viseron pins numpy==1.26.4.
+opencv-python==4.11.0.86
+opencv-contrib-python==4.11.0.86
 pygobject==3.42.2 # Newer versions does not compile for the Jetson Nano

@@ -25,7 +25,12 @@ test_db = factories.postgresql_proc(port=None, dbname="test_db")
 
 
 class MockViseron(Viseron):
-    """Protocol for mocking Viseron."""
+    """Protocol for mocking Viseron.
+
+    Provides mocked versions of commonly-used methods to avoid side effects
+    during testing. This includes event dispatching, entity registration,
+    and event listening.
+    """
 
     def __init__(self) -> None:
         super().__init__(start_background_scheduler=False)
@@ -38,6 +43,9 @@ class MockViseron(Viseron):
         )
         self.listen_event: MagicMock = MagicMock(
             auto_spec=self.listen_event,
+        )
+        self.dispatch_event: MagicMock = MagicMock(
+            auto_spec=self.dispatch_event,
         )
         self.initialized_event.set()
         self._original_register_signal_handler = self.register_signal_handler

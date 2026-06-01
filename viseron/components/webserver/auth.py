@@ -81,9 +81,14 @@ class AccessTokenLimitExceededError(ViseronError):
     """Access token limit exceeded."""
 
 
+class SessionExpiredError(ViseronError):
+    """Refresh token session has expired."""
+
+
 MAX_ACCESS_TOKENS_PER_USER = 20
 MAX_TOKEN_NAME_LENGTH = 100
 PAT_LAST_USED_SAVE_INTERVAL = datetime.timedelta(minutes=1)
+REFRESH_TOKEN_REUSE_GRACE = datetime.timedelta(seconds=10)
 
 
 VALID_DATE_FORMATS = [
@@ -120,6 +125,15 @@ class RefreshToken:
     static_asset_key: str = field(default_factory=lambda: secrets.token_hex(64))
     used_at: float | None = None
     used_by: str | None = None
+
+
+@dataclass
+class RecentlyRotatedRefreshToken:
+    """Recently rotated refresh token metadata."""
+
+    client_id: str
+    replacement_id: str
+    expires_at: float
 
 
 @dataclass
@@ -248,9 +262,13 @@ class Auth:
         self._refresh_tokens: dict[str, RefreshToken] | None = None
         self._access_tokens: dict[str, AccessToken] | None = None
         self._pat_last_used_persisted_at: dict[str, float] = {}
+        self._recent_refresh_token_rotations: dict[
+            str, RecentlyRotatedRefreshToken
+        ] = {}
         self._auth_store = Storage(vis, AUTH_STORAGE_KEY)
         self._data_lock = Lock()
         self._user_lock = Lock()
+        self._decoy_jwt_key = secrets.token_hex(64)
 
     @property
     def users(self) -> dict[str, User]:
@@ -405,6 +423,7 @@ class Auth:
                     raise LastAdminUserError("Cannot delete the last admin user")
 
             LOGGER.debug(f"Deleting user {user_to_delete.username}")
+            self._revoke_all_for_user(user_id)
             del self.users[user_id]
             self.save()
 
@@ -416,6 +435,10 @@ class Auth:
 
             user = self.users[user_id]
             user.password = self.hash_password(new_password)
+            # Forcibly log the user out everywhere on password change. Anyone
+            # who knew the old password (e.g. an attacker the user is trying
+            # to lock out) loses access immediately.
+            self._revoke_all_for_user(user_id)
             LOGGER.debug(f"Password changed for user {user.username}")
             self.save()
 
@@ -589,39 +612,133 @@ class Auth:
         access_token_expiration: datetime.timedelta = ACCESS_TOKEN_EXPIRATION,
     ) -> RefreshToken:
         """Generate refresh token."""
-        refresh_token = RefreshToken(
-            user_id=user_id,
-            client_id=client_id,
-            session_expiration=(self.session_expiry or datetime.timedelta(days=3650)),
-            access_token_type=access_token_type,
-            access_token_expiration=access_token_expiration,
-        )
-        self.refresh_tokens[refresh_token.id] = refresh_token
-        self.save()
+        with self._user_lock:
+            refresh_token = RefreshToken(
+                user_id=user_id,
+                client_id=client_id,
+                session_expiration=(
+                    self.session_expiry or datetime.timedelta(days=3650)
+                ),
+                access_token_type=access_token_type,
+                access_token_expiration=access_token_expiration,
+            )
+            self.refresh_tokens[refresh_token.id] = refresh_token
+            self.save()
         return refresh_token
 
     def get_refresh_token(self, refresh_token_id: str) -> RefreshToken | None:
         """Get refresh token."""
-        return self.refresh_tokens.get(refresh_token_id, None)
+        with self._user_lock:
+            return self.refresh_tokens.get(refresh_token_id, None)
 
     def get_refresh_token_from_token(self, token: str) -> RefreshToken | None:
         """Get refresh token from token."""
         found_token = None
 
-        for refresh_token in self.refresh_tokens.values():
-            if hmac.compare_digest(refresh_token.token, token):
-                found_token = refresh_token
+        with self._user_lock:
+            for refresh_token in self.refresh_tokens.values():
+                if hmac.compare_digest(refresh_token.token, token):
+                    found_token = refresh_token
 
         return found_token
 
     def delete_refresh_token(self, refresh_token: RefreshToken) -> None:
         """Delete refresh token."""
-        if refresh_token.id in self.refresh_tokens:
-            del self.refresh_tokens[refresh_token.id]
+        with self._user_lock:
+            if refresh_token.id in self.refresh_tokens:
+                del self.refresh_tokens[refresh_token.id]
+                self.save()
+
+    @staticmethod
+    def _hash_refresh_token(token: str) -> str:
+        """Hash a refresh token secret for short-lived reuse tracking."""
+        return hashlib.sha256(token.encode()).hexdigest()
+
+    def _purge_recent_refresh_token_rotations(self) -> None:
+        """Purge expired or orphaned refresh-token rotation records."""
+        now = utcnow().timestamp()
+        expired_token_hashes = [
+            token_hash
+            for token_hash, rotation in self._recent_refresh_token_rotations.items()
+            if rotation.expires_at <= now
+            or rotation.replacement_id not in self.refresh_tokens
+        ]
+        for token_hash in expired_token_hashes:
+            del self._recent_refresh_token_rotations[token_hash]
+
+    def is_recent_refresh_token_reuse(self, token: str, client_id: str) -> bool:
+        """Return true if a refresh token was just rotated for this client."""
+        token_hash = self._hash_refresh_token(token)
+        with self._user_lock:
+            self._purge_recent_refresh_token_rotations()
+            rotation = self._recent_refresh_token_rotations.get(token_hash)
+            if rotation is None:
+                return False
+            if not hmac.compare_digest(rotation.client_id, client_id):
+                return False
+            return rotation.replacement_id in self.refresh_tokens
+
+    def rotate_refresh_token(self, old: RefreshToken) -> RefreshToken | None:
+        """Rotate a refresh token.
+
+        Issues a brand-new refresh token (new id, token, jwt key, static asset
+        key) for the same user/client and revokes the old one. If the old
+        token has already been consumed, None is returned and no replacement is
+        issued. The absolute session expiry is preserved by copying created_at
+        and session_expiration from the old token, so a long-lived session
+        cannot be extended indefinitely by repeatedly refreshing.
+
+        If the absolute session expiry has already passed, the stored token is
+        revoked and None is returned.
+        """
+        with self._user_lock:
+            stored = self.refresh_tokens.get(old.id)
+            if stored is None or not hmac.compare_digest(stored.token, old.token):
+                return None
+
+            try:
+                self.validate_refresh_token(stored)
+            except SessionExpiredError:
+                del self.refresh_tokens[old.id]
+                self.save()
+                return None
+
+            new = RefreshToken(
+                user_id=stored.user_id,
+                client_id=stored.client_id,
+                session_expiration=stored.session_expiration,
+                access_token_type=stored.access_token_type,
+                access_token_expiration=stored.access_token_expiration,
+                created_at=stored.created_at,
+            )
+            self.refresh_tokens[new.id] = new
+            self._purge_recent_refresh_token_rotations()
+            self._recent_refresh_token_rotations[
+                self._hash_refresh_token(stored.token)
+            ] = RecentlyRotatedRefreshToken(
+                client_id=stored.client_id,
+                replacement_id=new.id,
+                expires_at=(
+                    utcnow().timestamp() + REFRESH_TOKEN_REUSE_GRACE.total_seconds()
+                ),
+            )
+            del self.refresh_tokens[old.id]
             self.save()
+        return new
 
     def validate_refresh_token(self, refresh_token: RefreshToken) -> None:
-        """Validate refresh token."""
+        """Validate refresh token.
+
+        Raises SessionExpiredError if the absolute session expiry, computed
+        from the token's created_at plus session_expiration, has passed. This
+        enforces the stored session lifetime server-side so it cannot be
+        extended by repeatedly rotating the cookie.
+        """
+        session_expires_at = (
+            refresh_token.created_at + refresh_token.session_expiration.total_seconds()
+        )
+        if utcnow().timestamp() > session_expires_at:
+            raise SessionExpiredError
 
     def generate_access_token(
         self,
@@ -630,11 +747,11 @@ class Auth:
         expiry: datetime.timedelta | None = None,
     ) -> str:
         """Generate access token using JWT."""
-        self.validate_refresh_token(refresh_token)
-        now = utcnow()
-        refresh_token.used_at = now.timestamp()
-        refresh_token.used_by = remote_ip
-        self.save()
+        with self._user_lock:
+            now = utcnow()
+            refresh_token.used_at = now.timestamp()
+            refresh_token.used_by = remote_ip
+            self.save()
         return jwt.encode(
             {
                 "iss": refresh_token.id,
@@ -657,12 +774,11 @@ class Auth:
             return None
 
         refresh_token = self.get_refresh_token(cast("str", unverif_claims.get("iss")))
-        if refresh_token is None:
-            jwt_key = ""
-            issuer = ""
-        else:
-            jwt_key = refresh_token.jwt_key
-            issuer = refresh_token.id
+
+        # Always perform a JWT verification regardless of whether the issuer
+        # was found, to keep timing uniform.
+        jwt_key = refresh_token.jwt_key if refresh_token else self._decoy_jwt_key
+        issuer = refresh_token.id if refresh_token else ""
 
         try:
             jwt.decode(
@@ -672,6 +788,12 @@ class Auth:
             return None
 
         if refresh_token is None:
+            return None
+
+        try:
+            self.validate_refresh_token(refresh_token)
+        except SessionExpiredError:
+            self.delete_refresh_token(refresh_token)
             return None
 
         user = self.get_user(refresh_token.user_id)
@@ -793,6 +915,26 @@ class Auth:
                 self.save()
                 self._pat_last_used_persisted_at[stored_pat.id] = now
 
+    def _revoke_all_for_user(self, user_id: str) -> None:
+        """Revoke all sessions and PATs for user_id without acquiring the lock.
+
+        Caller MUST hold self._user_lock. The store is not persisted
+        here either, the caller is expected to call self.save() after the
+        rest of its mutations.
+        """
+        rt_ids_to_delete = [
+            rt_id for rt_id, rt in self.refresh_tokens.items() if rt.user_id == user_id
+        ]
+        for rt_id in rt_ids_to_delete:
+            del self.refresh_tokens[rt_id]
+
+        pat_ids_to_delete = [
+            t_id for t_id, t in self.access_tokens.items() if t.user_id == user_id
+        ]
+        for t_id in pat_ids_to_delete:
+            self._pat_last_used_persisted_at.pop(t_id, None)
+            del self.access_tokens[t_id]
+
     def revoke_all_for_user(self, user_id: str) -> None:
         """Revoke all sessions (refresh tokens) and personal access tokens for a user.
 
@@ -800,21 +942,5 @@ class Auth:
         re-authenticate on all devices and invalidates all PATs.
         """
         with self._user_lock:
-            # Remove all refresh tokens belonging to the user
-            rt_ids_to_delete = [
-                rt_id
-                for rt_id, rt in self.refresh_tokens.items()
-                if rt.user_id == user_id
-            ]
-            for rt_id in rt_ids_to_delete:
-                del self.refresh_tokens[rt_id]
-
-            # Remove all PATs belonging to the user
-            pat_ids_to_delete = [
-                t_id for t_id, t in self.access_tokens.items() if t.user_id == user_id
-            ]
-            for t_id in pat_ids_to_delete:
-                self._pat_last_used_persisted_at.pop(t_id, None)
-                del self.access_tokens[t_id]
-
+            self._revoke_all_for_user(user_id)
             self.save()

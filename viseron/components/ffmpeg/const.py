@@ -22,13 +22,13 @@ CAMERA_INPUT_ARGS = [
     "-avoid_negative_ts",
     "make_zero",
     "-fflags",
-    "nobuffer",
+    "+nobuffer+genpts+discardcorrupt",
     "-flags",
     "low_delay",
     "-strict",
     "experimental",
-    "-fflags",
-    "+genpts",
+    "-err_detect",
+    "ignore_err",
     "-use_wallclock_as_timestamps",
     "1",
     "-vsync",
@@ -216,6 +216,9 @@ DEFAULT_FFMPEG_RECOVERABLE_ERRORS = [
     "no frame!",
     "decode_slice_header error",
     "failed to delete old segment",
+    "Could not find ref with POC",
+    "Error constructing the frame RPS",
+    "First slice in a frame missing",
 ]
 DEFAULT_FFPROBE_LOGLEVEL = "error"
 DEFAULT_RAW_COMMAND: Final = None

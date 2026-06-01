@@ -61,8 +61,17 @@ CONFIG_SESSION_EXPIRY = "session_expiry"
 CONFIG_DAYS = "days"
 CONFIG_HOURS = "hours"
 CONFIG_MINUTES = "minutes"
+CONFIG_RATE_LIMITS = "rate_limits"
+CONFIG_RATE_LIMIT_LOGIN = "login"
+CONFIG_RATE_LIMIT_TOKEN = "token"  # noqa: S105
+CONFIG_RATE_LIMIT_ONBOARDING = "onboarding"
+CONFIG_MAX_ATTEMPTS = "max_attempts"
+CONFIG_WINDOW_SECONDS = "window_seconds"
 
 DEFAULT_SESSION_EXPIRY: Final = None
+DEFAULT_RATE_LIMIT_LOGIN: Final = {"max_attempts": 10, "window_seconds": 60}
+DEFAULT_RATE_LIMIT_TOKEN: Final = {"max_attempts": 30, "window_seconds": 60}
+DEFAULT_RATE_LIMIT_ONBOARDING: Final = {"max_attempts": 5, "window_seconds": 60}
 
 DESC_AUTH = "Authentication configuration."
 DESC_SESSION_EXPIRY = (
@@ -72,6 +81,21 @@ DESC_SESSION_EXPIRY = (
 DESC_DAYS = "Days to expire session."
 DESC_HOURS = "Hours to expire session."
 DESC_MINUTES = "Minutes to expire session."
+DESC_RATE_LIMITS = (
+    "Per-IP rate limits applied to authentication endpoints. Tune these if you have"
+    " many legitimate clients behind a single IP, or lower them to harden against"
+    " brute force."
+)
+DESC_RATE_LIMIT_LOGIN = "Rate limit for the login endpoint (POST /api/v1/auth/login)."
+DESC_RATE_LIMIT_TOKEN = (
+    "Rate limit for the token endpoint (POST /api/v1/auth/token), "  # noqa: S105
+    "used to refresh access tokens."
+)
+DESC_RATE_LIMIT_ONBOARDING = (
+    "Rate limit for the initial onboarding endpoint (POST /api/v1/onboarding)."
+)
+DESC_MAX_ATTEMPTS = "Maximum number of attempts allowed within the window."
+DESC_WINDOW_SECONDS = "Length of the sliding window in seconds."
 
 # Websocket constants
 TYPE_RESULT = "result"

@@ -2,7 +2,7 @@ ARG UBUNTU_VERSION
 ARG ARCH
 ARG DLIB_VERSION
 ARG BUILD_FROM
-FROM roflcoopter/${ARCH}-dlib:${DLIB_VERSION} as dlib
+FROM roflcoopter/${ARCH}-dlib:${DLIB_VERSION}-${UBUNTU_VERSION} as dlib
 FROM ${BUILD_FROM} as build
 
 COPY --from=dlib /wheels /wheels
@@ -36,6 +36,8 @@ RUN apt-get -yqq update && apt-get install -yq --no-install-recommends \
   python3-wheel \
   libgirepository1.0-dev\
   libcairo2-dev \
+  libgfortran5 \
+  libopenblas0-pthread \
   # Install Python 3.9 if it doesn't exist
   && if [ ! -f /usr/local/bin/python3.9 ]; then \
   add-apt-repository ppa:deadsnakes/ppa -y && \
@@ -43,8 +45,10 @@ RUN apt-get -yqq update && apt-get install -yq --no-install-recommends \
   python3.9 \
   python3.9-distutils ; \
   fi \
-  && python3 -m pip install --upgrade pip \
-  && python3.9 -m pip install --upgrade pip \
+  # Remove EXTERNALLY-MANAGED to allow pip to install packages since its safe to do so when building a container
+  && find /usr/lib/python3* -name EXTERNALLY-MANAGED -delete \
+  && python3 -m pip install --upgrade --ignore-installed pip \
+  && python3.9 -m pip install --upgrade --ignore-installed pip \
   && apt-get autoremove -y && apt-get clean -y
 
 # Pip does not find our OpenCV built from source so we fake it here

@@ -9,6 +9,7 @@ import voluptuous as vol
 
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.components.webserver.auth import Role, User
+from viseron.components.webserver.rate_limit import RateLimiter
 
 from tests.common import MockCamera
 from tests.components.webserver.common import TestAppBaseAuth
@@ -90,6 +91,13 @@ class DummyAPIHandler(BaseAPIHandler):
             "path_pattern": r"/error",
             "supported_methods": ["GET"],
             "method": "test_error",
+        },
+        {
+            "requires_auth": False,
+            "path_pattern": r"/rate_limited",
+            "supported_methods": ["GET"],
+            "method": "test_get",
+            "rate_limit": "test_bucket",
         },
     ]
 
@@ -476,3 +484,33 @@ class TestBaseAPIHandler(TestAppBaseAuth):
                 headers={"Authorization": "Bearer vpat_" + "0" * 128},
             )
         assert response.code == HTTPStatus.UNAUTHORIZED
+
+    def test_rate_limit_throttles_requests(self):
+        """A route with ``rate_limit`` returns 429 once the budget is spent."""
+        self.webserver.rate_limiters["test_bucket"] = RateLimiter(
+            max_attempts=3, window_seconds=60
+        )
+
+        # First three requests are allowed by the limiter
+        for _ in range(3):
+            response = self.fetch("/api/v1/rate_limited", method="GET")
+            assert response.code == HTTPStatus.OK
+            assert json.loads(response.body) == {"test": "test"}
+
+        # The fourth request is rejected by the limiter
+        response = self.fetch("/api/v1/rate_limited", method="GET")
+        assert response.code == HTTPStatus.TOO_MANY_REQUESTS
+        assert int(response.headers["Retry-After"]) >= 1
+        assert json.loads(response.body) == {
+            "error": "Too many requests, please try again later",
+            "status": HTTPStatus.TOO_MANY_REQUESTS,
+        }
+
+    def test_rate_limit_unknown_bucket_is_noop(self):
+        """A route referencing a bucket that doesn't exist is not throttled."""
+        # Make sure the bucket the dummy route points at is not registered.
+        self.webserver.rate_limiters.pop("test_bucket", None)
+
+        for _ in range(5):
+            response = self.fetch("/api/v1/rate_limited", method="GET")
+            assert response.code == HTTPStatus.OK

@@ -19,16 +19,7 @@ resources:
           - dev
 
 stages:
-  - stage: OpenCV_Part_One
-    jobs:
-      - template: templates/build.yaml
-        parameters:
-          architectures:
-            - jetson-nano
-          image: opencvpartone
-          noCache: ${{ parameters.noCache }}
   - stage: OpenCV
-    dependsOn: OpenCV_Part_One
     jobs:
       - template: templates/build.yaml
         parameters:

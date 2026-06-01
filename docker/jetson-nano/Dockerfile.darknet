@@ -4,7 +4,7 @@ ARG OPENCV_VERSION
 ARG JETPACK_VERSION
 FROM roflcoopter/jetson-nano-python:${PYTHON_VERSION} as python
 FROM balenalib/jetson-nano-ubuntu:${UBUNTU_VERSION}-build as qemu
-FROM roflcoopter/jetson-nano-opencv:${OPENCV_VERSION} as opencv
+FROM roflcoopter/jetson-nano-opencv:${OPENCV_VERSION}-${UBUNTU_VERSION} as opencv
 FROM nvcr.io/nvidia/l4t-base:r${JETPACK_VERSION} as build
 
 COPY --from=qemu /usr/bin/qemu-aarch64-static /usr/bin/qemu-aarch64-static

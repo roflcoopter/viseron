@@ -351,10 +351,10 @@ class TestComponentSetup:
         )
 
         with (
+            patch("viseron.components.NamedTimer") as mock_named_timer,
             patch(
                 "viseron.components.importlib.import_module", return_value=mock_module
             ),
-            patch("viseron.components.NamedTimer") as mock_named_timer,
         ):
             component = Component(vis, "viseron.components.test", "test", {})
             result = component.setup_component(tries=1)
@@ -693,10 +693,10 @@ class TestComponentState:
             setup_exception=ComponentNotReady("Not ready")
         )
         with (
+            patch("viseron.components.NamedTimer"),
             patch(
                 "viseron.components.importlib.import_module", return_value=mock_module
             ),
-            patch("viseron.components.NamedTimer"),
         ):
             component = Component(vis, "viseron.components.test", "test", {})
             component.setup_component()
@@ -826,10 +826,10 @@ class TestComponentErrors:
             setup_exception=ComponentNotReady("Not ready yet")
         )
         with (
+            patch("viseron.components.NamedTimer"),
             patch(
                 "viseron.components.importlib.import_module", return_value=mock_module
             ),
-            patch("viseron.components.NamedTimer"),
         ):
             component = Component(vis, "viseron.components.test", "test", {})
             component.setup_component()

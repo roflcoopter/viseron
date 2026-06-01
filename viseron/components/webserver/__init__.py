@@ -15,6 +15,7 @@ import voluptuous as vol
 from tornado.routing import PathMatches
 
 from viseron.components.webserver.auth import Auth
+from viseron.components.webserver.rate_limit import RateLimiter
 from viseron.const import DEFAULT_PORT, VISERON_SIGNAL_SHUTDOWN
 from viseron.exceptions import ComponentNotReady
 from viseron.helpers import current_system_datetime
@@ -28,17 +29,26 @@ from .const import (
     CONFIG_DAYS,
     CONFIG_DEBUG,
     CONFIG_HOURS,
+    CONFIG_MAX_ATTEMPTS,
     CONFIG_MINUTES,
     CONFIG_PORT,
     CONFIG_PUBLIC_BASE_URL,
     CONFIG_PUBLIC_URL_EXPIRY_HOURS,
     CONFIG_PUBLIC_URL_MAX_DOWNLOADS,
+    CONFIG_RATE_LIMIT_LOGIN,
+    CONFIG_RATE_LIMIT_ONBOARDING,
+    CONFIG_RATE_LIMIT_TOKEN,
+    CONFIG_RATE_LIMITS,
     CONFIG_SESSION_EXPIRY,
     CONFIG_SUBPATH,
+    CONFIG_WINDOW_SECONDS,
     DEFAULT_COMPONENT,
     DEFAULT_DEBUG,
     DEFAULT_PUBLIC_URL_EXPIRY_HOURS,
     DEFAULT_PUBLIC_URL_MAX_DOWNLOADS,
+    DEFAULT_RATE_LIMIT_LOGIN,
+    DEFAULT_RATE_LIMIT_ONBOARDING,
+    DEFAULT_RATE_LIMIT_TOKEN,
     DEFAULT_SESSION_EXPIRY,
     DEFAULT_SUBPATH,
     DESC_AUTH,
@@ -46,13 +56,19 @@ from .const import (
     DESC_DAYS,
     DESC_DEBUG,
     DESC_HOURS,
+    DESC_MAX_ATTEMPTS,
     DESC_MINUTES,
     DESC_PORT,
     DESC_PUBLIC_BASE_URL,
     DESC_PUBLIC_URL_EXPIRY_HOURS,
     DESC_PUBLIC_URL_MAX_DOWNLOADS,
+    DESC_RATE_LIMIT_LOGIN,
+    DESC_RATE_LIMIT_ONBOARDING,
+    DESC_RATE_LIMIT_TOKEN,
+    DESC_RATE_LIMITS,
     DESC_SESSION_EXPIRY,
     DESC_SUBPATH,
+    DESC_WINDOW_SECONDS,
     DOWNLOAD_TOKENS,
     PUBLIC_IMAGE_TOKENS,
     PUBLIC_IMAGES_PATH,
@@ -90,6 +106,25 @@ if TYPE_CHECKING:
 
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _rate_limit_schema(default: dict[str, Any]) -> Any:
+    """Build the schema for a single rate-limit bucket."""
+    return vol.All(
+        CoerceNoneToDict(),
+        {
+            vol.Optional(
+                CONFIG_MAX_ATTEMPTS,
+                default=default["max_attempts"],
+                description=DESC_MAX_ATTEMPTS,
+            ): vol.All(int, vol.Range(min=1)),
+            vol.Optional(
+                CONFIG_WINDOW_SECONDS,
+                default=default["window_seconds"],
+                description=DESC_WINDOW_SECONDS,
+            ): vol.All(vol.Coerce(float), vol.Range(min=1)),
+        },
+    )
 
 
 CONFIG_SCHEMA = vol.Schema(
@@ -145,7 +180,30 @@ CONFIG_SCHEMA = vol.Schema(
                                     description=DESC_MINUTES,
                                 ): vol.All(int, vol.Range(min=0)),
                             },
-                        )
+                        ),
+                        vol.Optional(
+                            CONFIG_RATE_LIMITS,
+                            description=DESC_RATE_LIMITS,
+                        ): vol.All(
+                            CoerceNoneToDict(),
+                            {
+                                vol.Optional(
+                                    CONFIG_RATE_LIMIT_LOGIN,
+                                    default=DEFAULT_RATE_LIMIT_LOGIN,
+                                    description=DESC_RATE_LIMIT_LOGIN,
+                                ): _rate_limit_schema(DEFAULT_RATE_LIMIT_LOGIN),
+                                vol.Optional(
+                                    CONFIG_RATE_LIMIT_TOKEN,
+                                    default=DEFAULT_RATE_LIMIT_TOKEN,
+                                    description=DESC_RATE_LIMIT_TOKEN,
+                                ): _rate_limit_schema(DEFAULT_RATE_LIMIT_TOKEN),
+                                vol.Optional(
+                                    CONFIG_RATE_LIMIT_ONBOARDING,
+                                    default=DEFAULT_RATE_LIMIT_ONBOARDING,
+                                    description=DESC_RATE_LIMIT_ONBOARDING,
+                                ): _rate_limit_schema(DEFAULT_RATE_LIMIT_ONBOARDING),
+                            },
+                        ),
                     },
                 ),
             },
@@ -261,6 +319,25 @@ class Webserver(threading.Thread):
         self._store = WebserverStore(vis)
         self._subpath = self._normalize_subpath(config.get(CONFIG_SUBPATH))
 
+        # Rate limiters for auth-sensitive endpoints.
+        auth_config = self._config.get(CONFIG_AUTH) or {}
+        rate_limits_config = auth_config.get(CONFIG_RATE_LIMITS) or {}
+        self._rate_limiters: dict[str, RateLimiter] = {
+            bucket: RateLimiter(
+                max_attempts=rate_limits_config.get(bucket, default)[
+                    CONFIG_MAX_ATTEMPTS
+                ],
+                window_seconds=rate_limits_config.get(bucket, default)[
+                    CONFIG_WINDOW_SECONDS
+                ],
+            )
+            for bucket, default in (
+                (CONFIG_RATE_LIMIT_LOGIN, DEFAULT_RATE_LIMIT_LOGIN),
+                (CONFIG_RATE_LIMIT_TOKEN, DEFAULT_RATE_LIMIT_TOKEN),
+                (CONFIG_RATE_LIMIT_ONBOARDING, DEFAULT_RATE_LIMIT_ONBOARDING),
+            )
+        }
+
         vis.data[COMPONENT] = self
         vis.data[WEBSOCKET_COMMANDS] = {}
         vis.data[WEBSOCKET_CONNECTIONS] = []
@@ -358,6 +435,11 @@ class Webserver(threading.Thread):
     def auth(self) -> Auth | None:
         """Return auth."""
         return self._auth
+
+    @property
+    def rate_limiters(self) -> dict[str, RateLimiter]:
+        """Return rate limiters keyed by bucket name."""
+        return self._rate_limiters
 
     @property
     def application(self) -> tornado.web.Application:

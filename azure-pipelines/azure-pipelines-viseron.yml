@@ -53,6 +53,13 @@ stages:
           image: viseron
           release: true
           noCache: ${{ parameters.noCache }}
+      - template: templates/build.yaml
+        parameters:
+          image: viseron-tests
+          architectures:
+            - amd64
+          release: false
+          noCache: ${{ parameters.noCache }}
 
   - stage: "Publish"
     jobs:
@@ -81,11 +88,11 @@ stages:
                 docker buildx imagetools create \
                   --debug \
                   --tag roflcoopter/viseron:${release_version} \
-                  roflcoopter/amd64-viseron:${release_version} \
-                  roflcoopter/rpi3-viseron:${release_version} \
-                  roflcoopter/aarch64-viseron:${release_version}
+                  roflcoopter/viseron:${release_version}-amd64 \
+                  roflcoopter/viseron:${release_version}-rpi3 \
+                  roflcoopter/viseron:${release_version}-aarch64
 
-                docker manifest inspect roflcoopter/viseron:${release_version}
+                docker buildx imagetools inspect roflcoopter/viseron:${release_version}
               }
 
               # Create version tag
@@ -98,7 +105,7 @@ stages:
             displayName: "Create multi-arch image"
           - task: Docker@2
             displayName: Logoff Docker Hub
+            condition: always()
             inputs:
               command: logout
               containerRegistry: "Docker Hub"
-              condition: always()

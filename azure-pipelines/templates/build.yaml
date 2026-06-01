@@ -20,7 +20,7 @@ parameters:
     default: true
   - name: timeoutJob
     type: number
-    default: 360
+    default: 1440
   - name: release
     type: boolean
     default: false
@@ -77,6 +77,8 @@ jobs:
               docker compose --file ../azure-pipelines/docker-compose-build.yaml
               --env-file ../azure-pipelines/.env
               build $(noCacheOption)
+              --provenance=false
+              --sbom=false
               --build-arg BUILDKIT_INLINE_CACHE=1
               --build-arg VISERON_VERSION=$(viseronVersion)
               --build-arg VISERON_GIT_COMMIT=$(Build.SourceVersion)
@@ -93,6 +95,8 @@ jobs:
               docker compose --file ../azure-pipelines/docker-compose-build.yaml
               --env-file ../azure-pipelines/.env
               build $(noCacheOption)
+              --provenance=false
+              --sbom=false
               --build-arg BUILDKIT_INLINE_CACHE=1
               --build-arg VISERON_VERSION=$(viseronVersion)
               --build-arg VISERON_GIT_COMMIT=$(Build.SourceVersion)
@@ -153,22 +157,36 @@ jobs:
               docker image tag roflcoopter/${{ architecture }}-${{ parameters.image }}:dev roflcoopter/${{ architecture }}-${{ parameters.image }}:$(viseronVersion)-$(Build.SourceVersion)
               docker image push roflcoopter/${{ architecture }}-${{ parameters.image }}:$(viseronVersion)-$(Build.SourceVersion)
 
+              # Push same-repository arch tag for multi-arch manifest creation
+              docker image tag roflcoopter/${{ architecture }}-${{ parameters.image }}:dev roflcoopter/${{ parameters.image }}:$(viseronVersion)-${{ architecture }}
+              docker image push roflcoopter/${{ parameters.image }}:$(viseronVersion)-${{ architecture }}
+
               # Push tag with timestamp
               now=$(date -u +"%Y%m%d%H%M%S")
               docker image tag roflcoopter/${{ architecture }}-${{ parameters.image }}:dev roflcoopter/${{ architecture }}-${{ parameters.image }}:$(viseronVersion)-$now
               docker image push roflcoopter/${{ architecture }}-${{ parameters.image }}:$(viseronVersion)-$now
 
+              docker image tag roflcoopter/${{ architecture }}-${{ parameters.image }}:dev roflcoopter/${{ parameters.image }}:$(viseronVersion)-$(Build.SourceVersion)-${{ architecture }}
+              docker image push roflcoopter/${{ parameters.image }}:$(viseronVersion)-$(Build.SourceVersion)-${{ architecture }}
+
+              docker image tag roflcoopter/${{ architecture }}-${{ parameters.image }}:dev roflcoopter/${{ parameters.image }}:$(viseronVersion)-$now-${{ architecture }}
+              docker image push roflcoopter/${{ parameters.image }}:$(viseronVersion)-$now-${{ architecture }}
+
               if [ $(latestRelease) = true ] ; then
                 echo tagging roflcoopter/${{ architecture }}-${{ parameters.image }}:latest
                 docker image tag roflcoopter/${{ architecture }}-${{ parameters.image }}:dev roflcoopter/${{ architecture }}-${{ parameters.image }}:latest
                 docker image push roflcoopter/${{ architecture }}-${{ parameters.image }}:latest
+
+                echo tagging roflcoopter/${{ parameters.image }}:latest-${{ architecture }}
+                docker image tag roflcoopter/${{ architecture }}-${{ parameters.image }}:dev roflcoopter/${{ parameters.image }}:latest-${{ architecture }}
+                docker image push roflcoopter/${{ parameters.image }}:latest-${{ architecture }}
               fi
             displayName: Push ${{ architecture }}-${{ parameters.image }} (release)
             condition: and(succeeded(), eq('${{ parameters.release }}', true))
 
           - task: Docker@2
             displayName: Logoff Docker Hub
+            condition: always()
             inputs:
               command: logout
               containerRegistry: "Docker Hub"
-              condition: always()

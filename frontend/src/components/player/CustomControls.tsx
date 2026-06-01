@@ -29,7 +29,7 @@ import screenfull from "screenfull";
 import { ProgressBar } from "components/player/ProgressBar";
 import { useAuthContext } from "context/AuthContext";
 import { useFullscreen } from "context/FullscreenContext";
-import { isTouchDevice } from "lib/helpers";
+import { useCanHover } from "lib/hooks/useCanHover";
 
 const ZINDEX = 900;
 
@@ -111,6 +111,7 @@ interface CustomControlsProps {
   extraButtons?: React.ReactNode;
   videoRef?: React.RefObject<HTMLVideoElement | null>;
   showProgressBar?: boolean;
+  hasStarted?: boolean;
 }
 
 export function CustomControls({
@@ -137,7 +138,9 @@ export function CustomControls({
   extraButtons,
   videoRef,
   showProgressBar = false,
+  hasStarted = true,
 }: CustomControlsProps) {
+  const canHover = useCanHover();
   const [isVolumeSliderVisible, setIsVolumeSliderVisible] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isProgressDragging, setIsProgressDragging] = useState(false);
@@ -206,6 +209,39 @@ export function CustomControls({
       document.removeEventListener("mouseup", handleGlobalMouseUp);
     };
   }, [isDragging, isProgressDragging]);
+
+  // Before the user has started playback, render only the centered play
+  // button. All other controls are hidden to declutter the first-frame UX.
+  if (!hasStarted) {
+    return (
+      <Fade in timeout={300}>
+        <Box
+          sx={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: ZINDEX,
+          }}
+        >
+          {onPlayPause && (
+            <CustomFab
+              onClick={onPlayPause}
+              size="medium"
+              title={isPlaying ? "Pause" : "Play"}
+              isFullscreen={isFullscreen}
+            >
+              {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+            </CustomFab>
+          )}
+        </Box>
+      </Fade>
+    );
+  }
 
   return (
     <Fade
@@ -331,7 +367,7 @@ export function CustomControls({
                 onMouseEnter={handleVolumeControlMouseEnter}
                 onMouseLeave={handleVolumeControlMouseLeave}
               >
-                {onVolumeChange && !isTouchDevice() && (
+                {onVolumeChange && canHover && (
                   <Box
                     sx={(theme) => ({
                       position: "absolute",

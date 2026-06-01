@@ -13,6 +13,7 @@ export const useHlsPlayerControls = (
     isHovering,
     showControlsTemporarily,
     handleMouseEnter,
+    handleMouseMove,
     handleMouseLeave,
     handleTouchStart,
   } = useVideoControls();
@@ -115,6 +116,7 @@ export const useHlsPlayerControls = (
     handleVolumeChange,
     handleMuteToggle,
     handleMouseEnter,
+    handleMouseMove,
     handleMouseLeave,
     handleTouchStart,
     controlsVisible,

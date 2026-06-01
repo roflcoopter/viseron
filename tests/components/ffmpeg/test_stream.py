@@ -17,6 +17,8 @@ from viseron.components.ffmpeg.const import (
     CONFIG_FPS,
     CONFIG_HEIGHT,
     CONFIG_HOST,
+    CONFIG_HWACCEL_ARGS,
+    CONFIG_INPUT_ARGS,
     CONFIG_PASSWORD,
     CONFIG_PATH,
     CONFIG_PIX_FMT,
@@ -25,6 +27,7 @@ from viseron.components.ffmpeg.const import (
     CONFIG_RECORDER,
     CONFIG_RECORDER_AUDIO_CODEC,
     CONFIG_RECORDER_CODEC,
+    CONFIG_RTSP_TRANSPORT,
     CONFIG_STREAM_FORMAT,
     CONFIG_SUBSTREAM,
     CONFIG_USERNAME,
@@ -36,6 +39,7 @@ from viseron.components.ffmpeg.const import (
     DEFAULT_PASSWORD,
     DEFAULT_PROTOCOL,
     DEFAULT_RECORDER_AUDIO_CODEC,
+    DEFAULT_RTSP_TRANSPORT,
     DEFAULT_STREAM_FORMAT,
     DEFAULT_USERNAME,
     DEFAULT_WIDTH,
@@ -243,6 +247,55 @@ class TestStream:
             stream = Stream(CONFIG, mocked_camera, "test_camera_identifier")
             stream._config = config
             assert stream.get_stream_url(config) == expected_url
+
+    @pytest.mark.parametrize(
+        "stream_format, jetson_nano, expected_timeout_option",
+        [
+            ("rtsp", True, ["-stimeout", "5000000"]),
+            ("mjpeg", True, ["-timeout", "5000000"]),
+            ("rtmp", True, ["-rw_timeout", "5000000"]),
+            ("rtsp", False, ["-timeout", "5000000"]),
+        ],
+    )
+    def test_stream_command_jetson_nano_timeout_option(
+        self, monkeypatch, stream_format, jetson_nano, expected_timeout_option
+    ) -> None:
+        """Test stream-format timeout options on Jetson Nano."""
+        config = {
+            **CONFIG,
+            CONFIG_STREAM_FORMAT: stream_format,
+            CONFIG_INPUT_ARGS: None,
+            CONFIG_HWACCEL_ARGS: [],
+            CONFIG_RTSP_TRANSPORT: DEFAULT_RTSP_TRANSPORT,
+        }
+
+        if jetson_nano:
+            monkeypatch.setenv(ENV_JETSON_NANO, "true")
+        else:
+            monkeypatch.delenv(ENV_JETSON_NANO, raising=False)
+
+        with (
+            patch.object(Stream, "__init__", MagicMock(spec=Stream, return_value=None)),
+            patch.object(Stream, "get_decoder_codec", MagicMock(return_value=[])),
+        ):
+            stream = Stream(
+                config, MockCamera(identifier="test_camera_identifier"), "test_camera"
+            )
+            result = stream.stream_command(config, "h264", "test_stream_url")
+
+        timeout_option_index = result.index(expected_timeout_option[0])
+        assert (
+            result[timeout_option_index : timeout_option_index + 2]
+            == expected_timeout_option
+        )
+
+        if jetson_nano and stream_format == "rtsp":
+            assert "-timeout" not in result
+        if stream_format == "mjpeg":
+            assert "-stimeout" not in result
+        if stream_format == "rtmp":
+            assert "-stimeout" not in result
+            assert "-timeout" not in result
 
     def test_get_stream_information(self):
         """Test that the correct stream information is returned."""

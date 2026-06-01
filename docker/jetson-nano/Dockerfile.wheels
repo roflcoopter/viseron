@@ -2,7 +2,7 @@ ARG UBUNTU_VERSION
 ARG PYTHON_VERSION
 ARG DLIB_VERSION
 ARG JETPACK_VERSION
-FROM roflcoopter/jetson-nano-dlib:${DLIB_VERSION} as dlib
+FROM roflcoopter/jetson-nano-dlib:${DLIB_VERSION}-${UBUNTU_VERSION} as dlib
 FROM roflcoopter/jetson-nano-python:${PYTHON_VERSION} as python
 FROM roflcoopter/jetson-nano-python:3.9.19 as python-3.9.19
 FROM balenalib/jetson-nano-ubuntu:${UBUNTU_VERSION}-build as qemu

@@ -1,7 +1,7 @@
 ARG FFMPEG_VERSION
 ARG UBUNTU_VERSION
 FROM roflcoopter/viseron-models:latest as models
-FROM roflcoopter/rpi3-ffmpeg:${FFMPEG_VERSION} as ffmpeg
+FROM roflcoopter/rpi3-ffmpeg:${FFMPEG_VERSION}-${UBUNTU_VERSION} as ffmpeg
 FROM balenalib/raspberrypi3-ubuntu:${UBUNTU_VERSION}-run
 
 COPY --from=ffmpeg /opt/vc/lib /opt/vc/lib
@@ -14,18 +14,18 @@ COPY --from=models /classifiers/models/edgetpu /classifiers/models/edgetpu
 RUN \
   apt-get update && apt-get install -y --no-install-recommends \
   # face_recognition/dlib
-  libtiff5 \
+  libtiff6 \
   libjpeg62 \
   libxcb1 \
   libx11-6 \
   libxext6 \
   libsm6 \
   # OpenCV
-  libatlas3-base \
-  libhdf5-103 \
+  libopenblas0-pthread \
+  libhdf5-103-1t64 \
   liblapacke \
-  libopenexr25 \
-  libpng16-16 \
+  libopenexr-3-1-30 \
+  libpng16-16t64 \
   ## FFmpeg
   libx265-199 && \
   echo "/opt/vc/lib" > /etc/ld.so.conf.d/00-vmcs.conf && \

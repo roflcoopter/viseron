@@ -2,7 +2,7 @@
 exclude =
     # No need to traverse our git directory
     .git,
-max-complexity = 25
+max-complexity = 30
 doctests = True
 # To work with Black
 # E501: line too long

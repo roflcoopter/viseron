@@ -337,9 +337,19 @@ class Stream:
         if stream_config[CONFIG_INPUT_ARGS]:
             input_args = stream_config[CONFIG_INPUT_ARGS]
         else:
-            input_args = CAMERA_INPUT_ARGS + list(
+            timeout_option = list(
                 STREAM_FORMAT_MAP[stream_config[CONFIG_STREAM_FORMAT]]["timeout_option"]
             )
+            # Issue #617: Jetson Nano uses ffmpeg 4.x, where the RTSP-specific
+            # timeout option is -stimeout. Other images use ffmpeg 5.x and -timeout.
+            if (
+                os.getenv(ENV_JETSON_NANO) == "true"
+                and stream_config[CONFIG_STREAM_FORMAT] == "rtsp"
+                and timeout_option
+                and timeout_option[0] == "-timeout"
+            ):
+                timeout_option[0] = "-stimeout"
+            input_args = CAMERA_INPUT_ARGS + timeout_option
 
         return (
             input_args

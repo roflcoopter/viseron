@@ -36,11 +36,12 @@ import {
 import { ImageWithFallback } from "components/images/ImageWithFallback";
 import { useExportEvent } from "hooks/UseExportEvent";
 import { useFirstRender } from "hooks/UseFirstRender";
-import { BLANK_IMAGE, isTouchDevice, toTitleCase } from "lib/helpers";
+import { BLANK_IMAGE, toTitleCase } from "lib/helpers";
 import {
   getDayjsFromDateTimeString,
   getTimeStringFromDayjs,
 } from "lib/helpers/dates";
+import { useCanHover } from "lib/hooks/useCanHover";
 import * as types from "lib/types";
 
 const getText = (event: types.CameraEvent) => {
@@ -226,7 +227,8 @@ function Divider() {
 
 export function SnapshotIcon({ events }: { events: types.CameraEvent[] }) {
   const Icon = getIcon(events[0]);
-  const PopoverComponent = isTouchDevice() ? Popover : HoverPopover;
+  const canHover = useCanHover();
+  const PopoverComponent = canHover ? HoverPopover : Popover;
 
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const handleOnMouseEnter = useCallback(

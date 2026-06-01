@@ -50,6 +50,7 @@ class Route(TypedDict):
     allow_token_parameter: NotRequired[bool]
     json_body_schema: NotRequired[Schema]
     request_arguments_schema: NotRequired[Schema]
+    rate_limit: NotRequired[str]
 
 
 def require_auth(
@@ -110,11 +111,11 @@ class BaseAPIHandler(ViseronRequestHandler):
     def check_xsrf_cookie(self) -> None:
         """XSRF protection.
 
-        Enable XSRF for browser requests that use cookies; disable when using tokens.
+        Enforce XSRF for any cookie-authenticated, state-changing request,
+        regardless of the X-Requested-With header. Non-cookie clients
+        (Authorization header / PAT) are exempt because CSRF requires the
+        browser to attach credentials automatically.
         """
-        # If the request is an XMLHttpRequest and we rely on cookies (browser flow),
-        # enforce Tornado's XSRF protection (expects _xsrf token).
-        is_ajax = self.request.headers.get("X-Requested-With", "") == "XMLHttpRequest"
         has_signature_cookie = self.get_secure_cookie("signature_cookie") is not None
 
         # Determine if the current route explicitly allows token via query parameter
@@ -126,12 +127,7 @@ class BaseAPIHandler(ViseronRequestHandler):
         # that rely on cookies. Safe methods (GET, HEAD, OPTIONS) are excluded.
         state_changing = self.request.method in ("POST", "PUT", "DELETE", "PATCH")
 
-        if (
-            is_ajax
-            and has_signature_cookie
-            and state_changing
-            and not allows_token_param
-        ):
+        if has_signature_cookie and state_changing and not allows_token_param:
             # Use Tornado's default CSRF check when cookies are the credential
             # source and the request can change server state.
             return super().check_xsrf_cookie()
@@ -172,6 +168,34 @@ class BaseAPIHandler(ViseronRequestHandler):
         self.set_header("Content-Type", "application/json")
         response = {"status": status_code, "error": reason}
         self.finish(response)
+
+    def check_rate_limit(self, bucket: str) -> bool:
+        """Check the per-IP rate limit for bucket.
+
+        Returns True when the request is allowed. When throttled, sets a 429
+        response with a Retry-After header and returns False.
+        """
+        limiters = self._webserver.rate_limiters
+        limiter = limiters.get(bucket)
+        if limiter is None:
+            return True
+        key = self.request.remote_ip or "unknown"
+        allowed, retry_after = limiter.check(key)
+        if not allowed:
+            self.set_header("Retry-After", str(int(retry_after) + 1))
+            self.response_error(
+                HTTPStatus.TOO_MANY_REQUESTS,
+                reason="Too many requests, please try again later",
+            )
+            return False
+        return True
+
+    def reset_rate_limit(self, bucket: str) -> None:
+        """Reset the rate limit counter for the requesting IP and bucket."""
+        limiter = self._webserver.rate_limiters.get(bucket)
+        if limiter is None:
+            return
+        limiter.reset(self.request.remote_ip or "unknown")
 
     def handle_endpoint_not_found(self) -> None:
         """Return 404."""
@@ -292,6 +316,15 @@ class BaseAPIHandler(ViseronRequestHandler):
                     continue
 
                 self.route = route
+                # Enforce per-route rate limiting before any expensive work
+                # Throttled requests are rejected with 429 + Retry-After.
+                if self._webserver.auth:
+                    rate_limit_bucket = route.get("rate_limit")
+                    if rate_limit_bucket and not self.check_rate_limit(
+                        rate_limit_bucket
+                    ):
+                        return None
+
                 if self._webserver.auth and route.get("requires_auth", True):
                     if not await self.run_in_executor(self.validate_auth_header):
                         self.response_error(

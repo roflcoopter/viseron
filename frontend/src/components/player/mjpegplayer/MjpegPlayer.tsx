@@ -9,7 +9,7 @@ import { CustomControls } from "components/player/CustomControls.js";
 import { ZoomPanOverlay } from "components/player/ZoomPanOverlay";
 import { useZoomPan } from "components/player/hooks/useZoomPan";
 import { useMjpegPlayerControls } from "components/player/mjpegplayer/useMjpegPlayerControls";
-import { isTouchDevice } from "lib/helpers";
+import { useCanHover } from "lib/hooks/useCanHover";
 import * as types from "lib/types";
 
 const useMjpegErrorHandling = (
@@ -122,6 +122,7 @@ export function MjpegPlayer({
   onPlayerFullscreenChange,
 }: MjpegPlayerProps) {
   const theme = useTheme();
+  const canHover = useCanHover();
   const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -134,6 +135,7 @@ export function MjpegPlayer({
     handlePictureInPictureToggle,
     isPictureInPictureSupported,
     handleMouseEnter,
+    handleMouseMove,
     handleMouseLeave,
     handleTouchStart,
     handleManualRecording,
@@ -181,7 +183,8 @@ export function MjpegPlayer({
         cursor: isZoomPanDisabled ? "default" : cursor,
         ...style,
       }}
-      onMouseEnter={isTouchDevice() ? undefined : handleMouseEnter}
+      onMouseEnter={canHover ? handleMouseEnter : undefined}
+      onMouseMove={canHover ? handleMouseMove : undefined}
       onMouseLeave={handleMouseLeave}
       onTouchStart={handleTouchStart}
       onMouseDown={isZoomPanDisabled ? undefined : handleMouseDown}
