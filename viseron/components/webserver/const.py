@@ -91,7 +91,7 @@ DEFAULT_LDAP_USER_FILTER: Final = "(sAMAccountName={username})"
 DEFAULT_LDAP_GROUP_FILTER: Final = "(member={user_dn})"
 DEFAULT_LDAP_USERNAME_ATTRIBUTE: Final = "sAMAccountName"
 DEFAULT_LDAP_NAME_ATTRIBUTE: Final = "displayName"
-DEFAULT_LDAP_DEFAULT_ROLE: Final = "read"
+DEFAULT_LDAP_DEFAULT_ROLE: Final = "deny"
 
 DESC_AUTH = "Authentication configuration."
 DESC_LDAP = "LDAP/Active Directory authentication configuration."
