@@ -29,14 +29,18 @@ from .const import (
     CONFIG_ADMIN_GROUPS,
     CONFIG_BIND_DN,
     CONFIG_BIND_PASSWORD,
+    CONFIG_CAMERA_GROUPS,
+    CONFIG_CAMERAS,
     CONFIG_DAYS,
     CONFIG_DEBUG,
     CONFIG_DEFAULT_ROLE,
     CONFIG_ENABLED,
     CONFIG_GROUP_BASE_DN,
     CONFIG_GROUP_FILTER,
+    CONFIG_GROUPS,
     CONFIG_HOURS,
     CONFIG_LDAP,
+    CONFIG_LDAP_CAMERA_ACCESS,
     CONFIG_MAX_ATTEMPTS,
     CONFIG_MINUTES,
     CONFIG_NAME_ATTRIBUTE,
@@ -75,6 +79,7 @@ from .const import (
     DESC_ADMIN_GROUPS,
     DESC_BIND_DN,
     DESC_BIND_PASSWORD,
+    DESC_CAMERA_GROUPS,
     DESC_COMPONENT,
     DESC_DAYS,
     DESC_DEBUG,
@@ -84,6 +89,7 @@ from .const import (
     DESC_GROUP_FILTER,
     DESC_HOURS,
     DESC_LDAP,
+    DESC_LDAP_CAMERA_ACCESS,
     DESC_MAX_ATTEMPTS,
     DESC_MINUTES,
     DESC_NAME_ATTRIBUTE,
@@ -160,6 +166,24 @@ def _rate_limit_schema(default: dict[str, Any]) -> Any:
             ): vol.All(vol.Coerce(float), vol.Range(min=1)),
         },
     )
+
+
+CAMERA_GROUP_SCHEMA = vol.Schema(
+    {
+        vol.Required("name"): str,
+        vol.Optional(CONFIG_CAMERAS, default=[]): [str],
+    },
+    extra=vol.ALLOW_EXTRA,
+)
+
+LDAP_CAMERA_ACCESS_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONFIG_GROUPS): [str],
+        vol.Optional(CONFIG_CAMERA_GROUPS, default=[]): [str],
+        vol.Optional(CONFIG_CAMERAS, default=[]): [str],
+    },
+    extra=vol.ALLOW_EXTRA,
+)
 
 
 CONFIG_SCHEMA = vol.Schema(
@@ -239,6 +263,16 @@ CONFIG_SCHEMA = vol.Schema(
                                 ): _rate_limit_schema(DEFAULT_RATE_LIMIT_ONBOARDING),
                             },
                         ),
+                        vol.Optional(
+                            CONFIG_CAMERA_GROUPS,
+                            default={},
+                            description=DESC_CAMERA_GROUPS,
+                        ): {str: CAMERA_GROUP_SCHEMA},
+                        vol.Optional(
+                            CONFIG_LDAP_CAMERA_ACCESS,
+                            default=[],
+                            description=DESC_LDAP_CAMERA_ACCESS,
+                        ): [LDAP_CAMERA_ACCESS_SCHEMA],
                         vol.Optional(CONFIG_LDAP, description=DESC_LDAP): vol.All(
                             CoerceNoneToDict(),
                             {

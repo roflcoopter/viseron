@@ -15,11 +15,15 @@ from viseron.components.webserver.const import (
     CONFIG_ADMIN_GROUPS,
     CONFIG_BIND_DN,
     CONFIG_BIND_PASSWORD,
+    CONFIG_CAMERA_GROUPS,
+    CONFIG_CAMERAS,
     CONFIG_DEFAULT_ROLE,
     CONFIG_ENABLED,
+    CONFIG_GROUPS,
     CONFIG_GROUP_BASE_DN,
     CONFIG_GROUP_FILTER,
     CONFIG_LDAP,
+    CONFIG_LDAP_CAMERA_ACCESS,
     CONFIG_NAME_ATTRIBUTE,
     CONFIG_READ_GROUPS,
     CONFIG_URL,
@@ -39,6 +43,7 @@ class LDAPUser:
     username: str
     name: str
     role: Role
+    assigned_cameras: list[str] | None = None
 
 
 class LDAPTestFailedError(AuthenticationFailedError):
@@ -57,6 +62,7 @@ class LDAPAuthenticator:
     """Authenticate users against LDAP or Active Directory."""
 
     def __init__(self, config: dict[str, Any]) -> None:
+        self._auth_config = config
         self._config = config.get(CONFIG_LDAP) or {}
 
     @property
@@ -275,6 +281,35 @@ class LDAPAuthenticator:
             )
         return Role(self._config[CONFIG_DEFAULT_ROLE])
 
+    def _assigned_cameras_from_groups(
+        self, groups: list[str], role: Role
+    ) -> list[str] | None:
+        """Return camera access inherited from LDAP group mappings."""
+        if role == Role.ADMIN:
+            return None
+
+        rules = self._auth_config.get(CONFIG_LDAP_CAMERA_ACCESS) or []
+        if not rules:
+            return None
+
+        camera_groups = self._auth_config.get(CONFIG_CAMERA_GROUPS) or {}
+        assigned_cameras: set[str] = set()
+        matched_rule = False
+
+        for rule in rules:
+            if not self._group_matches(groups, rule.get(CONFIG_GROUPS) or []):
+                continue
+
+            matched_rule = True
+            assigned_cameras.update(rule.get(CONFIG_CAMERAS) or [])
+            for group_id in rule.get(CONFIG_CAMERA_GROUPS) or []:
+                group = camera_groups.get(group_id) or {}
+                assigned_cameras.update(group.get(CONFIG_CAMERAS) or [])
+
+        if not matched_rule:
+            return []
+        return sorted(assigned_cameras)
+
     def authenticate(self, username: str, password: str) -> LDAPUser:
         """Authenticate username and password against LDAP."""
         username = username.strip().casefold()
@@ -288,6 +323,7 @@ class LDAPAuthenticator:
             groups = self._member_of(attributes)
             groups.extend(self._search_groups(connection, username, user_dn))
             role = self._role_from_groups(groups)
+            assigned_cameras = self._assigned_cameras_from_groups(groups, role)
 
             ldap_username = (
                 self._attribute_value(
@@ -299,7 +335,7 @@ class LDAPAuthenticator:
                 self._attribute_value(attributes, self._config[CONFIG_NAME_ATTRIBUTE])
                 or ldap_username
             )
-            return LDAPUser(ldap_username.casefold(), name, role)
+            return LDAPUser(ldap_username.casefold(), name, role, assigned_cameras)
         except (LDAPException, AuthenticationFailedError) as error:
             LOGGER.debug("LDAP authentication failed for %s: %s", username, error)
             raise AuthenticationFailedError from error
@@ -326,6 +362,7 @@ class LDAPAuthenticator:
             groups = self._member_of(attributes)
             groups.extend(self._search_groups(connection, username, user_dn))
             role = self._role_from_groups(groups)
+            assigned_cameras = self._assigned_cameras_from_groups(groups, role)
             ldap_username = (
                 self._attribute_value(
                     attributes, self._config[CONFIG_USERNAME_ATTRIBUTE]
@@ -342,6 +379,7 @@ class LDAPAuthenticator:
                     "username": ldap_username.casefold(),
                     "name": name,
                     "role": role.value,
+                    "assigned_cameras": assigned_cameras,
                     "groups": len(groups),
                     "password_validated": bool(password),
                 },
