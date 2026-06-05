@@ -204,6 +204,7 @@ class User:
     enabled: bool = True
     assigned_cameras: list[str] | None = None
     preferences: Preferences | None = None
+    auth_provider: Literal["local", "ldap"] = "local"
 
     def asdict(self) -> dict[str, Any]:
         """Convert user to dict."""
@@ -214,6 +215,7 @@ class User:
             "role": self.role.value,
             "assigned_cameras": self.assigned_cameras,
             "preferences": self.preferences,
+            "auth_provider": self.auth_provider,
         }
 
 
@@ -401,12 +403,14 @@ class Auth:
                     ldap_user.role,
                     enabled=True,
                     assigned_cameras=ldap_user.assigned_cameras,
+                    auth_provider="ldap",
                 )
                 self.users[user.id] = user
             else:
                 if not user.enabled:
                     raise AuthenticationFailedError
                 user.name = ldap_user.name
+                user.auth_provider = "ldap"
                 if user.role != ldap_user.role:
                     if user.role == Role.ADMIN and ldap_user.role != Role.ADMIN:
                         admin_count = sum(
@@ -624,6 +628,7 @@ class Auth:
                 enabled=user["enabled"],
                 assigned_cameras=user.get("assigned_cameras", None),
                 preferences=preferences,
+                auth_provider=user.get("auth_provider", "local"),
             )
 
         for refresh_token in data.get("refresh_tokens", {}).values():

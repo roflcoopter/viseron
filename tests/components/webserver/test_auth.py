@@ -134,6 +134,7 @@ class TestAuth:
             username="aduser",
             name="AD User",
             role=Role.WRITE,
+            assigned_cameras=["camera1"],
         )
         self.auth._ldap_auth = ldap_auth
 
@@ -143,6 +144,8 @@ class TestAuth:
         assert user.name == "AD User"
         assert user.role == Role.WRITE
         assert user.enabled is True
+        assert user.assigned_cameras == ["camera1"]
+        assert user.auth_provider == "ldap"
         assert self.auth.get_user_by_username("aduser") == user
         ldap_auth.authenticate.assert_called_once_with("aduser", "secret")
 
@@ -155,6 +158,7 @@ class TestAuth:
             username="aduser",
             name="AD User",
             role=Role.WRITE,
+            assigned_cameras=["camera2"],
         )
         self.auth._ldap_auth = ldap_auth
 
@@ -163,6 +167,8 @@ class TestAuth:
         assert user == local_user
         assert user.name == "AD User"
         assert user.role == Role.WRITE
+        assert user.assigned_cameras == ["camera2"]
+        assert user.auth_provider == "ldap"
 
     def test_validate_user_ldap_preserves_last_admin(self):
         """Test LDAP sync does not demote the last local admin."""
@@ -173,6 +179,7 @@ class TestAuth:
             username="adadmin",
             name="AD Admin",
             role=Role.READ,
+            assigned_cameras=[],
         )
         self.auth._ldap_auth = ldap_auth
 
@@ -190,6 +197,7 @@ class TestAuth:
             username="aduser",
             name="AD User",
             role=Role.READ,
+            assigned_cameras=[],
         )
         self.auth._ldap_auth = ldap_auth
 
