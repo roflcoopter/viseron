@@ -68,7 +68,7 @@ from viseron.helpers.logs import (
     ViseronLogFormat,
 )
 from viseron.states import States
-from viseron.viseron_types import Domain, SupportedDomains
+from viseron.viseron_types import Domain, SupportedDomains, ViseronData
 from viseron.watchdog.process_watchdog import ProcessWatchDog
 from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
 from viseron.watchdog.thread_watchdog import ThreadWatchDog
@@ -258,7 +258,7 @@ class Viseron:
 
         self.setup_threads: list[threading.Thread] = []
 
-        self.data: dict[str, Any] = {}
+        self.data: ViseronData = {}
         self.data[LOADING] = {}
         self.data[LOADED] = {}
         self.data[FAILED] = {}

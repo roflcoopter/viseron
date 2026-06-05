@@ -39,10 +39,6 @@ class ViseronData(TypedDict, total=False):
     If a component saves anything to vis.data, it is REQUIRED to be typed here.
     When mypy adds support for TypedDict with extra_items, this can be changed to
     optional.
-
-    Note that the type hint for vis.data has not been changed to ViseronData yet,
-    to not break existing components. Once all components have been updated to
-    include their data here, the type hint for vis.data can be changed.
     """
 
     # Viseron core

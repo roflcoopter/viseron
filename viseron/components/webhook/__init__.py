@@ -234,7 +234,7 @@ class Webhook:
             resp = requests.request(
                 method=hook_conf[CONFIG_METHOD],
                 url=url,
-                data=payload,
+                data=payload.encode("utf-8") if payload else None,
                 headers=headers,
                 timeout=hook_conf[CONFIG_TIMEOUT],
                 verify=hook_conf[CONFIG_VERIFY_SSL],
