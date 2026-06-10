@@ -159,6 +159,7 @@ class AccessToken:
             "id": self.id,
             "name": self.name,
             "user_id": self.user_id,
+            "token_hash": self.token_hash,
             "created_at": self.created_at,
             "expires_at": self.expires_at,
             "last_used_at": self.last_used_at,
