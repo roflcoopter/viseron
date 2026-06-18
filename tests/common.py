@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, Mock
 
 import pytest
 from sqlalchemy import insert
@@ -286,6 +286,17 @@ class MockObjectDetector(MagicMock):
             object_filters={} if object_filters is None else object_filters,
             **kwargs,
         )
+
+        def _concat_labels():
+            """Return global filters plus all filters configured in each zone."""
+            zone_filters: list = []
+            for zone in self.zones:
+                zone_filters += list(zone.object_filters.values())
+            return list(self.object_filters.values()) + zone_filters
+
+        # Use a plain Mock (not the spec-derived child) so the dynamic
+        # side_effect does not trigger MagicMock signature introspection.
+        self.concat_labels = Mock(side_effect=_concat_labels)
 
 
 class BaseTestWithRecordings:

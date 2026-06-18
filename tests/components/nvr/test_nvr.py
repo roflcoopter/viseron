@@ -296,7 +296,7 @@ class TestNVRInit:
         caplog.set_level(logging.WARNING, logger="viseron.components.nvr.nvr")
         object_detector = MockObjectDetector(fps=5, scan_on_motion_only=False)
         object_detector.object_filters = {
-            "person": SimpleNamespace(require_motion=True)
+            "person": SimpleNamespace(require_motion=True, require_motion_overlap=False)
         }
         make_nvr(vis, object_detector=object_detector)
         assert object_detector.object_filters["person"].require_motion is False
@@ -813,7 +813,7 @@ class TestNVRRunBoth:
             fps=5, trigger_event_recording=False, recorder_keepalive=True
         )
         object_detector.object_filters = {
-            "person": SimpleNamespace(require_motion=True)
+            "person": SimpleNamespace(require_motion=True, require_motion_overlap=False)
         }
         nvr, camera = make_nvr(
             vis,
@@ -840,6 +840,70 @@ class TestNVRRunBoth:
         assert camera.is_recording
         assert nvr._frame_scanners[MOTION_DETECTOR].scan is True
 
+    def test_require_motion_overlap_blocks_start_without_overlap(
+        self, vis, monkeypatch
+    ):
+        """require_motion_overlap blocks start when motion does not overlap object."""
+        object_detector = MockObjectDetector(fps=5, scan_on_motion_only=False)
+        motion_detector = MockMotionDetector(
+            fps=5, trigger_event_recording=False, recorder_keepalive=True
+        )
+        object_detector.object_filters = {
+            "person": SimpleNamespace(
+                require_motion=True,
+                require_motion_overlap=True,
+                motion_overlap_threshold=0.1,
+            )
+        }
+        nvr, camera = make_nvr(
+            vis,
+            camera_output_fps=5,
+            object_detector=object_detector,
+            motion_detector=motion_detector,
+        )
+
+        fake_time = FakeTime()
+        patch_nvr_utcnow(monkeypatch, fake_time)
+        configure_camera_for_recording_tests(camera, fake_time, idle_timeout=2)
+
+        # Object sits in the top-left corner of the frame.
+        object_detector.objects_in_fov = [
+            SimpleNamespace(
+                trigger_event_recording=True,
+                label="person",
+                rel_x1=0.0,
+                rel_y1=0.0,
+                rel_x2=0.2,
+                rel_y2=0.2,
+            )
+        ]
+
+        # Motion is present, but its contour is in the bottom-right corner and
+        # does not overlap the object -> recording must not start.
+        non_overlapping_contour = np.array(
+            [[[0.7, 0.7]], [[0.9, 0.7]], [[0.9, 0.9]], [[0.7, 0.9]]],
+            dtype=np.float32,
+        )
+        motion_detector.motion_detected = True
+        motion_detector.motion_contours = SimpleNamespace(
+            rel_contours=[non_overlapping_contour]
+        )
+        feed_frame_to_nvr(nvr)
+        nvr._run()
+        assert not camera.is_recording
+
+        # Motion contour now overlaps the object -> recording starts.
+        overlapping_contour = np.array(
+            [[[0.0, 0.0]], [[0.2, 0.0]], [[0.2, 0.2]], [[0.0, 0.2]]],
+            dtype=np.float32,
+        )
+        motion_detector.motion_contours = SimpleNamespace(
+            rel_contours=[overlapping_contour]
+        )
+        feed_frame_to_nvr(nvr)
+        nvr._run()
+        assert camera.is_recording
+
     def test_require_motion_stops_when_motion_lost(self, vis, monkeypatch):
         """Stops via countdown when motion lost."""
         object_detector = MockObjectDetector(fps=5, scan_on_motion_only=False)
@@ -847,7 +911,7 @@ class TestNVRRunBoth:
             fps=5, trigger_event_recording=False, recorder_keepalive=True
         )
         object_detector.object_filters = {
-            "person": SimpleNamespace(require_motion=True)
+            "person": SimpleNamespace(require_motion=True, require_motion_overlap=False)
         }
         nvr, camera = make_nvr(
             vis,
@@ -890,7 +954,7 @@ class TestNVRRunBoth:
             fps=5, trigger_event_recording=False, recorder_keepalive=True
         )
         object_detector.object_filters = {
-            "person": SimpleNamespace(require_motion=True)
+            "person": SimpleNamespace(require_motion=True, require_motion_overlap=False)
         }
         nvr, camera = make_nvr(
             vis,

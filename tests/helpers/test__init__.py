@@ -5,9 +5,83 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+import numpy as np
 import pytest
 
 from viseron import helpers
+
+
+@pytest.mark.parametrize(
+    "rel_bbox, rel_contours, expected",
+    [
+        (
+            (0.1, 0.1, 0.4, 0.4),
+            [
+                np.array(
+                    [
+                        [[0.1, 0.1]],
+                        [[0.4, 0.1]],
+                        [[0.4, 0.4]],
+                        [[0.1, 0.4]],
+                    ],
+                    dtype=np.float32,
+                )
+            ],
+            1.0,
+        ),
+        (
+            (0.1, 0.1, 0.3, 0.3),
+            [
+                np.array(
+                    [
+                        [0.4, 0.4],
+                        [0.5, 0.4],
+                        [0.5, 0.5],
+                        [0.4, 0.5],
+                    ],
+                    dtype=np.float32,
+                )
+            ],
+            0.0,
+        ),
+        (
+            (0.1, 0.1, 0.3, 0.3),
+            [
+                np.array(
+                    [
+                        [[0.1, 0.1]],
+                        [[0.2, 0.1]],
+                        [[0.2, 0.3]],
+                        [[0.1, 0.3]],
+                    ],
+                    dtype=np.float32,
+                )
+            ],
+            0.5,
+        ),
+        ((0.1, 0.1, 0.3, 0.3), [], 0.0),
+        (
+            (0.1, 0.1, 0.1, 0.3),
+            [
+                np.array(
+                    [
+                        [[0.1, 0.1]],
+                        [[0.3, 0.1]],
+                        [[0.3, 0.3]],
+                        [[0.1, 0.3]],
+                    ],
+                    dtype=np.float32,
+                )
+            ],
+            0.0,
+        ),
+    ],
+)
+def test_object_motion_overlap(rel_bbox, rel_contours, expected):
+    """Test object_motion_overlap returns covered bbox fraction."""
+    assert helpers.object_motion_overlap(rel_bbox, rel_contours) == pytest.approx(
+        expected, abs=0.05
+    )
 
 
 @pytest.mark.parametrize(
