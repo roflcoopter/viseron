@@ -161,7 +161,7 @@ def object_motion_overlap(
     if not scaled_contours:
         return 0.0
 
-    cv2.fillPoly(motion_mask, scaled_contours, 1)
+    cv2.fillPoly(motion_mask, scaled_contours, (1,))
     motion_area = np.count_nonzero(motion_mask[y1_px:y2_px, x1_px:x2_px])
     overlap = motion_area / bbox_area
     return float(max(0.0, min(1.0, overlap)))
