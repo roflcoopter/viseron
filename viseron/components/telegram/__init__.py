@@ -252,6 +252,18 @@ class TelegramEventNotifier:
         )
 
     async def _send_notifications(self, event_data: Event[EventRecorderData]) -> None:
+        detection_label = self._config[CONFIG_DETECTION_LABEL]
+        labels = {obj.label for obj in event_data.data.recording.objects}
+        if detection_label and detection_label not in labels:
+            LOGGER.debug(
+                "Skipping Telegram notification for %s; no '%s' label in recording "
+                "(labels=%s)",
+                event_data.data.camera.identifier,
+                detection_label,
+                labels,
+            )
+            return
+
         file = event_data.data.recording.clip_path
         if file and os.path.exists(file) and self._config[CONFIG_SEND_VIDEO]:
             caption = f"{event_data.data.camera.identifier}"
