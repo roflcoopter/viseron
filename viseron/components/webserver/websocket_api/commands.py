@@ -724,6 +724,7 @@ async def export_timespan(connection: WebSocketHandler, message) -> None:
     )
 
 
+@require_admin
 @websocket_command(
     {
         vol.Required("type"): "render_template",
