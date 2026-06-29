@@ -497,7 +497,9 @@ async def export_recording(connection: WebSocketHandler, message) -> None:
         with connection.get_session() as session:
             try:
                 recording = session.execute(
-                    select(Recordings).where(Recordings.id == message["recording_id"])
+                    select(Recordings)
+                    .where(Recordings.id == message["recording_id"])
+                    .where(Recordings.camera_identifier == camera.identifier)
                 ).scalar_one()
             except NoResultFound:
                 return subscription_error_message(
@@ -605,7 +607,9 @@ async def export_snapshot(connection: WebSocketHandler, message) -> None:
         with connection.get_session() as session:
             try:
                 event = session.execute(
-                    select(model).where(model.id == message["snapshot_id"])
+                    select(model)
+                    .where(model.id == message["snapshot_id"])
+                    .where(model.camera_identifier == camera.identifier)
                 ).scalar_one()
             except NoResultFound:
                 return error_message(
