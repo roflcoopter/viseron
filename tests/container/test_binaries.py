@@ -147,7 +147,13 @@ def test_vainfo_runs(host: testinfra.host.Host, arch: str) -> None:
         f"stdout=\n{cmd.stdout}\nstderr=\n{cmd.stderr}"
     )
     assert "segmentation fault" not in output, output
-    assert "vainfo" in output or "libva" in output, (
+    # GitHub-hosted runners have no render device. Some libva builds report
+    # that as a plain stdout message without mentioning libva/vainfo.
+    assert (
+        "vainfo" in output
+        or "libva" in output
+        or "failed to open the given device" in output
+    ), (
         f"vainfo did not produce expected output:\nstdout=\n{cmd.stdout}\n"
         f"stderr=\n{cmd.stderr}"
     )
