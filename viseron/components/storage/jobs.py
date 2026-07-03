@@ -28,6 +28,11 @@ from viseron.components.storage.models import (
     PostProcessorResults,
     Recordings,
 )
+from viseron.components.storage.util import (
+    is_storage_temp_file,
+    path_exists,
+    tier_path_available,
+)
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import DomainNotRegisteredError
@@ -49,6 +54,45 @@ LOGGER = logging.getLogger(__name__)
 LOG_THROTTLE_SECONDS = 5
 
 BATCH_SIZE = 100
+ORPHAN_FILE_GRACE_SECONDS = 5 * 60
+STALE_TEMP_FILE_SECONDS = 60 * 60
+
+
+def try_remove_file(path: str, job_name: str, *, missing_ok: bool = False) -> bool:
+    """Return if cleanup can proceed after attempting to remove a file."""
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        return missing_ok
+    except OSError as error:
+        LOGGER.warning("%s failed to delete file %s: %s", job_name, path, error)
+        return False
+    return True
+
+
+def try_delete_orphan_file(
+    path: str,
+    job_name: str,
+    *,
+    file_exists: bool,
+    stat_result: os.stat_result | None = None,
+) -> bool:
+    """Delete an old orphan file while preserving transient filesystem errors."""
+    if file_exists:
+        return False
+
+    if stat_result is None:
+        try:
+            stat_result = os.stat(path)
+        except FileNotFoundError:
+            return False
+        except OSError as error:
+            LOGGER.warning("%s skipping unavailable file %s: %s", job_name, path, error)
+            return False
+
+    if time.time() - stat_result.st_mtime <= ORPHAN_FILE_GRACE_SECONDS:
+        return False
+    return try_remove_file(path, job_name)
 
 
 class BaseCleanupJob(ABC):
@@ -226,6 +270,9 @@ class OrphanedFilesCleanup(BaseCleanupJob):
             for path in paths:
                 if self.kill_event.is_set():
                     break
+                if not tier_path_available(path):
+                    LOGGER.warning("%s skipping unavailable path %s", self.name, path)
+                    continue
                 LOGGER.debug("%s checking %s", self.name, path)
                 for root, _, files in os.walk(path):
                     if self.kill_event.is_set():
@@ -241,11 +288,39 @@ class OrphanedFilesCleanup(BaseCleanupJob):
                         if file in self._storage.ignored_files:
                             continue
                         file_path = os.path.join(root, file)
+                        try:
+                            stat_result = os.stat(file_path)
+                        except FileNotFoundError:
+                            continue
+                        except OSError as error:
+                            LOGGER.warning(
+                                "%s skipping file %s: %s",
+                                self.name,
+                                file_path,
+                                error,
+                            )
+                            continue
+                        file_age = time.time() - stat_result.st_mtime
+                        if is_storage_temp_file(file_path):
+                            if file_age <= STALE_TEMP_FILE_SECONDS:
+                                continue
+                            if try_remove_file(file_path, self.name):
+                                LOGGER.debug(
+                                    "%s deleted stale temporary file %s",
+                                    self.name,
+                                    file_path,
+                                )
+                                deleted_count += 1
+                            continue
                         file_exists = session.execute(
                             select(Files).where(Files.path == file_path)
                         ).first()
-                        if not file_exists and os.path.exists(file_path):
-                            os.remove(file_path)
+                        if try_delete_orphan_file(
+                            file_path,
+                            self.name,
+                            file_exists=file_exists is not None,
+                            stat_result=stat_result,
+                        ):
                             LOGGER.debug("%s deleted %s", self.name, file_path)
                             deleted_count += 1
                         self.log_progress(
@@ -310,12 +385,20 @@ class OrphanedDatabaseFilesCleanup(BaseCleanupJob):
                 # Update cursor
                 last_id = files[-1][0]
 
-                # Find records where files don't exist
-                to_delete = [
-                    file_id
-                    for file_id, file_path in files
-                    if not os.path.exists(file_path)
-                ]
+                # Find records where files don't exist. Non-missing OSError is treated
+                # as transient so an unavailable tier does not erase metadata.
+                to_delete = []
+                for file_id, file_path in files:
+                    try:
+                        if not path_exists(file_path):
+                            to_delete.append(file_id)
+                    except OSError as error:
+                        LOGGER.warning(
+                            "%s skipping unavailable file %s: %s",
+                            self.name,
+                            file_path,
+                            error,
+                        )
 
                 if to_delete:
                     result = session.execute(
@@ -397,17 +480,26 @@ class ZeroSizeFilesCleanup(BaseCleanupJob):
                     path = file_row.path
                     try:
                         stat_size = os.path.getsize(path)
+                    except FileNotFoundError:
+                        to_delete_ids.append(file_row.id)
+                        deleted += 1
+                        continue
                     except OSError:
-                        stat_size = 0
+                        LOGGER.warning(
+                            "%s skipping unavailable file %s", self.name, path
+                        )
+                        continue
 
                     if stat_size > 0:
                         file_row.size = stat_size
                         updated += 1
                     else:
-                        if os.path.exists(path):
-                            os.remove(path)
-                        to_delete_ids.append(file_row.id)
-                        deleted += 1
+                        # Only drop the DB row after a confirmed delete. Remote
+                        # filesystems can report transient unlink errors, and in
+                        # that case the row should survive for a later retry.
+                        if try_remove_file(path, self.name, missing_ok=True):
+                            to_delete_ids.append(file_row.id)
+                            deleted += 1
 
                 if to_delete_ids:
                     session.execute(delete(Files).where(Files.id.in_(to_delete_ids)))
@@ -464,6 +556,9 @@ class EmptyFoldersCleanup(BaseCleanupJob):
 
         for path in paths:
             time.sleep(1)
+            if not tier_path_available(path):
+                LOGGER.warning("%s skipping unavailable path %s", self.name, path)
+                continue
             for root, dirs, files in os.walk(path, topdown=False):
                 processed_count += 1
                 self.log_progress(f"{self.name} processed {processed_count} folders")
@@ -471,8 +566,17 @@ class EmptyFoldersCleanup(BaseCleanupJob):
                     continue
                 if not dirs and not files:
                     LOGGER.debug("Deleting folder %s", root)
-                    os.rmdir(root)
-                    deleted_count += 1
+                    try:
+                        os.rmdir(root)
+                    except OSError as error:
+                        LOGGER.debug(
+                            "%s failed to delete folder %s: %s",
+                            self.name,
+                            root,
+                            error,
+                        )
+                    else:
+                        deleted_count += 1
 
         LOGGER.debug(
             "%s deleted %d empty folders, took %s",
@@ -508,7 +612,23 @@ class OrphanedThumbnailsCleanup(BaseCleanupJob):
         with self._storage.get_session() as session:
             for thumbnails_path in paths:
                 files_processed = 0
-                if not os.path.exists(thumbnails_path):
+                try:
+                    if not path_exists(thumbnails_path):
+                        continue
+                except OSError as error:
+                    LOGGER.warning(
+                        "%s skipping unavailable path %s: %s",
+                        self.name,
+                        thumbnails_path,
+                        error,
+                    )
+                    continue
+                if not tier_path_available(thumbnails_path):
+                    LOGGER.warning(
+                        "%s skipping unavailable path %s",
+                        self.name,
+                        thumbnails_path,
+                    )
                     continue
 
                 files_to_check: list[str] = []
@@ -517,6 +637,7 @@ class OrphanedThumbnailsCleanup(BaseCleanupJob):
                         os.path.join(root, f)
                         for f in files
                         if f not in self._storage.ignored_files
+                        and not is_storage_temp_file(f)
                     )
 
                 # Process files in batches
@@ -536,10 +657,11 @@ class OrphanedThumbnailsCleanup(BaseCleanupJob):
 
                     # Delete files that don't exist in database
                     for file_path in batch:
-                        if file_path not in existing_thumbnails and os.path.exists(
-                            file_path
+                        if try_delete_orphan_file(
+                            file_path,
+                            self.name,
+                            file_exists=file_path in existing_thumbnails,
                         ):
-                            os.remove(file_path)
                             deleted_count += 1
                         total_files_processed += 1
                         files_processed += 1
@@ -591,7 +713,23 @@ class OrphanedEventClipsCleanup(BaseCleanupJob):
         with self._storage.get_session() as session:
             for event_clips_path in paths:
                 files_processed = 0
-                if not os.path.exists(event_clips_path):
+                try:
+                    if not path_exists(event_clips_path):
+                        continue
+                except OSError as error:
+                    LOGGER.warning(
+                        "%s skipping unavailable path %s: %s",
+                        self.name,
+                        event_clips_path,
+                        error,
+                    )
+                    continue
+                if not tier_path_available(event_clips_path):
+                    LOGGER.warning(
+                        "%s skipping unavailable path %s",
+                        self.name,
+                        event_clips_path,
+                    )
                     continue
 
                 # Collect all files first
@@ -601,6 +739,7 @@ class OrphanedEventClipsCleanup(BaseCleanupJob):
                         os.path.join(root, f)
                         for f in files
                         if f not in self._storage.ignored_files
+                        and not is_storage_temp_file(f)
                     )
 
                 # Process files in batches
@@ -620,10 +759,11 @@ class OrphanedEventClipsCleanup(BaseCleanupJob):
 
                     # Delete files that don't exist in database
                     for file_path in batch:
-                        if file_path not in existing_clips and os.path.exists(
-                            file_path
+                        if try_delete_orphan_file(
+                            file_path,
+                            self.name,
+                            file_exists=file_path in existing_clips,
                         ):
-                            os.remove(file_path)
                             deleted_count += 1
                         total_files_processed += 1
                         files_processed += 1

@@ -1,22 +1,219 @@
 """Test the query functions."""
 
 import datetime
+import os
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+import pytest
 from sqlalchemy import update
+from sqlalchemy.exc import NoResultFound
 
 from viseron.components.storage.check_tier import (
     Worker,
+    delete_file,
     get_files_to_move,
     get_recordings_to_move,
     load_recordings,
     load_tier,
+    move_file_for_tier_worker,
 )
 from viseron.components.storage.models import Recordings
 from viseron.components.storage.storage_subprocess import DataItem
 
 from tests.common import BaseTestWithRecordings
+
+
+class FakeScalarResult:
+    """Fake SQLAlchemy scalar result."""
+
+    def scalar_one(self) -> None:
+        """Raise no result found."""
+        raise NoResultFound
+
+
+class FakeSession:
+    """Fake SQLAlchemy session."""
+
+    def __init__(self) -> None:
+        self.executed = False
+        self.committed = False
+
+    def __enter__(self):
+        """Return context manager session."""
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        """Exit context manager."""
+
+    def execute(self, _stmt):
+        """Record statement execution."""
+        self.executed = True
+        return FakeScalarResult()
+
+    def commit(self) -> None:
+        """Record commit."""
+        self.committed = True
+
+
+class TestFileOperations:
+    """Test destructive file operations."""
+
+    def test_move_file_destination_error_keeps_source_state(
+        self, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Destination failures must not delete source file or DB row."""
+        src = tmp_path / "src.m4s"
+        dst = tmp_path / "dst.m4s"
+        src.write_bytes(b"segment")
+        session = FakeSession()
+
+        def raise_oserror(_src: str, _dst: str) -> int:
+            raise OSError("destination unavailable")
+
+        monkeypatch.setattr(
+            "viseron.components.storage.check_tier.move_file_atomic",
+            raise_oserror,
+        )
+
+        with pytest.raises(OSError, match="destination unavailable"):
+            move_file_for_tier_worker(lambda: session, str(src), str(dst), MagicMock())
+
+        assert src.exists()
+        assert session.executed is False
+        assert session.committed is False
+
+    def test_move_file_missing_source_deletes_stale_db_row(self, tmp_path) -> None:
+        """Missing source means stale DB state, not a retryable move."""
+        src = tmp_path / "missing.m4s"
+        dst = tmp_path / "dst.m4s"
+        session = FakeSession()
+
+        result = move_file_for_tier_worker(
+            lambda: session, str(src), str(dst), MagicMock()
+        )
+
+        assert result.moved is False
+        assert result.published is False
+        assert result.source_missing is True
+        assert result.source_removed is False
+        assert result.source_remove_error is None
+        assert result.size is None
+        assert session.executed is True
+        assert session.committed is True
+
+    def test_move_file_source_remove_error_reports_published(
+        self, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A failed source cleanup must still report the destination as published."""
+        src = tmp_path / "src.m4s"
+        dst = tmp_path / "dst.m4s"
+        src.write_bytes(b"segment")
+        session = FakeSession()
+        real_remove = os.remove
+
+        def remove_with_source_error(path: str) -> None:
+            if path == str(src):
+                raise OSError("unlink failed")
+            real_remove(path)
+
+        monkeypatch.setattr(
+            "viseron.components.storage.util.os.remove",
+            remove_with_source_error,
+        )
+
+        result = move_file_for_tier_worker(
+            lambda: session, str(src), str(dst), MagicMock()
+        )
+
+        assert result.moved is True
+        assert result.published is True
+        assert result.source_missing is False
+        assert result.source_removed is False
+        assert result.source_remove_error == "unlink failed"
+        assert result.size == len(b"segment")
+        assert src.exists()
+        assert dst.read_bytes() == b"segment"
+        assert session.executed is False
+        assert session.committed is False
+
+    def test_move_file_replace_error_after_publish_reports_published(
+        self, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An ACK-lost replace should commit if the destination verifies."""
+        src = tmp_path / "src.m4s"
+        dst = tmp_path / "dst.m4s"
+        src.write_bytes(b"segment")
+        session = FakeSession()
+        real_replace = os.replace
+
+        def replace_then_error(src_path: str, dst_path: str) -> None:
+            real_replace(src_path, dst_path)
+            raise OSError("replace ack lost")
+
+        monkeypatch.setattr(
+            "viseron.components.storage.util.os.replace",
+            replace_then_error,
+        )
+
+        result = move_file_for_tier_worker(
+            lambda: session, str(src), str(dst), MagicMock()
+        )
+
+        assert result.moved is True
+        assert result.published is True
+        assert result.source_missing is False
+        assert result.source_removed is True
+        assert result.source_remove_error is None
+        assert result.size == len(b"segment")
+        assert not src.exists()
+        assert dst.read_bytes() == b"segment"
+        assert session.executed is False
+        assert session.committed is False
+
+    def test_delete_file_transient_error_keeps_db_row(
+        self, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A failed remove should not delete the DB row."""
+        src = tmp_path / "src.m4s"
+        src.write_bytes(b"segment")
+        session = FakeSession()
+
+        def raise_oserror(_path: str) -> None:
+            raise OSError("remove failed")
+
+        monkeypatch.setattr(
+            "viseron.components.storage.check_tier.os.remove", raise_oserror
+        )
+
+        with pytest.raises(OSError, match="remove failed"):
+            delete_file(lambda: session, str(src), MagicMock())
+
+        assert session.executed is False
+        assert session.committed is False
+
+    def test_move_file_unavailable_parent_keeps_db_row(
+        self, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Unavailable source/destination parents should not delete DB rows."""
+        src = tmp_path / "src.m4s"
+        dst = tmp_path / "dst.m4s"
+        src.write_bytes(b"segment")
+        session = FakeSession()
+
+        def raise_oserror(_path: str) -> None:
+            raise OSError("parent unavailable")
+
+        monkeypatch.setattr(
+            "viseron.components.storage.check_tier.raise_if_path_unavailable",
+            raise_oserror,
+        )
+
+        with pytest.raises(OSError, match="parent unavailable"):
+            move_file_for_tier_worker(lambda: session, str(src), str(dst), MagicMock())
+
+        assert session.executed is False
+        assert session.committed is False
 
 
 class TestCheckTier(BaseTestWithRecordings):

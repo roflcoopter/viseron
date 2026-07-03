@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import datetime
+import errno
 import logging
 import os
-import shutil
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -20,8 +20,9 @@ from sqlalchemy.orm import Session
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import Recordings
 from viseron.components.storage.queries import get_recording_fragments
+from viseron.components.storage.util import move_file_atomic
 from viseron.const import CAMERA_SEGMENT_DURATION
-from viseron.domains.camera.fragmenter import Fragment
+from viseron.domains.camera.fragmenter import Fragment, recover_from_storage_pressure
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.events import EventData
 from viseron.helpers import create_directory, draw_objects, get_utc_offset, utcnow
@@ -423,10 +424,31 @@ class AbstractRecorder(ABC, RecorderBase):
         clip_path = os.path.join(full_path, video_name)
 
         create_directory(os.path.dirname(clip_path))
-        shutil.move(
-            event_clip,
-            clip_path,
-        )
+        try:
+            move_file_atomic(event_clip, clip_path)
+        except FileNotFoundError:
+            self._logger.error("Failed to find generated event clip %s", event_clip)
+            return None
+        except OSError as error:
+            if error.errno == errno.ENOSPC:
+                self._logger.error(
+                    "No space left while publishing event clip %s",
+                    clip_path,
+                    exc_info=error,
+                )
+                recover_from_storage_pressure(
+                    self._vis,
+                    self._storage,
+                    self._camera.identifier,
+                    self._logger,
+                )
+            else:
+                self._logger.error(
+                    "Failed to publish event clip %s",
+                    clip_path,
+                    exc_info=error,
+                )
+            return None
         self._logger.debug(f"Moved event clip to {clip_path}")
 
         with self._storage.get_session() as session:

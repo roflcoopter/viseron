@@ -10,9 +10,10 @@ import sys
 import threading
 import time
 from collections import OrderedDict
+from collections.abc import Callable, Hashable
 from dataclasses import dataclass
 from queue import Empty, Queue
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Generic, Literal, TypeAlias, TypeVar
 
 import psutil
 import setproctitle
@@ -26,13 +27,14 @@ from viseron.watchdog.thread_watchdog import RestartableThread, ThreadWatchDog
 
 if TYPE_CHECKING:
     import datetime
-    from collections.abc import Callable
 
     import numpy as np
 
     from viseron import Viseron
 
 LOGGER = logging.getLogger(__name__)
+T = TypeVar("T")
+K = TypeVar("K", bound=Hashable)
 
 # Upper bound on the parent's pending-callback dict. check_tier jobs are sent
 # with a callback, but DedupCheckQueue drops superseded jobs in the subprocess
@@ -86,6 +88,12 @@ class DataItemMoveFile:
     dst: str
     callback_id: str | None = None
     error: str | None = None
+    moved: bool = False
+    published: bool = False
+    source_missing: bool = False
+    source_removed: bool = False
+    source_remove_error: str | None = None
+    size: int | None = None
 
 
 @dataclass
@@ -96,6 +104,19 @@ class DataItemDeleteFile:
     src: str
     callback_id: str | None = None
     error: str | None = None
+
+
+FileOperation: TypeAlias = DataItemDeleteFile | DataItemMoveFile
+FileOperationKey: TypeAlias = tuple[str, str, str | None]
+
+
+def file_operation_key(item: FileOperation) -> FileOperationKey:
+    """Return queue dedupe key for a file operation."""
+    return (
+        item.cmd,
+        item.src,
+        item.dst if isinstance(item, DataItemMoveFile) else None,
+    )
 
 
 class DedupCheckQueue:
@@ -115,8 +136,8 @@ class DedupCheckQueue:
     Deduping on insert bounds the queue to ``N_cameras * N_throttle_keys``
     regardless of how fast jobs are enqueued.
 
-    ``file_queue`` is intentionally left as a plain ``Queue``: move_file and
-    delete_file are per-file destructive operations and must not be dropped.
+    File operations use their own deduping queue keyed by exact operation, so
+    duplicate queued moves/deletes collapse without dropping distinct paths.
     """
 
     def __init__(self) -> None:
@@ -152,6 +173,51 @@ class DedupCheckQueue:
 
     def qsize(self) -> int:
         """Return the number of queued jobs."""
+        with self._cond:
+            return len(self._items)
+
+
+class DedupFileQueue(Generic[T, K]):
+    """FIFO queue that dedupes queued items by caller-provided key."""
+
+    def __init__(self, key_func: Callable[[T], K]) -> None:
+        self._key_func = key_func
+        self._items: OrderedDict[K, T] = OrderedDict()
+        self._cond = threading.Condition()
+
+    def put(self, item: T) -> None:
+        """Insert an item, replacing any queued item with the same key."""
+        with self._cond:
+            key = self._key_func(item)
+            self._items.pop(key, None)
+            self._items[key] = item
+            self._cond.notify()
+
+    def get(self, timeout: float | None = None) -> T:
+        """Pop the oldest item, blocking up to timeout seconds."""
+        with self._cond:
+            end_time = None if timeout is None else time.monotonic() + timeout
+            while not self._items:
+                if end_time is None:
+                    self._cond.wait()
+                else:
+                    remaining = end_time - time.monotonic()
+                    if remaining <= 0:
+                        raise Empty
+                    self._cond.wait(remaining)
+            _, item = self._items.popitem(last=False)
+            return item
+
+    def get_nowait(self) -> T:
+        """Pop the oldest item without blocking."""
+        with self._cond:
+            if not self._items:
+                raise Empty
+            _, item = self._items.popitem(last=False)
+            return item
+
+    def qsize(self) -> int:
+        """Return the number of queued items."""
         with self._cond:
             return len(self._items)
 
@@ -307,7 +373,7 @@ def initializer(cpulimit: int | None) -> None:
 
 def worker_task_files(
     worker: Worker,
-    file_queue: Queue[DataItemDeleteFile | DataItemMoveFile],
+    file_queue: DedupFileQueue[FileOperation, FileOperationKey],
     output_queue: Queue[DataItemDeleteFile | DataItemMoveFile],
 ) -> None:
     """Worker thread that only processes file operation commands."""
@@ -325,7 +391,7 @@ def worker_task_files(
 def worker_task_mixed(
     worker: Worker,
     check_queue: DedupCheckQueue,
-    file_queue: Queue[DataItemDeleteFile | DataItemMoveFile],
+    file_queue: DedupFileQueue[FileOperation, FileOperationKey],
     output_queue: Queue[DataItem | DataItemDeleteFile | DataItemMoveFile],
     name: str,
 ) -> None:
@@ -351,7 +417,7 @@ def worker_task_mixed(
 def dispatcher_task(
     process_queue: Queue[DataItem | DataItemDeleteFile | DataItemMoveFile],
     check_queue: DedupCheckQueue,
-    file_queue: Queue[DataItemDeleteFile | DataItemMoveFile],
+    file_queue: DedupFileQueue[FileOperation, FileOperationKey],
 ) -> None:
     """Dispatcher thread routing jobs to dedicated queues.
 
@@ -402,7 +468,7 @@ def main() -> None:
     LOGGER.debug(f"Starting {args.workers} worker threads")
 
     check_queue = DedupCheckQueue()
-    file_queue: Queue[DataItemDeleteFile | DataItemMoveFile] = Queue()
+    file_queue = DedupFileQueue[FileOperation, FileOperationKey](file_operation_key)
 
     dispatcher = RestartableThread(
         name="storage_subprocess.dispatcher",

@@ -81,6 +81,7 @@ from viseron.components.storage.util import (
     get_segments_path,
     get_thumbnails_path,
     get_timelapse_path,
+    is_storage_temp_file,
 )
 from viseron.components.webserver.const import COMPONENT as WEBSERVER_COMPONENT
 from viseron.const import VISERON_SIGNAL_LAST_WRITE, VISERON_SIGNAL_STOPPING
@@ -224,11 +225,7 @@ class TierHandler(FileSystemEventHandler):
         self._max_age = calculate_age(self._tier[CONFIG_MAX_AGE])
         self._min_age = calculate_age(self._tier[CONFIG_MIN_AGE])
 
-        if (
-            self._next_tier is None
-            and not self._max_age
-            and not self._max_bytes
-        ):
+        if self._next_tier is None and not self._max_age and not self._max_bytes:
             self._logger.warning(
                 "Last tier '%s' has no max_age or max_size configured; "
                 "files on this tier will accumulate indefinitely.",
@@ -339,23 +336,52 @@ class TierHandler(FileSystemEventHandler):
             if event is None:
                 self._logger.debug("Stopping event handler")
                 break
-            if isinstance(event, FileDeletedEvent):
-                self._on_deleted(event)
-            elif isinstance(event, FileCreatedEvent):
-                self._on_created(event)
-            elif isinstance(event, FileModifiedEvent):
-                self._on_modified(event)
+            try:
+                if isinstance(event, FileDeletedEvent):
+                    self._on_deleted(event)
+                elif isinstance(event, FileCreatedEvent):
+                    self._on_created(event)
+                elif isinstance(event, FileModifiedEvent):
+                    self._on_modified(event)
+            except Exception:  # pylint: disable=broad-except
+                self._logger.exception("Error processing filesystem event: %s", event)
 
     def on_any_event(self, event: FileSystemEvent) -> None:
         """Handle file system events."""
         if os.path.basename(event.src_path) in self._storage.ignored_files:
+            return
+        if is_storage_temp_file(event.src_path):
             return
         self._event_queue.put(event)
 
     def _on_created(self, event: FileCreatedEvent) -> None:
         """Insert into database when file is created."""
         self._logger.debug("File created: %s", event.src_path)
+        try:
+            stat_result = os.stat(event.src_path)
+        except FileNotFoundError:
+            self._logger.debug("File not found after create event: %s", event.src_path)
+            return
+        except OSError:
+            self._logger.warning(
+                "Failed to stat created file: %s", event.src_path, exc_info=True
+            )
+            return
+
         file_meta = self._storage.temporary_files_meta.pop(event.src_path, None)
+        if (
+            file_meta is None
+            and self._category == TIER_CATEGORY_RECORDER
+            and self._subcategory == TIER_SUBCATEGORY_SEGMENTS
+        ):
+            # Segment create events can beat the fragmenter/move metadata handoff,
+            # especially with polling observers. Wait briefly so timeline metadata
+            # is not replaced by utcnow()/None just because the event arrived first.
+            for _ in range(10):
+                time.sleep(0.1)
+                file_meta = self._storage.temporary_files_meta.pop(event.src_path, None)
+                if file_meta is not None:
+                    break
         try:
             with self._storage.get_session() as session:
                 stmt = insert(Files).values(
@@ -367,15 +393,17 @@ class TierHandler(FileSystemEventHandler):
                     path=event.src_path,
                     directory=os.path.dirname(event.src_path),
                     filename=os.path.basename(event.src_path),
-                    size=os.path.getsize(event.src_path),
+                    size=stat_result.st_size,
                     orig_ctime=file_meta.orig_ctime if file_meta else utcnow(),
                     duration=file_meta.duration if file_meta else None,
                 )
                 session.execute(stmt)
                 session.commit()
         except IntegrityError:
-            self._logger.error(
-                "Failed to insert file %s into database, already exists", event.src_path
+            self._logger.debug(
+                "File %s already exists in database; create event likely raced "
+                "with move callback or duplicate watcher event",
+                event.src_path,
             )
         else:
             self._vis.dispatch_event(
@@ -410,6 +438,11 @@ class TierHandler(FileSystemEventHandler):
                 size = os.path.getsize(event.src_path)
             except FileNotFoundError:
                 self._logger.debug("File not found: %s", event.src_path)
+                return
+            except OSError:
+                self._logger.warning(
+                    "Failed to stat modified file: %s", event.src_path, exc_info=True
+                )
                 return
 
             with self._storage.get_session() as session:
@@ -640,6 +673,7 @@ class SegmentsTierHandler(TierHandler):
                 file["tier_path"],
                 self._logger,
                 force_delete,
+                next_tier_id=events_next_tier.tier_id if events_next_tier else None,
             )
             processed_paths.append(file["path"])
             files_processed += 1
@@ -670,6 +704,9 @@ class SegmentsTierHandler(TierHandler):
                 file["path"],
                 file["tier_path"],
                 self._logger,
+                next_tier_id=(
+                    continuous_next_tier.tier_id if continuous_next_tier else None
+                ),
             )
             files_processed += 1
 
@@ -732,6 +769,7 @@ class SegmentsTierHandler(TierHandler):
                 file["tier_path"],
                 self._logger,
                 force_delete=force_delete,
+                next_tier_id=next_tier.tier_id if next_tier else None,
             )
             processed_paths.append(file["path"])
             files_processed += 1
@@ -1016,6 +1054,7 @@ def handle_file(
     tier_path: str,
     logger: logging.Logger,
     force_delete: bool = False,
+    next_tier_id: int | None = None,
 ) -> None:
     """Move file if there is a succeeding tier, else delete the file."""
     if path in storage.camera_requested_files_count[camera_identifier].filenames:
@@ -1047,6 +1086,8 @@ def handle_file(
                 curr_tier_id,
                 curr_tier_category,
                 curr_tier_subcategory,
+                next_tier_id if next_tier_id is not None else curr_tier_id + 1,
+                next_tier[CONFIG_PATH],
                 path,
                 new_path,
                 logger,
@@ -1096,9 +1137,11 @@ def move_file(
     storage: Storage,
     get_session: Callable[..., Session],
     camera_identifier: str,
-    curr_tier_id: int,
-    curr_tier_category: str,
-    curr_tier_subcategory: str,
+    _curr_tier_id: int,
+    _curr_tier_category: str,
+    _curr_tier_subcategory: str,
+    dst_tier_id: int,
+    dst_tier_path: str,
     src: str,
     dst: str,
     logger: logging.Logger,
@@ -1110,13 +1153,13 @@ def move_file(
     delete the old one.
     """
     logger.debug("Moving file from %s to %s", src, dst)
+    file_meta: FilesMeta
     try:
         with get_session() as session:
             sel = select(Files).where(Files.path == src)
             res = session.execute(sel).scalar_one()
-            storage.temporary_files_meta[dst] = FilesMeta(
-                orig_ctime=res.orig_ctime, duration=res.duration
-            )
+            file_meta = FilesMeta(orig_ctime=res.orig_ctime, duration=res.duration)
+            storage.temporary_files_meta[dst] = file_meta
     except NoResultFound as error:
         logger.debug(f"Failed to find metadata for {src}: {error}")
         with get_session() as session:
@@ -1127,24 +1170,94 @@ def move_file(
             storage,
             src,
         )
+        return
 
-    def _move_file_callback(
-        item: DataItemMoveFile,
-    ) -> None:
-        if item.error:
-            logger.error(f"Error moving file {src} to {dst}: {item.error}")
-            vis.dispatch_event(
-                EVENT_CHECK_TIER.format(
-                    camera_identifier=camera_identifier,
-                    # It is fine if the next tier does not exist since there will be no
-                    # listeners for this event in that case
-                    tier_id=curr_tier_id + 1,
-                    category=curr_tier_category,
-                    subcategory=curr_tier_subcategory,
-                ),
-                EventEmptyData(),
-                store=False,
+    def _commit_published_move(item: DataItemMoveFile) -> None:
+        if item.size is None:
+            storage.temporary_files_meta.pop(dst, None)
+            logger.error(
+                "Published move from %s to %s did not report file size",
+                src,
+                dst,
             )
+            return
+        with get_session() as session:
+            stmt = (
+                update(Files)
+                .where(Files.path == src)
+                .values(
+                    tier_id=dst_tier_id,
+                    tier_path=dst_tier_path,
+                    path=dst,
+                    directory=os.path.dirname(dst),
+                    filename=os.path.basename(dst),
+                    size=item.size,
+                    orig_ctime=file_meta.orig_ctime,
+                    duration=file_meta.duration,
+                )
+            )
+            try:
+                # The move callback is authoritative after destination publish.
+                # Watcher events may have already deleted src or inserted dst, so
+                # update first, insert on missing src, and delete stale src on a
+                # unique dst collision.
+                result = session.execute(stmt)
+                if result.rowcount == 0:
+                    session.execute(
+                        insert(Files).values(
+                            tier_id=dst_tier_id,
+                            tier_path=dst_tier_path,
+                            camera_identifier=camera_identifier,
+                            category=_curr_tier_category,
+                            subcategory=_curr_tier_subcategory,
+                            path=dst,
+                            directory=os.path.dirname(dst),
+                            filename=os.path.basename(dst),
+                            size=item.size,
+                            orig_ctime=file_meta.orig_ctime,
+                            duration=file_meta.duration,
+                        )
+                    )
+                session.commit()
+            except IntegrityError:
+                session.rollback()
+                session.execute(delete(Files).where(Files.path == src))
+                session.commit()
+
+        storage.temporary_files_meta.pop(dst, None)
+        # Wake the destination tier after the authoritative DB commit. This is a
+        # liveness nudge for missed/delayed watcher create events on remote
+        # filesystems; correctness does not depend on the event being delivered.
+        vis.dispatch_event(
+            EVENT_CHECK_TIER.format(
+                camera_identifier=camera_identifier,
+                tier_id=dst_tier_id,
+                category=_curr_tier_category,
+                subcategory=_curr_tier_subcategory,
+            ),
+            EventEmptyData(),
+            store=False,
+        )
+        if not item.source_removed:
+            logger.warning(
+                "Published %s to %s and committed database move, but source cleanup "
+                "did not complete: %s",
+                src,
+                dst,
+                item.source_remove_error,
+            )
+
+    def _move_file_callback(item: DataItemMoveFile) -> None:
+        if item.source_missing:
+            storage.temporary_files_meta.pop(dst, None)
+            logger.debug("Source file %s was missing when moving to %s", src, dst)
+            return
+        if item.published:
+            _commit_published_move(item)
+            return
+        if item.error or not item.moved:
+            storage.temporary_files_meta.pop(dst, None)
+            logger.error(f"Error moving file {src} to {dst}: {item.error}")
 
     storage.tier_check_worker_send_command(
         DataItemMoveFile(

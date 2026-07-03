@@ -11,6 +11,7 @@ import queue
 import re
 import shutil
 import subprocess as sp
+import threading
 import uuid
 from dataclasses import dataclass
 from math import ceil
@@ -28,6 +29,7 @@ from viseron.components.storage.const import (
 )
 from viseron.components.storage.models import FilesMeta
 from viseron.components.storage.queries import get_time_period_fragments
+from viseron.components.storage.util import copy_file_atomic, move_file_atomic
 from viseron.const import CAMERA_SEGMENT_DURATION, TEMP_DIR, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import (
     CONFIG_FFMPEG_LOGLEVEL,
@@ -50,6 +52,37 @@ if TYPE_CHECKING:
 
 # Constants
 TIMELAPSE_FFMPEG_TIMEOUT = 10
+# ENOSPC is storage-wide, not camera-local. Keep pressure recovery single-flight
+# so multiple cameras do not stampede cleanup/tier-check jobs while space is low.
+STORAGE_PRESSURE_RECOVERY_LOCK = threading.Lock()
+
+
+def recover_from_storage_pressure(
+    vis: Viseron,
+    storage: Storage,
+    camera_identifier: str,
+    logger: logging.Logger,
+) -> None:
+    """Run storage pressure recovery once across all cameras."""
+    if STORAGE_PRESSURE_RECOVERY_LOCK.acquire(blocking=False):
+        try:
+            vis.dispatch_event(
+                EVENT_CHECK_TIER.format(
+                    camera_identifier=camera_identifier,
+                    tier_id=0,
+                    category=TIER_CATEGORY_RECORDER,
+                    subcategory=TIER_SUBCATEGORY_SEGMENTS,
+                ),
+                EventEmptyData(),
+                store=False,
+            )
+            storage.cleanup_manager.run_job(CleanupJobNames.ORPHANED_FILES)
+            storage.cleanup_manager.run_job(CleanupJobNames.ORPHANED_DB_FILES)
+            storage.cleanup_manager.run_job(CleanupJobNames.ZERO_SIZE_FILES)
+        finally:
+            STORAGE_PRESSURE_RECOVERY_LOCK.release()
+    else:
+        logger.debug("Storage pressure recovery already in progress")
 
 
 def _get_open_files(path: str, process: psutil.Process) -> list[str]:
@@ -174,17 +207,9 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
             return
 
         if item.get("error") == "no_space_left":
-            self._vis.dispatch_event(
-                EVENT_CHECK_TIER.format(
-                    camera_identifier=self._camera.identifier,
-                    tier_id=0,
-                    category=TIER_CATEGORY_RECORDER,
-                    subcategory=TIER_SUBCATEGORY_SEGMENTS,
-                ),
-                EventEmptyData(),
-                store=False,
+            recover_from_storage_pressure(
+                self._vis, self._storage, self._camera.identifier, self._logger
             )
-            self._storage.cleanup_manager.run_job(CleanupJobNames.ORPHANED_FILES)
 
         if "path" in item:
             self.on_metadata(item)
@@ -315,11 +340,22 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
             except FileNotFoundError:
                 pass
 
-    def _move_to_segments_folder_mp4box(self, file: str) -> None:
+    def _move_to_segments_folder_mp4box(self, file: str) -> bool:
         """Move fragmented mp4 created by mp4box to segments folder."""
         self._segment_hook_mp4box(file)
         try:
-            shutil.move(
+            # Publish init before the media segment: the segment create/metadata
+            # path is the DB-visible commit point, and playback needs init.mp4
+            # available by the time that segment is visible.
+            copy_file_atomic(
+                os.path.join(
+                    self.temp_segments_folder,
+                    file.split(".", maxsplit=1)[0],
+                    "clip_init.mp4",
+                ),
+                os.path.join(self.segments_folder, "init.mp4"),
+            )
+            move_file_atomic(
                 os.path.join(
                     self.temp_segments_folder,
                     file.split(".", maxsplit=1)[0],
@@ -329,44 +365,64 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
                     self.segments_folder, file.split(".", maxsplit=1)[0] + ".m4s"
                 ),
             )
-            shutil.move(
-                os.path.join(
-                    self.temp_segments_folder,
-                    file.split(".", maxsplit=1)[0],
-                    "clip_init.mp4",
-                ),
-                os.path.join(self.segments_folder, "init.mp4"),
-            )
         except FileNotFoundError:
             self._logger.debug(f"{file} not found")
+            return False
+        except OSError as err:
+            if err.errno == errno.ENOSPC:
+                self._handle_no_space_left(err)
+            else:
+                self._logger.error(
+                    "Failed to move fragmented mp4 %s to segments folder",
+                    file,
+                    exc_info=err,
+                )
+            return False
+        return True
 
-    def _move_to_segments_folder(self, file: str) -> None:
+    def _handle_no_space_left(self, err: OSError) -> None:
+        """Handle no space left on device."""
+        self._logger.error(
+            "No space left on device, trigger tier check",
+            exc_info=err,
+        )
+        self._worker_event.clear()
+        self._output_queue.put(
+            {
+                "error": "no_space_left",
+            }
+        )
+        self._worker_event.wait(timeout=1)
+
+    def _move_to_segments_folder(self, file: str) -> bool:
         """Move fragmented mp4 created by encoder to segments folder."""
         self._segment_hook(file)
         try:
-            shutil.move(
-                os.path.join(self.temp_segments_folder, file),
-                os.path.join(self.segments_folder, file),
-            )
-            shutil.copy(
+            # Publish init before the media segment: the segment create/metadata
+            # path is the DB-visible commit point, and playback needs init.mp4
+            # available by the time that segment is visible.
+            copy_file_atomic(
                 os.path.join(self.temp_segments_folder, "init.mp4"),
                 os.path.join(self.segments_folder, "init.mp4"),
             )
+            move_file_atomic(
+                os.path.join(self.temp_segments_folder, file),
+                os.path.join(self.segments_folder, file),
+            )
         except FileNotFoundError:
             self._logger.debug(f"{file} not found", exc_info=True)
+            return False
         except OSError as err:
             if err.errno == errno.ENOSPC:
+                self._handle_no_space_left(err)
+            else:
                 self._logger.error(
-                    "No space left on device, trigger tier check",
+                    "Failed to move segment %s to segments folder",
+                    file,
                     exc_info=err,
                 )
-                self._worker_event.clear()
-                self._output_queue.put(
-                    {
-                        "error": "no_space_left",
-                    }
-                )
-                self._worker_event.wait(timeout=1)
+            return False
+        return True
 
     def _write_files_metadata(
         self,
@@ -429,8 +485,8 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
                     self._read_m3u8_mp4box(file), "clip_1.m4s"
                 )
                 if extinf:
-                    self._write_files_metadata(file, extinf)
-                    self._move_to_segments_folder_mp4box(file)
+                    if self._move_to_segments_folder_mp4box(file):
+                        self._write_files_metadata(file, extinf)
                 else:
                     self._logger.error(f"Failed to get extinf for {file}")
         except Exception as err:  # pylint: disable=broad-except
@@ -451,8 +507,8 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
             extinf = _extract_extinf_number(m3u8, file)
             program_date_time = _extract_program_date_time(m3u8, file)
             if extinf:
-                self._write_files_metadata(file, extinf, program_date_time)
-                self._move_to_segments_folder(file)
+                if self._move_to_segments_folder(file):
+                    self._write_files_metadata(file, extinf, program_date_time)
             else:
                 self._logger.error(f"Failed to get extinf for {file}")
                 os.remove(os.path.join(self.temp_segments_folder, file))

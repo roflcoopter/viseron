@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, Mock, patch
 import numpy as np
 import pytest
 from sqlalchemy import select
+from watchdog.events import FileCreatedEvent
 
 from viseron import Viseron
 from viseron.components.storage import Storage
@@ -16,17 +17,140 @@ from viseron.components.storage.const import (
     TIER_SUBCATEGORY_SEGMENTS,
 )
 from viseron.components.storage.models import Recordings
+from viseron.components.storage.storage_subprocess import DataItemMoveFile
 from viseron.components.storage.tier_handler import (
     EventClipTierHandler,
     SegmentsTierHandler,
+    TierHandler,
     ThumbnailTierHandler,
     find_next_tier_segments,
     handle_file,
+    move_file as tier_handler_move_file,
 )
 from viseron.domains.camera.const import CONFIG_CONTINUOUS_RECORDING, CONFIG_LOOKBACK
+from viseron.helpers import utcnow
 
 from tests.common import BaseTestWithRecordings
 from tests.conftest import MockViseron
+
+
+class MoveCallbackScalarResult:
+    """Fake scalar result for move callback tests."""
+
+    def __init__(self, row) -> None:
+        self._row = row
+
+    def scalar_one(self):
+        """Return fake row."""
+        return self._row
+
+
+class MoveCallbackRowcountResult:
+    """Fake rowcount result for move callback tests."""
+
+    rowcount = 1
+
+
+class MoveCallbackSession:
+    """Fake session for move callback tests."""
+
+    def __init__(self) -> None:
+        self.execute_count = 0
+        self.committed = False
+        self.rolled_back = False
+
+    def __enter__(self):
+        """Return context manager session."""
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        """Exit context manager."""
+
+    def execute(self, _stmt):
+        """Return metadata row first, then successful update result."""
+        self.execute_count += 1
+        if self.execute_count == 1:
+            return MoveCallbackScalarResult(
+                MagicMock(orig_ctime=utcnow(), duration=1.0)
+            )
+        return MoveCallbackRowcountResult()
+
+    def commit(self) -> None:
+        """Record commit."""
+        self.committed = True
+
+    def rollback(self) -> None:
+        """Record rollback."""
+        self.rolled_back = True
+
+
+def test_on_any_event_ignores_storage_temp_file() -> None:
+    """Internal temporary files should not be queued for DB insertion."""
+    tier_handler = TierHandler.__new__(TierHandler)
+    tier_handler._storage = MagicMock(ignored_files=[])
+    tier_handler._event_queue = MagicMock()
+
+    tier_handler.on_any_event(FileCreatedEvent("/tmp/.viseron-tmp-file.m4s.1.abc"))
+
+    tier_handler._event_queue.put.assert_not_called()
+
+
+def test_on_created_missing_file_does_not_pop_metadata(tmp_path) -> None:
+    """A disappeared create event should not kill the handler or consume metadata."""
+    path = str(tmp_path / "missing.m4s")
+    tier_handler = TierHandler.__new__(TierHandler)
+    tier_handler._logger = MagicMock()
+    tier_handler._storage = MagicMock()
+    tier_handler._storage.temporary_files_meta = {path: MagicMock()}
+
+    tier_handler._on_created(FileCreatedEvent(path))
+
+    assert path in tier_handler._storage.temporary_files_meta
+
+
+def test_move_file_callback_commits_published_move() -> None:
+    """A published destination should commit even when source cleanup failed."""
+    src = "/tier1/segments/camera/1.m4s"
+    dst = "/tier2/segments/camera/1.m4s"
+    session = MoveCallbackSession()
+    vis = MagicMock()
+    storage = MagicMock()
+    storage.temporary_files_meta = {}
+
+    tier_handler_move_file(
+        vis,
+        storage,
+        lambda: session,
+        "camera",
+        0,
+        TIER_CATEGORY_RECORDER,
+        TIER_SUBCATEGORY_SEGMENTS,
+        1,
+        "/tier2",
+        src,
+        dst,
+        MagicMock(),
+    )
+
+    callback = storage.tier_check_worker_send_command.call_args.kwargs["callback"]
+    callback(
+        DataItemMoveFile(
+            cmd="move_file",
+            src=src,
+            dst=dst,
+            moved=True,
+            published=True,
+            source_removed=False,
+            source_remove_error="unlink failed",
+            size=7,
+        )
+    )
+
+    assert session.committed is True
+    assert session.rolled_back is False
+    assert session.execute_count == 2
+    assert dst not in storage.temporary_files_meta
+    vis.dispatch_event.assert_called_once()
 
 
 @patch("viseron.components.storage.tier_handler.delete_file")
@@ -93,6 +217,8 @@ def test_handle_file_move(mock_move_file: Mock, vis: MockViseron) -> None:
         0,
         TIER_CATEGORY_RECORDER,
         TIER_SUBCATEGORY_SEGMENTS,
+        1,
+        "/tmp/tier2/",
         tier_1_file,
         tier_2_file,
         logger,
@@ -273,9 +399,7 @@ class TestSegmentsTierHandler(BaseTestWithRecordings):
         )
 
         with patch("viseron.components.storage.tier_handler.handle_file"):
-            tier_handler._check_tier(  # pylint: disable=protected-access
-                self._get_db_session, data
-            )
+            tier_handler._check_tier(self._get_db_session, data)
 
         with self._get_db_session() as session:
             stmt = select(Recordings).where(
@@ -403,14 +527,12 @@ class TestSegmentsTierHandler(BaseTestWithRecordings):
                     ("tier_path", "U512"),
                 ],
             )
-            tier_handlers[0]._check_tier(  # pylint: disable=protected-access
-                self._get_db_session, data
-            )
+            tier_handlers[0]._check_tier(self._get_db_session, data)
             mock_handle_file.assert_called_once_with(
-                tier_handlers[0]._vis,  # pylint: disable=protected-access
+                tier_handlers[0]._vis,
                 self._get_db_session,
-                tier_handlers[0]._storage,  # pylint: disable=protected-access
-                tier_handlers[0]._camera.identifier,  # pylint: disable=protected-access
+                tier_handlers[0]._storage,
+                tier_handlers[0]._camera.identifier,
                 tier_handlers[0].tier_id,
                 TIER_CATEGORY_RECORDER,
                 TIER_SUBCATEGORY_SEGMENTS,
@@ -418,8 +540,11 @@ class TestSegmentsTierHandler(BaseTestWithRecordings):
                 tier_handlers[next_tier_index].tier if next_tier_index else None,
                 "/tmp/test1.mp4",
                 "/tmp/",
-                tier_handlers[0]._logger,  # pylint: disable=protected-access
+                tier_handlers[0]._logger,
                 force_delete=force_delete,
+                next_tier_id=tier_handlers[next_tier_index].tier_id
+                if next_tier_index
+                else None,
             )
             if move_thumbnail_called:
                 thumbnail_tier_handler.move_thumbnail.assert_called_once_with(
