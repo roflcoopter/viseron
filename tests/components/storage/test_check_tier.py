@@ -11,6 +11,7 @@ from sqlalchemy.exc import NoResultFound
 
 from viseron.components.storage.check_tier import (
     Worker,
+    copy_file_for_tier_worker,
     delete_file,
     get_files_to_move,
     get_recordings_to_move,
@@ -214,6 +215,40 @@ class TestFileOperations:
 
         assert session.executed is False
         assert session.committed is False
+
+    def test_copy_file_copies_without_removing_source(self, tmp_path) -> None:
+        """Copying sidecars should publish dst and preserve src."""
+        src = tmp_path / "src" / "init.mp4"
+        dst = tmp_path / "dst" / "init.mp4"
+        src.parent.mkdir()
+        dst.parent.mkdir()
+        src.write_bytes(b"init")
+
+        result = copy_file_for_tier_worker(str(src), str(dst), MagicMock())
+
+        assert result.copied is True
+        assert result.published is True
+        assert result.source_missing is False
+        assert result.size == len(b"init")
+        assert src.read_bytes() == b"init"
+        assert dst.read_bytes() == b"init"
+
+    def test_copy_file_missing_source_reports_existing_destination(
+        self, tmp_path
+    ) -> None:
+        """A missing source is OK if the destination sidecar already exists."""
+        src = tmp_path / "src" / "init.mp4"
+        dst = tmp_path / "dst" / "init.mp4"
+        src.parent.mkdir()
+        dst.parent.mkdir()
+        dst.write_bytes(b"init")
+
+        result = copy_file_for_tier_worker(str(src), str(dst), MagicMock())
+
+        assert result.copied is False
+        assert result.published is True
+        assert result.source_missing is True
+        assert result.size == len(b"init")
 
 
 class TestCheckTier(BaseTestWithRecordings):

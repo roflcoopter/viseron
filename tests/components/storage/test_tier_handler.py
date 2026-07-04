@@ -17,7 +17,10 @@ from viseron.components.storage.const import (
     TIER_SUBCATEGORY_SEGMENTS,
 )
 from viseron.components.storage.models import Recordings
-from viseron.components.storage.storage_subprocess import DataItemMoveFile
+from viseron.components.storage.storage_subprocess import (
+    DataItemCopyFile,
+    DataItemMoveFile,
+)
 from viseron.components.storage.tier_handler import (
     EventClipTierHandler,
     SegmentsTierHandler,
@@ -132,7 +135,26 @@ def test_move_file_callback_commits_published_move() -> None:
         MagicMock(),
     )
 
-    callback = storage.tier_check_worker_send_command.call_args.kwargs["callback"]
+    copy_call = storage.tier_check_worker_send_command.call_args_list[0]
+    assert isinstance(copy_call.args[0], DataItemCopyFile)
+    assert copy_call.args[0].src == "/tier1/segments/camera/init.mp4"
+    assert copy_call.args[0].dst == "/tier2/segments/camera/init.mp4"
+
+    copy_callback = copy_call.kwargs["callback"]
+    copy_callback(
+        DataItemCopyFile(
+            cmd="copy_file",
+            src="/tier1/segments/camera/init.mp4",
+            dst="/tier2/segments/camera/init.mp4",
+            copied=True,
+            published=True,
+            size=4,
+        )
+    )
+
+    move_call = storage.tier_check_worker_send_command.call_args_list[1]
+    assert isinstance(move_call.args[0], DataItemMoveFile)
+    callback = move_call.kwargs["callback"]
     callback(
         DataItemMoveFile(
             cmd="move_file",
@@ -151,6 +173,45 @@ def test_move_file_callback_commits_published_move() -> None:
     assert session.execute_count == 2
     assert dst not in storage.temporary_files_meta
     vis.dispatch_event.assert_called_once()
+
+
+def test_move_file_skips_segment_move_when_init_sidecar_missing() -> None:
+    """A segment should not be moved to a tier without init.mp4."""
+    src = "/tier1/segments/camera/1.m4s"
+    dst = "/tier2/segments/camera/1.m4s"
+    session = MoveCallbackSession()
+    storage = MagicMock()
+    storage.temporary_files_meta = {}
+
+    tier_handler_move_file(
+        MagicMock(),
+        storage,
+        lambda: session,
+        "camera",
+        0,
+        TIER_CATEGORY_RECORDER,
+        TIER_SUBCATEGORY_SEGMENTS,
+        1,
+        "/tier2",
+        src,
+        dst,
+        MagicMock(),
+    )
+
+    copy_call = storage.tier_check_worker_send_command.call_args_list[0]
+    copy_callback = copy_call.kwargs["callback"]
+    copy_callback(
+        DataItemCopyFile(
+            cmd="copy_file",
+            src="/tier1/segments/camera/init.mp4",
+            dst="/tier2/segments/camera/init.mp4",
+            source_missing=True,
+            published=False,
+        )
+    )
+
+    assert storage.tier_check_worker_send_command.call_count == 1
+    assert dst not in storage.temporary_files_meta
 
 
 @patch("viseron.components.storage.tier_handler.delete_file")

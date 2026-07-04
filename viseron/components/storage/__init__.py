@@ -82,6 +82,7 @@ if TYPE_CHECKING:
     from viseron import Event, Viseron
     from viseron.components.storage.storage_subprocess import (
         DataItem,
+        DataItemCopyFile,
         DataItemDeleteFile,
         DataItemMoveFile,
     )
@@ -677,13 +678,20 @@ class Storage:
     @overload
     def tier_check_worker_send_command(
         self,
+        item: DataItemCopyFile,
+        callback: Callable[[DataItemCopyFile], None] | None = None,
+    ) -> None: ...
+
+    @overload
+    def tier_check_worker_send_command(
+        self,
         item: DataItemDeleteFile,
         callback: Callable[[DataItemDeleteFile], None] | None = None,
     ) -> None: ...
 
     def tier_check_worker_send_command(
         self,
-        item: DataItem | DataItemMoveFile | DataItemDeleteFile,
+        item: DataItem | DataItemCopyFile | DataItemMoveFile | DataItemDeleteFile,
         callback: Callable[[Any], None] | None = None,
     ) -> None:
         """Send command to tier check worker."""

@@ -15,7 +15,11 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 
 from viseron.components.storage.const import ENGINE
 from viseron.components.storage.models import Files, Recordings
-from viseron.components.storage.util import move_file_atomic, raise_if_path_unavailable
+from viseron.components.storage.util import (
+    copy_file_atomic,
+    move_file_atomic,
+    raise_if_path_unavailable,
+)
 from viseron.const import CAMERA_SEGMENT_DURATION
 from viseron.helpers import utcnow
 
@@ -26,6 +30,7 @@ if TYPE_CHECKING:
 
     from viseron.components.storage.storage_subprocess import (
         DataItem,
+        DataItemCopyFile,
         DataItemDeleteFile,
         DataItemMoveFile,
     )
@@ -74,6 +79,16 @@ class FileMoveResult:
     source_missing: bool
     source_removed: bool
     source_remove_error: str | None
+    size: int | None
+
+
+@dataclass(frozen=True)
+class FileCopyResult:
+    """Result of a worker file copy."""
+
+    copied: bool
+    published: bool
+    source_missing: bool
     size: int | None
 
 
@@ -252,6 +267,19 @@ class Worker:
             item.source_remove_error = result.source_remove_error
             item.size = result.size
 
+    def copy_file(self, item: DataItemCopyFile) -> None:
+        """Copy file from source to destination."""
+        with self._file_lock(item.src):
+            result = copy_file_for_tier_worker(
+                item.src,
+                item.dst,
+                LOGGER,
+            )
+            item.copied = result.copied
+            item.published = result.published
+            item.source_missing = result.source_missing
+            item.size = result.size
+
     def delete_file(self, item: DataItemDeleteFile) -> None:
         """Delete file."""
         with self._file_lock(item.src):
@@ -261,11 +289,15 @@ class Worker:
                 LOGGER,
             )
 
-    def work_input(self, item: DataItem | DataItemMoveFile | DataItemDeleteFile):
+    def work_input(
+        self, item: DataItem | DataItemCopyFile | DataItemMoveFile | DataItemDeleteFile
+    ):
         """Perform work on input item from child process."""
         try:
             if item.cmd == "check_tier":
                 self.check_tier(item)
+            if item.cmd == "copy_file":
+                self.copy_file(item)
             if item.cmd == "move_file":
                 self.move_file(item)
             if item.cmd == "delete_file":
@@ -783,4 +815,44 @@ def move_file_for_tier_worker(
         if result.source_remove_error
         else None,
         size=result.size,
+    )
+
+
+def copy_file_for_tier_worker(
+    src: str,
+    dst: str,
+    logger: logging.Logger,
+) -> FileCopyResult:
+    """Copy file from src to dst without removing src."""
+    logger.debug("Copying file from %s to %s", src, dst)
+    raise_if_path_unavailable(dst)
+    try:
+        raise_if_path_unavailable(src)
+        size = copy_file_atomic(src, dst)
+    except FileNotFoundError as error:
+        logger.debug("Failed to copy file %s to %s: %s", src, dst, error)
+        try:
+            size = os.path.getsize(dst)
+        except FileNotFoundError:
+            return FileCopyResult(
+                copied=False,
+                published=False,
+                source_missing=True,
+                size=None,
+            )
+        return FileCopyResult(
+            copied=False,
+            published=True,
+            source_missing=True,
+            size=size,
+        )
+    except OSError as error:
+        logger.debug("Failed to copy file %s to %s: %s", src, dst, error)
+        raise error
+
+    return FileCopyResult(
+        copied=True,
+        published=True,
+        source_missing=False,
+        size=size,
     )

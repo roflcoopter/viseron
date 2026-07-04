@@ -97,6 +97,21 @@ class DataItemMoveFile:
 
 
 @dataclass
+class DataItemCopyFile:
+    """Data item to be processed by the worker for copying files."""
+
+    cmd: Literal["copy_file"]
+    src: str
+    dst: str
+    callback_id: str | None = None
+    error: str | None = None
+    copied: bool = False
+    published: bool = False
+    source_missing: bool = False
+    size: int | None = None
+
+
+@dataclass
 class DataItemDeleteFile:
     """Data item to be processed by the worker for deleting files."""
 
@@ -106,8 +121,8 @@ class DataItemDeleteFile:
     error: str | None = None
 
 
-FileOperation: TypeAlias = DataItemDeleteFile | DataItemMoveFile
-FileOperationKey: TypeAlias = tuple[str, str, str | None]
+FileOperation: TypeAlias = DataItemCopyFile | DataItemDeleteFile | DataItemMoveFile
+FileOperationKey: TypeAlias = tuple[str, str, str | None, str | None]
 
 
 def file_operation_key(item: FileOperation) -> FileOperationKey:
@@ -115,7 +130,8 @@ def file_operation_key(item: FileOperation) -> FileOperationKey:
     return (
         item.cmd,
         item.src,
-        item.dst if isinstance(item, DataItemMoveFile) else None,
+        item.dst if isinstance(item, (DataItemCopyFile, DataItemMoveFile)) else None,
+        item.callback_id if isinstance(item, DataItemCopyFile) else None,
     )
 
 
@@ -138,6 +154,8 @@ class DedupCheckQueue:
 
     File operations use their own deduping queue keyed by exact operation, so
     duplicate queued moves/deletes collapse without dropping distinct paths.
+    Callback-backed copy jobs include their callback id in the key because each
+    sidecar copy callback may gate a different segment move.
     """
 
     def __init__(self) -> None:
@@ -234,7 +252,7 @@ class TierCheckWorker(SubProcessWorker):
         # access is guarded by _callbacks_lock to keep the insert+len+popitem
         # sequence atomic against concurrent pops.
         self._callbacks: OrderedDict[
-            str, Callable[[DataItem | DataItemMoveFile | DataItemDeleteFile], None]
+            str, Callable[[DataItem | FileOperation], None]
         ] = OrderedDict()
         self._callbacks_lock = threading.Lock()
         # Monotonic callback ids. str(id(callback)) is unsafe here: bound
@@ -263,9 +281,8 @@ class TierCheckWorker(SubProcessWorker):
 
     def send_command(
         self,
-        item: DataItem | DataItemMoveFile | DataItemDeleteFile,
-        callback: Callable[[DataItem | DataItemMoveFile | DataItemDeleteFile], None]
-        | None,
+        item: DataItem | FileOperation,
+        callback: Callable[[DataItem | FileOperation], None] | None,
     ) -> None:
         """Send command to the subprocess."""
         evicted: str | None = None
@@ -287,9 +304,7 @@ class TierCheckWorker(SubProcessWorker):
             )
         self.input_queue.put(item)
 
-    def work_output(
-        self, item: DataItem | DataItemMoveFile | DataItemDeleteFile
-    ) -> None:
+    def work_output(self, item: DataItem | FileOperation) -> None:
         """Perform work on output item from child process."""
         if not item.callback_id:
             return
@@ -374,7 +389,7 @@ def initializer(cpulimit: int | None) -> None:
 def worker_task_files(
     worker: Worker,
     file_queue: DedupFileQueue[FileOperation, FileOperationKey],
-    output_queue: Queue[DataItemDeleteFile | DataItemMoveFile],
+    output_queue: Queue[FileOperation],
 ) -> None:
     """Worker thread that only processes file operation commands."""
     while True:
@@ -392,14 +407,14 @@ def worker_task_mixed(
     worker: Worker,
     check_queue: DedupCheckQueue,
     file_queue: DedupFileQueue[FileOperation, FileOperationKey],
-    output_queue: Queue[DataItem | DataItemDeleteFile | DataItemMoveFile],
+    output_queue: Queue[DataItem | FileOperation],
     name: str,
 ) -> None:
     """Worker thread that prioritizes file operations but also handles check_tier.
 
     This ensures that file operations are not blocked by slow check_tier jobs.
     """
-    job: DataItem | DataItemDeleteFile | DataItemMoveFile
+    job: DataItem | FileOperation
     while True:
         try:
             try:
@@ -415,7 +430,7 @@ def worker_task_mixed(
 
 
 def dispatcher_task(
-    process_queue: Queue[DataItem | DataItemDeleteFile | DataItemMoveFile],
+    process_queue: Queue[DataItem | FileOperation],
     check_queue: DedupCheckQueue,
     file_queue: DedupFileQueue[FileOperation, FileOperationKey],
 ) -> None:
@@ -433,7 +448,7 @@ def dispatcher_task(
         try:
             if job.cmd == "check_tier":
                 check_queue.put(job)
-            elif job.cmd in ("move_file", "delete_file"):
+            elif job.cmd in ("copy_file", "move_file", "delete_file"):
                 file_queue.put(job)
             else:
                 LOGGER.debug("Unknown command %s", job.cmd)
@@ -446,8 +461,8 @@ def main() -> None:
     parser = get_parser()
     args = parser.parse_args()
     setup_logger(args.loglevel)
-    process_queue: Queue[DataItem | DataItemDeleteFile | DataItemMoveFile]
-    output_queue: Queue[DataItem | DataItemDeleteFile | DataItemMoveFile]
+    process_queue: Queue[DataItem | FileOperation]
+    output_queue: Queue[DataItem | FileOperation]
     process_queue, output_queue = connect(
         "127.0.0.1", int(args.manager_port), args.manager_authkey
     )

@@ -69,6 +69,7 @@ from viseron.components.storage.models import (
 )
 from viseron.components.storage.storage_subprocess import (
     DataItem,
+    DataItemCopyFile,
     DataItemDeleteFile,
     DataItemMoveFile,
 )
@@ -1159,7 +1160,6 @@ def move_file(
             sel = select(Files).where(Files.path == src)
             res = session.execute(sel).scalar_one()
             file_meta = FilesMeta(orig_ctime=res.orig_ctime, duration=res.duration)
-            storage.temporary_files_meta[dst] = file_meta
     except NoResultFound as error:
         logger.debug(f"Failed to find metadata for {src}: {error}")
         with get_session() as session:
@@ -1259,14 +1259,72 @@ def move_file(
             storage.temporary_files_meta.pop(dst, None)
             logger.error(f"Error moving file {src} to {dst}: {item.error}")
 
-    storage.tier_check_worker_send_command(
-        DataItemMoveFile(
-            cmd="move_file",
-            src=src,
-            dst=dst,
-        ),
-        callback=_move_file_callback,
-    )
+    def _send_segment_move() -> None:
+        storage.temporary_files_meta[dst] = file_meta
+        storage.tier_check_worker_send_command(
+            DataItemMoveFile(
+                cmd="move_file",
+                src=src,
+                dst=dst,
+            ),
+            callback=_move_file_callback,
+        )
+
+    def _copy_init_callback(item: DataItemCopyFile) -> None:
+        if item.published:
+            if item.source_missing:
+                logger.debug(
+                    "Using existing destination init.mp4 while moving %s to %s; "
+                    "source sidecar %s was missing",
+                    src,
+                    dst,
+                    item.src,
+                )
+            _send_segment_move()
+            return
+        if item.source_missing:
+            logger.warning(
+                "Skipping move from %s to %s because recorder segment sidecar %s "
+                "is missing and %s is not available yet",
+                src,
+                dst,
+                item.src,
+                item.dst,
+            )
+            return
+        logger.error(
+            "Skipping move from %s to %s because recorder segment sidecar %s "
+            "could not be copied to %s: %s",
+            src,
+            dst,
+            item.src,
+            item.dst,
+            item.error,
+        )
+
+    if (
+        _curr_tier_category == TIER_CATEGORY_RECORDER
+        and _curr_tier_subcategory == TIER_SUBCATEGORY_SEGMENTS
+        and os.path.basename(src) != "init.mp4"
+    ):
+        src_init = os.path.join(os.path.dirname(src), "init.mp4")
+        dst_init = os.path.join(os.path.dirname(dst), "init.mp4")
+        if src_init != dst_init:
+            # init.mp4 is intentionally ignored by storage watchers and has no
+            # Files row, but fMP4 HLS needs it beside any segment directory the
+            # playlist references. Copy it before committing the segment move so
+            # a later-tier segment never becomes visible without its sidecar.
+            storage.tier_check_worker_send_command(
+                DataItemCopyFile(
+                    cmd="copy_file",
+                    src=src_init,
+                    dst=dst_init,
+                ),
+                callback=_copy_init_callback,
+            )
+            return
+
+    _send_segment_move()
 
 
 def force_move_files(
