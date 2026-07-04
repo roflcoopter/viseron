@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, Mock, patch
 import numpy as np
 import pytest
 from sqlalchemy import select
-from watchdog.events import FileCreatedEvent
+from watchdog.events import FileCreatedEvent, FileMovedEvent
 
 from viseron import Viseron
 from viseron.components.storage import Storage
@@ -96,6 +96,22 @@ def test_on_any_event_ignores_storage_temp_file() -> None:
     tier_handler.on_any_event(FileCreatedEvent("/tmp/.viseron-tmp-file.m4s.1.abc"))
 
     tier_handler._event_queue.put.assert_not_called()
+
+
+def test_on_any_event_queues_moved_file_from_storage_temp_file() -> None:
+    """Atomic publishes should be treated as destination create events."""
+    tier_handler = TierHandler.__new__(TierHandler)
+    tier_handler._storage = MagicMock(ignored_files=[])
+    tier_handler._event_queue = MagicMock()
+    tier_handler._path = "/tmp"
+    event = FileMovedEvent(
+        "/tmp/.viseron-tmp-file.m4s.1.abc",
+        "/tmp/file.m4s",
+    )
+
+    tier_handler.on_any_event(event)
+
+    tier_handler._event_queue.put.assert_called_once_with(event)
 
 
 def test_on_created_missing_file_does_not_pop_metadata(tmp_path) -> None:

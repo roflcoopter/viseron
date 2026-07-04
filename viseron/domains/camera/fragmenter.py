@@ -370,7 +370,17 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
             return False
         except OSError as err:
             if err.errno == errno.ENOSPC:
-                self._handle_no_space_left(err)
+                self._handle_no_space_left(
+                    err,
+                    os.path.join(
+                        self.temp_segments_folder,
+                        file.split(".", maxsplit=1)[0],
+                        "clip_1.m4s",
+                    ),
+                    os.path.join(
+                        self.segments_folder, file.split(".", maxsplit=1)[0] + ".m4s"
+                    ),
+                )
             else:
                 self._logger.error(
                     "Failed to move fragmented mp4 %s to segments folder",
@@ -380,11 +390,14 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
             return False
         return True
 
-    def _handle_no_space_left(self, err: OSError) -> None:
+    def _handle_no_space_left(self, err: OSError, src: str, dst: str) -> None:
         """Handle no space left on device."""
-        self._logger.error(
-            "No space left on device, trigger tier check",
-            exc_info=err,
+        self._logger.warning(
+            "No space left while publishing segment %s to %s; "
+            "triggering storage pressure recovery: %s",
+            src,
+            dst,
+            err,
         )
         self._worker_event.clear()
         self._output_queue.put(
@@ -414,7 +427,11 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
             return False
         except OSError as err:
             if err.errno == errno.ENOSPC:
-                self._handle_no_space_left(err)
+                self._handle_no_space_left(
+                    err,
+                    os.path.join(self.temp_segments_folder, file),
+                    os.path.join(self.segments_folder, file),
+                )
             else:
                 self._logger.error(
                     "Failed to move segment %s to segments folder",

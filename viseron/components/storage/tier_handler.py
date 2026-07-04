@@ -21,6 +21,7 @@ from watchdog.events import (
     FileCreatedEvent,
     FileDeletedEvent,
     FileModifiedEvent,
+    FileMovedEvent,
     FileSystemEvent,
     FileSystemEventHandler,
 )
@@ -342,34 +343,57 @@ class TierHandler(FileSystemEventHandler):
                     self._on_deleted(event)
                 elif isinstance(event, FileCreatedEvent):
                     self._on_created(event)
+                elif isinstance(event, FileMovedEvent):
+                    if self._path_contains(event.dest_path):
+                        self._on_created(event)
+                    else:
+                        self._on_deleted(FileDeletedEvent(event.src_path))
                 elif isinstance(event, FileModifiedEvent):
                     self._on_modified(event)
             except Exception:  # pylint: disable=broad-except
                 self._logger.exception("Error processing filesystem event: %s", event)
 
+    def _path_contains(self, path: str) -> bool:
+        """Return if a path belongs to this tier handler."""
+        return path == self._path or path.startswith(f"{self._path}{os.sep}")
+
+    @staticmethod
+    def _event_path(event: FileSystemEvent) -> str:
+        """Return the storage path affected by a filesystem event."""
+        if isinstance(event, FileMovedEvent):
+            return event.dest_path
+        return event.src_path
+
     def on_any_event(self, event: FileSystemEvent) -> None:
         """Handle file system events."""
-        if os.path.basename(event.src_path) in self._storage.ignored_files:
+        if isinstance(event, FileMovedEvent) and not self._path_contains(
+            event.dest_path
+        ):
+            event_path = event.src_path
+        else:
+            event_path = self._event_path(event)
+        if os.path.basename(event_path) in self._storage.ignored_files:
             return
-        if is_storage_temp_file(event.src_path):
+        if is_storage_temp_file(event_path):
             return
         self._event_queue.put(event)
 
-    def _on_created(self, event: FileCreatedEvent) -> None:
+    def _on_created(self, event: FileCreatedEvent | FileMovedEvent) -> None:
         """Insert into database when file is created."""
-        self._logger.debug("File created: %s", event.src_path)
+        event_path = self._event_path(event)
+        self._logger.debug("File created: %s", event_path)
         try:
-            stat_result = os.stat(event.src_path)
+            stat_result = os.stat(event_path)
         except FileNotFoundError:
-            self._logger.debug("File not found after create event: %s", event.src_path)
+            self._logger.debug("File not found after create event: %s", event_path)
             return
         except OSError:
             self._logger.warning(
-                "Failed to stat created file: %s", event.src_path, exc_info=True
+                "Failed to stat created file: %s", event_path, exc_info=True
             )
             return
 
-        file_meta = self._storage.temporary_files_meta.pop(event.src_path, None)
+        file_meta = self._storage.temporary_files_meta.pop(event_path, None)
         if (
             file_meta is None
             and self._category == TIER_CATEGORY_RECORDER
@@ -380,7 +404,7 @@ class TierHandler(FileSystemEventHandler):
             # is not replaced by utcnow()/None just because the event arrived first.
             for _ in range(10):
                 time.sleep(0.1)
-                file_meta = self._storage.temporary_files_meta.pop(event.src_path, None)
+                file_meta = self._storage.temporary_files_meta.pop(event_path, None)
                 if file_meta is not None:
                     break
         try:
@@ -391,9 +415,9 @@ class TierHandler(FileSystemEventHandler):
                     camera_identifier=self._camera.identifier,
                     category=self._category,
                     subcategory=self._subcategory,
-                    path=event.src_path,
-                    directory=os.path.dirname(event.src_path),
-                    filename=os.path.basename(event.src_path),
+                    path=event_path,
+                    directory=os.path.dirname(event_path),
+                    filename=os.path.basename(event_path),
                     size=stat_result.st_size,
                     orig_ctime=file_meta.orig_ctime if file_meta else utcnow(),
                     duration=file_meta.duration if file_meta else None,
@@ -404,7 +428,7 @@ class TierHandler(FileSystemEventHandler):
             self._logger.debug(
                 "File %s already exists in database; create event likely raced "
                 "with move callback or duplicate watcher event",
-                event.src_path,
+                event_path,
             )
         else:
             self._vis.dispatch_event(
@@ -417,8 +441,8 @@ class TierHandler(FileSystemEventHandler):
                     camera_identifier=self._camera.identifier,
                     category=self._category,
                     subcategory=self._subcategory,
-                    file_name=os.path.basename(event.src_path),
-                    path=event.src_path,
+                    file_name=os.path.basename(event_path),
+                    path=event_path,
                 ),
                 store=False,
             )

@@ -84,6 +84,35 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
         assert response_string.count("#EXTINF") == 11
         assert response_string.count("#EXT-X-DISCONTINUITY") == 1
 
+    def test_get_recording_hls_playlist_no_fragments_skips_init_lookup(self):
+        """Test getting a recording HLS playlist with no fragments."""
+        with self._get_db_session() as session:
+            session.execute(delete(Files))
+            session.commit()
+
+        mocked_camera = MockCamera(
+            identifier="test", config={CONFIG_RECORDER: {CONFIG_LOOKBACK: 5}}
+        )
+        with patch(
+            (
+                "viseron.components.webserver.request_handler.ViseronRequestHandler."
+                "_get_camera"
+            ),
+            return_value=mocked_camera,
+        ), patch(
+            (
+                "viseron.components.webserver.request_handler.ViseronRequestHandler"
+                "._get_session"
+            ),
+            return_value=self._get_db_session(),
+        ), patch(
+            "viseron.components.webserver.api.v1.hls._get_init_file",
+        ) as mock_get_init_file:
+            response = self.fetch("/api/v1/hls/test/1/index.m3u8")
+
+        assert response.code == 404
+        mock_get_init_file.assert_not_called()
+
     def test_get_recording_hls_ongoing(self):
         """Test getting a recording HLS playlist for a recording that has not ended."""
         recording_id = 3
@@ -244,6 +273,38 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
     def test_get_hls_playlist_time_period_date_not_today(self):
         """Test getting HLS playlist for a specific time period with date not today."""
         self._get_hls_playlist_time_period(0, None, "2023-10-01", 0, 1)
+
+    def test_get_hls_playlist_time_period_no_fragments_skips_init_lookup(self):
+        """Test getting HLS playlist for a time period with no fragments."""
+        with self._get_db_session() as session:
+            session.execute(delete(Files))
+            session.commit()
+
+        mocked_camera = MockCamera(
+            identifier="test",
+        )
+        with patch(
+            (
+                "viseron.components.webserver.request_handler.ViseronRequestHandler."
+                "_get_camera"
+            ),
+            return_value=mocked_camera,
+        ), patch(
+            (
+                "viseron.components.webserver.request_handler.ViseronRequestHandler"
+                "._get_session"
+            ),
+            return_value=self._get_db_session(),
+        ), patch(
+            "viseron.components.webserver.api.v1.hls._get_init_file",
+        ) as mock_get_init_file:
+            response = self.fetch(
+                "/api/v1/hls/test/index.m3u8?"
+                f"start_timestamp={int(self._now.timestamp())}"
+            )
+
+        assert response.code == 404
+        mock_get_init_file.assert_not_called()
 
 
 def test_count_files_removed_no_files_removed():

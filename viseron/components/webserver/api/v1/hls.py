@@ -344,6 +344,9 @@ def _generate_playlist(
     )
     fragments = adjust_fragment_paths(camera, subpath, files)
 
+    if not fragments:
+        return None
+
     hls_client = update_hls_client(hls_client_id, fragments) if hls_client_id else None
     end: bool = True
     # Recording has not ended yet
@@ -364,7 +367,7 @@ def _generate_playlist(
         end = False
 
     init_file = _get_init_file(get_session, camera)
-    if not init_file or not fragments:
+    if not init_file:
         return None
 
     playlist = generate_playlist(
@@ -404,6 +407,9 @@ def _generate_playlist_time_period(
         [camera.identifier], start_timestamp, end_timestamp, get_session
     )
     fragments = adjust_fragment_paths(camera, subpath, files)
+
+    if not fragments:
+        return None
 
     hls_client = update_hls_client(hls_client_id, fragments) if hls_client_id else None
 

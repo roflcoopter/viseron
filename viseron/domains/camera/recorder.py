@@ -431,10 +431,11 @@ class AbstractRecorder(ABC, RecorderBase):
             return None
         except OSError as error:
             if error.errno == errno.ENOSPC:
-                self._logger.error(
-                    "No space left while publishing event clip %s",
+                self._logger.warning(
+                    "No space left while publishing event clip %s; "
+                    "triggering storage pressure recovery: %s",
                     clip_path,
-                    exc_info=error,
+                    error,
                 )
                 recover_from_storage_pressure(
                     self._vis,
