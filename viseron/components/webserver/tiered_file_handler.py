@@ -7,6 +7,7 @@ import logging
 import os
 from typing import TYPE_CHECKING
 
+from viseron.components.storage.const import CONFIG_PATH
 from viseron.components.webserver.const import MAX_FILE_SEARCH_TRIES
 from viseron.components.webserver.static_file_handler import (
     AccessTokenStaticFileHandler,
@@ -39,20 +40,53 @@ class TieredFileHandler(AccessTokenStaticFileHandler):
         self._tries = 0
         self._redirect = False
 
+    @staticmethod
+    def _path_contains(parent: str, child: str) -> bool:
+        """Return if child is inside parent."""
+        try:
+            return os.path.commonpath([parent, child]) == parent
+        except ValueError:
+            return False
+
+    def _configured_tier_paths(self) -> set[str]:
+        """Return configured tier paths for this camera/category/subcategory."""
+        return {
+            os.path.normpath(tier_handler[self._subcategory].tier[CONFIG_PATH])
+            for tier_handler in self._storage.camera_tier_handlers[
+                self._camera_identifier
+            ][self._category]
+        }
+
     def handle_tier_hint(self, path: str) -> tuple[str, str] | None:
         """Handle tier hint arguments."""
-        _path = os.path.join(self.root, path)
+        _path = os.path.normpath(os.path.join(self.root, path))
         first_tier_path = self.get_argument("first_tier_path", None, strip=True)
         actual_tier_path = self.get_argument("actual_tier_path", None, strip=True)
 
-        if first_tier_path and actual_tier_path and _path.startswith(first_tier_path):
-            _path = _path.replace(first_tier_path, actual_tier_path, 1)
-            LOGGER.debug(
-                "first_tier_path and actual_tier_path found, adjusted path to %s",
-                _path,
-            )
-            if os.path.exists(_path):
-                return actual_tier_path, os.path.relpath(_path, actual_tier_path)
+        if not first_tier_path or not actual_tier_path:
+            return None
+
+        first_tier_path = os.path.normpath(first_tier_path)
+        actual_tier_path = os.path.normpath(actual_tier_path)
+        configured_tier_paths = self._configured_tier_paths()
+        if (
+            first_tier_path not in configured_tier_paths
+            or actual_tier_path not in configured_tier_paths
+            or not self._path_contains(first_tier_path, _path)
+        ):
+            return None
+
+        relative_path = os.path.relpath(_path, first_tier_path)
+        hinted_path = os.path.normpath(os.path.join(actual_tier_path, relative_path))
+        if not self._path_contains(actual_tier_path, hinted_path):
+            return None
+
+        LOGGER.debug(
+            "first_tier_path and actual_tier_path found, adjusted path to %s",
+            hinted_path,
+        )
+        if os.path.exists(hinted_path):
+            return actual_tier_path, relative_path
         return None
 
     def _search_file(self, path: str) -> str | None:
