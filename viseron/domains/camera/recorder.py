@@ -6,6 +6,7 @@ import datetime
 import errno
 import logging
 import os
+import subprocess as sp
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -20,9 +21,17 @@ from sqlalchemy.orm import Session
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import Recordings
 from viseron.components.storage.queries import get_recording_fragments
-from viseron.components.storage.util import move_file_atomic
+from viseron.components.storage.util import (
+    fsync_directory,
+    get_storage_temp_path,
+    move_file_atomic,
+)
 from viseron.const import CAMERA_SEGMENT_DURATION
-from viseron.domains.camera.fragmenter import Fragment, recover_from_storage_pressure
+from viseron.domains.camera.fragmenter import (
+    Fragment,
+    generate_playlist,
+    recover_from_storage_pressure,
+)
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.events import EventData
 from viseron.helpers import create_directory, draw_objects, get_utc_offset, utcnow
@@ -64,7 +73,7 @@ class RecordingDict(TypedDict):
     end_timestamp: float | None
     trigger_type: TriggerTypes | None
     trigger_id: int | None
-    thumbnail_path: str
+    thumbnail_path: str | None
     hls_url: str
 
 
@@ -243,7 +252,7 @@ class AbstractRecorder(ABC, RecorderBase):
         recording_id: int,
         frame: np.ndarray,
         objects: list[DetectedObject],
-    ) -> tuple[np.ndarray, str]:
+    ) -> tuple[np.ndarray, str | None]:
         """Create thumbnails, sent to MQTT and/or saved to disk based on config."""
         self._logger.debug(f"Saving thumbnail in {self._camera.thumbnails_folder}")
         thumbnail_name = f"{recording_id}.jpg"
@@ -254,17 +263,54 @@ class AbstractRecorder(ABC, RecorderBase):
                 frame,
                 objects,
             )
-        if not cv2.imwrite(thumbnail_path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), 100]):
-            self._logger.error(f"Failed saving thumbnail {thumbnail_path} to disk")
+        if not self._write_thumbnail_atomic(thumbnail_path, frame):
+            thumbnail_path = None
 
         if self._config[CONFIG_RECORDER][CONFIG_THUMBNAIL][CONFIG_SAVE_TO_DISK]:
-            if not cv2.imwrite(
+            self._write_thumbnail_atomic(
                 os.path.join(self._camera.thumbnails_folder, "latest_thumbnail.jpg"),
                 frame,
-                [int(cv2.IMWRITE_JPEG_QUALITY), 100],
-            ):
-                self._logger.error("Failed saving latest_thumbnail.jpg to disk")
+            )
         return frame, thumbnail_path
+
+    def _write_thumbnail_atomic(self, path: str, frame: np.ndarray) -> bool:
+        """Write a thumbnail through a same-directory temp file."""
+        create_directory(os.path.dirname(path))
+        temp_path = f"{get_storage_temp_path(path)}.jpg"
+        try:
+            if not cv2.imwrite(
+                temp_path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), 100]
+            ):
+                self._logger.error("Failed saving thumbnail %s to disk", path)
+                return False
+            if os.path.getsize(temp_path) <= 0:
+                self._logger.error("Thumbnail %s was written as an empty file", path)
+                return False
+            os.replace(temp_path, path)
+            fsync_directory(os.path.dirname(path))
+        except OSError as error:
+            if error.errno == errno.ENOSPC:
+                self._logger.warning(
+                    "No space left while publishing thumbnail %s; "
+                    "triggering storage pressure recovery: %s",
+                    path,
+                    error,
+                )
+                recover_from_storage_pressure(
+                    self._vis,
+                    self._storage,
+                    self._camera.identifier,
+                    self._logger,
+                )
+            else:
+                self._logger.error("Failed saving thumbnail %s", path, exc_info=error)
+            return False
+        finally:
+            try:
+                os.remove(temp_path)
+            except FileNotFoundError:
+                pass
+        return True
 
     def start(
         self,
@@ -377,6 +423,19 @@ class AbstractRecorder(ABC, RecorderBase):
             ),
         )
         self.is_recording = False
+        if (
+            self._config[CONFIG_RECORDER][CONFIG_THUMBNAIL][CONFIG_SAVE_TO_DISK]
+            and (
+                recording.thumbnail_path is None
+                or not os.path.exists(recording.thumbnail_path)
+            )
+        ):
+            RestartableThread(
+                name=f"viseron.camera.{self._camera.identifier}.repair_thumbnail",
+                target=self._repair_thumbnail,
+                args=(recording,),
+                register=False,
+            ).start()
 
         if self._config[CONFIG_RECORDER][CONFIG_CREATE_EVENT_CLIP]:
             concat_thread = RestartableThread(
@@ -393,6 +452,119 @@ class AbstractRecorder(ABC, RecorderBase):
             self._config[CONFIG_RECORDER][CONFIG_FILENAME_PATTERN]
         )
         return f"{filename_pattern}.{self._camera.extension}"
+
+    def _repair_thumbnail(self, recording: Recording) -> str | None:
+        """Repair a missing thumbnail from the recording fragments."""
+        sleep(CAMERA_SEGMENT_DURATION * 2)  # include segments still being written to
+        thumbnail_path = recording.thumbnail_path or os.path.join(
+            self._camera.thumbnails_folder, f"{recording.id}.jpg"
+        )
+        if os.path.exists(thumbnail_path):
+            self._set_recording_thumbnail_path(recording, thumbnail_path)
+            return thumbnail_path
+
+        files = recording.get_fragments(
+            self.lookback,
+            self._storage.get_session,
+        )
+        fragments = [
+            Fragment(file.filename, file.path, file.duration, file.orig_ctime)
+            for file in files
+        ]
+        for fragment in fragments:
+            if self._extract_thumbnail_from_fragment(fragment, thumbnail_path):
+                self._set_recording_thumbnail_path(recording, thumbnail_path)
+                return thumbnail_path
+
+        self._logger.error(
+            "Failed to repair thumbnail for recording %s: no usable fragments",
+            recording.id,
+        )
+        return None
+
+    def _extract_thumbnail_from_fragment(
+        self, fragment: Fragment, thumbnail_path: str
+    ) -> bool:
+        """Extract a thumbnail from a fragment."""
+        init_file = os.path.join(os.path.dirname(fragment.path), "init.mp4")
+        if not os.path.exists(init_file):
+            init_file = os.path.join(self._camera.segments_folder, "init.mp4")
+        if not os.path.exists(init_file):
+            self._logger.debug("No init.mp4 found for thumbnail repair")
+            return False
+
+        create_directory(os.path.dirname(thumbnail_path))
+        temp_path = f"{get_storage_temp_path(thumbnail_path)}.jpg"
+        playlist = generate_playlist(
+            [fragment],
+            init_file,
+            end=True,
+            file_directive=True,
+        )
+        try:
+            result = sp.run(  # type: ignore[call-overload]
+                [
+                    "ffmpeg",
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-f",
+                    "hls",
+                    "-protocol_whitelist",
+                    "file,pipe,fd",
+                    "-i",
+                    "-",
+                    "-frames:v",
+                    "1",
+                    "-q:v",
+                    "2",
+                    "-y",
+                    temp_path,
+                ],
+                input=playlist.encode("utf-8"),
+                capture_output=True,
+                check=True,
+                timeout=30,
+            )
+            if result.stderr:
+                self._logger.debug(
+                    "Thumbnail repair ffmpeg output: %s",
+                    result.stderr.decode("utf-8", errors="replace"),
+                )
+            if os.path.getsize(temp_path) <= 0:
+                self._logger.debug("Thumbnail repair produced an empty file")
+                return False
+            os.replace(temp_path, thumbnail_path)
+            fsync_directory(os.path.dirname(thumbnail_path))
+        except (sp.CalledProcessError, sp.TimeoutExpired, OSError) as error:
+            self._logger.debug(
+                "Failed extracting thumbnail from fragment %s",
+                fragment.path,
+                exc_info=error,
+            )
+            return False
+        finally:
+            try:
+                os.remove(temp_path)
+            except FileNotFoundError:
+                pass
+        return True
+
+    def _set_recording_thumbnail_path(
+        self, recording: Recording, thumbnail_path: str
+    ) -> None:
+        """Set thumbnail path for a recording."""
+        with self._storage.get_session() as session:
+            stmt = (
+                update(Recordings)
+                .where(Recordings.id == recording.id)
+                .values(
+                    thumbnail_path=thumbnail_path,
+                )
+            )
+            session.execute(stmt)
+            session.commit()
+        recording.thumbnail_path = thumbnail_path
 
     def _concatenate_fragments(self, recording: Recording) -> int | None:
         sleep(CAMERA_SEGMENT_DURATION * 2)  # include segments still being written to
@@ -615,7 +787,11 @@ def _recording_file_dict(recording: Recordings, subpath: str = "") -> RecordingD
         "end_timestamp": recording.end_time.timestamp() if recording.end_time else None,
         "trigger_type": recording.trigger_type,
         "trigger_id": recording.trigger_id,
-        "thumbnail_path": f"{subpath}/files{recording.thumbnail_path}",
+        "thumbnail_path": (
+            f"{subpath}/files{recording.thumbnail_path}"
+            if recording.thumbnail_path
+            else ""
+        ),
         "hls_url": (
             # pylint: disable=line-too-long
             f"{subpath}/api/v1/hls/{recording.camera_identifier}/{recording.id}/index.m3u8"

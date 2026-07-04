@@ -7,12 +7,19 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal
 from unittest.mock import MagicMock, Mock, patch
 
+import numpy as np
 import pytest
 from sqlalchemy import insert
 from sqlalchemy.orm import Session
 
 from viseron.components.storage.models import Files, Recordings, TriggerTypes
 from viseron.domains.camera import AbstractCamera
+from viseron.domains.camera.const import (
+    CONFIG_RECORDER,
+    CONFIG_SAVE_TO_DISK,
+    CONFIG_THUMBNAIL,
+)
+from viseron.domains.camera.fragmenter import Fragment
 from viseron.domains.camera.recorder import (
     AbstractRecorder,
     RecorderBase,
@@ -418,6 +425,84 @@ def fixture_add_db_recording(add_recording_to_session, recording_params):
 
 class TestAbstractRecorder:
     """Test the AbstractRecorder class."""
+
+    def test_create_thumbnail_does_not_return_path_when_write_fails(
+        self, recorder: ConcreteTestRecorder, tmp_path
+    ):
+        """A failed thumbnail write should not create a stale DB path."""
+        recorder._camera.thumbnails_folder = str(tmp_path)
+        recorder._config = {
+            CONFIG_RECORDER: {CONFIG_THUMBNAIL: {CONFIG_SAVE_TO_DISK: False}}
+        }
+
+        with patch(
+            "viseron.domains.camera.recorder.cv2.imwrite", return_value=False
+        ):
+            _thumbnail, thumbnail_path = recorder.create_thumbnail(
+                1, np.zeros((10, 10, 3), dtype=np.uint8), []
+            )
+
+        assert thumbnail_path is None
+        assert not (tmp_path / "1.jpg").exists()
+
+    def test_create_thumbnail_publishes_atomically(
+        self, recorder: ConcreteTestRecorder, tmp_path
+    ):
+        """A successful thumbnail write should publish the final file atomically."""
+        recorder._camera.thumbnails_folder = str(tmp_path)
+        recorder._config = {
+            CONFIG_RECORDER: {CONFIG_THUMBNAIL: {CONFIG_SAVE_TO_DISK: False}}
+        }
+
+        def _write_image(path, _frame, _params):
+            with open(path, "wb") as image_file:
+                image_file.write(b"jpg")
+            return True
+
+        with patch(
+            "viseron.domains.camera.recorder.cv2.imwrite", side_effect=_write_image
+        ):
+            _thumbnail, thumbnail_path = recorder.create_thumbnail(
+                1, np.zeros((10, 10, 3), dtype=np.uint8), []
+            )
+
+        assert thumbnail_path == str(tmp_path / "1.jpg")
+        assert (tmp_path / "1.jpg").read_bytes() == b"jpg"
+        assert not any(
+            path.name.startswith(".viseron-tmp-") for path in tmp_path.iterdir()
+        )
+
+    def test_repair_thumbnail_uses_fragments(
+        self, recorder: ConcreteTestRecorder, tmp_path, create_recording
+    ):
+        """A missing thumbnail can be repaired from available fragments."""
+        recorder._camera.thumbnails_folder = str(tmp_path)
+        recording = create_recording(thumbnail_path=None)
+        fragment_time = datetime.datetime(
+            2023, 3, 2, 12, 0, tzinfo=datetime.timezone.utc
+        )
+        fragment_file = MagicMock(
+            filename="1.m4s",
+            path="/segments/test/1.m4s",
+            duration=5.0,
+            orig_ctime=fragment_time,
+        )
+        recording.get_fragments = MagicMock(return_value=[fragment_file])
+
+        with patch("viseron.domains.camera.recorder.sleep"), patch.object(
+            recorder, "_extract_thumbnail_from_fragment", return_value=True
+        ) as mock_extract, patch.object(
+            recorder, "_set_recording_thumbnail_path"
+        ) as mock_set:
+            result = recorder._repair_thumbnail(recording)
+
+        expected_path = str(tmp_path / "1.jpg")
+        assert result == expected_path
+        mock_extract.assert_called_once_with(
+            Fragment("1.m4s", "/segments/test/1.m4s", 5.0, fragment_time),
+            expected_path,
+        )
+        mock_set.assert_called_once_with(recording, expected_path)
 
     def test_no_active_recording(self, recorder: ConcreteTestRecorder):
         """Test no active recording."""
