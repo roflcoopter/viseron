@@ -39,7 +39,7 @@ class TieredFileHandler(AccessTokenStaticFileHandler):
         self._tries = 0
         self._redirect = False
 
-    def handle_tier_hint(self, path: str) -> str | None:
+    def handle_tier_hint(self, path: str) -> tuple[str, str] | None:
         """Handle tier hint arguments."""
         _path = os.path.join(self.root, path)
         first_tier_path = self.get_argument("first_tier_path", None, strip=True)
@@ -51,7 +51,8 @@ class TieredFileHandler(AccessTokenStaticFileHandler):
                 "first_tier_path and actual_tier_path found, adjusted path to %s",
                 _path,
             )
-            return _path
+            if os.path.exists(_path):
+                return actual_tier_path, os.path.relpath(_path, actual_tier_path)
         return None
 
     def _search_file(self, path: str) -> str | None:
@@ -83,11 +84,10 @@ class TieredFileHandler(AccessTokenStaticFileHandler):
         include_body: bool = True,  # noqa: FBT001, FBT002
     ) -> None:
         """Look through tiers to find a potentially moved file."""
-        tier_hint_redirect_path = self.handle_tier_hint(path)
-        if tier_hint_redirect_path:
-            subpath = self.get_subpath()
-            self._redirect = True
-            self.redirect(f"{subpath}/files{tier_hint_redirect_path}", permanent=True)
+        tier_hint_path = self.handle_tier_hint(path)
+        if tier_hint_path:
+            self.root, path = tier_hint_path
+            await super().get(path, include_body)
             return
 
         if not self._failed:

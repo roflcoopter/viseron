@@ -92,5 +92,21 @@ class TestTieredFileHandler(TestAppBaseNoAuth):
         assert response.body == b"test2"
         assert "Redirecting to" not in self._caplog.text
 
+        # Test accessing a hinted tier 2 file through its stable tier 1 URL.
+        # HLS playlists use this form so segment URIs do not change between
+        # playlist refreshes when files move tiers.
+        with open(f"{tier2}/test3.jpg", "wb") as tier2_file:
+            tier2_file.write(b"test3")
+        self._caplog.clear()
+        response = self.fetch(
+            f"/files{tier1}/test3.jpg?"
+            f"first_tier_path={tier1}&actual_tier_path={tier2}",
+            follow_redirects=False,
+        )
+        assert response.code == 200
+        assert response.body == b"test3"
+        assert "Location" not in response.headers
+        assert "Redirecting to" not in self._caplog.text
+
         shutil.rmtree(tier1)
         shutil.rmtree(tier2)
