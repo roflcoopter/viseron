@@ -57,6 +57,60 @@ class FakeSession:
         self.committed = True
 
 
+def test_check_tier_throttles_recent_non_forced_check() -> None:
+    """Recent tier checks should be throttled by default."""
+    item = DataItem(
+        cmd="check_tier",
+        camera_identifier="test",
+        tier_id=0,
+        category="recorder",
+        subcategories=["segments"],
+        throttle_period=datetime.timedelta(minutes=1),
+        max_bytes=0,
+        min_age=datetime.timedelta(seconds=0),
+        max_age=datetime.timedelta(seconds=0),
+        min_bytes=0,
+        drain=False,
+    )
+    worker = Worker.__new__(Worker)
+    worker._last_call = {item.throttle_key: datetime.datetime.now().timestamp()}
+    worker._check_locks = {}
+    worker._checks_in_progress = {}
+    worker._check_tier = MagicMock()
+
+    worker.check_tier(item)
+
+    worker._check_tier.assert_not_called()
+    assert item.data is None
+
+
+def test_check_tier_force_bypasses_recent_throttle() -> None:
+    """Forced tier checks should bypass the worker throttle."""
+    item = DataItem(
+        cmd="check_tier",
+        camera_identifier="test",
+        tier_id=0,
+        category="recorder",
+        subcategories=["segments"],
+        throttle_period=datetime.timedelta(minutes=1),
+        max_bytes=0,
+        min_age=datetime.timedelta(seconds=0),
+        max_age=datetime.timedelta(seconds=0),
+        min_bytes=0,
+        drain=False,
+        force=True,
+    )
+    worker = Worker.__new__(Worker)
+    worker._last_call = {item.throttle_key: datetime.datetime.now().timestamp()}
+    worker._check_locks = {}
+    worker._checks_in_progress = {}
+    worker._check_tier = MagicMock()
+
+    worker.check_tier(item)
+
+    worker._check_tier.assert_called_once_with(item)
+
+
 class TestFileOperations:
     """Test destructive file operations."""
 

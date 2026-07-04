@@ -29,14 +29,17 @@ from viseron.components.storage.const import (
 )
 from viseron.components.storage.models import FilesMeta
 from viseron.components.storage.queries import get_time_period_fragments
-from viseron.components.storage.util import copy_file_atomic, move_file_atomic
+from viseron.components.storage.util import (
+    EventCheckTier,
+    copy_file_atomic,
+    move_file_atomic,
+)
 from viseron.const import CAMERA_SEGMENT_DURATION, TEMP_DIR, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import (
     CONFIG_FFMPEG_LOGLEVEL,
     CONFIG_RECORDER,
     MP4BOX_PATH,
 )
-from viseron.events import EventEmptyData
 from viseron.helpers import get_utc_offset
 from viseron.helpers.child_process_worker import ChildProcessWorker
 from viseron.helpers.logs import LogPipe
@@ -73,7 +76,7 @@ def recover_from_storage_pressure(
                     category=TIER_CATEGORY_RECORDER,
                     subcategory=TIER_SUBCATEGORY_SEGMENTS,
                 ),
-                EventEmptyData(),
+                EventCheckTier(force=True),
                 store=False,
             )
             storage.cleanup_manager.run_job(CleanupJobNames.ORPHANED_FILES)

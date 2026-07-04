@@ -231,7 +231,11 @@ class Worker:
             now = utcnow().timestamp()
             throttle_period = item.throttle_period.total_seconds()
             last_call = self._last_call[item.throttle_key]
-            if throttle_period > 0 and (now - last_call) < throttle_period:
+            if (
+                not item.force
+                and throttle_period > 0
+                and (now - last_call) < throttle_period
+            ):
                 item.data = None
                 return
             self._checks_in_progress[item.camera_identifier] = True

@@ -68,6 +68,7 @@ class DataItem:
     callback_id: str | None = None
     data: np.ndarray | None = None
     error: str | None = None
+    force: bool = False
 
     @property
     def throttle_key(self) -> str:

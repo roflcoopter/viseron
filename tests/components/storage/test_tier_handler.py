@@ -1,5 +1,7 @@
 """Test the TierHandler class."""
 
+import datetime
+import threading
 from dataclasses import dataclass
 from unittest.mock import MagicMock, Mock, patch
 
@@ -162,6 +164,30 @@ def test_on_created_duplicate_path_is_ignored(
     assert len(files) == 1
     assert vis.dispatch_event.call_count == 1
     assert tier_handler.check_tier.call_count == 2
+
+
+def test_check_tier_force_bypasses_throttle() -> None:
+    """Forced tier checks should bypass the main-process throttle."""
+    tier_handler = TierHandler.__new__(TierHandler)
+    tier_handler._check_tier_lock = threading.Lock()
+    tier_handler._tier_check_in_progress = False
+    tier_handler._throttle_period = datetime.timedelta(minutes=1)
+    tier_handler._time_of_last_call = utcnow()
+    tier_handler._storage = MagicMock()
+    tier_handler._create_dataitem = MagicMock(return_value=MagicMock())
+    tier_handler.on_check_tier_result = MagicMock()
+
+    tier_handler.check_tier()
+
+    tier_handler._storage.tier_check_worker_send_command.assert_not_called()
+
+    tier_handler.check_tier(force=True)
+
+    tier_handler._create_dataitem.assert_called_once_with(force=True)
+    tier_handler._storage.tier_check_worker_send_command.assert_called_once_with(
+        tier_handler._create_dataitem.return_value,
+        tier_handler.on_check_tier_result,
+    )
 
 
 def test_move_file_callback_commits_published_move() -> None:

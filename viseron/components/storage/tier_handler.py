@@ -78,6 +78,7 @@ from viseron.components.storage.storage_subprocess import (
 from viseron.components.storage.util import (
     EventFileCreated,
     EventFileDeleted,
+    EventCheckTier,
     calculate_age,
     calculate_bytes,
     get_event_clips_path,
@@ -237,6 +238,8 @@ class TierHandler(FileSystemEventHandler):
 
     def _create_dataitem(
         self,
+        *,
+        force: bool = False,
     ) -> DataItem:
         """Create a DataItem for the check tier command."""
         return DataItem(
@@ -251,14 +254,15 @@ class TierHandler(FileSystemEventHandler):
             max_age=self._max_age,
             min_bytes=self._min_bytes,
             drain=self._tier[CONFIG_DRAIN],
+            force=force,
         )
 
-    def _check_tier_event_handler(self, _event: Event) -> None:
+    def _check_tier_event_handler(self, event: Event[EventCheckTier]) -> None:
         """Handle check tier event."""
         self._storage.cleanup_manager.run_job(CleanupJobNames.ORPHANED_FILES)
-        self.check_tier()
+        self.check_tier(force=getattr(event.data, "force", False))
 
-    def check_tier(self) -> None:
+    def check_tier(self, *, force: bool = False) -> None:
         """Check if file should be moved to next tier."""
         with self._check_tier_lock:
             if self._tier_check_in_progress:
@@ -267,11 +271,11 @@ class TierHandler(FileSystemEventHandler):
             # in order to not spam the workers with unneeded requests.
             now = utcnow()
             time_since_last_call = now - self._time_of_last_call
-            if time_since_last_call < self._throttle_period:
+            if not force and time_since_last_call < self._throttle_period:
                 return
 
         self._storage.tier_check_worker_send_command(
-            self._create_dataitem(),
+            self._create_dataitem(force=force),
             self.on_check_tier_result,
         )
 
@@ -636,7 +640,7 @@ class SegmentsTierHandler(TierHandler):
         self.add_file_handler(self._path, rf"{self._path}/(.*.m4s$)")
         self.add_file_handler(self._path, rf"{self._path}/(.*.mp4$)")
 
-    def _create_dataitem(self) -> DataItem:
+    def _create_dataitem(self, *, force: bool = False) -> DataItem:
         """Create a DataItem for the check tier command."""
         return DataItem(
             cmd="check_tier",
@@ -663,6 +667,7 @@ class SegmentsTierHandler(TierHandler):
             events_min_age=self._events_min_age,
             events_max_age=self._events_max_age,
             events_min_bytes=self._events_min_bytes,
+            force=force,
         )
 
     @property

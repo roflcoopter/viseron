@@ -63,6 +63,17 @@ class AtomicMoveResult:
     source_remove_error: OSError | None = None
 
 
+@dataclass
+class EventCheckTier(EventData):
+    """Event data for tier checks."""
+
+    force: bool = False
+
+    def as_dict(self) -> dict[str, bool]:
+        """Convert EventCheckTier to dict."""
+        return {"force": self.force}
+
+
 def is_storage_temp_file(path: str) -> bool:
     """Return if a path is an internal temporary storage file."""
     return os.path.basename(path).startswith(TEMP_STORAGE_FILE_PREFIX)
