@@ -13,7 +13,8 @@ from threading import Timer
 from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
-from sqlalchemy import Delete, delete, insert, select, update
+from sqlalchemy import Delete, delete, select, update
+from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.dml import ReturningDelete
@@ -409,43 +410,56 @@ class TierHandler(FileSystemEventHandler):
                     break
         try:
             with self._storage.get_session() as session:
-                stmt = insert(Files).values(
-                    tier_id=self._tier_id,
-                    tier_path=self._tier[CONFIG_PATH],
-                    camera_identifier=self._camera.identifier,
-                    category=self._category,
-                    subcategory=self._subcategory,
-                    path=event_path,
-                    directory=os.path.dirname(event_path),
-                    filename=os.path.basename(event_path),
-                    size=stat_result.st_size,
-                    orig_ctime=file_meta.orig_ctime if file_meta else utcnow(),
-                    duration=file_meta.duration if file_meta else None,
+                stmt = (
+                    postgresql_insert(Files)
+                    .values(
+                        tier_id=self._tier_id,
+                        tier_path=self._tier[CONFIG_PATH],
+                        camera_identifier=self._camera.identifier,
+                        category=self._category,
+                        subcategory=self._subcategory,
+                        path=event_path,
+                        directory=os.path.dirname(event_path),
+                        filename=os.path.basename(event_path),
+                        size=stat_result.st_size,
+                        orig_ctime=file_meta.orig_ctime if file_meta else utcnow(),
+                        duration=file_meta.duration if file_meta else None,
+                    )
+                    .on_conflict_do_nothing(index_elements=[Files.path])
+                    .returning(Files.id)
                 )
-                session.execute(stmt)
+                inserted_file_id = session.execute(stmt).scalar_one_or_none()
                 session.commit()
         except IntegrityError:
+            session.rollback()
             self._logger.debug(
                 "File %s already exists in database; create event likely raced "
                 "with move callback or duplicate watcher event",
                 event_path,
             )
         else:
-            self._vis.dispatch_event(
-                EVENT_FILE_CREATED.format(
-                    camera_identifier=self._camera.identifier,
-                    category=self._category,
-                    subcategory=self._subcategory,
-                ),
-                EventFileCreated(
-                    camera_identifier=self._camera.identifier,
-                    category=self._category,
-                    subcategory=self._subcategory,
-                    file_name=os.path.basename(event_path),
-                    path=event_path,
-                ),
-                store=False,
-            )
+            if inserted_file_id is not None:
+                self._vis.dispatch_event(
+                    EVENT_FILE_CREATED.format(
+                        camera_identifier=self._camera.identifier,
+                        category=self._category,
+                        subcategory=self._subcategory,
+                    ),
+                    EventFileCreated(
+                        camera_identifier=self._camera.identifier,
+                        category=self._category,
+                        subcategory=self._subcategory,
+                        file_name=os.path.basename(event_path),
+                        path=event_path,
+                    ),
+                    store=False,
+                )
+            else:
+                self._logger.debug(
+                    "File %s already exists in database; create event likely raced "
+                    "with move callback or duplicate watcher event",
+                    event_path,
+                )
 
         self.check_tier()
 
@@ -1228,7 +1242,8 @@ def move_file(
                 result = session.execute(stmt)
                 if result.rowcount == 0:
                     session.execute(
-                        insert(Files).values(
+                        postgresql_insert(Files)
+                        .values(
                             tier_id=dst_tier_id,
                             tier_path=dst_tier_path,
                             camera_identifier=camera_identifier,
@@ -1241,6 +1256,7 @@ def move_file(
                             orig_ctime=file_meta.orig_ctime,
                             duration=file_meta.duration,
                         )
+                        .on_conflict_do_nothing(index_elements=[Files.path])
                     )
                 session.commit()
             except IntegrityError:

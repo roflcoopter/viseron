@@ -16,7 +16,7 @@ from viseron.components.storage.const import (
     TIER_CATEGORY_RECORDER,
     TIER_SUBCATEGORY_SEGMENTS,
 )
-from viseron.components.storage.models import Recordings
+from viseron.components.storage.models import Files, FilesMeta, Recordings
 from viseron.components.storage.storage_subprocess import (
     DataItemCopyFile,
     DataItemMoveFile,
@@ -125,6 +125,43 @@ def test_on_created_missing_file_does_not_pop_metadata(tmp_path) -> None:
     tier_handler._on_created(FileCreatedEvent(path))
 
     assert path in tier_handler._storage.temporary_files_meta
+
+
+def test_on_created_duplicate_path_is_ignored(
+    tmp_path, get_db_session, vis: MockViseron
+) -> None:
+    """Duplicate create events for the same path should be database no-ops."""
+    path = str(tmp_path / "duplicate.m4s")
+    with open(path, "wb") as file:
+        file.write(b"segment")
+
+    tier_handler = TierHandler.__new__(TierHandler)
+    tier_handler._logger = MagicMock()
+    tier_handler._vis = vis
+    tier_handler._storage = MagicMock()
+    tier_handler._storage.get_session = get_db_session
+    tier_handler._storage.temporary_files_meta = {
+        path: FilesMeta(orig_ctime=utcnow(), duration=5.0)
+    }
+    tier_handler._camera = MagicMock(identifier="test")
+    tier_handler._tier_id = 1
+    tier_handler._tier = {"path": "/"}
+    tier_handler._category = TIER_CATEGORY_RECORDER
+    tier_handler._subcategory = TIER_SUBCATEGORY_SEGMENTS
+    tier_handler.check_tier = MagicMock()
+
+    tier_handler._on_created(FileCreatedEvent(path))
+    tier_handler._storage.temporary_files_meta[path] = FilesMeta(
+        orig_ctime=utcnow(), duration=5.0
+    )
+    tier_handler._on_created(FileCreatedEvent(path))
+
+    with get_db_session() as session:
+        files = session.execute(select(Files).where(Files.path == path)).all()
+
+    assert len(files) == 1
+    assert vis.dispatch_event.call_count == 1
+    assert tier_handler.check_tier.call_count == 2
 
 
 def test_move_file_callback_commits_published_move() -> None:
