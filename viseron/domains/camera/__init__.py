@@ -15,20 +15,15 @@ from uuid import uuid4
 
 import cv2
 import imutils
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from typing_extensions import assert_never
 
 from viseron.components.go2rtc.const import COMPONENT as GO2RTC_COMPONENT
 from viseron.components.storage.config import validate_tiers
 from viseron.components.storage.const import (
     COMPONENT as STORAGE_COMPONENT,
-    TIER_CATEGORY_RECORDER,
-    TIER_CATEGORY_SNAPSHOTS,
-    TIER_SUBCATEGORY_SEGMENTS,
-    TIER_SUBCATEGORY_THUMBNAILS,
 )
 from viseron.components.storage.models import Files
-from viseron.components.webserver.const import COMPONENT as WEBSERVER_COMPONENT
 from viseron.const import TEMP_DIR
 from viseron.domain_registry import DomainEntry, DomainState
 from viseron.domains import AbstractDomain
@@ -594,74 +589,12 @@ class FailedCamera:
 
     def __init__(self, vis: Viseron, entry: DomainEntry) -> None:
         """Initialize failed camera."""
-        # Local import to avoid circular import
-        # pylint: disable=import-outside-toplevel
-        from viseron.components.storage.tier_handler import (  # noqa: PLC0415
-            add_file_handler,
-        )
-
         self._vis = vis
         self._entry = entry
         self._config: dict[str, Any] = entry.config[entry.identifier]
 
         self._storage = vis.data[STORAGE_COMPONENT]
-        self._webserver = vis.data[WEBSERVER_COMPONENT]
         self._recorder = FailedCameraRecorder(vis, self._config, self)
-
-        # Try to guess the path to the camera recordings
-        with self._storage.get_session() as session:
-            recorder_dir_stmt = (
-                select(Files)
-                .distinct(Files.directory)
-                .where(Files.camera_identifier == self.identifier)
-                .where(Files.category == TIER_CATEGORY_RECORDER)
-                .where(Files.subcategory == TIER_SUBCATEGORY_SEGMENTS)
-                .order_by(Files.directory, Files.created_at.desc())
-            )
-            for file in session.execute(recorder_dir_stmt).scalars():
-                add_file_handler(
-                    vis,
-                    self._webserver,
-                    file.directory,
-                    rf"{file.directory}/(.*.m4s$)",
-                    self,
-                    TIER_CATEGORY_RECORDER,
-                    TIER_SUBCATEGORY_SEGMENTS,
-                )
-                add_file_handler(
-                    vis,
-                    self._webserver,
-                    file.directory,
-                    rf"{file.directory}/(.*.mp4$)",
-                    self,
-                    TIER_CATEGORY_RECORDER,
-                    TIER_SUBCATEGORY_SEGMENTS,
-                )
-
-        # Try to guess the path to the camera snapshots and thumbnails
-        with self._storage.get_session() as session:
-            jpg_dir_stmt = (
-                select(Files)
-                .distinct(Files.directory)
-                .where(Files.camera_identifier == self.identifier)
-                .where(
-                    or_(
-                        Files.category == TIER_CATEGORY_SNAPSHOTS,
-                        Files.subcategory == TIER_SUBCATEGORY_THUMBNAILS,
-                    )
-                )
-                .order_by(Files.directory, Files.created_at.desc())
-            )
-            for file in session.execute(jpg_dir_stmt).scalars():
-                add_file_handler(
-                    vis,
-                    self._webserver,
-                    file.directory,
-                    rf"{file.directory}/(.*.jpg$)",
-                    self,
-                    file.category,
-                    file.subcategory,
-                )
 
     def as_dict(self) -> dict[str, Any]:
         """Return camera as dict."""

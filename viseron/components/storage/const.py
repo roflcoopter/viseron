@@ -35,6 +35,7 @@ class CleanupJobNames(Enum):
     ORPHANED_OBJECTS = "cleanup_orphaned_objects"
     ORPHANED_MOTION = "cleanup_orphaned_motion"
     OLD_EVENTS = "cleanup_old_events"
+    FILE_REFERENCES = "repair_file_references"
 
 
 EVENT_FILE_CREATED = "file_created/{camera_identifier}/{category}/{subcategory}"

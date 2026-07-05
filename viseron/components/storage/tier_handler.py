@@ -13,7 +13,7 @@ from threading import Timer
 from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
-from sqlalchemy import Delete, delete, select, update
+from sqlalchemy import Delete, delete, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import Session
@@ -69,6 +69,8 @@ from viseron.components.storage.models import (
     PostProcessorResults,
     Recordings,
 )
+from viseron.components.storage.files import upsert_file
+from viseron.components.storage.thumbnails import upsert_thumbnail_file
 from viseron.components.storage.storage_subprocess import (
     DataItem,
     DataItemCopyFile,
@@ -87,9 +89,7 @@ from viseron.components.storage.util import (
     get_timelapse_path,
     is_storage_temp_file,
 )
-from viseron.components.webserver.const import COMPONENT as WEBSERVER_COMPONENT
 from viseron.const import VISERON_SIGNAL_LAST_WRITE, VISERON_SIGNAL_STOPPING
-from viseron.domains.camera import FailedCamera
 from viseron.domains.camera.const import (
     CONFIG_CONTINUOUS_RECORDING,
     CONFIG_RECORDER,
@@ -103,7 +103,6 @@ from viseron.watchdog.thread_watchdog import RestartableThread
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.components.storage import Storage
-    from viseron.components.webserver import Webserver
     from viseron.domains.camera import AbstractCamera
 
 
@@ -127,7 +126,6 @@ class TierHandler(FileSystemEventHandler):
 
         self._vis = vis
         self._storage = vis.data[COMPONENT]
-        self._webserver = self._vis.data[WEBSERVER_COMPONENT]
         self._camera = camera
         self._tier_id = tier_id
         self._category = category
@@ -201,19 +199,6 @@ class TierHandler(FileSystemEventHandler):
     def tier_base_path(self) -> str:
         """Return tier base path."""
         return self._tier[CONFIG_PATH]
-
-    def add_file_handler(self, path: str, pattern: str):
-        """Add file handler to webserver."""
-        self._logger.debug(f"Adding handler for /files{pattern}")
-        add_file_handler(
-            self._vis,
-            self._webserver,
-            path,
-            pattern,
-            self._camera,
-            self._category,
-            self._subcategory,
-        )
 
     def initialize(self):
         """Tier handler specific initialization."""
@@ -637,9 +622,6 @@ class SegmentsTierHandler(TierHandler):
                 self._path,
             )
 
-        self.add_file_handler(self._path, rf"{self._path}/(.*.m4s$)")
-        self.add_file_handler(self._path, rf"{self._path}/(.*.mp4$)")
-
     def _create_dataitem(self, *, force: bool = False) -> DataItem:
         """Create a DataItem for the check tier command."""
         return DataItem(
@@ -886,15 +868,22 @@ class SnapshotTierHandler(TierHandler):
     def initialize(self):
         """Initialize snapshot tier."""
         super().initialize()
-        self.add_file_handler(self._path, rf"{self._path}/(.*.jpg$)")
 
     def _on_deleted(self, event: FileDeletedEvent) -> None:
         stmt: Delete | ReturningDelete[tuple[int]]
         if self._subcategory == TIER_SUBCATEGORY_MOTION_DETECTOR:
             with self._storage.get_session() as session:
+                file_id = session.execute(
+                    select(Files.id).where(Files.path == event.src_path)
+                ).scalar_one_or_none()
+                delete_condition = Motion.snapshot_path == event.src_path
+                if file_id is not None:
+                    delete_condition = or_(
+                        delete_condition, Motion.snapshot_file_id == file_id
+                    )
                 stmt = (
                     delete(Motion)
-                    .where(Motion.snapshot_path == event.src_path)
+                    .where(delete_condition)
                     .returning(Motion.id)
                 )
                 result = session.execute(stmt)
@@ -910,7 +899,15 @@ class SnapshotTierHandler(TierHandler):
 
         elif self._subcategory == TIER_SUBCATEGORY_OBJECT_DETECTOR:
             with self._storage.get_session() as session:
-                stmt = delete(Objects).where(Objects.snapshot_path == event.src_path)
+                file_id = session.execute(
+                    select(Files.id).where(Files.path == event.src_path)
+                ).scalar_one_or_none()
+                delete_condition = Objects.snapshot_path == event.src_path
+                if file_id is not None:
+                    delete_condition = or_(
+                        delete_condition, Objects.snapshot_file_id == file_id
+                    )
+                stmt = delete(Objects).where(delete_condition)
                 session.execute(stmt)
                 session.commit()
 
@@ -919,8 +916,17 @@ class SnapshotTierHandler(TierHandler):
             TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION,
         ]:
             with self._storage.get_session() as session:
+                file_id = session.execute(
+                    select(Files.id).where(Files.path == event.src_path)
+                ).scalar_one_or_none()
+                delete_condition = PostProcessorResults.snapshot_path == event.src_path
+                if file_id is not None:
+                    delete_condition = or_(
+                        delete_condition,
+                        PostProcessorResults.snapshot_file_id == file_id,
+                    )
                 stmt = delete(PostProcessorResults).where(
-                    PostProcessorResults.snapshot_path == event.src_path
+                    delete_condition
                 )
                 session.execute(stmt)
                 session.commit()
@@ -934,7 +940,6 @@ class ThumbnailTierHandler(TierHandler):
     def initialize(self):
         """Initialize thumbnail tier."""
         self._path = get_thumbnails_path(self._tier, self._camera)
-        self.add_file_handler(self._path, rf"{self._path}/(.*.jpg$)")
         self._storage.ignore_file("latest_thumbnail.jpg")
 
     def check_tier(self) -> None:
@@ -942,13 +947,23 @@ class ThumbnailTierHandler(TierHandler):
 
     def _on_created(self, event: FileCreatedEvent) -> None:
         try:
+            thumbnail_file_id = upsert_thumbnail_file(
+                self._storage.get_session,
+                self._storage,
+                self._camera.identifier,
+                event.src_path,
+            )
             with self._storage.get_session() as session:
+                values: dict[str, str | int] = {"thumbnail_path": event.src_path}
+                if thumbnail_file_id is not None:
+                    values["thumbnail_file_id"] = thumbnail_file_id
+
                 stmt = (
                     update(Recordings)
                     .where(
                         Recordings.id == os.path.basename(event.src_path).split(".")[0]
                     )
-                    .values(thumbnail_path=event.src_path)
+                    .values(**values)
                 )
                 session.execute(stmt)
                 session.commit()
@@ -998,16 +1013,25 @@ class EventClipTierHandler(TierHandler):
     def initialize(self):
         """Initialize event clips tier."""
         self._path = get_event_clips_path(self._tier, self._camera)
-        self.add_file_handler(
-            self._path, rf"{self._path}/(.*.{self._camera.identifier}$)"
-        )
 
     def check_tier(self) -> None:
         """Do nothing, as we move event clips manually."""
 
     def _update_clip_path(self, event: FileCreatedEvent) -> None:
         try:
+            clip_file_id = upsert_file(
+                self._storage.get_session,
+                self._storage,
+                self._camera.identifier,
+                TIER_CATEGORY_RECORDER,
+                TIER_SUBCATEGORY_EVENT_CLIPS,
+                event.src_path,
+            )
             with self._storage.get_session() as session:
+                values: dict[str, str | int] = {"clip_path": event.src_path}
+                if clip_file_id is not None:
+                    values["clip_file_id"] = clip_file_id
+
                 stmt = (
                     update(Recordings)
                     .where(Recordings.camera_identifier == self._camera.identifier)
@@ -1017,7 +1041,7 @@ class EventClipTierHandler(TierHandler):
                             f"{os.path.basename(event.src_path)}"
                         )
                     )
-                    .values(clip_path=event.src_path)
+                    .values(**values)
                 )
                 session.execute(stmt)
                 session.commit()
@@ -1412,41 +1436,6 @@ def force_move_files(
         session.commit()
 
 
-def add_file_handler(
-    vis: Viseron,
-    webserver: Webserver,
-    path: str,
-    pattern: str,
-    camera: AbstractCamera | FailedCamera,
-    category: str,
-    subcategory: str,
-) -> None:
-    """Add file handler to webserver."""
-    # We have to import this here to avoid circular imports
-    # pylint: disable-next=import-outside-toplevel
-    from viseron.components.webserver.tiered_file_handler import (  # noqa: PLC0415
-        TieredFileHandler,
-    )
-
-    webserver.application.add_handlers(
-        r".*",
-        [
-            (
-                (rf"/files{pattern}"),
-                TieredFileHandler,
-                {
-                    "path": path,
-                    "vis": vis,
-                    "camera_identifier": camera.identifier,
-                    "failed": bool(isinstance(camera, FailedCamera)),
-                    "category": category,
-                    "subcategory": subcategory,
-                },
-            )
-        ],
-    )
-
-
 class TimelapseTierHandler(TierHandler):
     """Handle timelapse files."""
 
@@ -1456,7 +1445,6 @@ class TimelapseTierHandler(TierHandler):
 
         self._path = get_timelapse_path(self._tier, self._camera)
         self._interval = calculate_age(self._tier.get(CONFIG_INTERVAL, {}))
-        self.add_file_handler(self._path, rf"{self._path}/(.*.jpg$)")
 
     def _on_created(self, event: FileCreatedEvent) -> None:
         """Handle file creation with interval-based cleanup."""

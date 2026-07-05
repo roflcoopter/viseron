@@ -15,7 +15,11 @@ import voluptuous as vol
 from sqlalchemy import insert, update
 
 from viseron.components.nvr.const import EVENT_SCAN_FRAMES, MOTION_DETECTOR
-from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
+from viseron.components.storage.const import (
+    COMPONENT as STORAGE_COMPONENT,
+    TIER_CATEGORY_SNAPSHOTS,
+)
+from viseron.components.storage.files import upsert_file
 from viseron.components.storage.models import Motion, MotionContours
 from viseron.const import INSERT, UPDATE, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains import AbstractDomain
@@ -229,7 +233,9 @@ class AbstractMotionDetector(AbstractDomain):
         """Return motion contours."""
         return self._motion_contours
 
-    def _insert_motion(self, snapshot_path: str | None) -> None:
+    def _insert_motion(
+        self, snapshot_path: str | None, snapshot_file_id: int | None = None
+    ) -> None:
         """Insert motion event into database."""
         with self._storage.get_session() as session:
             stmt = (
@@ -239,6 +245,7 @@ class AbstractMotionDetector(AbstractDomain):
                     start_time=utcnow(),
                     end_time=None,
                     snapshot_path=snapshot_path,
+                    snapshot_file_id=snapshot_file_id,
                 )
                 .returning(Motion.id)
             )
@@ -279,12 +286,21 @@ class AbstractMotionDetector(AbstractDomain):
 
         if self._motion_id is None:
             snapshot_path = None
+            snapshot_file_id = None
             if shared_frame:
                 snapshot_path = self._camera.save_snapshot(
                     shared_frame,
                     SnapshotDomain.MOTION_DETECTOR,
                 )
-            self._insert_motion(snapshot_path)
+                snapshot_file_id = upsert_file(
+                    self._storage.get_session,
+                    self._storage,
+                    self._camera.identifier,
+                    TIER_CATEGORY_SNAPSHOTS,
+                    SnapshotDomain.MOTION_DETECTOR.value,
+                    snapshot_path,
+                )
+            self._insert_motion(snapshot_path, snapshot_file_id)
             self._vis.dispatch_event(
                 EVENT_CAMERA_EVENT_DB_OPERATION.format(
                     camera_identifier=self._camera.identifier,

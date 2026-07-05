@@ -34,6 +34,13 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
+def _file_url_for_id(file_id: int | None, subpath: str) -> str | None:
+    """Return a logical file URL for an existing Files id."""
+    if file_id is not None:
+        return f"{subpath}/api/v1/files/{file_id}"
+    return None
+
+
 class EventsAPIHandler(BaseAPIHandler):
     """API handler for Events."""
 
@@ -123,9 +130,10 @@ class EventsAPIHandler(BaseAPIHandler):
                         "duration": (event.end_time - event.start_time).total_seconds()
                         if event.end_time
                         else None,
-                        "snapshot_path": f"{subpath}/files{event.snapshot_path}"
-                        if event.snapshot_path
-                        else None,
+                        "snapshot_url": _file_url_for_id(
+                            event.snapshot_file_id,
+                            subpath,
+                        ),
                         "created_at": event.created_at,
                         "created_at_timestamp": event.created_at.timestamp(),
                         "lookback": camera.recorder.lookback,
@@ -169,7 +177,10 @@ class EventsAPIHandler(BaseAPIHandler):
                         "confidence": event.confidence,
                         "created_at": event.created_at,
                         "created_at_timestamp": event.created_at.timestamp(),
-                        "snapshot_path": f"{subpath}/files{event.snapshot_path}",
+                        "snapshot_url": _file_url_for_id(
+                            event.snapshot_file_id,
+                            subpath,
+                        ),
                         "lookback": camera.recorder.lookback,
                     }
                 )
@@ -220,7 +231,12 @@ class EventsAPIHandler(BaseAPIHandler):
                             f"{subpath}/api/v1/hls/"
                             f"{event.camera_identifier}/{event.id}/index.m3u8"
                         ),
-                        "thumbnail_path": f"{subpath}/files{event.thumbnail_path}",
+                        "thumbnail_url": (
+                            f"{subpath}/api/v1/recordings/"
+                            f"{event.camera_identifier}/{event.id}/thumbnail"
+                            if event.thumbnail_file_id or event.thumbnail_path
+                            else None
+                        ),
                         "created_at": event.created_at,
                         "created_at_timestamp": event.created_at.timestamp(),
                         "lookback": camera.recorder.lookback,
@@ -269,7 +285,10 @@ class EventsAPIHandler(BaseAPIHandler):
                         "id": event.id,
                         "time": event.created_at,
                         "timestamp": event.created_at.timestamp(),
-                        "snapshot_path": f"{subpath}/files{event.snapshot_path}",
+                        "snapshot_url": _file_url_for_id(
+                            event.snapshot_file_id,
+                            subpath,
+                        ),
                         "data": event.data,
                         "created_at": event.created_at,
                         "created_at_timestamp": event.created_at.timestamp(),

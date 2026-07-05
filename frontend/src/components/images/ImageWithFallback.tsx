@@ -4,7 +4,7 @@ import { useTheme } from "@mui/material/styles";
 import { useState } from "react";
 
 interface ImageWithFallbackProps {
-  src: string;
+  src: string | null;
   alt: string;
   style?: React.CSSProperties;
   fallbackSize?: number;
@@ -23,7 +23,7 @@ export function ImageWithFallback({
     setHasError(true);
   };
 
-  if (hasError) {
+  if (!src || hasError) {
     return (
       <Box
         style={{

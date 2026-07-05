@@ -3,12 +3,17 @@ from __future__ import annotations
 
 import datetime
 import json
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from sqlalchemy import delete, insert, update
 
 from viseron.components.storage.models import Files, Recordings
-from viseron.components.webserver.api.v1.hls import count_files_removed
+from viseron.components.webserver.api.v1.hls import (
+    _init_file_url,
+    adjust_fragment_paths,
+    count_files_removed,
+)
 from viseron.domains.camera.const import CONFIG_LOOKBACK, CONFIG_RECORDER
 from viseron.domains.camera.fragmenter import Fragment
 from viseron.helpers import utcnow
@@ -45,6 +50,8 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
         assert response.code == 200
         response_string = response.body.decode()
         assert response_string.count("#EXTINF") == 3
+        assert response_string.count("/api/v1/hls/segments/") == 3
+        assert "?first_tier_path=" not in response_string
         assert response_string.count("#EXT-X-ENDLIST") == 1
 
     def test_get_recording_hls_playlist_gap_segments(self):
@@ -371,3 +378,29 @@ def test_count_files_removed_all_files_changed():
         Fragment("file6", "file6", 1, utcnow()),
     ]
     assert count_files_removed(prev_list, curr_list) == 3
+
+
+def test_adjust_fragment_paths_uses_hls_file_id_urls():
+    """Test HLS fragments use logical segment URLs."""
+    files = [
+        SimpleNamespace(
+            id=123,
+            filename="1.m4s",
+            duration=5,
+            orig_ctime=utcnow(),
+        )
+    ]
+
+    fragments = adjust_fragment_paths(MockCamera(identifier="test"), "/subpath", files)
+
+    assert fragments[0].path == "/subpath/api/v1/hls/segments/123.m4s"
+
+
+def test_init_file_url_uses_camera_and_first_fragment_tier():
+    """Test HLS init URL does not expose filesystem paths."""
+    camera = MockCamera(identifier="test")
+    files = [SimpleNamespace(tier_id=2)]
+
+    assert _init_file_url(camera, "/subpath", files) == (
+        "/subpath/api/v1/hls/init/test/2.mp4"
+    )

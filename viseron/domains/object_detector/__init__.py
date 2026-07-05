@@ -14,7 +14,11 @@ import voluptuous as vol
 from sqlalchemy import insert
 
 from viseron.components.nvr.const import EVENT_SCAN_FRAMES, OBJECT_DETECTOR
-from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
+from viseron.components.storage.const import (
+    COMPONENT as STORAGE_COMPONENT,
+    TIER_CATEGORY_SNAPSHOTS,
+)
+from viseron.components.storage.files import upsert_file
 from viseron.components.storage.models import Objects
 from viseron.const import INSERT, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains import AbstractDomain
@@ -424,7 +428,11 @@ class AbstractObjectDetector(AbstractDomain):
         return self._objects_in_fov
 
     def _insert_object(
-        self, obj: DetectedObject, snapshot_path: str | None, zone=None
+        self,
+        obj: DetectedObject,
+        snapshot_path: str | None,
+        snapshot_file_id: int | None = None,
+        zone=None,
     ) -> None:
         """Insert object into database."""
         with self._storage.get_session() as session:
@@ -439,6 +447,7 @@ class AbstractObjectDetector(AbstractDomain):
                 x2=obj.rel_x2,
                 y2=obj.rel_y2,
                 snapshot_path=snapshot_path,
+                snapshot_file_id=snapshot_file_id,
                 zone=zone,
             )
             session.execute(stmt)
@@ -451,6 +460,7 @@ class AbstractObjectDetector(AbstractDomain):
         for obj in objects:
             if obj.store:
                 snapshot_path = None
+                snapshot_file_id = None
                 if shared_frame:
                     snapshot_path = self._camera.save_snapshot(
                         shared_frame,
@@ -463,7 +473,15 @@ class AbstractObjectDetector(AbstractDomain):
                         ),
                         detected_object=obj,
                     )
-                self._insert_object(obj, snapshot_path)
+                    snapshot_file_id = upsert_file(
+                        self._storage.get_session,
+                        self._storage,
+                        self._camera.identifier,
+                        TIER_CATEGORY_SNAPSHOTS,
+                        SnapshotDomain.OBJECT_DETECTOR.value,
+                        snapshot_path,
+                    )
+                self._insert_object(obj, snapshot_path, snapshot_file_id)
                 self._vis.dispatch_event(
                     EVENT_CAMERA_EVENT_DB_OPERATION.format(
                         camera_identifier=self._camera.identifier,

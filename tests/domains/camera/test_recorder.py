@@ -13,13 +13,13 @@ from sqlalchemy import insert
 from sqlalchemy.orm import Session
 
 from viseron.components.storage.models import Files, Recordings, TriggerTypes
+from viseron.components.storage.thumbnails import RecoveredThumbnail
 from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.const import (
     CONFIG_RECORDER,
     CONFIG_SAVE_TO_DISK,
     CONFIG_THUMBNAIL,
 )
-from viseron.domains.camera.fragmenter import Fragment
 from viseron.domains.camera.recorder import (
     AbstractRecorder,
     RecorderBase,
@@ -478,31 +478,23 @@ class TestAbstractRecorder:
         """A missing thumbnail can be repaired from available fragments."""
         recorder._camera.thumbnails_folder = str(tmp_path)
         recording = create_recording(thumbnail_path=None)
-        fragment_time = datetime.datetime(
-            2023, 3, 2, 12, 0, tzinfo=datetime.timezone.utc
-        )
-        fragment_file = MagicMock(
-            filename="1.m4s",
-            path="/segments/test/1.m4s",
-            duration=5.0,
-            orig_ctime=fragment_time,
-        )
-        recording.get_fragments = MagicMock(return_value=[fragment_file])
-
-        with patch("viseron.domains.camera.recorder.sleep"), patch.object(
-            recorder, "_extract_thumbnail_from_fragment", return_value=True
-        ) as mock_extract, patch.object(
-            recorder, "_set_recording_thumbnail_path"
-        ) as mock_set:
+        expected_path = str(tmp_path / "1.jpg")
+        with patch(
+            "viseron.domains.camera.recorder.recover_recording_thumbnail",
+            return_value=RecoveredThumbnail(path=expected_path, file_id=1),
+        ) as mock_recover:
             result = recorder._repair_thumbnail(recording)
 
-        expected_path = str(tmp_path / "1.jpg")
         assert result == expected_path
-        mock_extract.assert_called_once_with(
-            Fragment("1.m4s", "/segments/test/1.m4s", 5.0, fragment_time),
-            expected_path,
+        assert recording.thumbnail_path == expected_path
+        mock_recover.assert_called_once_with(
+            recorder._storage,
+            recorder._camera,
+            recording.id,
+            None,
+            recorder.lookback,
+            wait_for_segments=True,
         )
-        mock_set.assert_called_once_with(recording, expected_path)
 
     def test_no_active_recording(self, recorder: ConcreteTestRecorder):
         """Test no active recording."""

@@ -13,12 +13,21 @@ from typing import TYPE_CHECKING, Any
 
 import setproctitle
 from apscheduler.triggers.cron import CronTrigger
-from sqlalchemy import and_, delete, exists, func, select
+from sqlalchemy import and_, delete, exists, func, or_, select, update
 
 from viseron.components.storage.const import (
     TIER_CATEGORY_RECORDER,
+    TIER_CATEGORY_SNAPSHOTS,
+    TIER_SUBCATEGORY_EVENT_CLIPS,
+    TIER_SUBCATEGORY_MOTION_DETECTOR,
+    TIER_SUBCATEGORY_OBJECT_DETECTOR,
     TIER_SUBCATEGORY_SEGMENTS,
+    TIER_SUBCATEGORY_THUMBNAILS,
     CleanupJobNames,
+)
+from viseron.components.storage.files import (
+    find_file_id_for_artifact_path,
+    repair_file_row,
 )
 from viseron.components.storage.models import (
     Events,
@@ -171,6 +180,7 @@ class BaseTableCleanupJob(BaseCleanupJob):
         session: Session,
         table: type[PostProcessorResults | Motion | Objects],
         path_column: Any,
+        file_id_column: Any,
     ) -> None:
         """Delete orphaned records in batches using cursor-based pagination.
 
@@ -178,6 +188,7 @@ class BaseTableCleanupJob(BaseCleanupJob):
             session: Database session
             table: SQLAlchemy table to clean up
             path_column: Column containing the file path to check against Files table
+            file_id_column: Column containing the Files id to check against Files table
         """
         total_deleted = 0
         last_id = 0
@@ -192,11 +203,20 @@ class BaseTableCleanupJob(BaseCleanupJob):
 
             # Get next batch of records that need checking
             batch = session.execute(
-                select(table.id, path_column)
+                select(table.id, path_column, file_id_column)
                 .where(
                     and_(
                         table.id > last_id,
-                        ~exists().where(Files.path == path_column),
+                        or_(
+                            and_(
+                                file_id_column.is_not(None),
+                                ~exists().where(Files.id == file_id_column),
+                            ),
+                            and_(
+                                file_id_column.is_(None),
+                                ~exists().where(Files.path == path_column),
+                            ),
+                        ),
                         table.created_at
                         < cutoff_time,  # Only consider records older than 5 minutes
                     )
@@ -654,6 +674,17 @@ class OrphanedThumbnailsCleanup(BaseCleanupJob):
                             )
                         ).all()
                     }
+                    existing_thumbnails.update(
+                        row[0]
+                        for row in session.execute(
+                            select(Files.path)
+                            .join(
+                                Recordings,
+                                Recordings.thumbnail_file_id == Files.id,
+                            )
+                            .where(Files.path.in_(batch))
+                        ).all()
+                    )
 
                     # Delete files that don't exist in database
                     for file_path in batch:
@@ -756,6 +787,14 @@ class OrphanedEventClipsCleanup(BaseCleanupJob):
                             )
                         ).all()
                     }
+                    existing_clips.update(
+                        row[0]
+                        for row in session.execute(
+                            select(Files.path)
+                            .join(Recordings, Recordings.clip_file_id == Files.id)
+                            .where(Files.path.in_(batch))
+                        ).all()
+                    )
 
                     # Delete files that don't exist in database
                     for file_path in batch:
@@ -901,7 +940,10 @@ class OrphanedPostProcessorResultsCleanup(BaseTableCleanupJob):
         LOGGER.debug("Running %s", self.name)
         with self._storage.get_session() as session:
             self.batch_delete_orphaned(
-                session, PostProcessorResults, PostProcessorResults.snapshot_path
+                session,
+                PostProcessorResults,
+                PostProcessorResults.snapshot_path,
+                PostProcessorResults.snapshot_file_id,
             )
 
 
@@ -922,7 +964,9 @@ class OrphanedObjectsCleanup(BaseTableCleanupJob):
         """Run the job."""
         LOGGER.debug("Running %s", self.name)
         with self._storage.get_session() as session:
-            self.batch_delete_orphaned(session, Objects, Objects.snapshot_path)
+            self.batch_delete_orphaned(
+                session, Objects, Objects.snapshot_path, Objects.snapshot_file_id
+            )
 
 
 class OrphanedMotionCleanup(BaseTableCleanupJob):
@@ -942,7 +986,9 @@ class OrphanedMotionCleanup(BaseTableCleanupJob):
         """Run the job."""
         LOGGER.debug("Running %s", self.name)
         with self._storage.get_session() as session:
-            self.batch_delete_orphaned(session, Motion, Motion.snapshot_path)
+            self.batch_delete_orphaned(
+                session, Motion, Motion.snapshot_path, Motion.snapshot_file_id
+            )
 
 
 class OldEventsCleanup(BaseCleanupJob):
@@ -975,6 +1021,303 @@ class OldEventsCleanup(BaseCleanupJob):
             )
 
 
+class FileReferencesRepair(BaseCleanupJob):
+    """Repair stale file rows and missing file-id artifact references."""
+
+    def __init__(
+        self, vis: Viseron, storage: Storage, interval_trigger: IntervalTrigger
+    ) -> None:
+        super().__init__(vis, storage, interval_trigger)
+        self._queued_file_ids: set[int] = set()
+        self._queued_file_ids_lock = threading.Lock()
+        self._active_file_ids: set[int] | None = None
+
+    @property
+    def name(self) -> str:
+        """Return job name."""
+        return CleanupJobNames.FILE_REFERENCES.value
+
+    def queue_file_id(self, file_id: int) -> None:
+        """Queue a specific Files row for repair."""
+        with self._queued_file_ids_lock:
+            self._queued_file_ids.add(file_id)
+
+    def _pop_queued_file_ids(self) -> set[int]:
+        """Pop queued Files row ids."""
+        with self._queued_file_ids_lock:
+            queued_file_ids = set(self._queued_file_ids)
+            self._queued_file_ids.clear()
+        return queued_file_ids
+
+    def run(self) -> None:
+        """Run the repair job using multiprocessing."""
+        with self.run_lock:
+            if self.running:
+                return
+            self.running = True
+
+        self._active_file_ids = self._pop_queued_file_ids()
+        process = RestartableProcess(
+            name=self.name, target=self._wrapped_run, daemon=True, register=False
+        )
+        process.start()
+        process.join()
+        self._active_file_ids = None
+
+        with self.run_lock:
+            self.running = False
+
+    def _repair_files(self, session: Session, file_ids: set[int] | None = None) -> int:
+        """Repair stale Files rows."""
+        repaired = 0
+        last_id = 0
+        while True:
+            if self.kill_event.is_set():
+                break
+
+            stmt = select(Files).order_by(Files.id).limit(BATCH_SIZE)
+            if file_ids is not None:
+                if not file_ids:
+                    break
+                stmt = stmt.where(Files.id.in_(file_ids))
+            else:
+                stmt = stmt.where(Files.id > last_id)
+
+            batch = session.execute(stmt).scalars().all()
+            if not batch:
+                break
+
+            if file_ids is None:
+                last_id = batch[-1].id
+
+            for file in batch:
+                if repair_file_row(self._storage, file):
+                    repaired += 1
+            session.commit()
+            self.log_progress(f"{self.name} repaired {repaired} Files rows")
+            if file_ids is not None:
+                break
+            time.sleep(1)
+        return repaired
+
+    def _repair_recording_references(self, session: Session) -> int:
+        """Repair missing recording file references from legacy paths."""
+        repaired = 0
+        last_id = 0
+        while True:
+            if self.kill_event.is_set():
+                break
+            batch = session.execute(
+                select(
+                    Recordings.id,
+                    Recordings.camera_identifier,
+                    Recordings.thumbnail_path,
+                    Recordings.thumbnail_file_id,
+                    Recordings.clip_path,
+                    Recordings.clip_file_id,
+                )
+                .where(Recordings.id > last_id)
+                .where(
+                    or_(
+                        and_(
+                            Recordings.thumbnail_file_id.is_(None),
+                            Recordings.thumbnail_path.is_not(None),
+                        ),
+                        and_(
+                            Recordings.clip_file_id.is_(None),
+                            Recordings.clip_path.is_not(None),
+                        ),
+                    )
+                )
+                .order_by(Recordings.id)
+                .limit(BATCH_SIZE)
+            ).all()
+            if not batch:
+                break
+
+            last_id = batch[-1].id
+            for recording in batch:
+                values = {}
+                if (
+                    recording.thumbnail_file_id is None
+                    and recording.thumbnail_path is not None
+                ):
+                    file_id = find_file_id_for_artifact_path(
+                        session,
+                        self._storage,
+                        recording.camera_identifier,
+                        TIER_CATEGORY_RECORDER,
+                        TIER_SUBCATEGORY_THUMBNAILS,
+                        recording.thumbnail_path,
+                    )
+                    if file_id is not None:
+                        values["thumbnail_file_id"] = file_id
+
+                if recording.clip_file_id is None and recording.clip_path is not None:
+                    file_id = find_file_id_for_artifact_path(
+                        session,
+                        self._storage,
+                        recording.camera_identifier,
+                        TIER_CATEGORY_RECORDER,
+                        TIER_SUBCATEGORY_EVENT_CLIPS,
+                        recording.clip_path,
+                    )
+                    if file_id is not None:
+                        values["clip_file_id"] = file_id
+
+                if values:
+                    session.execute(
+                        update(Recordings)
+                        .where(Recordings.id == recording.id)
+                        .values(**values)
+                    )
+                    repaired += len(values)
+            session.commit()
+            self.log_progress(f"{self.name} repaired {repaired} recording refs")
+            time.sleep(1)
+        return repaired
+
+    def _repair_snapshot_references(self, session: Session) -> int:
+        """Repair missing snapshot file references from legacy paths."""
+        repaired = 0
+        repaired += self._repair_snapshot_table(
+            session,
+            Objects,
+            Objects.snapshot_path,
+            Objects.snapshot_file_id,
+            TIER_SUBCATEGORY_OBJECT_DETECTOR,
+        )
+        repaired += self._repair_snapshot_table(
+            session,
+            Motion,
+            Motion.snapshot_path,
+            Motion.snapshot_file_id,
+            TIER_SUBCATEGORY_MOTION_DETECTOR,
+        )
+        repaired += self._repair_post_processor_references(session)
+        return repaired
+
+    def _repair_snapshot_table(
+        self,
+        session: Session,
+        table: type[Objects | Motion],
+        path_column: Any,
+        file_id_column: Any,
+        subcategory: str,
+    ) -> int:
+        """Repair missing snapshot references for one table."""
+        repaired = 0
+        last_id = 0
+        while True:
+            if self.kill_event.is_set():
+                break
+            batch = session.execute(
+                select(table.id, table.camera_identifier, path_column)
+                .where(table.id > last_id)
+                .where(file_id_column.is_(None))
+                .where(path_column.is_not(None))
+                .order_by(table.id)
+                .limit(BATCH_SIZE)
+            ).all()
+            if not batch:
+                break
+
+            last_id = batch[-1].id
+            for row in batch:
+                file_id = find_file_id_for_artifact_path(
+                    session,
+                    self._storage,
+                    row.camera_identifier,
+                    TIER_CATEGORY_SNAPSHOTS,
+                    subcategory,
+                    row[2],
+                )
+                if file_id is None:
+                    continue
+                session.execute(
+                    update(table).where(table.id == row.id).values(
+                        {file_id_column.key: file_id}
+                    )
+                )
+                repaired += 1
+            session.commit()
+            self.log_progress(f"{self.name} repaired {repaired} snapshot refs")
+            time.sleep(1)
+        return repaired
+
+    def _repair_post_processor_references(self, session: Session) -> int:
+        """Repair missing post-processor snapshot references."""
+        repaired = 0
+        last_id = 0
+        while True:
+            if self.kill_event.is_set():
+                break
+            batch = session.execute(
+                select(
+                    PostProcessorResults.id,
+                    PostProcessorResults.camera_identifier,
+                    PostProcessorResults.domain,
+                    PostProcessorResults.snapshot_path,
+                )
+                .where(PostProcessorResults.id > last_id)
+                .where(PostProcessorResults.snapshot_file_id.is_(None))
+                .where(PostProcessorResults.snapshot_path.is_not(None))
+                .order_by(PostProcessorResults.id)
+                .limit(BATCH_SIZE)
+            ).all()
+            if not batch:
+                break
+
+            last_id = batch[-1].id
+            for row in batch:
+                file_id = find_file_id_for_artifact_path(
+                    session,
+                    self._storage,
+                    row.camera_identifier,
+                    TIER_CATEGORY_SNAPSHOTS,
+                    row.domain,
+                    row.snapshot_path,
+                )
+                if file_id is None:
+                    continue
+                session.execute(
+                    update(PostProcessorResults)
+                    .where(PostProcessorResults.id == row.id)
+                    .values(snapshot_file_id=file_id)
+                )
+                repaired += 1
+            session.commit()
+            self.log_progress(f"{self.name} repaired {repaired} post processor refs")
+            time.sleep(1)
+        return repaired
+
+    def _run(self) -> None:
+        """Run the job."""
+        now = time.time()
+        queued_file_ids = self._active_file_ids or set()
+        LOGGER.debug(
+            "Running %s%s",
+            self.name,
+            f" for {len(queued_file_ids)} queued files" if queued_file_ids else "",
+        )
+        with self._storage.get_session() as session:
+            repaired_files = self._repair_files(
+                session, queued_file_ids if queued_file_ids else None
+            )
+            repaired_references = 0
+            if not queued_file_ids:
+                repaired_references += self._repair_recording_references(session)
+                repaired_references += self._repair_snapshot_references(session)
+
+        LOGGER.debug(
+            "%s repaired %d Files rows and %d artifact refs, took %s",
+            self.name,
+            repaired_files,
+            repaired_references,
+            time.time() - now,
+        )
+
+
 class CleanupManager:
     """Manager class that handles scheduling and running of cleanup jobs.
 
@@ -1001,6 +1344,9 @@ class CleanupManager:
             OrphanedObjectsCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
             OrphanedMotionCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
             OldEventsCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
+            FileReferencesRepair(
+                vis, storage, CronTrigger(minute="*/15", jitter=120)
+            ),
         ]
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
 
@@ -1018,6 +1364,14 @@ class CleanupManager:
                     register=False,
                     daemon=True,
                 ).start()
+                return
+
+    def queue_file_reference_repair(self, file_id: int) -> None:
+        """Queue a specific Files row for asynchronous reference repair."""
+        for job in self.jobs:
+            if isinstance(job, FileReferencesRepair):
+                job.queue_file_id(file_id)
+                self.run_job(CleanupJobNames.FILE_REFERENCES)
                 return
 
     def start(self) -> None:

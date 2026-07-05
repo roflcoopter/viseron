@@ -1,5 +1,4 @@
 import { Download } from "@carbon/icons-react";
-import Image from "@jy95/material-ui-image";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
@@ -175,12 +174,15 @@ function PopoverContent({ events }: { events: types.CameraEvent[] }) {
                     overflow: "hidden",
                   }}
                 >
-                  <Image
+                  <ImageWithFallback
                     src={getSrc(event)}
-                    color={theme.palette.background.default}
-                    animationDuration={0}
-                    imageStyle={{
+                    alt="Event snapshot"
+                    style={{
+                      aspectRatio: "1/1",
+                      width: "100%",
+                      height: "100%",
                       objectFit: "contain",
+                      background: theme.palette.background.default,
                     }}
                   />
                   {filters.groupCameras.checked && (
@@ -369,7 +371,7 @@ function SnapshotIcons({ events }: { events: types.CameraEvent[] }) {
   );
 }
 
-function Snapshot({ snapshotPath }: { snapshotPath: string }) {
+function Snapshot({ snapshotPath }: { snapshotPath: string | null }) {
   const theme = useTheme();
   return (
     <Box

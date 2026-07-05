@@ -39,6 +39,7 @@ from viseron.components.storage.const import (
     DEFAULT_COMPONENT,
     DESC_COMPONENT,
     ENGINE,
+    CleanupJobNames,
     TIER_CATEGORY_RECORDER,
     TIER_CATEGORY_SNAPSHOTS,
     TIER_CATEGORY_TIMELAPSE,
@@ -290,6 +291,10 @@ class Storage:
         """Return the number of files to process in a single batch."""
         return self._config[CONFIG_TIER_CHECK_BATCH_SIZE]
 
+    def queue_file_repair(self, file_id: int) -> None:
+        """Queue a stale Files row for asynchronous repair."""
+        self.cleanup_manager.queue_file_reference_repair(file_id)
+
     @property
     def sleep_between_batches(self) -> float:
         """Return the number of seconds to sleep between batches."""
@@ -299,6 +304,7 @@ class Storage:
         """Initialize storage component."""
         self._alembic_cfg = self._get_alembic_config()
         self.create_database()
+        self.cleanup_manager.run_job(CleanupJobNames.FILE_REFERENCES)
 
         self._vis.listen_event(
             EVENT_DOMAIN_REGISTERED.format(domain=CAMERA_DOMAIN),

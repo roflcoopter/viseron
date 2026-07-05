@@ -6,7 +6,6 @@ import datetime
 import errno
 import logging
 import os
-import subprocess as sp
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -18,9 +17,18 @@ import numpy as np
 from sqlalchemy import delete, func, insert, select, update
 from sqlalchemy.orm import Session
 
-from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
+from viseron.components.storage.const import (
+    COMPONENT as STORAGE_COMPONENT,
+    TIER_CATEGORY_RECORDER,
+    TIER_SUBCATEGORY_EVENT_CLIPS,
+)
+from viseron.components.storage.files import upsert_file
 from viseron.components.storage.models import Recordings
 from viseron.components.storage.queries import get_recording_fragments
+from viseron.components.storage.thumbnails import (
+    recover_recording_thumbnail,
+    upsert_thumbnail_file,
+)
 from viseron.components.storage.util import (
     fsync_directory,
     get_storage_temp_path,
@@ -29,7 +37,6 @@ from viseron.components.storage.util import (
 from viseron.const import CAMERA_SEGMENT_DURATION
 from viseron.domains.camera.fragmenter import (
     Fragment,
-    generate_playlist,
     recover_from_storage_pressure,
 )
 from viseron.domains.object_detector.detected_object import DetectedObject
@@ -73,7 +80,9 @@ class RecordingDict(TypedDict):
     end_timestamp: float | None
     trigger_type: TriggerTypes | None
     trigger_id: int | None
-    thumbnail_path: str | None
+    thumbnail_url: str | None
+    thumbnail_file_id: int | None
+    clip_file_id: int | None
     hls_url: str
 
 
@@ -107,6 +116,8 @@ class Recording:
     clip_path: str | None
     objects: list[DetectedObject]
     trigger_type: TriggerTypes | None
+    thumbnail_file_id: int | None = None
+    clip_file_id: int | None = None
 
     def as_dict(self):
         """Return as dict."""
@@ -118,6 +129,8 @@ class Recording:
             "end_timestamp": self.end_timestamp,
             "date": self.date,
             "thumbnail_path": self.thumbnail_path,
+            "thumbnail_file_id": self.thumbnail_file_id,
+            "clip_file_id": self.clip_file_id,
             "objects": self.objects,
             "trigger_type": self.trigger_type,
         }
@@ -343,10 +356,21 @@ class AbstractRecorder(ABC, RecorderBase):
                 self._camera.shared_frames.get_decoded_frame_rgb(shared_frame).copy(),
                 objects_in_fov,
             )
+            thumbnail_file_id = (
+                upsert_thumbnail_file(
+                    self._storage.get_session,
+                    self._storage,
+                    self._camera.identifier,
+                    thumbnail_path,
+                )
+                if thumbnail_path
+                else None
+            )
             stmt2 = (
                 update(Recordings)
                 .values(
                     thumbnail_path=thumbnail_path,
+                    thumbnail_file_id=thumbnail_file_id,
                 )
                 .where(Recordings.id == recording_id)
             )
@@ -369,6 +393,7 @@ class AbstractRecorder(ABC, RecorderBase):
             clip_path=None,
             objects=objects_in_fov,
             trigger_type=trigger_type,
+            thumbnail_file_id=thumbnail_file_id,
         )
 
         self._start(recording, shared_frame, objects_in_fov)
@@ -455,116 +480,19 @@ class AbstractRecorder(ABC, RecorderBase):
 
     def _repair_thumbnail(self, recording: Recording) -> str | None:
         """Repair a missing thumbnail from the recording fragments."""
-        sleep(CAMERA_SEGMENT_DURATION * 2)  # include segments still being written to
-        thumbnail_path = recording.thumbnail_path or os.path.join(
-            self._camera.thumbnails_folder, f"{recording.id}.jpg"
-        )
-        if os.path.exists(thumbnail_path):
-            self._set_recording_thumbnail_path(recording, thumbnail_path)
-            return thumbnail_path
-
-        files = recording.get_fragments(
-            self.lookback,
-            self._storage.get_session,
-        )
-        fragments = [
-            Fragment(file.filename, file.path, file.duration, file.orig_ctime)
-            for file in files
-        ]
-        for fragment in fragments:
-            if self._extract_thumbnail_from_fragment(fragment, thumbnail_path):
-                self._set_recording_thumbnail_path(recording, thumbnail_path)
-                return thumbnail_path
-
-        self._logger.error(
-            "Failed to repair thumbnail for recording %s: no usable fragments",
+        recovered_thumbnail = recover_recording_thumbnail(
+            self._storage,
+            self._camera,
             recording.id,
+            recording.thumbnail_path,
+            self.lookback,
+            wait_for_segments=True,
         )
-        return None
-
-    def _extract_thumbnail_from_fragment(
-        self, fragment: Fragment, thumbnail_path: str
-    ) -> bool:
-        """Extract a thumbnail from a fragment."""
-        init_file = os.path.join(os.path.dirname(fragment.path), "init.mp4")
-        if not os.path.exists(init_file):
-            init_file = os.path.join(self._camera.segments_folder, "init.mp4")
-        if not os.path.exists(init_file):
-            self._logger.debug("No init.mp4 found for thumbnail repair")
-            return False
-
-        create_directory(os.path.dirname(thumbnail_path))
-        temp_path = f"{get_storage_temp_path(thumbnail_path)}.jpg"
-        playlist = generate_playlist(
-            [fragment],
-            init_file,
-            end=True,
-            file_directive=True,
-        )
-        try:
-            result = sp.run(  # type: ignore[call-overload]
-                [
-                    "ffmpeg",
-                    "-hide_banner",
-                    "-loglevel",
-                    "error",
-                    "-f",
-                    "hls",
-                    "-protocol_whitelist",
-                    "file,pipe,fd",
-                    "-i",
-                    "-",
-                    "-frames:v",
-                    "1",
-                    "-q:v",
-                    "2",
-                    "-y",
-                    temp_path,
-                ],
-                input=playlist.encode("utf-8"),
-                capture_output=True,
-                check=True,
-                timeout=30,
-            )
-            if result.stderr:
-                self._logger.debug(
-                    "Thumbnail repair ffmpeg output: %s",
-                    result.stderr.decode("utf-8", errors="replace"),
-                )
-            if os.path.getsize(temp_path) <= 0:
-                self._logger.debug("Thumbnail repair produced an empty file")
-                return False
-            os.replace(temp_path, thumbnail_path)
-            fsync_directory(os.path.dirname(thumbnail_path))
-        except (sp.CalledProcessError, sp.TimeoutExpired, OSError) as error:
-            self._logger.debug(
-                "Failed extracting thumbnail from fragment %s",
-                fragment.path,
-                exc_info=error,
-            )
-            return False
-        finally:
-            try:
-                os.remove(temp_path)
-            except FileNotFoundError:
-                pass
-        return True
-
-    def _set_recording_thumbnail_path(
-        self, recording: Recording, thumbnail_path: str
-    ) -> None:
-        """Set thumbnail path for a recording."""
-        with self._storage.get_session() as session:
-            stmt = (
-                update(Recordings)
-                .where(Recordings.id == recording.id)
-                .values(
-                    thumbnail_path=thumbnail_path,
-                )
-            )
-            session.execute(stmt)
-            session.commit()
-        recording.thumbnail_path = thumbnail_path
+        if recovered_thumbnail is None:
+            return None
+        recording.thumbnail_path = recovered_thumbnail.path
+        recording.thumbnail_file_id = recovered_thumbnail.file_id
+        return recovered_thumbnail.path
 
     def _concatenate_fragments(self, recording: Recording) -> int | None:
         sleep(CAMERA_SEGMENT_DURATION * 2)  # include segments still being written to
@@ -623,6 +551,14 @@ class AbstractRecorder(ABC, RecorderBase):
                 )
             return None
         self._logger.debug(f"Moved event clip to {clip_path}")
+        clip_file_id = upsert_file(
+            self._storage.get_session,
+            self._storage,
+            self._camera.identifier,
+            TIER_CATEGORY_RECORDER,
+            TIER_SUBCATEGORY_EVENT_CLIPS,
+            clip_path,
+        )
 
         with self._storage.get_session() as session:
             stmt = (
@@ -630,12 +566,14 @@ class AbstractRecorder(ABC, RecorderBase):
                 .where(Recordings.id == recording.id)
                 .values(
                     clip_path=clip_path,
+                    clip_file_id=clip_file_id,
                 )
             )
             session.execute(stmt)
             session.commit()
 
         recording.clip_path = clip_path
+        recording.clip_file_id = clip_file_id
         self._vis.dispatch_event(
             EVENT_RECORDER_COMPLETE.format(camera_identifier=self._camera.identifier),
             EventRecorderData(
@@ -744,7 +682,8 @@ def get_recordings(
                 recordings[_local_date] = {}
 
             recordings[_local_date][recording.id] = _recording_file_dict(
-                recording, subpath
+                recording,
+                subpath,
             )
 
     return recordings
@@ -776,7 +715,10 @@ def delete_recordings(
     return _deleted_recordings
 
 
-def _recording_file_dict(recording: Recordings, subpath: str = "") -> RecordingDict:
+def _recording_file_dict(
+    recording: Recordings,
+    subpath: str = "",
+) -> RecordingDict:
     """Return a dict with recording file information."""
     return {
         "id": recording.id,
@@ -787,11 +729,14 @@ def _recording_file_dict(recording: Recordings, subpath: str = "") -> RecordingD
         "end_timestamp": recording.end_time.timestamp() if recording.end_time else None,
         "trigger_type": recording.trigger_type,
         "trigger_id": recording.trigger_id,
-        "thumbnail_path": (
-            f"{subpath}/files{recording.thumbnail_path}"
-            if recording.thumbnail_path
-            else ""
+        "thumbnail_url": (
+            f"{subpath}/api/v1/recordings/"
+            f"{recording.camera_identifier}/{recording.id}/thumbnail"
+            if recording.thumbnail_file_id or recording.thumbnail_path
+            else None
         ),
+        "thumbnail_file_id": recording.thumbnail_file_id,
+        "clip_file_id": recording.clip_file_id,
         "hls_url": (
             # pylint: disable=line-too-long
             f"{subpath}/api/v1/hls/{recording.camera_identifier}/{recording.id}/index.m3u8"

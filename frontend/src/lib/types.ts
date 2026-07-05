@@ -167,7 +167,7 @@ export interface Recording {
   end_timestamp: number;
   trigger_type: string;
   trigger_id: number | null;
-  thumbnail_path: string;
+  thumbnail_url: string | null;
   hls_url: string;
 }
 
@@ -302,20 +302,20 @@ type CameraBaseTimedEvent = CameraBaseEvent & {
 };
 export type CameraMotionEvent = CameraBaseTimedEvent & {
   type: "motion";
-  snapshot_path: string;
+  snapshot_url: string | null;
 };
 export type CameraRecordingEvent = CameraBaseTimedEvent & {
   type: "recording";
   trigger_type: "motion" | "object" | null;
   hls_url: string;
-  thumbnail_path: string;
+  thumbnail_url: string | null;
 };
 export type CameraTimedEvents = CameraMotionEvent | CameraRecordingEvent;
 
 type CameraBaseSnapshotEvent = CameraBaseEvent & {
   time: string;
   timestamp: number;
-  snapshot_path: string;
+  snapshot_url: string | null;
 };
 export type CameraObjectEvent = CameraBaseSnapshotEvent & {
   type: "object";

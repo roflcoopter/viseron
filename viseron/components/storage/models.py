@@ -12,6 +12,7 @@ from sqlalchemy import (
     ColumnElement,
     DateTime,
     Float,
+    ForeignKey,
     Index,
     Integer,
     Label,
@@ -169,7 +170,9 @@ class Recordings(Base):
             "idx_recordings_camera_times", "camera_identifier", "start_time", "end_time"
         ),
         Index("idx_recordings_thumbnail", "thumbnail_path"),
+        Index("idx_recordings_thumbnail_file_id", "thumbnail_file_id"),
         Index("idx_recordings_clip", "clip_path"),
+        Index("idx_recordings_clip_file_id", "clip_file_id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -188,7 +191,13 @@ class Recordings(Base):
     trigger_type: Mapped[TriggerTypes | None] = mapped_column(nullable=True)
     trigger_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     thumbnail_path: Mapped[str] = mapped_column(String, nullable=True)
+    thumbnail_file_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("files.id", ondelete="SET NULL"), nullable=True
+    )
     clip_path: Mapped[str] = mapped_column(String, nullable=True)
+    clip_file_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("files.id", ondelete="SET NULL"), nullable=True
+    )
     adjusted_start_time: Mapped[datetime.datetime | None] = mapped_column(
         UTCDateTime(timezone=False), nullable=False
     )
@@ -213,7 +222,10 @@ class Objects(Base):
 
     __tablename__ = "objects"
 
-    __table_args__ = (Index("idx_objects_snapshot", "snapshot_path"),)
+    __table_args__ = (
+        Index("idx_objects_snapshot", "snapshot_path"),
+        Index("idx_objects_snapshot_file_id", "snapshot_file_id"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     camera_identifier: Mapped[str] = mapped_column(String)
@@ -226,6 +238,9 @@ class Objects(Base):
     x2: Mapped[float] = mapped_column(Float)
     y2: Mapped[float] = mapped_column(Float)
     snapshot_path: Mapped[str] = mapped_column(String, nullable=True)
+    snapshot_file_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("files.id", ondelete="SET NULL"), nullable=True
+    )
     zone: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(
         UTCDateTime(timezone=False), server_default=UTCNow(), nullable=True
@@ -240,7 +255,10 @@ class Motion(Base):
 
     __tablename__ = "motion"
 
-    __table_args__ = (Index("idx_motion_snapshot", "snapshot_path"),)
+    __table_args__ = (
+        Index("idx_motion_snapshot", "snapshot_path"),
+        Index("idx_motion_snapshot_file_id", "snapshot_file_id"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     camera_identifier: Mapped[str] = mapped_column(String)
@@ -249,6 +267,9 @@ class Motion(Base):
         UTCDateTime(timezone=False), nullable=True
     )
     snapshot_path: Mapped[str] = mapped_column(String, nullable=True)
+    snapshot_file_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("files.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime.datetime] = mapped_column(
         UTCDateTime(timezone=False), server_default=UTCNow(), nullable=True
     )
@@ -278,12 +299,18 @@ class PostProcessorResults(Base):
 
     __tablename__ = "post_processor_results"
 
-    __table_args__ = (Index("idx_ppr_snapshot", "snapshot_path"),)
+    __table_args__ = (
+        Index("idx_ppr_snapshot", "snapshot_path"),
+        Index("idx_ppr_snapshot_file_id", "snapshot_file_id"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     camera_identifier: Mapped[str] = mapped_column(String)
     domain: Mapped[str] = mapped_column(String)
     snapshot_path: Mapped[str] = mapped_column(String, nullable=True)
+    snapshot_file_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("files.id", ondelete="SET NULL"), nullable=True
+    )
     data: Mapped[ColumnMeta] = mapped_column(JSONB)
     created_at: Mapped[datetime.datetime] = mapped_column(
         UTCDateTime(timezone=False), server_default=UTCNow(), nullable=True

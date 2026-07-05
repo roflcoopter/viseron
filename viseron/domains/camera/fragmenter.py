@@ -778,7 +778,7 @@ def get_available_timespans(
     fragments = [
         Fragment(
             file.filename,
-            f"/files{file.path}",
+            f"/api/v1/hls/segments/{file.id}.m4s",
             file.duration,
             file.orig_ctime,
         )
