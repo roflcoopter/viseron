@@ -1,5 +1,5 @@
 import { Dayjs } from "dayjs";
-import Hls from "hls.js";
+import Hls, { ErrorData } from "hls.js";
 import { useCallback, useEffect, useRef } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -38,22 +38,24 @@ function SyncManager({ children }: SyncManagerProps) {
   const {
     setReferencePlayer,
     isPlaying,
-    setIsPlaying,
     setIsLive,
+    isLive,
     isMuted,
     playbackSpeed,
     requestedTimestamp,
     playingDateRef,
+    referencePlayer: currentReferencePlayer,
   } = useReferencePlayerStore(
     useShallow((state) => ({
       setReferencePlayer: state.setReferencePlayer,
       isPlaying: state.isPlaying,
-      setIsPlaying: state.setIsPlaying,
       setIsLive: state.setIsLive,
+      isLive: state.isLive,
       isMuted: state.isMuted,
       playbackSpeed: state.playbackSpeed,
       requestedTimestamp: state.requestedTimestamp,
       playingDateRef: state.playingDateRef,
+      referencePlayer: state.referencePlayer,
     })),
   );
   const lastHardSeekRef = useRef(new WeakMap<Hls, number>());
@@ -104,8 +106,7 @@ function SyncManager({ children }: SyncManagerProps) {
         return;
       }
       const nudge =
-        Math.min(Math.abs(driftSeconds) / RATE_NUDGE_DRIFT, 1) *
-        MAX_RATE_NUDGE;
+        Math.min(Math.abs(driftSeconds) / RATE_NUDGE_DRIFT, 1) * MAX_RATE_NUDGE;
       player.media.playbackRate =
         driftSeconds > 0 ? playbackSpeed + nudge : playbackSpeed - nudge;
     },
@@ -159,12 +160,7 @@ function SyncManager({ children }: SyncManagerProps) {
         );
       }
     },
-    [
-      playbackSpeed,
-      seekSafely,
-      setDriftCorrectionRate,
-      setHlsRefsError,
-    ],
+    [playbackSpeed, seekSafely, setDriftCorrectionRate, setHlsRefsError],
   );
 
   const syncPlayers = useCallback(async () => {
@@ -186,6 +182,30 @@ function SyncManager({ children }: SyncManagerProps) {
       return;
     }
 
+    if (playersWithTime.length === 1) {
+      const player = playersWithTime[0];
+      if (currentReferencePlayer !== player.current) {
+        setReferencePlayer(player.current);
+      }
+
+      const nextIsLive = player.current.latency < LIVE_EDGE_DELAY * 1.5;
+      if (isLive !== nextIsLive) {
+        setIsLive(nextIsLive);
+      }
+
+      playingDateRef.current = player.current.playingDate
+        ? getDayjsFromDate(player.current.playingDate).unix()
+        : requestedTimestamp;
+
+      if (
+        player.current.media &&
+        player.current.media.playbackRate !== playbackSpeed
+      ) {
+        player.current.media.playbackRate = playbackSpeed;
+      }
+      return;
+    }
+
     // Find the player with the latest playing date, ignoring paused players
     const referencePlayer =
       playersWithTime.reduce<React.MutableRefObject<Hls> | null>(
@@ -203,9 +223,14 @@ function SyncManager({ children }: SyncManagerProps) {
 
     // Sync all players to the reference player
     if (referencePlayer) {
-      setReferencePlayer(referencePlayer.current);
-      setIsLive(referencePlayer.current.latency < LIVE_EDGE_DELAY * 1.5);
-      setIsPlaying(true);
+      if (currentReferencePlayer !== referencePlayer.current) {
+        setReferencePlayer(referencePlayer.current);
+      }
+      const nextIsLive =
+        referencePlayer.current.latency < LIVE_EDGE_DELAY * 1.5;
+      if (isLive !== nextIsLive) {
+        setIsLive(nextIsLive);
+      }
       playingDateRef.current = referencePlayer.current.playingDate
         ? getDayjsFromDate(referencePlayer.current.playingDate).unix()
         : requestedTimestamp;
@@ -315,6 +340,8 @@ function SyncManager({ children }: SyncManagerProps) {
   }, [
     hlsRefs,
     correctDrift,
+    currentReferencePlayer,
+    isLive,
     isMuted,
     isPlaying,
     playbackSpeed,
@@ -322,16 +349,20 @@ function SyncManager({ children }: SyncManagerProps) {
     requestedTimestamp,
     setHlsRefsError,
     setIsLive,
-    setIsPlaying,
     setReferencePlayer,
   ]);
 
   useControlledInterval(syncPlayers, SYNC_INTERVAL, true);
 
   useEffect(() => {
+    const errorHandlers = new Map<
+      React.MutableRefObject<Hls | null>,
+      (event: string, data: ErrorData) => void
+    >();
+
     hlsRefs.forEach((player) => {
       if (player.current) {
-        player.current.on(Hls.Events.ERROR, (_event, data) => {
+        const handleError = (_event: string, data: ErrorData) => {
           // Dont pause if this is the only playing player
           // console.warn("SyncManager: Error event", data);
           if (
@@ -364,14 +395,17 @@ function SyncManager({ children }: SyncManagerProps) {
           if (player.current!.media) {
             player.current!.media.pause();
           }
-        });
+        };
+        errorHandlers.set(player, handleError);
+        player.current.on(Hls.Events.ERROR, handleError);
       }
     });
 
     return () => {
       hlsRefs.forEach((player) => {
-        if (player.current) {
-          player.current.off(Hls.Events.ERROR);
+        const handleError = errorHandlers.get(player);
+        if (player.current && handleError) {
+          player.current.off(Hls.Events.ERROR, handleError);
         }
       });
     };

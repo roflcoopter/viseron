@@ -9,8 +9,8 @@ export const DEFAULT_HLS_CONFIG = {
   autoStartLoad: false,
   maxBufferLength: 30, // 30 seconds of forward buffer
   backBufferLength: 15, // 15 seconds of back buffer
-  liveSyncDurationCount: 1, // Start from the second last segment
-  maxStarvationDelay: 99999999, // Prevents auto seeking back on starvation
+  liveSyncDurationCount: 3, // Stay three target-duration segments behind live
+  liveMaxLatencyDurationCount: 6,
   liveDurationInfinity: false, // Has to be false to seek backwards
 };
 
