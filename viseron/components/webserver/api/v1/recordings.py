@@ -254,6 +254,12 @@ class RecordingsAPIHandler(BaseAPIHandler):
             int(recording_id),
         )
         if recovered_thumbnail is None:
+            LOGGER.warning(
+                "Returning 404 for missing recording thumbnail "
+                "(camera=%s, recording_id=%s)",
+                camera_identifier,
+                recording_id,
+            )
             self.response_error(HTTPStatus.NOT_FOUND, reason="Thumbnail not found")
             return
 
@@ -265,6 +271,13 @@ class RecordingsAPIHandler(BaseAPIHandler):
             frozenset({(TIER_CATEGORY_RECORDER, TIER_SUBCATEGORY_THUMBNAILS)}),
         )
         if resolved_file is None:
+            LOGGER.warning(
+                "Returning 404 for unresolved recording thumbnail "
+                "(camera=%s, recording_id=%s, file_id=%s)",
+                camera_identifier,
+                recording_id,
+                recovered_thumbnail.file_id,
+            )
             self.response_error(HTTPStatus.NOT_FOUND, reason="Thumbnail not found")
             return
 

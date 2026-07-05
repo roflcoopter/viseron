@@ -34,10 +34,43 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-def _file_url_for_id(file_id: int | None, subpath: str) -> str | None:
+def _file_url_for_id(
+    file_id: int | None,
+    subpath: str,
+    *,
+    artifact: str,
+    row_id: int,
+    camera_identifier: str,
+) -> str | None:
     """Return a logical file URL for an existing Files id."""
     if file_id is not None:
         return f"{subpath}/api/v1/files/{file_id}"
+    LOGGER.warning(
+        "Returning null %s URL for %s row %s camera %s: missing Files reference",
+        artifact,
+        artifact,
+        row_id,
+        camera_identifier,
+    )
+    return None
+
+
+def _recording_thumbnail_url(
+    recording: Recordings,
+    subpath: str,
+) -> str | None:
+    """Return a recording thumbnail URL if the recording has a recoverable reference."""
+    if recording.thumbnail_file_id or recording.thumbnail_path:
+        return (
+            f"{subpath}/api/v1/recordings/"
+            f"{recording.camera_identifier}/{recording.id}/thumbnail"
+        )
+    LOGGER.warning(
+        "Returning null recording thumbnail URL for recording %s camera %s: "
+        "missing thumbnail Files reference and legacy path",
+        recording.id,
+        recording.camera_identifier,
+    )
     return None
 
 
@@ -133,6 +166,9 @@ class EventsAPIHandler(BaseAPIHandler):
                         "snapshot_url": _file_url_for_id(
                             event.snapshot_file_id,
                             subpath,
+                            artifact="motion snapshot",
+                            row_id=event.id,
+                            camera_identifier=event.camera_identifier,
                         ),
                         "created_at": event.created_at,
                         "created_at_timestamp": event.created_at.timestamp(),
@@ -180,6 +216,9 @@ class EventsAPIHandler(BaseAPIHandler):
                         "snapshot_url": _file_url_for_id(
                             event.snapshot_file_id,
                             subpath,
+                            artifact="object snapshot",
+                            row_id=event.id,
+                            camera_identifier=event.camera_identifier,
                         ),
                         "lookback": camera.recorder.lookback,
                     }
@@ -231,12 +270,7 @@ class EventsAPIHandler(BaseAPIHandler):
                             f"{subpath}/api/v1/hls/"
                             f"{event.camera_identifier}/{event.id}/index.m3u8"
                         ),
-                        "thumbnail_url": (
-                            f"{subpath}/api/v1/recordings/"
-                            f"{event.camera_identifier}/{event.id}/thumbnail"
-                            if event.thumbnail_file_id or event.thumbnail_path
-                            else None
-                        ),
+                        "thumbnail_url": _recording_thumbnail_url(event, subpath),
                         "created_at": event.created_at,
                         "created_at_timestamp": event.created_at.timestamp(),
                         "lookback": camera.recorder.lookback,
@@ -288,6 +322,9 @@ class EventsAPIHandler(BaseAPIHandler):
                         "snapshot_url": _file_url_for_id(
                             event.snapshot_file_id,
                             subpath,
+                            artifact=f"{event.domain} snapshot",
+                            row_id=event.id,
+                            camera_identifier=event.camera_identifier,
                         ),
                         "data": event.data,
                         "created_at": event.created_at,

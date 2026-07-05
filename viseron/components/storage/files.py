@@ -308,6 +308,7 @@ def resolve_file_id(
     with get_session() as session:
         file = session.get(Files, file_id)
         if file is None:
+            LOGGER.debug("Files row %s was not found", file_id)
             return None
 
         if (file.category, file.subcategory) not in allowed_file_types:
@@ -337,6 +338,17 @@ def resolve_file_id(
 
         resolved_path = _resolved_path_from_file_row(file, tiers)
         if resolved_path is None:
+            LOGGER.warning(
+                "Could not resolve Files row %s to an on-disk file "
+                "(camera=%s, type=%s/%s, path=%s, tier_id=%s, tier_path=%s)",
+                file.id,
+                file.camera_identifier,
+                file.category,
+                file.subcategory,
+                file.path,
+                file.tier_id,
+                file.tier_path,
+            )
             return None
 
         if resolved_path.stale:

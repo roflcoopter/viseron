@@ -165,6 +165,12 @@ class HlsAPIHandler(BaseAPIHandler):
             subpath,
         )
         if not playlist:
+            LOGGER.warning(
+                "Returning 404 for HLS playlist "
+                "(camera=%s, recording_id=%s)",
+                camera_identifier,
+                recording_id,
+            )
             self.response_error(
                 HTTPStatus.NOT_FOUND, f"Recording with id {recording_id} not found"
             )
@@ -203,6 +209,14 @@ class HlsAPIHandler(BaseAPIHandler):
             subpath,
         )
         if not playlist:
+            LOGGER.warning(
+                "Returning 404 for HLS time-period playlist "
+                "(camera=%s, start_timestamp=%s, end_timestamp=%s, date=%s)",
+                camera_identifier,
+                self.request_arguments["start_timestamp"],
+                self.request_arguments["end_timestamp"],
+                self.request_arguments["date"],
+            )
             self.response_error(
                 HTTPStatus.NOT_FOUND, "HLS playlist could not be generated"
             )
@@ -257,6 +271,9 @@ class HlsAPIHandler(BaseAPIHandler):
             HLS_SEGMENT_FILE_TYPES,
         )
         if resolved_file is None:
+            LOGGER.warning(
+                "Returning 404 for unresolved HLS segment file id %s", file_id
+            )
             self.response_error(HTTPStatus.NOT_FOUND, reason="Segment not found")
             return
 
@@ -290,6 +307,12 @@ class HlsAPIHandler(BaseAPIHandler):
             int(tier_id),
         )
         if init_file is None:
+            LOGGER.warning(
+                "Returning 404 for missing HLS init file "
+                "(camera=%s, tier_id=%s)",
+                camera_identifier,
+                tier_id,
+            )
             self.response_error(HTTPStatus.NOT_FOUND, reason="Init file not found")
             return
 

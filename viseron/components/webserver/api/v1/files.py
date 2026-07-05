@@ -171,6 +171,15 @@ async def serve_resolved_file(
     try:
         stat_result = await handler.run_in_executor(os.stat, resolved_file.path)
     except FileNotFoundError:
+        LOGGER.warning(
+            "Resolved file disappeared before serving "
+            "(file_id=%s, camera=%s, type=%s/%s, path=%s)",
+            resolved_file.file_id,
+            resolved_file.camera_identifier,
+            resolved_file.category,
+            resolved_file.subcategory,
+            resolved_file.path,
+        )
         handler.response_error(HTTPStatus.NOT_FOUND, reason="File not found")
         return
     except OSError:
@@ -206,6 +215,15 @@ async def serve_resolved_file(
         except FileNotFoundError:
             if file_obj is not None:
                 await handler.run_in_executor(file_obj.close)
+            LOGGER.warning(
+                "Resolved file disappeared before opening "
+                "(file_id=%s, camera=%s, type=%s/%s, path=%s)",
+                resolved_file.file_id,
+                resolved_file.camera_identifier,
+                resolved_file.category,
+                resolved_file.subcategory,
+                resolved_file.path,
+            )
             handler.response_error(HTTPStatus.NOT_FOUND, reason="File not found")
             return
         except OSError:
@@ -257,6 +275,7 @@ class FilesAPIHandler(BaseAPIHandler):
             int(file_id),
         )
         if resolved_file is None:
+            LOGGER.warning("Returning 404 for unresolved file id %s", file_id)
             self.response_error(HTTPStatus.NOT_FOUND, reason="File not found")
             return
 
