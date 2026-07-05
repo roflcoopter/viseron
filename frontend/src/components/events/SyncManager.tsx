@@ -14,11 +14,10 @@ import {
   useReferencePlayerStore,
 } from "components/events/utils";
 import useControlledInterval from "hooks/UseControlledInterval";
-import { sleep } from "lib/helpers";
 import { getDayjsFromDate } from "lib/helpers/dates";
 
 const SYNC_INTERVAL = 100; // Sync interval in milliseconds
-const MAX_DRIFT = 0.5; // Maximum allowed drift in seconds
+const MAX_DRIFT = 2; // Maximum allowed drift in seconds before hard seeking
 
 interface SyncManagerProps {
   children: React.ReactNode;
@@ -92,10 +91,6 @@ function SyncManager({ children }: SyncManagerProps) {
   }, []);
 
   const syncPlayers = useCallback(async () => {
-    if (requestedTimestamp === playingDateRef.current) {
-      await sleep(1000);
-    }
-
     const playersWithTime = hlsRefs.filter(
       (player): player is React.MutableRefObject<Hls> =>
         player.current !== null &&
