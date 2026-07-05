@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+from http import HTTPStatus
 from pathlib import Path
 from unittest.mock import Mock
 
+from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.components.storage.files import ResolvedFile
 from viseron.components.storage.const import (
     CONFIG_PATH,
@@ -227,6 +229,8 @@ class FakeFileHandler:
         self.headers = {}
         self.body = bytearray()
         self.finished = False
+        self.error_status = None
+        self.error_reason = None
 
     async def run_in_executor(self, func, *args):
         """Run synchronously for tests."""
@@ -249,6 +253,12 @@ class FakeFileHandler:
 
     def finish(self) -> None:
         """Finish response."""
+        self.finished = True
+
+    def response_error(self, status, reason: str) -> None:
+        """Store error response."""
+        self.error_status = status
+        self.error_reason = reason
         self.finished = True
 
 
@@ -276,6 +286,47 @@ def test_serve_resolved_file_sets_http_last_modified(tmp_path: Path) -> None:
     assert handler.headers["Last-Modified"].endswith("GMT")
     assert handler.body == b"segment"
     assert handler.finished
+
+
+def test_serve_resolved_file_handles_missing_file_before_headers(tmp_path: Path) -> None:
+    """Test missing files are handled before file response headers are set."""
+    file_path = tmp_path / "missing.m4s"
+    handler = FakeFileHandler()
+
+    asyncio.run(
+        serve_resolved_file(
+            handler,
+            ResolvedFile(
+                file_id=1,
+                camera_identifier="cam1",
+                category=TIER_CATEGORY_RECORDER,
+                subcategory=TIER_SUBCATEGORY_SEGMENTS,
+                path=str(file_path),
+                size=0,
+            ),
+        )
+    )
+
+    assert handler.error_status == HTTPStatus.NOT_FOUND
+    assert handler.error_reason == "File not found"
+    assert "Content-Length" not in handler.headers
+    assert handler.finished
+
+
+def test_response_error_is_ignored_after_response_started() -> None:
+    """Test API errors are not written after response headers have started."""
+    handler = BaseAPIHandler.__new__(BaseAPIHandler)
+    handler._headers_written = True  # pylint: disable=protected-access
+    handler._finished = False  # pylint: disable=protected-access
+    handler.set_status = Mock()
+    handler.set_header = Mock()
+    handler.finish = Mock()
+
+    handler.response_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Internal server error")
+
+    handler.set_status.assert_not_called()
+    handler.set_header.assert_not_called()
+    handler.finish.assert_not_called()
 
 
 def test_authorize_file_request_rejects_wrong_camera_token() -> None:

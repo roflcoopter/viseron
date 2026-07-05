@@ -164,10 +164,25 @@ class BaseAPIHandler(ViseronRequestHandler):
 
     def response_error(self, status_code: HTTPStatus, reason: str) -> None:
         """Send error response."""
+        if self.response_started:
+            LOGGER.error(
+                "Cannot send error response after response started: %s %s",
+                status_code,
+                reason,
+            )
+            return
         self.set_status(status_code, reason=reason.replace("\n", ""))
         self.set_header("Content-Type", "application/json")
         response = {"status": status_code, "error": reason}
         self.finish(response)
+
+    @property
+    def response_started(self) -> bool:
+        """Return if response headers or body have already been sent."""
+        return bool(
+            getattr(self, "_headers_written", False)
+            or getattr(self, "_finished", False)
+        )
 
     def check_rate_limit(self, bucket: str) -> bool:
         """Check the per-IP rate limit for bucket.
@@ -448,6 +463,12 @@ class BaseAPIHandler(ViseronRequestHandler):
                     LOGGER.exception(
                         f"Error in API {self.__class__.__name__}.{self.route['method']}"
                     )
+                    if self.response_started:
+                        LOGGER.error(
+                            "Cannot send internal error for %s after response started",
+                            self.request.uri,
+                        )
+                        return None
                     self.response_error(
                         HTTPStatus.INTERNAL_SERVER_ERROR, reason="Internal server error"
                     )

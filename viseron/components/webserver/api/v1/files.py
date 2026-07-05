@@ -134,7 +134,7 @@ def _parse_range_header(range_header: str, size: int) -> tuple[int, int]:
 
 async def _write_file_range(
     handler: BaseAPIHandler,
-    path: str,
+    file_obj,
     start: int,
     end: int,
 ) -> None:
@@ -143,7 +143,7 @@ async def _write_file_range(
     def read_chunk(file_obj, bytes_to_read: int) -> bytes:
         return file_obj.read(min(CHUNK_SIZE, bytes_to_read))
 
-    with open(path, "rb") as file_obj:
+    try:
         file_obj.seek(start)
         bytes_remaining = end - start + 1
         while bytes_remaining > 0:
@@ -153,7 +153,12 @@ async def _write_file_range(
             bytes_remaining -= len(chunk)
             handler.write(chunk)
             await handler.flush()
-    handler.finish()
+        handler.finish()
+    except OSError:
+        LOGGER.exception("Failed while streaming file response")
+        raise
+    finally:
+        await handler.run_in_executor(file_obj.close)
 
 
 async def serve_resolved_file(
@@ -163,7 +168,16 @@ async def serve_resolved_file(
     cache_control: str = "public, max-age=86400",
 ) -> None:
     """Serve a resolved file with basic static-file semantics."""
-    stat_result = await handler.run_in_executor(os.stat, resolved_file.path)
+    try:
+        stat_result = await handler.run_in_executor(os.stat, resolved_file.path)
+    except FileNotFoundError:
+        handler.response_error(HTTPStatus.NOT_FOUND, reason="File not found")
+        return
+    except OSError:
+        LOGGER.exception("Failed to stat file %s", resolved_file.path)
+        handler.response_error(HTTPStatus.INTERNAL_SERVER_ERROR, reason="File error")
+        return
+
     size = stat_result.st_size
     start = 0
     end = size - 1
@@ -184,6 +198,25 @@ async def serve_resolved_file(
             return
         status = HTTPStatus.PARTIAL_CONTENT
 
+    file_obj = None
+    if size:
+        try:
+            file_obj = await handler.run_in_executor(open, resolved_file.path, "rb")
+            await handler.run_in_executor(file_obj.seek, start)
+        except FileNotFoundError:
+            if file_obj is not None:
+                await handler.run_in_executor(file_obj.close)
+            handler.response_error(HTTPStatus.NOT_FOUND, reason="File not found")
+            return
+        except OSError:
+            if file_obj is not None:
+                await handler.run_in_executor(file_obj.close)
+            LOGGER.exception("Failed to open file %s", resolved_file.path)
+            handler.response_error(
+                HTTPStatus.INTERNAL_SERVER_ERROR, reason="File error"
+            )
+            return
+
     content_length = end - start + 1 if size else 0
     handler.set_status(status)
     handler.set_header("Accept-Ranges", "bytes")
@@ -198,7 +231,8 @@ async def serve_resolved_file(
     if size == 0:
         handler.finish()
         return
-    await _write_file_range(handler, resolved_file.path, start, end)
+    assert file_obj is not None  # noqa: S101
+    await _write_file_range(handler, file_obj, start, end)
 
 
 class FilesAPIHandler(BaseAPIHandler):
