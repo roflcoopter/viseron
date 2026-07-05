@@ -1,6 +1,6 @@
 import { Dayjs } from "dayjs";
 import Hls from "hls.js";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import {
@@ -16,8 +16,12 @@ import {
 import useControlledInterval from "hooks/UseControlledInterval";
 import { getDayjsFromDate } from "lib/helpers/dates";
 
-const SYNC_INTERVAL = 100; // Sync interval in milliseconds
-const MAX_DRIFT = 2; // Maximum allowed drift in seconds before hard seeking
+const SYNC_INTERVAL = 250;
+const IGNORE_DRIFT = 0.35;
+const RATE_NUDGE_DRIFT = 2;
+const HARD_SEEK_DRIFT = 4;
+const HARD_SEEK_COOLDOWN_MS = 3000;
+const MAX_RATE_NUDGE = 0.05;
 
 interface SyncManagerProps {
   children: React.ReactNode;
@@ -37,6 +41,7 @@ function SyncManager({ children }: SyncManagerProps) {
     setIsPlaying,
     setIsLive,
     isMuted,
+    playbackSpeed,
     requestedTimestamp,
     playingDateRef,
   } = useReferencePlayerStore(
@@ -46,10 +51,13 @@ function SyncManager({ children }: SyncManagerProps) {
       setIsPlaying: state.setIsPlaying,
       setIsLive: state.setIsLive,
       isMuted: state.isMuted,
+      playbackSpeed: state.playbackSpeed,
       requestedTimestamp: state.requestedTimestamp,
       playingDateRef: state.playingDateRef,
     })),
   );
+  const lastHardSeekRef = useRef(new WeakMap<Hls, number>());
+
   const seekSafely = useCallback((player: Hls, referenceDate: Dayjs) => {
     if (!player.levels || player.levels.length === 0 || !player.media) {
       return false;
@@ -89,6 +97,75 @@ function SyncManager({ children }: SyncManagerProps) {
 
     return false;
   }, []);
+
+  const setDriftCorrectionRate = useCallback(
+    (player: Hls, driftSeconds: number) => {
+      if (!player.media) {
+        return;
+      }
+      const nudge =
+        Math.min(Math.abs(driftSeconds) / RATE_NUDGE_DRIFT, 1) *
+        MAX_RATE_NUDGE;
+      player.media.playbackRate =
+        driftSeconds > 0 ? playbackSpeed + nudge : playbackSpeed - nudge;
+    },
+    [playbackSpeed],
+  );
+
+  const correctDrift = useCallback(
+    (
+      player: React.MutableRefObject<Hls>,
+      referenceDate: Dayjs,
+      driftSeconds: number,
+    ) => {
+      if (!player.current.media) {
+        return;
+      }
+
+      const absDrift = Math.abs(driftSeconds);
+      if (absDrift <= IGNORE_DRIFT) {
+        player.current.media.playbackRate = playbackSpeed;
+        return;
+      }
+
+      if (absDrift < HARD_SEEK_DRIFT) {
+        setDriftCorrectionRate(player.current, driftSeconds);
+        return;
+      }
+
+      const now = performance.now();
+      const lastHardSeek = lastHardSeekRef.current.get(player.current) ?? 0;
+      if (now - lastHardSeek < HARD_SEEK_COOLDOWN_MS) {
+        setDriftCorrectionRate(player.current, driftSeconds);
+        return;
+      }
+
+      const seeked = seekSafely(player.current, referenceDate);
+      if (seeked) {
+        lastHardSeekRef.current.set(player.current, now);
+        player.current.media.playbackRate = playbackSpeed;
+        player.current.media
+          .play()
+          .then(() => {
+            setHlsRefsError(player, null);
+          })
+          .catch(() => {
+            // Ignore play errors
+          });
+      } else {
+        setHlsRefsError(
+          player,
+          translateErrorCode(HlsErrorCodes.TIMESPAN_MISSING),
+        );
+      }
+    },
+    [
+      playbackSpeed,
+      seekSafely,
+      setDriftCorrectionRate,
+      setHlsRefsError,
+    ],
+  );
 
   const syncPlayers = useCallback(async () => {
     const playersWithTime = hlsRefs.filter(
@@ -133,33 +210,19 @@ function SyncManager({ children }: SyncManagerProps) {
         ? getDayjsFromDate(referencePlayer.current.playingDate).unix()
         : requestedTimestamp;
       playersWithTime.forEach((player) => {
+        if (player.current.media) {
+          player.current.media.playbackRate = playbackSpeed;
+        }
         if (player !== referencePlayer) {
+          const referenceDate = getDayjsFromDate(
+            referencePlayer.current.playingDate!,
+          );
           const timeDiff =
-            (getDayjsFromDate(referencePlayer.current.playingDate!).valueOf() -
+            (referenceDate.valueOf() -
               getDayjsFromDate(player.current.playingDate!).valueOf()) /
             1000;
 
-          if (Math.abs(timeDiff) > MAX_DRIFT) {
-            const seeked = seekSafely(
-              player.current,
-              getDayjsFromDate(referencePlayer.current.playingDate!),
-            );
-            if (seeked && player.current.media) {
-              player.current.media
-                .play()
-                .then(() => {
-                  setHlsRefsError(player, null);
-                })
-                .catch(() => {
-                  // Ignore play errors
-                });
-            } else {
-              setHlsRefsError(
-                player,
-                translateErrorCode(HlsErrorCodes.TIMESPAN_MISSING),
-              );
-            }
-          }
+          correctDrift(player, referenceDate, timeDiff);
         }
       });
     } else {
@@ -251,11 +314,12 @@ function SyncManager({ children }: SyncManagerProps) {
     }
   }, [
     hlsRefs,
+    correctDrift,
     isMuted,
     isPlaying,
+    playbackSpeed,
     playingDateRef,
     requestedTimestamp,
-    seekSafely,
     setHlsRefsError,
     setIsLive,
     setIsPlaying,
