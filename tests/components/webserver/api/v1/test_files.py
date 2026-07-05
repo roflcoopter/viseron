@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import errno
 from http import HTTPStatus
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.components.storage.files import ResolvedFile
@@ -306,6 +307,33 @@ def test_serve_resolved_file_handles_missing_file_before_headers(tmp_path: Path)
             ),
         )
     )
+
+    assert handler.error_status == HTTPStatus.NOT_FOUND
+    assert handler.error_reason == "File not found"
+    assert "Content-Length" not in handler.headers
+    assert handler.finished
+
+
+def test_serve_resolved_file_handles_invalid_argument_open(tmp_path: Path) -> None:
+    """Test EINVAL while opening a resolved file returns 404, not 500."""
+    file_path = tmp_path / "segment.m4s"
+    file_path.write_bytes(b"segment")
+    handler = FakeFileHandler()
+
+    with patch("builtins.open", side_effect=OSError(errno.EINVAL, "Invalid argument")):
+        asyncio.run(
+            serve_resolved_file(
+                handler,
+                ResolvedFile(
+                    file_id=1,
+                    camera_identifier="cam1",
+                    category=TIER_CATEGORY_RECORDER,
+                    subcategory=TIER_SUBCATEGORY_SEGMENTS,
+                    path=str(file_path),
+                    size=file_path.stat().st_size,
+                ),
+            )
+        )
 
     assert handler.error_status == HTTPStatus.NOT_FOUND
     assert handler.error_reason == "File not found"

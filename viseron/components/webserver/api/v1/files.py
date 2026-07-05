@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import logging
 import mimetypes
@@ -18,6 +19,7 @@ from viseron.components.storage.files import (
     ResolvedFile,
     resolve_file_id,
 )
+from viseron.components.storage.util import is_transient_filesystem_error
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 
 LOGGER = logging.getLogger(__name__)
@@ -41,6 +43,9 @@ CONTENT_TYPES = {
     ".m4s": "video/iso.segment",
 }
 CHUNK_SIZE = 1024 * 1024
+UNAVAILABLE_FILE_ERRNOS = {
+    errno.EINVAL,
+}
 
 
 class FileRangeError(ValueError):
@@ -105,6 +110,34 @@ def _etag(path: str, size: int, mtime: float) -> str:
     """Return an ETag for a resolved file."""
     etag_base = f"{path}:{size}:{mtime}".encode()
     return hashlib.sha256(etag_base).hexdigest()
+
+
+def _file_is_unavailable(error: OSError) -> bool:
+    """Return if a file-serving error should be treated as unavailable media."""
+    return (
+        error.errno in UNAVAILABLE_FILE_ERRNOS
+        or is_transient_filesystem_error(error)
+    )
+
+
+def _log_unavailable_file(
+    resolved_file: ResolvedFile,
+    operation: str,
+    error: OSError,
+) -> None:
+    """Log an unavailable resolved file."""
+    LOGGER.warning(
+        "Resolved file unavailable while %s "
+        "(file_id=%s, camera=%s, type=%s/%s, path=%s, errno=%s): %s",
+        operation,
+        resolved_file.file_id,
+        resolved_file.camera_identifier,
+        resolved_file.category,
+        resolved_file.subcategory,
+        resolved_file.path,
+        error.errno,
+        error,
+    )
 
 
 def _parse_range_header(range_header: str, size: int) -> tuple[int, int]:
@@ -182,7 +215,11 @@ async def serve_resolved_file(
         )
         handler.response_error(HTTPStatus.NOT_FOUND, reason="File not found")
         return
-    except OSError:
+    except OSError as error:
+        if _file_is_unavailable(error):
+            _log_unavailable_file(resolved_file, "statting", error)
+            handler.response_error(HTTPStatus.NOT_FOUND, reason="File not found")
+            return
         LOGGER.exception("Failed to stat file %s", resolved_file.path)
         handler.response_error(HTTPStatus.INTERNAL_SERVER_ERROR, reason="File error")
         return
@@ -226,9 +263,13 @@ async def serve_resolved_file(
             )
             handler.response_error(HTTPStatus.NOT_FOUND, reason="File not found")
             return
-        except OSError:
+        except OSError as error:
             if file_obj is not None:
                 await handler.run_in_executor(file_obj.close)
+            if _file_is_unavailable(error):
+                _log_unavailable_file(resolved_file, "opening", error)
+                handler.response_error(HTTPStatus.NOT_FOUND, reason="File not found")
+                return
             LOGGER.exception("Failed to open file %s", resolved_file.path)
             handler.response_error(
                 HTTPStatus.INTERNAL_SERVER_ERROR, reason="File error"
