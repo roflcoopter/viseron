@@ -6,6 +6,7 @@ import asyncio
 from pathlib import Path
 from unittest.mock import Mock
 
+from viseron.components.storage.files import ResolvedFile
 from viseron.components.storage.const import (
     CONFIG_PATH,
     TIER_CATEGORY_RECORDER,
@@ -16,6 +17,7 @@ from viseron.components.storage.models import Files
 from viseron.components.webserver.api.v1.files import (
     authorize_file_request,
     resolve_file_id,
+    serve_resolved_file,
 )
 from viseron.helpers import utcnow
 
@@ -214,6 +216,66 @@ class FakeAuthHandler:
         """Store error response."""
         self.error_status = status
         self.error_reason = reason
+
+
+class FakeFileHandler:
+    """Small async-compatible handler for file serving tests."""
+
+    def __init__(self) -> None:
+        self.request = Mock(headers={})
+        self.status = None
+        self.headers = {}
+        self.body = bytearray()
+        self.finished = False
+
+    async def run_in_executor(self, func, *args):
+        """Run synchronously for tests."""
+        return func(*args)
+
+    def set_status(self, status) -> None:
+        """Store status."""
+        self.status = status
+
+    def set_header(self, key: str, value: str) -> None:
+        """Store response header."""
+        self.headers[key] = value
+
+    def write(self, chunk: bytes) -> None:
+        """Store response bytes."""
+        self.body.extend(chunk)
+
+    async def flush(self) -> None:
+        """Flush response."""
+
+    def finish(self) -> None:
+        """Finish response."""
+        self.finished = True
+
+
+def test_serve_resolved_file_sets_http_last_modified(tmp_path: Path) -> None:
+    """Test serving files does not depend on StaticFileHandler date helpers."""
+    file_path = tmp_path / "segment.m4s"
+    file_path.write_bytes(b"segment")
+    handler = FakeFileHandler()
+
+    asyncio.run(
+        serve_resolved_file(
+            handler,
+            ResolvedFile(
+                file_id=1,
+                camera_identifier="cam1",
+                category=TIER_CATEGORY_RECORDER,
+                subcategory=TIER_SUBCATEGORY_SEGMENTS,
+                path=str(file_path),
+                size=file_path.stat().st_size,
+            ),
+        )
+    )
+
+    assert handler.status == 200
+    assert handler.headers["Last-Modified"].endswith("GMT")
+    assert handler.body == b"segment"
+    assert handler.finished
 
 
 def test_authorize_file_request_rejects_wrong_camera_token() -> None:

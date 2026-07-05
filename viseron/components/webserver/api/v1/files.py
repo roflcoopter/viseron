@@ -6,6 +6,7 @@ import hashlib
 import logging
 import mimetypes
 import os
+from email.utils import formatdate
 from functools import partial
 from http import HTTPStatus
 
@@ -190,7 +191,7 @@ async def serve_resolved_file(
     handler.set_header("Content-Type", _content_type(resolved_file.path))
     handler.set_header("Content-Length", str(content_length))
     handler.set_header("Etag", _etag(resolved_file.path, size, stat_result.st_mtime))
-    handler.set_header("Last-Modified", handler.date_time_string(stat_result.st_mtime))
+    handler.set_header("Last-Modified", formatdate(stat_result.st_mtime, usegmt=True))
     if status == HTTPStatus.PARTIAL_CONTENT:
         handler.set_header("Content-Range", f"bytes {start}-{end}/{size}")
 
