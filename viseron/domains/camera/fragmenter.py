@@ -705,6 +705,7 @@ def generate_playlist(
     fragments: list[Fragment],
     init_file: str,
     media_sequence: int = 0,
+    discontinuity_sequence: int = 0,
     target_duration: int | None = None,
     *,
     end: bool = False,
@@ -716,8 +717,8 @@ def generate_playlist(
     playlist.append("#EXT-X-VERSION:6")
 
     playlist.append(f"#EXT-X-MEDIA-SEQUENCE:{media_sequence}")
-    if media_sequence:
-        playlist.append(f"#EXT-X-DISCONTINUITY-SEQUENCE:{media_sequence}")
+    if discontinuity_sequence:
+        playlist.append(f"#EXT-X-DISCONTINUITY-SEQUENCE:{discontinuity_sequence}")
 
     if target_duration:
         pass

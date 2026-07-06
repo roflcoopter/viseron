@@ -4,6 +4,7 @@ from __future__ import annotations
 import datetime
 import logging
 import os
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from http import HTTPStatus
@@ -32,6 +33,7 @@ from viseron.components.webserver.api.v1.files import (
 from viseron.const import CAMERA_SEGMENT_DURATION
 from viseron.domains.camera.fragmenter import (
     Fragment,
+    gap_in_fragments,
     generate_playlist,
     get_available_timespans,
 )
@@ -44,6 +46,7 @@ if TYPE_CHECKING:
     from viseron.domains.camera import AbstractCamera, FailedCamera
 
 LOGGER = logging.getLogger(__name__)
+HLS_SEGMENT_RESPONSE_WARN_SECONDS = 0.05
 
 
 def count_files_removed(
@@ -62,6 +65,41 @@ def count_files_removed(
     return index + 1
 
 
+def count_discontinuities_removed(
+    previous_list: list[Fragment], current_list: list[Fragment]
+) -> int:
+    """Count discontinuity boundaries removed from the previous playlist."""
+    if not previous_list:
+        return 0
+    if not current_list:
+        return sum(
+            1
+            for previous_fragment, fragment in zip(previous_list, previous_list[1:])
+            if gap_in_fragments(previous_fragment, fragment)
+        )
+
+    for index, file in enumerate(previous_list):
+        if file.filename == current_list[0].filename:
+            removed_files = previous_list[: index + 1]
+            return sum(
+                1
+                for previous_fragment, fragment in zip(removed_files, removed_files[1:])
+                if gap_in_fragments(previous_fragment, fragment)
+            )
+
+    removed_count = sum(
+        1
+        for previous_fragment, fragment in zip(previous_list, previous_list[1:])
+        if gap_in_fragments(previous_fragment, fragment)
+    )
+    if (
+        previous_list[-1].creation_time < current_list[0].creation_time
+        and gap_in_fragments(previous_list[-1], current_list[0])
+    ):
+        removed_count += 1
+    return removed_count
+
+
 @dataclass
 class HlsClient:
     """Dataclass for HLS client to keep track of removed files in live playlists."""
@@ -69,6 +107,7 @@ class HlsClient:
     client_id: str
     fragments: list[Fragment]
     media_sequence: int
+    discontinuity_sequence: int
     target_duration: int
 
 
@@ -263,6 +302,8 @@ class HlsAPIHandler(BaseAPIHandler):
 
     async def get_hls_segment(self, file_id: str):
         """Get a HLS media segment by file id."""
+        request_started = time.perf_counter()
+        resolve_started = request_started
         resolved_file = await self.run_in_executor(
             resolve_file_id,
             self._get_session,
@@ -270,6 +311,7 @@ class HlsAPIHandler(BaseAPIHandler):
             int(file_id),
             HLS_SEGMENT_FILE_TYPES,
         )
+        resolve_finished = time.perf_counter()
         if resolved_file is None:
             LOGGER.warning(
                 "Returning 404 for unresolved HLS segment file id %s", file_id
@@ -277,16 +319,35 @@ class HlsAPIHandler(BaseAPIHandler):
             self.response_error(HTTPStatus.NOT_FOUND, reason="Segment not found")
             return
 
+        auth_started = resolve_finished
         if not await authorize_file_request(
             self, resolved_file.camera_identifier, failed=True
         ):
             return
+        auth_finished = time.perf_counter()
 
+        serve_started = auth_finished
         await serve_resolved_file(
             self,
             resolved_file,
             cache_control="public, max-age=31536000, immutable",
         )
+        serve_finished = time.perf_counter()
+        total_time = serve_finished - request_started
+        if total_time >= HLS_SEGMENT_RESPONSE_WARN_SECONDS:
+            LOGGER.warning(
+                "Slow HLS segment response "
+                "(file_id=%s, camera=%s, size=%s, total_ms=%.1f, "
+                "resolve_ms=%.1f, auth_ms=%.1f, serve_ms=%.1f, path=%s)",
+                file_id,
+                resolved_file.camera_identifier,
+                resolved_file.size,
+                total_time * 1000,
+                (resolve_finished - resolve_started) * 1000,
+                (auth_finished - auth_started) * 1000,
+                (serve_finished - serve_started) * 1000,
+                resolved_file.path,
+            )
 
     async def get_hls_init_file(self, camera_identifier: str, tier_id: str):
         """Get a HLS init file by camera and tier id."""
@@ -378,19 +439,25 @@ def update_hls_client(
     hls_client_id: str,
     fragments: list[Fragment],
 ) -> HlsClient:
-    """Keep track of HLS client media sequence."""
+    """Keep track of HLS client media and discontinuity sequences."""
     media_sequence = 0
     hls_client = HlsAPIHandler.hls_client_ids.get(hls_client_id, None)
     if hls_client:
         media_sequence = hls_client.media_sequence
+        discontinuity_sequence = hls_client.discontinuity_sequence
         media_sequence += count_files_removed(hls_client.fragments, fragments)
+        discontinuity_sequence += count_discontinuities_removed(
+            hls_client.fragments, fragments
+        )
         hls_client.fragments = fragments
         hls_client.media_sequence = media_sequence
+        hls_client.discontinuity_sequence = discontinuity_sequence
     else:
         hls_client = HlsClient(
             client_id=hls_client_id,
             fragments=fragments,
             media_sequence=media_sequence,
+            discontinuity_sequence=0,
             target_duration=get_target_duration(fragments),
         )
         HlsAPIHandler.hls_client_ids[hls_client_id] = hls_client
@@ -474,6 +541,9 @@ def _generate_playlist(
         fragments,
         init_file_url,
         media_sequence=hls_client.media_sequence if hls_client else 0,
+        discontinuity_sequence=(
+            hls_client.discontinuity_sequence if hls_client else 0
+        ),
         target_duration=hls_client.target_duration if hls_client else None,
         end=end,
         file_directive=False,
@@ -524,6 +594,9 @@ def _generate_playlist_time_period(
         fragments,
         init_file_url,
         media_sequence=hls_client.media_sequence if hls_client else 0,
+        discontinuity_sequence=(
+            hls_client.discontinuity_sequence if hls_client else 0
+        ),
         target_duration=hls_client.target_duration if hls_client else None,
         end=end_playlist,
         file_directive=False,
