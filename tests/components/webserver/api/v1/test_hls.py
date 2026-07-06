@@ -12,6 +12,7 @@ from viseron.components.storage.models import Files, Recordings
 from viseron.components.webserver.api.v1.hls import (
     _init_file_url,
     adjust_fragment_paths,
+    count_discontinuities_removed,
     count_files_removed,
 )
 from viseron.domains.camera.const import CONFIG_LOOKBACK, CONFIG_RECORDER
@@ -378,6 +379,51 @@ def test_count_files_removed_all_files_changed():
         Fragment("file6", "file6", 1, utcnow()),
     ]
     assert count_files_removed(prev_list, curr_list) == 3
+
+
+def test_count_discontinuities_removed_no_gap():
+    """Test count_discontinuities_removed with no removed discontinuity."""
+    now = utcnow()
+    prev_list = [
+        Fragment("file1", "file1", 5, now),
+        Fragment("file2", "file2", 5, now + datetime.timedelta(seconds=5)),
+        Fragment("file3", "file3", 5, now + datetime.timedelta(seconds=10)),
+    ]
+    curr_list = [
+        Fragment("file2", "file2", 5, now + datetime.timedelta(seconds=5)),
+        Fragment("file3", "file3", 5, now + datetime.timedelta(seconds=10)),
+    ]
+
+    assert count_discontinuities_removed(prev_list, curr_list) == 0
+
+
+def test_count_discontinuities_removed_gap_before_new_first():
+    """Test count_discontinuities_removed counts removed gap boundary."""
+    now = utcnow()
+    prev_list = [
+        Fragment("file1", "file1", 5, now),
+        Fragment("file2", "file2", 5, now + datetime.timedelta(seconds=20)),
+        Fragment("file3", "file3", 5, now + datetime.timedelta(seconds=25)),
+    ]
+    curr_list = [
+        Fragment("file3", "file3", 5, now + datetime.timedelta(seconds=25)),
+    ]
+
+    assert count_discontinuities_removed(prev_list, curr_list) == 1
+
+
+def test_count_discontinuities_removed_no_overlap_counts_forward_gap():
+    """Test count_discontinuities_removed includes forward gap with no overlap."""
+    now = utcnow()
+    prev_list = [
+        Fragment("file1", "file1", 5, now),
+        Fragment("file2", "file2", 5, now + datetime.timedelta(seconds=20)),
+    ]
+    curr_list = [
+        Fragment("file3", "file3", 5, now + datetime.timedelta(seconds=40)),
+    ]
+
+    assert count_discontinuities_removed(prev_list, curr_list) == 2
 
 
 def test_adjust_fragment_paths_uses_hls_file_id_urls():
