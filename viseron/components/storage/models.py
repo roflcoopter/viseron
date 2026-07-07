@@ -111,6 +111,14 @@ class Files(Base):
         Index("idx_files_path", "path"),
         Index("idx_files_camera_id", "camera_identifier"),
         Index(
+            "uq_files_logical_key",
+            "camera_identifier",
+            "category",
+            "subcategory",
+            "filename",
+            unique=True,
+        ),
+        Index(
             "idx_files_tier_lookup",
             "camera_identifier",
             "tier_id",
@@ -133,6 +141,49 @@ class Files(Base):
     orig_ctime: Mapped[datetime.datetime] = mapped_column(
         UTCDateTime(timezone=False), nullable=False
     )
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        UTCDateTime(timezone=False), server_default=UTCNow(), nullable=True
+    )
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        UTCDateTime(timezone=False), onupdate=UTCNow(), nullable=True
+    )
+
+
+class FileLocationState(str, Enum):
+    """Physical file location states."""
+
+    AVAILABLE = "available"
+    PENDING_DELETE = "pending_delete"
+    UNAVAILABLE = "unavailable"
+
+
+class FileLocations(Base):
+    """Database model for physical file locations."""
+
+    __tablename__ = "file_locations"
+
+    __table_args__ = (
+        Index("idx_file_locations_file_id", "file_id"),
+        Index("idx_file_locations_path", "path", unique=True),
+        Index("idx_file_locations_state", "state"),
+        Index(
+            "idx_file_locations_tier_lookup",
+            "tier_id",
+            "state",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    file_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("files.id", ondelete="CASCADE"), nullable=False
+    )
+    tier_id: Mapped[int] = mapped_column(Integer)
+    tier_path: Mapped[str] = mapped_column(String)
+    path: Mapped[str] = mapped_column(String)
+    directory: Mapped[str] = mapped_column(String)
+    filename: Mapped[str] = mapped_column(String)
+    size: Mapped[int] = mapped_column(Integer)
+    state: Mapped[str] = mapped_column(String, nullable=False, default="available")
     created_at: Mapped[datetime.datetime] = mapped_column(
         UTCDateTime(timezone=False), server_default=UTCNow(), nullable=True
     )

@@ -12,7 +12,12 @@ import pytest
 from sqlalchemy import insert
 from sqlalchemy.orm import Session
 
-from viseron.components.storage.models import Files, Recordings, TriggerTypes
+from viseron.components.storage.models import (
+    FileLocations,
+    Files,
+    Recordings,
+    TriggerTypes,
+)
 from viseron.components.storage.thumbnails import RecoveredThumbnail
 from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.const import (
@@ -328,9 +333,11 @@ def fixture_add_segment_to_session(
         segment_number = counter["value"]
 
         with get_db_session() as session:
-            session.execute(
+            path = f"/tmp/fragment{segment_number}.mp4"
+            filename = f"fragment{segment_number}.mp4"
+            file_result = session.execute(
                 insert(Files).values(
-                    path=f"/tmp/fragment{segment_number}.mp4",
+                    path=path,
                     tier_id=1,
                     tier_path="/tmp/tier1",
                     camera_identifier="test1",
@@ -338,9 +345,22 @@ def fixture_add_segment_to_session(
                     subcategory="segments",
                     duration=duration,
                     directory="/tmp",
-                    filename=f"fragment{segment_number}.mp4",
+                    filename=filename,
                     size=1024,
                     orig_ctime=segment_start,
+                )
+            )
+            file_id = file_result.inserted_primary_key[0]
+            session.execute(
+                insert(FileLocations).values(
+                    file_id=file_id,
+                    path=path,
+                    tier_id=1,
+                    tier_path="/tmp/tier1",
+                    directory="/tmp",
+                    filename=filename,
+                    size=1024,
+                    state="available",
                 )
             )
             session.commit()

@@ -16,7 +16,7 @@ from viseron.components.storage.const import (
     TIER_SUBCATEGORY_SEGMENTS,
 )
 from viseron.components.storage.files import repair_file_row
-from viseron.components.storage.models import Files
+from viseron.components.storage.models import FileLocations, FileLocationState, Files
 from viseron.components.webserver.api.v1.files import (
     authorize_file_request,
     resolve_file_id,
@@ -25,11 +25,29 @@ from viseron.components.webserver.api.v1.files import (
 from viseron.helpers import utcnow
 
 
+class FakeLocationResult:
+    """Fake SQLAlchemy result for location lookups."""
+
+    def __init__(self, locations: list[FileLocations]):
+        self._locations = locations
+
+    def scalars(self):
+        """Return scalar-compatible result."""
+        return self
+
+    def all(self):
+        """Return all fake locations."""
+        return self._locations
+
+
 class FakeSession:
     """Small context-manager session for file resolver tests."""
 
-    def __init__(self, file: Files | None):
+    def __init__(
+        self, file: Files | None, locations: list[FileLocations] | None = None
+    ):
         self.file = file
+        self.locations = locations or []
         self.committed = False
         self.rolled_back = False
 
@@ -45,6 +63,10 @@ class FakeSession:
         if model is Files and self.file and self.file.id == file_id:
             return self.file
         return None
+
+    def execute(self, _stmt):
+        """Return fake locations for location selects."""
+        return FakeLocationResult(self.locations)
 
     def commit(self) -> None:
         """Commit transaction."""
@@ -70,6 +92,28 @@ def _make_file(path: Path, tier_path: Path, *, size: int | None = None) -> Files
         size=path.stat().st_size if size is None and path.exists() else size or 0,
         duration=5,
         orig_ctime=utcnow(),
+    )
+
+
+def _make_location(
+    path: Path,
+    tier_path: Path,
+    *,
+    location_id: int,
+    tier_id: int,
+    state: str = FileLocationState.AVAILABLE.value,
+) -> FileLocations:
+    """Make a FileLocations row."""
+    return FileLocations(
+        id=location_id,
+        file_id=1,
+        tier_id=tier_id,
+        tier_path=str(tier_path),
+        path=str(path),
+        directory=str(path.parent),
+        filename=path.name,
+        size=path.stat().st_size if path.exists() else 0,
+        state=state,
     )
 
 
@@ -139,6 +183,58 @@ def test_resolve_file_id_returns_moved_tier_path_read_only(tmp_path: Path) -> No
     assert file.path == str(original_segment)
     assert not session.committed
     storage.queue_file_repair.assert_called_once_with(1)
+
+
+def test_resolve_file_id_prefers_lower_tier_location(tmp_path: Path) -> None:
+    """Test resolving a logical file through the preferred available location."""
+    tier1 = tmp_path / "tier1"
+    tier2 = tmp_path / "tier2"
+    segment1 = _segment_path(tier1)
+    segment2 = _segment_path(tier2)
+    segment1.parent.mkdir(parents=True)
+    segment2.parent.mkdir(parents=True)
+    segment1.write_bytes(b"tier1")
+    segment2.write_bytes(b"tier2")
+
+    file = _make_file(segment2, tier2)
+    session = FakeSession(
+        file,
+        [
+            _make_location(segment2, tier2, location_id=2, tier_id=1),
+            _make_location(segment1, tier1, location_id=1, tier_id=0),
+        ],
+    )
+
+    resolved_file = resolve_file_id(lambda: session, _storage_with_tiers(tier1, tier2), 1)
+
+    assert resolved_file is not None
+    assert resolved_file.path == str(segment1)
+
+
+def test_resolve_file_id_falls_back_when_preferred_location_missing(
+    tmp_path: Path,
+) -> None:
+    """Test resolving falls back to another available physical location."""
+    tier1 = tmp_path / "tier1"
+    tier2 = tmp_path / "tier2"
+    missing_segment = _segment_path(tier1)
+    fallback_segment = _segment_path(tier2)
+    fallback_segment.parent.mkdir(parents=True)
+    fallback_segment.write_bytes(b"tier2")
+
+    file = _make_file(missing_segment, tier1)
+    session = FakeSession(
+        file,
+        [
+            _make_location(missing_segment, tier1, location_id=1, tier_id=0),
+            _make_location(fallback_segment, tier2, location_id=2, tier_id=1),
+        ],
+    )
+
+    resolved_file = resolve_file_id(lambda: session, _storage_with_tiers(tier1, tier2), 1)
+
+    assert resolved_file is not None
+    assert resolved_file.path == str(fallback_segment)
 
 
 def test_repair_file_row_updates_moved_tier_path(tmp_path: Path) -> None:

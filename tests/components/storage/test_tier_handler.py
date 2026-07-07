@@ -249,7 +249,7 @@ def test_move_file_callback_commits_published_move() -> None:
 
     assert session.committed is True
     assert session.rolled_back is False
-    assert session.execute_count == 2
+    assert session.execute_count == 4
     assert dst not in storage.temporary_files_meta
     vis.dispatch_event.assert_called_once()
 

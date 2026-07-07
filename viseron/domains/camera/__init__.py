@@ -23,7 +23,7 @@ from viseron.components.storage.config import validate_tiers
 from viseron.components.storage.const import (
     COMPONENT as STORAGE_COMPONENT,
 )
-from viseron.components.storage.models import Files
+from viseron.components.storage.models import FileLocations, Files
 from viseron.const import TEMP_DIR
 from viseron.domain_registry import DomainEntry, DomainState
 from viseron.domains import AbstractDomain
@@ -661,12 +661,13 @@ class FailedCamera:
         """Return storage tier base path."""
         with self._storage.get_session() as session:
             tier_stmt = (
-                select(Files.tier_path)
-                .where(Files.tier_id == tier_id)
+                select(FileLocations.tier_path)
+                .join(Files, Files.id == FileLocations.file_id)
+                .where(FileLocations.tier_id == tier_id)
                 .where(Files.camera_identifier == self.identifier)
                 .where(Files.category == tier_category)
                 .where(Files.subcategory == subcategory)
-                .order_by(Files.created_at.desc())
+                .order_by(FileLocations.created_at.desc())
                 .limit(1)
             )
             tier_base_path = session.execute(tier_stmt).scalars().first()

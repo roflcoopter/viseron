@@ -14,8 +14,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 from sqlalchemy import Delete, delete, or_, select, update
-from sqlalchemy.dialects.postgresql import insert as postgresql_insert
-from sqlalchemy.exc import IntegrityError, NoResultFound
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.dml import ReturningDelete
 from watchdog.events import (
@@ -61,6 +60,8 @@ from viseron.components.storage.const import (
     CleanupJobNames,
 )
 from viseron.components.storage.models import (
+    FileLocations,
+    FileLocationState,
     Files,
     FilesMeta,
     Motion,
@@ -69,7 +70,13 @@ from viseron.components.storage.models import (
     PostProcessorResults,
     Recordings,
 )
-from viseron.components.storage.files import upsert_file
+from viseron.components.storage.files import (
+    delete_file_location_by_path,
+    upsert_file,
+    upsert_file_at_location,
+    upsert_file_location,
+    upsert_file_with_location,
+)
 from viseron.components.storage.thumbnails import upsert_thumbnail_file
 from viseron.components.storage.storage_subprocess import (
     DataItem,
@@ -397,58 +404,39 @@ class TierHandler(FileSystemEventHandler):
                 file_meta = self._storage.temporary_files_meta.pop(event_path, None)
                 if file_meta is not None:
                     break
-        try:
-            with self._storage.get_session() as session:
-                stmt = (
-                    postgresql_insert(Files)
-                    .values(
-                        tier_id=self._tier_id,
-                        tier_path=self._tier[CONFIG_PATH],
-                        camera_identifier=self._camera.identifier,
-                        category=self._category,
-                        subcategory=self._subcategory,
-                        path=event_path,
-                        directory=os.path.dirname(event_path),
-                        filename=os.path.basename(event_path),
-                        size=stat_result.st_size,
-                        orig_ctime=file_meta.orig_ctime if file_meta else utcnow(),
-                        duration=file_meta.duration if file_meta else None,
-                    )
-                    .on_conflict_do_nothing(index_elements=[Files.path])
-                    .returning(Files.id)
-                )
-                inserted_file_id = session.execute(stmt).scalar_one_or_none()
-                session.commit()
-        except IntegrityError:
-            session.rollback()
+        upserted_file = upsert_file_at_location(
+            self._storage.get_session,
+            self._camera.identifier,
+            self._category,
+            self._subcategory,
+            self._tier_id,
+            self._tier[CONFIG_PATH],
+            event_path,
+            orig_ctime=file_meta.orig_ctime if file_meta else utcnow(),
+            duration=file_meta.duration if file_meta else None,
+        )
+        if upserted_file and upserted_file.created:
+            self._vis.dispatch_event(
+                EVENT_FILE_CREATED.format(
+                    camera_identifier=self._camera.identifier,
+                    category=self._category,
+                    subcategory=self._subcategory,
+                ),
+                EventFileCreated(
+                    camera_identifier=self._camera.identifier,
+                    category=self._category,
+                    subcategory=self._subcategory,
+                    file_name=os.path.basename(event_path),
+                    path=event_path,
+                ),
+                store=False,
+            )
+        else:
             self._logger.debug(
                 "File %s already exists in database; create event likely raced "
                 "with move callback or duplicate watcher event",
                 event_path,
             )
-        else:
-            if inserted_file_id is not None:
-                self._vis.dispatch_event(
-                    EVENT_FILE_CREATED.format(
-                        camera_identifier=self._camera.identifier,
-                        category=self._category,
-                        subcategory=self._subcategory,
-                    ),
-                    EventFileCreated(
-                        camera_identifier=self._camera.identifier,
-                        category=self._category,
-                        subcategory=self._subcategory,
-                        file_name=os.path.basename(event_path),
-                        path=event_path,
-                    ),
-                    store=False,
-                )
-            else:
-                self._logger.debug(
-                    "File %s already exists in database; create event likely raced "
-                    "with move callback or duplicate watcher event",
-                    event_path,
-                )
 
         self.check_tier()
 
@@ -474,10 +462,14 @@ class TierHandler(FileSystemEventHandler):
                 return
 
             with self._storage.get_session() as session:
-                stmt = (
+                session.execute(
+                    update(FileLocations)
+                    .where(FileLocations.path == event.src_path)
+                    .values(size=size)
+                )
+                session.execute(
                     update(Files).where(Files.path == event.src_path).values(size=size)
                 )
-                session.execute(stmt)
                 session.commit()
 
             self.check_tier()
@@ -495,9 +487,13 @@ class TierHandler(FileSystemEventHandler):
     def _on_deleted(self, event: FileDeletedEvent) -> None:
         """Remove file from database when it is deleted."""
         self._logger.debug("File deleted: %s", event.src_path)
+        moving_files = getattr(self._storage, "temporary_moving_files", set())
         with self._storage.get_session() as session:
-            stmt = delete(Files).where(Files.path == event.src_path)
-            session.execute(stmt)
+            delete_file_location_by_path(
+                session,
+                event.src_path,
+                delete_logical=event.src_path not in moving_files,
+            )
             session.commit()
 
         self._vis.dispatch_event(
@@ -874,7 +870,9 @@ class SnapshotTierHandler(TierHandler):
         if self._subcategory == TIER_SUBCATEGORY_MOTION_DETECTOR:
             with self._storage.get_session() as session:
                 file_id = session.execute(
-                    select(Files.id).where(Files.path == event.src_path)
+                    select(FileLocations.file_id).where(
+                        FileLocations.path == event.src_path
+                    )
                 ).scalar_one_or_none()
                 delete_condition = Motion.snapshot_path == event.src_path
                 if file_id is not None:
@@ -900,7 +898,9 @@ class SnapshotTierHandler(TierHandler):
         elif self._subcategory == TIER_SUBCATEGORY_OBJECT_DETECTOR:
             with self._storage.get_session() as session:
                 file_id = session.execute(
-                    select(Files.id).where(Files.path == event.src_path)
+                    select(FileLocations.file_id).where(
+                        FileLocations.path == event.src_path
+                    )
                 ).scalar_one_or_none()
                 delete_condition = Objects.snapshot_path == event.src_path
                 if file_id is not None:
@@ -917,7 +917,9 @@ class SnapshotTierHandler(TierHandler):
         ]:
             with self._storage.get_session() as session:
                 file_id = session.execute(
-                    select(Files.id).where(Files.path == event.src_path)
+                    select(FileLocations.file_id).where(
+                        FileLocations.path == event.src_path
+                    )
                 ).scalar_one_or_none()
                 delete_condition = PostProcessorResults.snapshot_path == event.src_path
                 if file_id is not None:
@@ -1181,8 +1183,7 @@ def handle_file(
             stuck_row,
         )
         with get_session() as session:
-            stmt = delete(Files).where(Files.path == path)
-            session.execute(stmt)
+            delete_file_location_by_path(session, path)
             session.commit()
 
 
@@ -1222,16 +1223,21 @@ def move_file(
     """
     logger.debug("Moving file from %s to %s", src, dst)
     file_meta: FilesMeta
+    file_id: int
     try:
         with get_session() as session:
-            sel = select(Files).where(Files.path == src)
+            sel = (
+                select(Files)
+                .join(FileLocations, FileLocations.file_id == Files.id)
+                .where(FileLocations.path == src)
+            )
             res = session.execute(sel).scalar_one()
+            file_id = res.id
             file_meta = FilesMeta(orig_ctime=res.orig_ctime, duration=res.duration)
     except NoResultFound as error:
         logger.debug(f"Failed to find metadata for {src}: {error}")
         with get_session() as session:
-            stmt = delete(Files).where(Files.path == src)
-            session.execute(stmt)
+            delete_file_location_by_path(session, src)
             session.commit()
         delete_file(
             storage,
@@ -1249,9 +1255,26 @@ def move_file(
             )
             return
         with get_session() as session:
-            stmt = (
+            upsert_file_location(
+                session,
+                file_id,
+                dst_tier_id,
+                dst_tier_path,
+                dst,
+                item.size,
+                state=FileLocationState.AVAILABLE.value,
+            )
+            if item.source_removed:
+                delete_file_location_by_path(session, src)
+            else:
+                delete_file_location_by_path(
+                    session,
+                    src,
+                    missing_state=FileLocationState.PENDING_DELETE.value,
+                )
+            session.execute(
                 update(Files)
-                .where(Files.path == src)
+                .where(Files.id == file_id)
                 .values(
                     tier_id=dst_tier_id,
                     tier_path=dst_tier_path,
@@ -1263,37 +1286,12 @@ def move_file(
                     duration=file_meta.duration,
                 )
             )
-            try:
-                # The move callback is authoritative after destination publish.
-                # Watcher events may have already deleted src or inserted dst, so
-                # update first, insert on missing src, and delete stale src on a
-                # unique dst collision.
-                result = session.execute(stmt)
-                if result.rowcount == 0:
-                    session.execute(
-                        postgresql_insert(Files)
-                        .values(
-                            tier_id=dst_tier_id,
-                            tier_path=dst_tier_path,
-                            camera_identifier=camera_identifier,
-                            category=_curr_tier_category,
-                            subcategory=_curr_tier_subcategory,
-                            path=dst,
-                            directory=os.path.dirname(dst),
-                            filename=os.path.basename(dst),
-                            size=item.size,
-                            orig_ctime=file_meta.orig_ctime,
-                            duration=file_meta.duration,
-                        )
-                        .on_conflict_do_nothing(index_elements=[Files.path])
-                    )
-                session.commit()
-            except IntegrityError:
-                session.rollback()
-                session.execute(delete(Files).where(Files.path == src))
-                session.commit()
+            session.commit()
 
         storage.temporary_files_meta.pop(dst, None)
+        moving_files = getattr(storage, "temporary_moving_files", None)
+        if moving_files is not None:
+            moving_files.discard(src)
         # Wake the destination tier after the authoritative DB commit. This is a
         # liveness nudge for missed/delayed watcher create events on remote
         # filesystems; correctness does not depend on the event being delivered.
@@ -1319,17 +1317,29 @@ def move_file(
     def _move_file_callback(item: DataItemMoveFile) -> None:
         if item.source_missing:
             storage.temporary_files_meta.pop(dst, None)
+            moving_files = getattr(storage, "temporary_moving_files", None)
+            if moving_files is not None:
+                moving_files.discard(src)
             logger.debug("Source file %s was missing when moving to %s", src, dst)
+            with get_session() as session:
+                delete_file_location_by_path(session, src)
+                session.commit()
             return
         if item.published:
             _commit_published_move(item)
             return
         if item.error or not item.moved:
             storage.temporary_files_meta.pop(dst, None)
+            moving_files = getattr(storage, "temporary_moving_files", None)
+            if moving_files is not None:
+                moving_files.discard(src)
             logger.error(f"Error moving file {src} to {dst}: {item.error}")
 
     def _send_segment_move() -> None:
         storage.temporary_files_meta[dst] = file_meta
+        moving_files = getattr(storage, "temporary_moving_files", None)
+        if moving_files is not None:
+            moving_files.add(src)
         storage.tier_check_worker_send_command(
             DataItemMoveFile(
                 cmd="move_file",
@@ -1411,9 +1421,11 @@ def force_move_files(
     """Get and move/delete all files in tier."""
     with get_session(expire_on_commit=False) as session:
         stmt = (
-            select(Files.path, Files.tier_path)
+            select(FileLocations.path, FileLocations.tier_path)
+            .join(Files, Files.id == FileLocations.file_id)
             .where(Files.camera_identifier == camera_identifier)
-            .where(Files.tier_id == tier_id)
+            .where(FileLocations.tier_id == tier_id)
+            .where(FileLocations.state == FileLocationState.AVAILABLE.value)
             .where(Files.category == category)
             .where(Files.subcategory == subcategory)
         )
@@ -1458,7 +1470,10 @@ class TimelapseTierHandler(TierHandler):
         try:
             with self._storage.get_session() as session:
                 current_file_stmt = select(Files.orig_ctime).where(
-                    Files.path == event.src_path
+                    Files.id
+                    == select(FileLocations.file_id)
+                    .where(FileLocations.path == event.src_path)
+                    .scalar_subquery()
                 )
                 current_file_result = session.execute(current_file_stmt).scalar_one()
                 current_file_datetime = current_file_result
@@ -1466,14 +1481,22 @@ class TimelapseTierHandler(TierHandler):
                 interval_start = current_file_datetime - self._interval
                 interval_end = current_file_datetime
 
-                stmt = select(Files).where(
-                    Files.tier_id == self._tier_id,
-                    Files.camera_identifier == self._camera.identifier,
-                    Files.category == self._category,
-                    Files.subcategory == self._subcategory,
-                    Files.path != event.src_path,
-                    Files.orig_ctime >= interval_start,
-                    Files.orig_ctime <= interval_end,
+                stmt = (
+                    select(Files)
+                    .join(FileLocations, FileLocations.file_id == Files.id)
+                    .where(
+                        FileLocations.tier_id == self._tier_id,
+                        FileLocations.state == FileLocationState.AVAILABLE.value,
+                        Files.camera_identifier == self._camera.identifier,
+                        Files.category == self._category,
+                        Files.subcategory == self._subcategory,
+                        Files.id
+                        != select(FileLocations.file_id)
+                        .where(FileLocations.path == event.src_path)
+                        .scalar_subquery(),
+                        Files.orig_ctime >= interval_start,
+                        Files.orig_ctime <= interval_end,
+                    )
                 )
 
                 result = session.execute(stmt).scalars().all()
@@ -1485,8 +1508,7 @@ class TimelapseTierHandler(TierHandler):
                     )
                     delete_file(self._storage, event.src_path)
 
-                    delete_stmt = delete(Files).where(Files.path == event.src_path)
-                    session.execute(delete_stmt)
+                    delete_file_location_by_path(session, event.src_path)
                     session.commit()
 
         except Exception as e:  # pylint: disable=broad-except

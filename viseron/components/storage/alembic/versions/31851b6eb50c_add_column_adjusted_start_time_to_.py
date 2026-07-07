@@ -13,7 +13,7 @@ import datetime
 import sqlalchemy as sa
 from alembic import op
 
-from viseron.components.storage.models import Recordings, UTCDateTime
+from viseron.components.storage.models import UTCDateTime
 from viseron.const import CAMERA_SEGMENT_DURATION
 from viseron.domains.camera.const import DEFAULT_LOOKBACK
 
@@ -35,7 +35,13 @@ def upgrade() -> None:
         ),
     )
     connection = op.get_bind()
-    results = connection.execute(sa.select(Recordings)).fetchall()
+    recordings = sa.table(
+        "recordings",
+        sa.column("id", sa.Integer),
+        sa.column("start_time", UTCDateTime()),
+        sa.column("adjusted_start_time", UTCDateTime()),
+    )
+    results = connection.execute(sa.select(recordings)).fetchall()
     for result in results:
         adjusted_start_time = (
             result.start_time
@@ -44,8 +50,8 @@ def upgrade() -> None:
         )
         # Update the tier_path column with the generated tier path
         connection.execute(
-            sa.update(Recordings)
-            .where(Recordings.id == result.id)
+            sa.update(recordings)
+            .where(recordings.c.id == result.id)
             .values(
                 adjusted_start_time=adjusted_start_time,
             )

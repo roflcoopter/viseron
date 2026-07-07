@@ -273,6 +273,7 @@ class Storage:
         self._get_session: Callable[[], Session] | None = None
 
         self.temporary_files_meta: dict[str, FilesMeta] = {}
+        self.temporary_moving_files: set[str] = set()
 
         self.cleanup_manager = CleanupManager(vis, self)
         self.cleanup_manager.start()
