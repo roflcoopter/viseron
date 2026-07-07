@@ -1,9 +1,9 @@
 """Test the query functions."""
 import datetime
 
-from sqlalchemy import insert
+from sqlalchemy import insert, update
 
-from viseron.components.storage.models import Files
+from viseron.components.storage.models import FileLocations, Files
 from viseron.components.storage.queries import (
     get_recording_fragments,
     get_time_period_fragments,
@@ -24,18 +24,29 @@ class TestQueries(BaseTestWithRecordings):
             timestamp = self._now + datetime.timedelta(seconds=25)
             filename = f"{int(timestamp.timestamp())}.m4s"
             session.execute(
-                insert(Files).values(
+                update(Files)
+                .where(Files.id == 11)
+                .values(
                     tier_id=1,
                     tier_path="/tier2/",
-                    camera_identifier="test",
-                    category="recorder",
-                    subcategory="segments",
+                    path=f"/tier2/{filename}",
+                    directory="tier2",
+                    size=10,
+                    orig_ctime=timestamp,
+                    duration=5,
+                    created_at=created_at,
+                )
+            )
+            session.execute(
+                insert(FileLocations).values(
+                    file_id=11,
+                    tier_id=1,
+                    tier_path="/tier2/",
                     path=f"/tier2/{filename}",
                     directory="tier2",
                     filename=filename,
                     size=10,
-                    orig_ctime=timestamp,
-                    duration=5,
+                    state="available",
                     created_at=created_at,
                 )
             )
@@ -44,7 +55,7 @@ class TestQueries(BaseTestWithRecordings):
         files = get_recording_fragments(3, 5, self._get_db_session)
         assert len(files) == 4
         assert files[0].id == 9
-        assert files[1].id == 31
+        assert files[1].id == 11
         assert files[1].tier_id == 1
         assert files[2].id == 13
         assert files[3].id == 15
@@ -58,18 +69,29 @@ class TestQueries(BaseTestWithRecordings):
             timestamp = self._now + datetime.timedelta(seconds=25)
             filename = f"{int(timestamp.timestamp())}.m4s"
             session.execute(
-                insert(Files).values(
+                update(Files)
+                .where(Files.id == 11)
+                .values(
                     tier_id=1,
                     tier_path="/tier2/",
-                    camera_identifier="test",
-                    category="recorder",
-                    subcategory="segments",
+                    path=f"/tier2/{filename}",
+                    directory="tier2",
+                    size=10,
+                    orig_ctime=timestamp,
+                    duration=5,
+                    created_at=created_at,
+                )
+            )
+            session.execute(
+                insert(FileLocations).values(
+                    file_id=11,
+                    tier_id=1,
+                    tier_path="/tier2/",
                     path=f"/tier2/{filename}",
                     directory="tier2",
                     filename=filename,
                     size=10,
-                    orig_ctime=timestamp,
-                    duration=5,
+                    state="available",
                     created_at=created_at,
                 )
             )
@@ -78,7 +100,7 @@ class TestQueries(BaseTestWithRecordings):
             created_at = self._now + datetime.timedelta(seconds=500)
             timestamp = self._now + datetime.timedelta(seconds=500)
             filename = f"{int(timestamp.timestamp())}.m4s"
-            session.execute(
+            file_result = session.execute(
                 insert(Files).values(
                     tier_id=0,
                     tier_path="/tier1/",
@@ -91,6 +113,20 @@ class TestQueries(BaseTestWithRecordings):
                     size=10,
                     orig_ctime=timestamp,
                     duration=None,
+                    created_at=created_at,
+                )
+            )
+            file_id = file_result.inserted_primary_key[0]
+            session.execute(
+                insert(FileLocations).values(
+                    file_id=file_id,
+                    tier_id=0,
+                    tier_path="/tier1/",
+                    path=f"/tier1/{filename}",
+                    directory="tier1",
+                    filename=filename,
+                    size=10,
+                    state="available",
                     created_at=created_at,
                 )
             )

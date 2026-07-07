@@ -14,7 +14,13 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 from viseron.components.storage.const import ENGINE
-from viseron.components.storage.models import Files, Recordings
+from viseron.components.storage.files import delete_file_location_by_path
+from viseron.components.storage.models import (
+    FileLocations,
+    FileLocationState,
+    Files,
+    Recordings,
+)
 from viseron.components.storage.util import (
     copy_file_atomic,
     move_file_atomic,
@@ -124,9 +130,14 @@ class Worker:
 
         with self._get_session() as session:
             result = session.execute(
-                select(func.sum(Files.size), func.min(Files.orig_ctime)).where(
+                select(
+                    func.sum(FileLocations.size), func.min(Files.orig_ctime)
+                )
+                .join(Files, Files.id == FileLocations.file_id)
+                .where(
                     Files.camera_identifier == item.camera_identifier,
-                    Files.tier_id == item.tier_id,
+                    FileLocations.tier_id == item.tier_id,
+                    FileLocations.state == FileLocationState.AVAILABLE.value,
                     Files.category == item.category,
                     Files.subcategory.in_(item.subcategories),
                 )
@@ -479,10 +490,17 @@ def load_tier(
     """Load the tier files data for the camera."""
     with get_session() as session:
         stmt = select(
-            Files.id, Files.size, Files.orig_ctime, Files.path, Files.tier_path
+            Files.id,
+            FileLocations.size,
+            Files.orig_ctime,
+            FileLocations.path,
+            FileLocations.tier_path,
+        ).join(
+            Files, Files.id == FileLocations.file_id
         ).where(
             Files.camera_identifier == camera_identifier,
-            Files.tier_id == tier_id,
+            FileLocations.tier_id == tier_id,
+            FileLocations.state == FileLocationState.AVAILABLE.value,
             Files.category == category,
             Files.subcategory.in_(subcategories),
         )
@@ -764,8 +782,7 @@ def delete_file(
         raise error
 
     with get_session() as session:
-        stmt = delete(Files).where(Files.path == path)
-        session.execute(stmt)
+        delete_file_location_by_path(session, path)
         session.commit()
 
 
@@ -789,8 +806,7 @@ def move_file_for_tier_worker(
     except FileNotFoundError as error:
         logger.debug(f"Failed to move file {src} to {dst}: {error}")
         with get_session() as session:
-            stmt = delete(Files).where(Files.path == src)
-            session.execute(stmt)
+            delete_file_location_by_path(session, src)
             session.commit()
         return FileMoveResult(
             moved=False,

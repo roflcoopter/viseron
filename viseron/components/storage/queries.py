@@ -5,7 +5,7 @@ import datetime
 import logging
 from collections.abc import Callable
 
-from sqlalchemy import and_, desc, func, or_, select
+from sqlalchemy import and_, desc, exists, func, or_, select
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.functions import coalesce
 
@@ -13,7 +13,12 @@ from viseron.components.storage.const import (
     TIER_CATEGORY_RECORDER,
     TIER_SUBCATEGORY_SEGMENTS,
 )
-from viseron.components.storage.models import Files, Recordings
+from viseron.components.storage.models import (
+    FileLocations,
+    FileLocationState,
+    Files,
+    Recordings,
+)
 from viseron.helpers import utcnow
 
 LOGGER = logging.getLogger(__name__)
@@ -49,6 +54,11 @@ def get_recording_fragments(
         .where(Files.category == TIER_CATEGORY_RECORDER)
         .where(Files.subcategory == TIER_SUBCATEGORY_SEGMENTS)
         .where(Files.duration.isnot(None))
+        .where(
+            exists()
+            .where(FileLocations.file_id == Files.id)
+            .where(FileLocations.state == FileLocationState.AVAILABLE.value)
+        )
         .where(
             or_(
                 # Fetch all files that start within the recording
@@ -114,6 +124,11 @@ def get_time_period_fragments(
         .where(Files.category == TIER_CATEGORY_RECORDER)
         .where(Files.subcategory == TIER_SUBCATEGORY_SEGMENTS)
         .where(Files.duration.isnot(None))
+        .where(
+            exists()
+            .where(FileLocations.file_id == Files.id)
+            .where(FileLocations.state == FileLocationState.AVAILABLE.value)
+        )
         .where(
             or_(
                 # Fetch all files that start between the start and end timestamp

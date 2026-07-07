@@ -7,7 +7,7 @@ import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 
 from viseron.components.storage.const import (
@@ -24,7 +24,7 @@ from viseron.components.storage.const import (
     TIER_SUBCATEGORY_THUMBNAILS,
     TIER_SUBCATEGORY_TIMELAPSE,
 )
-from viseron.components.storage.models import Files
+from viseron.components.storage.models import FileLocations, FileLocationState, Files
 from viseron.helpers import utcnow
 
 if TYPE_CHECKING:
@@ -69,6 +69,14 @@ class ResolvedFile:
     subcategory: str
     path: str
     size: int
+
+
+@dataclass(frozen=True)
+class UpsertedFile:
+    """Result of publishing a logical file and physical location."""
+
+    file_id: int
+    created: bool
 
 
 @dataclass(frozen=True)
@@ -176,6 +184,44 @@ def _path_from_file_row(file: Files, tiers: list[_ConfiguredFileTier]) -> str | 
     return None
 
 
+def _best_configured_location(
+    locations: list[FileLocations],
+    tiers: list[_ConfiguredFileTier],
+) -> FileLocations | None:
+    """Return the best available physical location for a logical file."""
+    tier_by_id = {tier.tier_id: tier for tier in tiers}
+
+    def sort_key(location: FileLocations) -> tuple[int, int, int]:
+        configured = 0 if location.tier_id in tier_by_id else 1
+        state_rank = 0 if location.state == FileLocationState.AVAILABLE.value else 1
+        return configured, state_rank, location.tier_id
+
+    for location in sorted(locations, key=sort_key):
+        tier = tier_by_id.get(location.tier_id)
+        if tier is None:
+            continue
+        if not _path_contains(tier.root, location.path):
+            LOGGER.warning(
+                "File location %s path %s is outside configured tier root %s",
+                location.id,
+                location.path,
+                tier.root,
+            )
+            continue
+        try:
+            if os.path.isfile(location.path):
+                return location
+        except OSError as error:
+            LOGGER.warning(
+                "Skipping unavailable file location %s (%s): %s",
+                location.id,
+                location.path,
+                error,
+            )
+            continue
+    return None
+
+
 def _resolved_path_from_file_row(
     file: Files, tiers: list[_ConfiguredFileTier]
 ) -> _ResolvedFilePath | None:
@@ -205,6 +251,16 @@ def _update_file_row(file: Files, path: str, tier: _ConfiguredFileTier) -> None:
     file.size = os.path.getsize(path)
 
 
+def _update_shadow_from_location(file: Files, location: FileLocations) -> None:
+    """Maintain legacy Files physical columns from a preferred location."""
+    file.tier_id = location.tier_id
+    file.tier_path = location.tier_path
+    file.path = location.path
+    file.directory = location.directory
+    file.filename = location.filename
+    file.size = location.size
+
+
 def repair_file_row(storage: Storage, file: Files) -> bool:
     """Repair a stale Files row if its file is recoverable in configured tiers."""
     tiers = _configured_file_tiers(
@@ -221,6 +277,38 @@ def repair_file_row(storage: Storage, file: Files) -> bool:
         return False
 
     _update_file_row(file, resolved_path.path, resolved_path.tier)
+    return True
+
+
+def repair_file_locations(session: Session, storage: Storage, file: Files) -> bool:
+    """Repair stale logical file metadata by adding a recovered location."""
+    tiers = _configured_file_tiers(
+        storage,
+        file.camera_identifier,
+        file.category,
+        file.subcategory,
+    )
+    if not tiers:
+        return False
+
+    resolved_path = _resolved_path_from_file_row(file, tiers)
+    if resolved_path is None or not resolved_path.stale:
+        return False
+
+    size = os.path.getsize(resolved_path.path)
+    upsert_file_location(
+        session,
+        file.id,
+        resolved_path.tier.tier_id,
+        resolved_path.tier.tier_path,
+        resolved_path.path,
+        size,
+        state=FileLocationState.AVAILABLE.value,
+    )
+    location = session.execute(
+        select(FileLocations).where(FileLocations.path == resolved_path.path)
+    ).scalar_one()
+    _update_shadow_from_location(file, location)
     return True
 
 
@@ -261,8 +349,9 @@ def find_file_id_for_artifact_path(
         return None
 
     file_id = session.execute(
-        select(Files.id)
-        .where(Files.path == path)
+        select(FileLocations.file_id)
+        .where(FileLocations.path == path)
+        .join(Files, Files.id == FileLocations.file_id)
         .where(Files.camera_identifier == camera_identifier)
         .where(Files.category == category)
         .where(Files.subcategory == subcategory)
@@ -288,12 +377,13 @@ def find_file_id_for_artifact_path(
         os.path.normpath(os.path.join(tier.root, relative_path)) for tier in tiers
     ]
     return session.execute(
-        select(Files.id)
-        .where(Files.path.in_(candidate_paths))
+        select(FileLocations.file_id)
+        .where(FileLocations.path.in_(candidate_paths))
+        .join(Files, Files.id == FileLocations.file_id)
         .where(Files.camera_identifier == camera_identifier)
         .where(Files.category == category)
         .where(Files.subcategory == subcategory)
-        .order_by(Files.tier_id.desc())
+        .order_by(FileLocations.tier_id.desc())
         .limit(1)
     ).scalar_one_or_none()
 
@@ -336,6 +426,29 @@ def resolve_file_id(
             )
             return None
 
+        locations: list[FileLocations] = []
+        execute = getattr(session, "execute", None)
+        if callable(execute):
+            locations = (
+                execute(
+                    select(FileLocations)
+                    .where(FileLocations.file_id == file.id)
+                    .where(FileLocations.state == FileLocationState.AVAILABLE.value)
+                )
+                .scalars()
+                .all()
+            )
+        location = _best_configured_location(locations, tiers)
+        if location is not None:
+            return ResolvedFile(
+                file_id=file.id,
+                camera_identifier=file.camera_identifier,
+                category=file.category,
+                subcategory=file.subcategory,
+                path=location.path,
+                size=os.path.getsize(location.path),
+            )
+
         resolved_path = _resolved_path_from_file_row(file, tiers)
         if resolved_path is None:
             LOGGER.warning(
@@ -366,7 +479,186 @@ def resolve_file_id(
         )
 
 
-def upsert_file(
+def upsert_file_location(
+    session: Session,
+    file_id: int,
+    tier_id: int,
+    tier_path: str,
+    path: str,
+    size: int,
+    *,
+    state: str = FileLocationState.AVAILABLE.value,
+) -> int:
+    """Upsert a physical file location and return its id."""
+    values = {
+        "file_id": file_id,
+        "tier_id": tier_id,
+        "tier_path": tier_path,
+        "path": path,
+        "directory": os.path.dirname(path),
+        "filename": os.path.basename(path),
+        "size": size,
+        "state": state,
+    }
+    stmt = (
+        postgresql_insert(FileLocations)
+        .values(**values)
+        .on_conflict_do_update(
+            index_elements=[FileLocations.path],
+            set_={
+                "file_id": values["file_id"],
+                "tier_id": values["tier_id"],
+                "tier_path": values["tier_path"],
+                "directory": values["directory"],
+                "filename": values["filename"],
+                "size": values["size"],
+                "state": values["state"],
+            },
+        )
+        .returning(FileLocations.id)
+    )
+    result = session.execute(stmt)
+    scalar_one = getattr(result, "scalar_one", None)
+    if callable(scalar_one):
+        return scalar_one()
+    return 0
+
+
+def _delete_logical_file_if_unlocated(session: Session, file_id: int) -> None:
+    """Delete a logical Files row if it has no physical locations."""
+    location_count = session.execute(
+        select(func.count())
+        .select_from(FileLocations)
+        .where(FileLocations.file_id == file_id)
+    ).scalar_one()
+    if location_count == 0:
+        session.execute(delete(Files).where(Files.id == file_id))
+
+
+def delete_file_location_by_path(
+    session: Session,
+    path: str,
+    *,
+    missing_state: str | None = None,
+    delete_logical: bool = True,
+) -> int | None:
+    """Delete or mark a physical location by path and clean up orphan logical files."""
+    result = session.execute(
+        select(FileLocations.file_id).where(FileLocations.path == path)
+    )
+    scalar_one_or_none = getattr(result, "scalar_one_or_none", None)
+    if not callable(scalar_one_or_none):
+        return None
+    file_id = scalar_one_or_none()
+    if file_id is None:
+        return None
+
+    if missing_state is None:
+        session.execute(delete(FileLocations).where(FileLocations.path == path))
+    else:
+        session.execute(
+            update(FileLocations)
+            .where(FileLocations.path == path)
+            .values(state=missing_state)
+        )
+    if missing_state is None and delete_logical:
+        _delete_logical_file_if_unlocated(session, file_id)
+    return file_id
+
+
+def upsert_file_at_location(
+    get_session: Callable[[], Session],
+    camera_identifier: str,
+    category: str,
+    subcategory: str,
+    tier_id: int,
+    tier_path: str,
+    path: str,
+    *,
+    orig_ctime=None,
+    duration: float | None = None,
+) -> UpsertedFile | None:
+    """Ensure a logical file and physical location exist."""
+    if not os.path.isfile(path):
+        return None
+
+    normalized_path = os.path.normpath(path)
+    stat_result = os.stat(normalized_path)
+    filename = os.path.basename(normalized_path)
+    values = {
+        "tier_id": tier_id,
+        "tier_path": tier_path,
+        "camera_identifier": camera_identifier,
+        "category": category,
+        "subcategory": subcategory,
+        "path": normalized_path,
+        "directory": os.path.dirname(normalized_path),
+        "filename": filename,
+        "size": stat_result.st_size,
+        "orig_ctime": orig_ctime or utcnow(),
+        "duration": duration,
+    }
+    with get_session() as session:
+        existing_file_id = session.execute(
+            select(Files.id)
+            .where(Files.camera_identifier == camera_identifier)
+            .where(Files.category == category)
+            .where(Files.subcategory == subcategory)
+            .where(Files.filename == filename)
+        ).scalar_one_or_none()
+        created = existing_file_id is None
+        stmt = (
+            postgresql_insert(Files)
+            .values(**values)
+            .on_conflict_do_nothing(
+                index_elements=[
+                    Files.camera_identifier,
+                    Files.category,
+                    Files.subcategory,
+                    Files.filename,
+                ],
+            )
+            .returning(Files.id)
+        )
+        inserted_file_id = session.execute(stmt).scalar_one_or_none()
+        created = inserted_file_id is not None
+        file_id = inserted_file_id or existing_file_id
+        if file_id is None:
+            file_id = session.execute(
+                select(Files.id)
+                .where(Files.camera_identifier == camera_identifier)
+                .where(Files.category == category)
+                .where(Files.subcategory == subcategory)
+                .where(Files.filename == filename)
+            ).scalar_one()
+            created = False
+
+        upsert_file_location(
+            session,
+            file_id,
+            tier_id,
+            tier_path,
+            normalized_path,
+            stat_result.st_size,
+            state=FileLocationState.AVAILABLE.value,
+        )
+
+        update_values = {
+            "tier_id": values["tier_id"],
+            "tier_path": values["tier_path"],
+            "path": values["path"],
+            "directory": values["directory"],
+            "size": values["size"],
+        }
+        if created or duration is not None:
+            update_values["orig_ctime"] = values["orig_ctime"]
+            update_values["duration"] = values["duration"]
+        session.execute(update(Files).where(Files.id == file_id).values(update_values))
+        session.commit()
+        return UpsertedFile(file_id=file_id, created=created)
+
+
+def upsert_file_with_location(
     get_session: Callable[[], Session],
     storage: Storage,
     camera_identifier: str,
@@ -374,12 +666,10 @@ def upsert_file(
     subcategory: str,
     path: str,
     *,
+    orig_ctime=None,
     duration: float | None = None,
-) -> int | None:
-    """Ensure a published storage file has a Files row and return its id."""
-    if not os.path.isfile(path):
-        return None
-
+) -> UpsertedFile | None:
+    """Ensure a logical file and physical location exist by configured path."""
     normalized_path = os.path.normpath(path)
     tier = file_tier_for_path(
         storage,
@@ -397,41 +687,37 @@ def upsert_file(
             camera_identifier,
         )
         return None
+    return upsert_file_at_location(
+        get_session,
+        camera_identifier,
+        category,
+        subcategory,
+        tier.tier_id,
+        tier.tier_path,
+        normalized_path,
+        orig_ctime=orig_ctime,
+        duration=duration,
+    )
 
-    stat_result = os.stat(normalized_path)
-    values = {
-        "tier_id": tier.tier_id,
-        "tier_path": tier.tier_path,
-        "camera_identifier": camera_identifier,
-        "category": category,
-        "subcategory": subcategory,
-        "path": normalized_path,
-        "directory": os.path.dirname(normalized_path),
-        "filename": os.path.basename(normalized_path),
-        "size": stat_result.st_size,
-        "orig_ctime": utcnow(),
-        "duration": duration,
-    }
-    with get_session() as session:
-        stmt = (
-            postgresql_insert(Files)
-            .values(**values)
-            .on_conflict_do_update(
-                index_elements=[Files.path],
-                set_={
-                    "tier_id": values["tier_id"],
-                    "tier_path": values["tier_path"],
-                    "camera_identifier": values["camera_identifier"],
-                    "category": values["category"],
-                    "subcategory": values["subcategory"],
-                    "directory": values["directory"],
-                    "filename": values["filename"],
-                    "size": values["size"],
-                    "duration": values["duration"],
-                },
-            )
-            .returning(Files.id)
-        )
-        file_id = session.execute(stmt).scalar_one()
-        session.commit()
-        return file_id
+
+def upsert_file(
+    get_session: Callable[[], Session],
+    storage: Storage,
+    camera_identifier: str,
+    category: str,
+    subcategory: str,
+    path: str,
+    *,
+    duration: float | None = None,
+) -> int | None:
+    """Ensure a published storage file has a Files row and return its id."""
+    upserted_file = upsert_file_with_location(
+        get_session,
+        storage,
+        camera_identifier,
+        category,
+        subcategory,
+        path,
+        duration=duration,
+    )
+    return upserted_file.file_id if upserted_file else None

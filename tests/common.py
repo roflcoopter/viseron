@@ -11,7 +11,7 @@ import pytest
 from sqlalchemy import insert
 
 from viseron.components import Component
-from viseron.components.storage.models import Files, Recordings
+from viseron.components.storage.models import FileLocations, Files, Recordings
 from viseron.const import LOADED
 from viseron.domain_registry import DomainState
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
@@ -288,7 +288,7 @@ class BaseTestWithRecordings:
             for i in range(15):
                 timestamp = self._now + datetime.timedelta(seconds=5 * i)
                 filename = f"{int(timestamp.timestamp())}.m4s"
-                session.execute(
+                file_result = session.execute(
                     insert(Files).values(
                         tier_id=0,
                         tier_path="/test/",
@@ -304,7 +304,21 @@ class BaseTestWithRecordings:
                         created_at=timestamp,
                     )
                 )
+                file_id = file_result.inserted_primary_key[0]
                 session.execute(
+                    insert(FileLocations).values(
+                        file_id=file_id,
+                        tier_id=0,
+                        tier_path="/test/",
+                        path=f"/test/{filename}",
+                        directory="test",
+                        filename=filename,
+                        size=10,
+                        state="available",
+                        created_at=timestamp,
+                    )
+                )
+                file_result = session.execute(
                     insert(Files).values(
                         tier_id=0,
                         tier_path="/test2/",
@@ -317,6 +331,20 @@ class BaseTestWithRecordings:
                         size=10,
                         orig_ctime=timestamp,
                         duration=5,
+                        created_at=timestamp,
+                    )
+                )
+                file_id = file_result.inserted_primary_key[0]
+                session.execute(
+                    insert(FileLocations).values(
+                        file_id=file_id,
+                        tier_id=0,
+                        tier_path="/test2/",
+                        path=f"/test2/{filename}",
+                        directory="test2",
+                        filename=filename,
+                        size=10,
+                        state="available",
                         created_at=timestamp,
                     )
                 )

@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from sqlalchemy import delete, insert, update
 
-from viseron.components.storage.models import Files, Recordings
+from viseron.components.storage.models import FileLocations, Files, Recordings
 from viseron.components.webserver.api.v1.hls import (
     _init_file_url,
     adjust_fragment_paths,
@@ -176,7 +176,7 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
                     + datetime.timedelta(hours=5)
                 )
                 filename = f"{int(timestamp.timestamp())}.m4s"
-                session.execute(
+                file_result = session.execute(
                     insert(Files).values(
                         tier_id=0,
                         tier_path="/test/",
@@ -189,6 +189,20 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
                         size=10,
                         orig_ctime=timestamp,
                         duration=5,
+                        created_at=timestamp,
+                    )
+                )
+                file_id = file_result.inserted_primary_key[0]
+                session.execute(
+                    insert(FileLocations).values(
+                        file_id=file_id,
+                        tier_id=0,
+                        tier_path="/test/",
+                        path=f"/test/{filename}",
+                        directory="test",
+                        filename=filename,
+                        size=10,
+                        state="available",
                         created_at=timestamp,
                     )
                 )
@@ -440,6 +454,41 @@ def test_adjust_fragment_paths_uses_hls_file_id_urls():
     fragments = adjust_fragment_paths(MockCamera(identifier="test"), "/subpath", files)
 
     assert fragments[0].path == "/subpath/api/v1/hls/segments/123.m4s"
+
+
+def test_adjust_fragment_paths_stable_across_tier_move():
+    """Test HLS segment URL remains stable when physical tier fields change."""
+    orig_ctime = utcnow()
+    before_move = [
+        SimpleNamespace(
+            id=123,
+            tier_id=0,
+            path="/segments/test/1.m4s",
+            filename="1.m4s",
+            duration=5,
+            orig_ctime=orig_ctime,
+        )
+    ]
+    after_move = [
+        SimpleNamespace(
+            id=123,
+            tier_id=1,
+            path="/remote/segments/test/1.m4s",
+            filename="1.m4s",
+            duration=5,
+            orig_ctime=orig_ctime,
+        )
+    ]
+
+    before_fragments = adjust_fragment_paths(
+        MockCamera(identifier="test"), "/subpath", before_move
+    )
+    after_fragments = adjust_fragment_paths(
+        MockCamera(identifier="test"), "/subpath", after_move
+    )
+
+    assert before_fragments[0].path == after_fragments[0].path
+    assert after_fragments[0].path == "/subpath/api/v1/hls/segments/123.m4s"
 
 
 def test_init_file_url_uses_camera_and_first_fragment_tier():
