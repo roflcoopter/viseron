@@ -11,6 +11,8 @@ from email.utils import formatdate
 from functools import partial
 from http import HTTPStatus
 
+from tornado import iostream
+
 from viseron.components.storage.const import (
     TIER_CATEGORY_RECORDER,
     TIER_SUBCATEGORY_SEGMENTS,
@@ -187,6 +189,8 @@ async def _write_file_range(
             handler.write(chunk)
             await handler.flush()
         handler.finish()
+    except iostream.StreamClosedError:
+        LOGGER.debug("Client disconnected while streaming file response")
     except OSError:
         LOGGER.exception("Failed while streaming file response")
         raise
