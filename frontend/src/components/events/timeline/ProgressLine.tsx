@@ -1,5 +1,4 @@
 import Box from "@mui/material/Box";
-import DOMPurify from "dompurify";
 import Hls from "hls.js";
 import { memo, useEffect, useRef } from "react";
 
@@ -9,6 +8,7 @@ import { getDayjsFromDate, getTimeStringFromDayjs } from "lib/helpers/dates";
 const useTimeUpdate = (
   hls: Hls | null,
   containerRef: React.MutableRefObject<HTMLDivElement | null>,
+  containerHeightRef: React.MutableRefObject<number>,
   startRef: React.MutableRefObject<number>,
   endRef: React.MutableRefObject<number>,
   ref: React.MutableRefObject<HTMLDivElement | null>,
@@ -28,27 +28,30 @@ const useTimeUpdate = (
       }
       if (hls.playingDate && containerRef.current) {
         const playingTimestamp = getDayjsFromDate(hls.playingDate).unix();
-        const bounds = containerRef.current.getBoundingClientRect();
-        const top = `${Math.floor(
+        const containerHeight = containerHeightRef.current;
+        if (containerHeight <= 0) {
+          return;
+        }
+        const y = Math.floor(
           getYPosition(
             startRef.current,
             endRef.current,
             playingTimestamp,
-            bounds.height,
+            containerHeight,
           ),
-        )}px`;
-        const innerHTML = DOMPurify.sanitize(
-          getTimeStringFromDayjs(getDayjsFromDate(hls.playingDate)),
         );
-        if (timeRef.current && innerHTML !== timeRef.current.innerHTML) {
-          timeRef.current.innerHTML = innerHTML;
+        const transform = `translateY(${y}px)`;
+        const timeText = getTimeStringFromDayjs(
+          getDayjsFromDate(hls.playingDate),
+        );
+        if (timeRef.current && timeText !== timeRef.current.textContent) {
+          timeRef.current.textContent = timeText;
         }
         if (ref.current) {
-          if (top !== ref.current.style.top) {
-            ref.current.style.top = top;
+          if (transform !== ref.current.style.transform) {
+            ref.current.style.transform = transform;
           }
-          ref.current.style.display = "block";
-          ref.current.style.width = `${containerRef.current.offsetWidth}px`;
+          ref.current.style.visibility = "visible";
         }
       }
     };
@@ -68,27 +71,33 @@ const useTimeUpdate = (
         clearInterval(interval);
       }
     };
-  }, [containerRef, endRef, hls, ref, startRef, timeRef]);
+  }, [containerHeightRef, containerRef, endRef, hls, ref, startRef, timeRef]);
 };
 
-const useWidthObserver = (
+const useContainerHeightObserver = (
   containerRef: React.MutableRefObject<HTMLDivElement | null>,
-  ref: React.MutableRefObject<HTMLDivElement | null>,
 ) => {
+  const heightRef = useRef(0);
   const resizeObserver = useRef<ResizeObserver>(undefined);
   useEffect(() => {
-    if (containerRef.current) {
-      resizeObserver.current = new ResizeObserver(() => {
-        ref.current!.style.width = `${containerRef.current!.offsetWidth}px`;
+    const container = containerRef.current;
+    if (container) {
+      heightRef.current = container.getBoundingClientRect().height;
+      resizeObserver.current = new ResizeObserver((entries) => {
+        const entry = entries[0];
+        if (entry) {
+          heightRef.current = entry.contentRect.height;
+        }
       });
-      resizeObserver.current.observe(containerRef.current);
+      resizeObserver.current.observe(container);
     }
     return () => {
       if (resizeObserver.current) {
         resizeObserver.current.disconnect();
       }
     };
-  }, [containerRef, ref]);
+  }, [containerRef]);
+  return heightRef;
 };
 
 type ProgressLineProps = {
@@ -98,27 +107,35 @@ type ProgressLineProps = {
 };
 export const ProgressLine = memo(
   ({ containerRef, startRef, endRef }: ProgressLineProps) => {
-    const ref = useRef<HTMLInputElement | null>(null);
-    const timeRef = useRef<HTMLInputElement | null>(null);
+    const ref = useRef<HTMLDivElement | null>(null);
+    const timeRef = useRef<HTMLDivElement | null>(null);
     const hls = useReferencePlayerStore((state) => state.referencePlayer);
+    const containerHeightRef = useContainerHeightObserver(containerRef);
 
-    useTimeUpdate(hls, containerRef, startRef, endRef, ref, timeRef);
-    useWidthObserver(containerRef, ref);
+    useTimeUpdate(
+      hls,
+      containerRef,
+      containerHeightRef,
+      startRef,
+      endRef,
+      ref,
+      timeRef,
+    );
 
     return (
       <Box
         ref={ref}
         sx={(theme) => ({
-          display: "none", // Hide div initially
+          visibility: "hidden", // Hide div initially
           pointerEvents: "none",
           position: "absolute",
-          width: `${
-            containerRef.current ? containerRef.current.offsetWidth : 0
-          }px`,
+          left: 0,
+          right: 0,
           height: "1px",
           backgroundColor: theme.palette.primary[900],
           zIndex: 90,
-          transition: "top 0.2s linear",
+          transition: "transform 0.2s linear",
+          willChange: "transform",
         })}
       >
         <Box
