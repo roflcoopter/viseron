@@ -8,6 +8,8 @@ from http import HTTPStatus
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+from tornado import iostream
+
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.components.storage.files import ResolvedFile
 from viseron.components.storage.const import (
@@ -205,7 +207,11 @@ def test_resolve_file_id_prefers_lower_tier_location(tmp_path: Path) -> None:
         ],
     )
 
-    resolved_file = resolve_file_id(lambda: session, _storage_with_tiers(tier1, tier2), 1)
+    resolved_file = resolve_file_id(
+        lambda: session,
+        _storage_with_tiers(tier1, tier2),
+        1,
+    )
 
     assert resolved_file is not None
     assert resolved_file.path == str(segment1)
@@ -231,7 +237,11 @@ def test_resolve_file_id_falls_back_when_preferred_location_missing(
         ],
     )
 
-    resolved_file = resolve_file_id(lambda: session, _storage_with_tiers(tier1, tier2), 1)
+    resolved_file = resolve_file_id(
+        lambda: session,
+        _storage_with_tiers(tier1, tier2),
+        1,
+    )
 
     assert resolved_file is not None
     assert resolved_file.path == str(fallback_segment)
@@ -320,7 +330,7 @@ class FakeAuthHandler:
 class FakeFileHandler:
     """Small async-compatible handler for file serving tests."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, close_on_flush: bool = False) -> None:
         self.request = Mock(headers={})
         self.status = None
         self.headers = {}
@@ -328,6 +338,7 @@ class FakeFileHandler:
         self.finished = False
         self.error_status = None
         self.error_reason = None
+        self.close_on_flush = close_on_flush
 
     async def run_in_executor(self, func, *args):
         """Run synchronously for tests."""
@@ -347,6 +358,8 @@ class FakeFileHandler:
 
     async def flush(self) -> None:
         """Flush response."""
+        if self.close_on_flush:
+            raise iostream.StreamClosedError
 
     def finish(self) -> None:
         """Finish response."""
@@ -385,7 +398,35 @@ def test_serve_resolved_file_sets_http_last_modified(tmp_path: Path) -> None:
     assert handler.finished
 
 
-def test_serve_resolved_file_handles_missing_file_before_headers(tmp_path: Path) -> None:
+def test_serve_resolved_file_ignores_client_disconnect(tmp_path: Path) -> None:
+    """Test client disconnects while streaming do not bubble up as API errors."""
+    file_path = tmp_path / "segment.m4s"
+    file_path.write_bytes(b"segment")
+    handler = FakeFileHandler(close_on_flush=True)
+
+    asyncio.run(
+        serve_resolved_file(
+            handler,
+            ResolvedFile(
+                file_id=1,
+                camera_identifier="cam1",
+                category=TIER_CATEGORY_RECORDER,
+                subcategory=TIER_SUBCATEGORY_SEGMENTS,
+                path=str(file_path),
+                size=file_path.stat().st_size,
+            ),
+        )
+    )
+
+    assert handler.status == 200
+    assert handler.body == b"segment"
+    assert not handler.finished
+    assert handler.error_status is None
+
+
+def test_serve_resolved_file_handles_missing_file_before_headers(
+    tmp_path: Path,
+) -> None:
     """Test missing files are handled before file response headers are set."""
     file_path = tmp_path / "missing.m4s"
     handler = FakeFileHandler()
