@@ -13,6 +13,7 @@ import {
   useHlsStore,
   useReferencePlayerStore,
 } from "components/events/utils";
+import { seekMediaAndStartLoad } from "components/player/hlsplayer/utils";
 import useControlledInterval from "hooks/UseControlledInterval";
 import { getDayjsFromDate } from "lib/helpers/dates";
 
@@ -92,7 +93,7 @@ function SyncManager({ children }: SyncManagerProps) {
 
     for (let i = 0; i < seekable.length; i++) {
       if (seekTarget >= seekable.start(i) && seekTarget <= seekable.end(i)) {
-        player.media.currentTime = seekTarget;
+        seekMediaAndStartLoad(player, player.media, seekTarget);
         return true;
       }
     }

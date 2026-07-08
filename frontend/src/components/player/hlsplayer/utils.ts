@@ -1,26 +1,54 @@
-import Hls from "hls.js";
+import Hls, { type HlsConfig } from "hls.js";
 import React from "react";
 
 import { getToken } from "lib/tokens";
 import * as types from "lib/types";
 
-// Default HLS configuration options shared between live and VOD players.
-export const DEFAULT_HLS_CONFIG = {
+export enum HlsPlaybackMode {
+  Synced = "synced",
+  Vod = "vod",
+  Live = "live",
+}
+
+const HLS_LIVE_SYNC_SEGMENT_COUNT = 3;
+const HLS_LIVE_MAX_LATENCY_SEGMENT_COUNT = 6;
+const HLS_DISABLED_LIVE_MAX_LATENCY = Infinity;
+
+const BASE_HLS_CONFIG = {
   autoStartLoad: false,
   maxBufferLength: 30, // 30 seconds of forward buffer
   backBufferLength: 15, // 15 seconds of back buffer
-  liveSyncDurationCount: 3, // Stay three target-duration segments behind live
-  liveMaxLatencyDurationCount: 6,
   liveDurationInfinity: false, // Has to be false to seek backwards
-};
+} satisfies Partial<HlsConfig>;
+
+export const HLS_CONFIG_BY_PLAYBACK_MODE = {
+  // Synced playback is app-controlled wall-clock playback used by the Events grid.
+  // hls.js must not independently seek to the live edge in this mode.
+  [HlsPlaybackMode.Synced]: {
+    ...BASE_HLS_CONFIG,
+    liveSyncDurationCount: HLS_LIVE_SYNC_SEGMENT_COUNT,
+    liveMaxLatencyDurationCount: HLS_DISABLED_LIVE_MAX_LATENCY,
+  },
+  [HlsPlaybackMode.Vod]: {
+    ...BASE_HLS_CONFIG,
+    liveSyncDurationCount: HLS_LIVE_SYNC_SEGMENT_COUNT,
+    liveMaxLatencyDurationCount: HLS_DISABLED_LIVE_MAX_LATENCY,
+  },
+  [HlsPlaybackMode.Live]: {
+    ...BASE_HLS_CONFIG,
+    liveSyncDurationCount: HLS_LIVE_SYNC_SEGMENT_COUNT,
+    liveMaxLatencyDurationCount: HLS_LIVE_MAX_LATENCY_SEGMENT_COUNT,
+  },
+} satisfies Record<HlsPlaybackMode, Partial<HlsConfig>>;
 
 // Creates an HLS.js instance with standard configuration and authentication setup.
 export function createHlsInstance(
   auth: types.AuthEnabledResponse,
   hlsClientIdRef: React.MutableRefObject<string>,
+  playbackMode: HlsPlaybackMode,
 ): Hls {
   return new Hls({
-    ...DEFAULT_HLS_CONFIG,
+    ...HLS_CONFIG_BY_PLAYBACK_MODE[playbackMode],
     async xhrSetup(xhr, _url) {
       xhr.withCredentials = true;
       if (auth.enabled) {
@@ -33,6 +61,27 @@ export function createHlsInstance(
       xhr.setRequestHeader("Hls-Client-Id", hlsClientIdRef.current);
     },
   });
+}
+
+export function startLoadAtCurrentTime(hls: Hls): void {
+  const currentTime = hls.media?.currentTime;
+  if (Number.isFinite(currentTime)) {
+    hls.startLoad(currentTime);
+    return;
+  }
+  hls.startLoad();
+}
+
+export function seekMediaAndStartLoad(
+  hls: Hls,
+  media: HTMLMediaElement,
+  mediaTime: number,
+): void {
+  if (!Number.isFinite(mediaTime)) {
+    return;
+  }
+  media.currentTime = mediaTime;
+  hls.startLoad(mediaTime);
 }
 
 // Ignorable HLS error details that don't require user notification.
@@ -115,7 +164,9 @@ export function setupHlsErrorHandling(
           if (data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR) {
             delayedInitialization();
           }
-          hlsRef.current?.startLoad();
+          if (hlsRef.current) {
+            startLoadAtCurrentTime(hlsRef.current);
+          }
           break;
 
         case Hls.ErrorTypes.MEDIA_ERROR:
