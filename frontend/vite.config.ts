@@ -52,6 +52,7 @@ export default defineConfig(({ mode }) => {
             env.VITE_PROXY_HOST ? env.VITE_PROXY_HOST : "localhost:8888"
           }`,
           ws: true,
+          rewriteWsOrigin: true,
           ...proxyOptions,
         },
         "/live": {

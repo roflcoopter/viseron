@@ -10,6 +10,7 @@ import { HlsErrorOverlay } from "components/player/hlsplayer/HlsErrorOverlay";
 import { useFullscreen } from "components/player/hlsplayer/useFullscreen";
 import { useHlsPlayerControls } from "components/player/hlsplayer/useHlsPlayerControls";
 import {
+  HlsPlaybackMode,
   cleanupHlsInstance,
   createHlsInstance,
   setupHlsErrorHandling,
@@ -72,7 +73,7 @@ const initializePlayer = (
   }
 
   // Create a new hls instance using shared factory
-  hlsRef.current = createHlsInstance(auth, hlsClientIdRef);
+  hlsRef.current = createHlsInstance(auth, hlsClientIdRef, HlsPlaybackMode.Vod);
 
   if (videoRef.current) {
     hlsRef.current.attachMedia(videoRef.current);
