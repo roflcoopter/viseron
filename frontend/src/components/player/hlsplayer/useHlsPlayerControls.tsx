@@ -1,9 +1,16 @@
+import type Hls from "hls.js";
 import React, { useCallback, useEffect, useState } from "react";
 
+import {
+  HLS_SEEK_STEP_SECONDS,
+  seekHlsByOffset,
+  seekMediaAndStartLoad,
+} from "components/player/hlsplayer/utils";
 import { useVideoControls } from "components/player/hooks/useVideoControls";
 
 export const useHlsPlayerControls = (
   videoRef: React.RefObject<HTMLVideoElement | null>,
+  hlsRef: React.MutableRefObject<Hls | null>,
 ) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
@@ -37,20 +44,31 @@ export const useHlsPlayerControls = (
   }, [showControlsTemporarily, togglePlayPause]);
 
   const handleJumpBackward = useCallback(() => {
-    const video = videoRef.current;
-    if (video) {
-      video.currentTime -= 10;
+    const hls = hlsRef.current;
+    if (hls) {
+      seekHlsByOffset(hls, -HLS_SEEK_STEP_SECONDS);
     }
     showControlsTemporarily();
-  }, [videoRef, showControlsTemporarily]);
+  }, [hlsRef, showControlsTemporarily]);
 
   const handleJumpForward = useCallback(() => {
-    const video = videoRef.current;
-    if (video) {
-      video.currentTime += 10;
+    const hls = hlsRef.current;
+    if (hls) {
+      seekHlsByOffset(hls, HLS_SEEK_STEP_SECONDS);
     }
     showControlsTemporarily();
-  }, [videoRef, showControlsTemporarily]);
+  }, [hlsRef, showControlsTemporarily]);
+
+  const handleProgressSeek = useCallback(
+    (mediaTime: number) => {
+      const hls = hlsRef.current;
+      const video = videoRef.current;
+      if (hls && video) {
+        seekMediaAndStartLoad(hls, video, mediaTime);
+      }
+    },
+    [hlsRef, videoRef],
+  );
 
   const handleVolumeChange = useCallback(
     (_event: Event, newVolume: number | number[]) => {
@@ -113,6 +131,7 @@ export const useHlsPlayerControls = (
     handlePlayPause,
     handleJumpBackward,
     handleJumpForward,
+    handleProgressSeek,
     handleVolumeChange,
     handleMuteToggle,
     handleMouseEnter,

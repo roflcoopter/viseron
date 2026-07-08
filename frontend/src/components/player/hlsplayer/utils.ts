@@ -13,6 +13,7 @@ export enum HlsPlaybackMode {
 const HLS_LIVE_SYNC_SEGMENT_COUNT = 3;
 const HLS_LIVE_MAX_LATENCY_SEGMENT_COUNT = 6;
 const HLS_DISABLED_LIVE_MAX_LATENCY = Infinity;
+export const HLS_SEEK_STEP_SECONDS = 10;
 
 const BASE_HLS_CONFIG = {
   autoStartLoad: false,
@@ -72,16 +73,64 @@ export function startLoadAtCurrentTime(hls: Hls): void {
   hls.startLoad();
 }
 
+export function startLoadAtBeginning(hls: Hls): void {
+  hls.startLoad(0);
+}
+
+function getBoundedMediaTime(
+  media: HTMLMediaElement,
+  mediaTime: number,
+): number | null {
+  if (!Number.isFinite(mediaTime)) {
+    return null;
+  }
+  const lowerBoundedTime = Math.max(mediaTime, 0);
+  const seekable = media.seekable;
+  if (seekable?.length) {
+    const seekableStart = seekable.start(0);
+    const seekableEnd = seekable.end(seekable.length - 1);
+    if (Number.isFinite(seekableStart) && Number.isFinite(seekableEnd)) {
+      return Math.min(Math.max(lowerBoundedTime, seekableStart), seekableEnd);
+    }
+  }
+  if (Number.isFinite(media.duration)) {
+    return Math.min(lowerBoundedTime, media.duration);
+  }
+  return lowerBoundedTime;
+}
+
 export function seekMediaAndStartLoad(
   hls: Hls,
   media: HTMLMediaElement,
   mediaTime: number,
 ): void {
-  if (!Number.isFinite(mediaTime)) {
+  const boundedMediaTime = getBoundedMediaTime(media, mediaTime);
+  if (boundedMediaTime === null) {
     return;
   }
-  media.currentTime = mediaTime;
-  hls.startLoad(mediaTime);
+  media.currentTime = boundedMediaTime;
+  hls.startLoad(boundedMediaTime);
+}
+
+export function seekHlsByOffset(hls: Hls, offsetSeconds: number): void {
+  if (!hls.media) {
+    return;
+  }
+  seekMediaAndStartLoad(hls, hls.media, hls.media.currentTime + offsetSeconds);
+}
+
+export function seekHlsToLiveEdge(
+  hls: Hls,
+  liveEdgeDelaySeconds: number,
+): void {
+  if (!hls.media || !Number.isFinite(hls.media.duration)) {
+    return;
+  }
+  seekMediaAndStartLoad(
+    hls,
+    hls.media,
+    hls.media.duration - liveEdgeDelaySeconds,
+  );
 }
 
 // Ignorable HLS error details that don't require user notification.

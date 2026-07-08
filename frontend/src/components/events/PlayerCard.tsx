@@ -18,6 +18,11 @@ import {
 } from "components/events/utils";
 import { CustomControls } from "components/player/CustomControls";
 import { PlayerGrid } from "components/player/grid/PlayerGrid";
+import {
+  HLS_SEEK_STEP_SECONDS,
+  seekHlsByOffset,
+  seekHlsToLiveEdge,
+} from "components/player/hlsplayer/utils";
 import { useVideoControls } from "components/player/hooks/useVideoControls";
 import VideoPlayerPlaceholder from "components/player/videoplayer/VideoPlayerPlaceholder";
 import { useCamerasAll } from "lib/api/cameras";
@@ -93,8 +98,8 @@ const usePlayerCardCallbacks = (
 
   const handleJumpBackward = useCallback(() => {
     hlsRefs.forEach((player) => {
-      if (player) {
-        player.current!.media!.currentTime -= 10;
+      if (player.current) {
+        seekHlsByOffset(player.current, -HLS_SEEK_STEP_SECONDS);
       }
     });
     showControlsTemporarily();
@@ -102,8 +107,8 @@ const usePlayerCardCallbacks = (
 
   const handleJumpForward = useCallback(() => {
     hlsRefs.forEach((player) => {
-      if (player) {
-        player.current!.media!.currentTime += 10;
+      if (player.current) {
+        seekHlsByOffset(player.current, HLS_SEEK_STEP_SECONDS);
       }
     });
     showControlsTemporarily();
@@ -111,12 +116,8 @@ const usePlayerCardCallbacks = (
 
   const handleLiveClick = useCallback(() => {
     hlsRefs.forEach((player) => {
-      if (player) {
-        const currentTime = player.current!.media!.duration - LIVE_EDGE_DELAY;
-        if (!Number.isNaN(currentTime)) {
-          player.current!.media!.currentTime =
-            player.current!.media!.duration - LIVE_EDGE_DELAY;
-        }
+      if (player.current) {
+        seekHlsToLiveEdge(player.current, LIVE_EDGE_DELAY);
       }
     });
     showControlsTemporarily();

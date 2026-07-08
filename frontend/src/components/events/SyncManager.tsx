@@ -324,7 +324,11 @@ function SyncManager({ children }: SyncManagerProps) {
           closestFragment.programDateTime &&
           playerToPlay.current.media
         ) {
-          playerToPlay.current.media.currentTime = closestFragment.start;
+          seekMediaAndStartLoad(
+            playerToPlay.current,
+            playerToPlay.current.media,
+            closestFragment.start,
+          );
         }
         if (playerToPlay.current.media) {
           playerToPlay.current.media

@@ -25,6 +25,7 @@ import {
   createHlsInstance,
   seekMediaAndStartLoad,
   setupHlsErrorHandling,
+  startLoadAtBeginning,
   startLoadAtCurrentTime,
 } from "components/player/hlsplayer/utils";
 import { useAuthContext } from "context/AuthContext";
@@ -99,7 +100,7 @@ const onManifestParsed = (
   }
 
   videoRef.current.muted = true;
-  hlsRef.current.startLoad(0);
+  startLoadAtBeginning(hlsRef.current);
 };
 
 const onMediaAttached = (
