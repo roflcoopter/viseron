@@ -36,11 +36,10 @@ LOGGER = logging.getLogger(__name__)
 T = TypeVar("T")
 K = TypeVar("K", bound=Hashable)
 
-# Upper bound on the parent's pending-callback dict. check_tier jobs are sent
-# with a callback, but DedupCheckQueue drops superseded jobs in the subprocess
-# so those jobs never produce a reply and their callbacks would otherwise stay
-# in _callbacks forever. Evicting the oldest entries FIFO past this cap keeps
-# the dict bounded; a lost entry only means a future reply becomes a no-op pop.
+# Upper bound on the parent's pending-callback dict. check_tier callbacks are
+# deduped in the parent by throttle_key to mirror DedupCheckQueue, but keep a
+# hard cap as a final guard if the subprocess takes longer to reply than callers
+# can enqueue callback-backed file operations.
 MAX_PENDING_CALLBACKS = 10_000
 
 
@@ -124,6 +123,7 @@ class DataItemDeleteFile:
 
 FileOperation: TypeAlias = DataItemCopyFile | DataItemDeleteFile | DataItemMoveFile
 FileOperationKey: TypeAlias = tuple[str, str, str | None, str | None]
+DedupCallbackKey: TypeAlias = tuple[str, Hashable]
 
 
 def file_operation_key(item: FileOperation) -> FileOperationKey:
@@ -134,6 +134,13 @@ def file_operation_key(item: FileOperation) -> FileOperationKey:
         item.dst if isinstance(item, (DataItemCopyFile, DataItemMoveFile)) else None,
         item.callback_id if isinstance(item, DataItemCopyFile) else None,
     )
+
+
+def callback_dedup_key(item: DataItem | FileOperation) -> DedupCallbackKey:
+    """Return the subprocess queue dedupe key for a callback-backed item."""
+    if isinstance(item, DataItem):
+        return ("check_tier", item.throttle_key)
+    return ("file", file_operation_key(item))
 
 
 class DedupCheckQueue:
@@ -255,6 +262,8 @@ class TierCheckWorker(SubProcessWorker):
         self._callbacks: OrderedDict[
             str, Callable[[DataItem | FileOperation], None]
         ] = OrderedDict()
+        self._latest_deduped_callbacks: dict[DedupCallbackKey, str] = {}
+        self._deduped_callback_keys: dict[str, DedupCallbackKey] = {}
         self._callbacks_lock = threading.Lock()
         # Monotonic callback ids. str(id(callback)) is unsafe here: bound
         # methods like self.on_check_tier_result are created lazily on each
@@ -289,10 +298,27 @@ class TierCheckWorker(SubProcessWorker):
         evicted: str | None = None
         if callback is not None:
             item.callback_id = str(next(self._next_callback_id))
+            dedup_key = callback_dedup_key(item)
             with self._callbacks_lock:
+                stale_callback_id = self._latest_deduped_callbacks.get(dedup_key)
+                if stale_callback_id is not None:
+                    self._callbacks.pop(stale_callback_id, None)
+                    self._deduped_callback_keys.pop(stale_callback_id, None)
+                self._latest_deduped_callbacks[dedup_key] = item.callback_id
+                self._deduped_callback_keys[item.callback_id] = dedup_key
+
                 self._callbacks[item.callback_id] = callback
                 if len(self._callbacks) > MAX_PENDING_CALLBACKS:
                     evicted, _ = self._callbacks.popitem(last=False)
+                    evicted_dedup_key = self._deduped_callback_keys.pop(
+                        evicted, None
+                    )
+                    if (
+                        evicted_dedup_key is not None
+                        and self._latest_deduped_callbacks.get(evicted_dedup_key)
+                        == evicted
+                    ):
+                        del self._latest_deduped_callbacks[evicted_dedup_key]
         if evicted is not None:
             # Means the subprocess is taking longer to reply than we can
             # generate new jobs. The evicted callback's reply will later
@@ -312,6 +338,12 @@ class TierCheckWorker(SubProcessWorker):
 
         with self._callbacks_lock:
             callback = self._callbacks.pop(item.callback_id, None)
+            dedup_key = self._deduped_callback_keys.pop(item.callback_id, None)
+            if (
+                dedup_key is not None
+                and self._latest_deduped_callbacks.get(dedup_key) == item.callback_id
+            ):
+                del self._latest_deduped_callbacks[dedup_key]
         if callback:
             callback(item)
         else:
