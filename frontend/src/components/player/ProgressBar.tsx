@@ -113,6 +113,7 @@ interface ProgressBarProps {
   isProgressDragging: boolean;
   onDragStart: () => void;
   onDragEnd: () => void;
+  onSeek?: (mediaTime: number) => void;
 }
 
 export function ProgressBar({
@@ -120,6 +121,7 @@ export function ProgressBar({
   isProgressDragging,
   onDragStart,
   onDragEnd,
+  onSeek,
 }: ProgressBarProps) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -140,10 +142,14 @@ export function ProgressBar({
         const seekTime = newValue as number;
         // Update local state immediately during drag
         setCurrentTime(seekTime);
-        video.currentTime = seekTime;
+        if (onSeek) {
+          onSeek(seekTime);
+        } else {
+          video.currentTime = seekTime;
+        }
       }
     },
-    [videoRef, duration],
+    [videoRef, duration, onSeek],
   );
 
   const handleDragStart = useCallback(() => {

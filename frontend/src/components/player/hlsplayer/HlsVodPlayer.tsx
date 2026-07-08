@@ -188,6 +188,7 @@ export function HlsVodPlayer({
     handlePlayPause,
     handleJumpBackward,
     handleJumpForward,
+    handleProgressSeek,
     handleVolumeChange,
     handleMuteToggle,
     handleMouseEnter,
@@ -198,7 +199,7 @@ export function HlsVodPlayer({
     isHovering,
     isPlaying,
     isMuted,
-  } = useHlsPlayerControls(videoRef);
+  } = useHlsPlayerControls(videoRef, hlsRef);
 
   const { isFullscreen, isFullscreenSupported, toggleFullscreen } =
     useFullscreen(videoRef);
@@ -257,6 +258,7 @@ export function HlsVodPlayer({
         onMuteToggle={handleMuteToggle}
         videoRef={videoRef}
         showProgressBar={!!recording}
+        onProgressSeek={handleProgressSeek}
         isFullscreen={isFullscreen}
         onFullscreenToggle={toggleFullscreen}
         isFullscreenSupported={isFullscreenSupported}
