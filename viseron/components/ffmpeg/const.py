@@ -151,12 +151,21 @@ CONFIG_RECORDER_VIDEO_FILTERS = "video_filters"
 CONFIG_RECORDER_AUDIO_FILTERS = "audio_filters"
 CONFIG_SEGMENTS_FOLDER = "segments_folder"
 CONFIG_RECORDER_OUPTUT_ARGS = "output_args"
+CONFIG_RECORDER_TIMESTAMP_MODE = "timestamp_mode"
+
+TIMESTAMP_MODE_SOURCE = "source"
+TIMESTAMP_MODE_WALLCLOCK = "wallclock"
+TIMESTAMP_MODES: Final = (
+    TIMESTAMP_MODE_SOURCE,
+    TIMESTAMP_MODE_WALLCLOCK,
+)
 
 DEFAULT_RECORDER_HWACCEL_ARGS: list[str] = []
 DEFAULT_RECORDER_AUDIO_CODEC = "unset"
 DEFAULT_RECORDER_VIDEO_FILTERS: list[str] = []
 DEFAULT_RECORDER_AUDIO_FILTERS: list[str] = []
 DEFAULT_RECORDER_OUTPUT_ARGS: list[str] = []
+DEFAULT_RECORDER_TIMESTAMP_MODE = TIMESTAMP_MODE_SOURCE
 DEFAULT_SEGMENTS_FOLDER = "/segments"
 
 DESC_RECORDER_HWACCEL_ARGS = "FFmpeg encoder hardware acceleration arguments."
@@ -178,6 +187,13 @@ DESC_RECORDER_AUDIO_FILTERS = (
     "These filters are applied to the recorder videos."
 )
 DESC_RECORDER_OUTPUT_ARGS = "FFmpeg encoder output arguments."
+DESC_RECORDER_TIMESTAMP_MODE = (
+    "Timestamp source for recorder HLS segments.<br>"
+    "<code>source</code> preserves camera stream timestamps and is best for smooth "
+    "synced playback when the camera provides valid timestamps.<br>"
+    "<code>wallclock</code> timestamps packets by when FFmpeg receives them and can "
+    "help cameras with broken or missing source timestamps."
+)
 DESC_SEGMENTS_FOLDER = (
     "What folder to store FFmpeg segments in. "
     "Segments are used to produce recordings so you should not need to change this."

@@ -5,7 +5,6 @@ import { useShallow } from "zustand/react/shallow";
 
 import {
   HlsErrorCodes,
-  LIVE_EDGE_DELAY,
   findClosestFragment,
   findFragmentByTimestamp,
   getSeekTarget,
@@ -23,6 +22,7 @@ const RATE_NUDGE_DRIFT = 2;
 const HARD_SEEK_DRIFT = 4;
 const HARD_SEEK_COOLDOWN_MS = 3000;
 const MAX_RATE_NUDGE = 0.05;
+const LIVE_LATENCY_THRESHOLD_SECONDS = 15;
 
 interface SyncManagerProps {
   children: React.ReactNode;
@@ -189,7 +189,7 @@ function SyncManager({ children }: SyncManagerProps) {
         setReferencePlayer(player.current);
       }
 
-      const nextIsLive = player.current.latency < LIVE_EDGE_DELAY * 1.5;
+      const nextIsLive = player.current.latency < LIVE_LATENCY_THRESHOLD_SECONDS;
       if (isLive !== nextIsLive) {
         setIsLive(nextIsLive);
       }
@@ -228,7 +228,7 @@ function SyncManager({ children }: SyncManagerProps) {
         setReferencePlayer(referencePlayer.current);
       }
       const nextIsLive =
-        referencePlayer.current.latency < LIVE_EDGE_DELAY * 1.5;
+        referencePlayer.current.latency < LIVE_LATENCY_THRESHOLD_SECONDS;
       if (isLive !== nextIsLive) {
         setIsLive(nextIsLive);
       }
