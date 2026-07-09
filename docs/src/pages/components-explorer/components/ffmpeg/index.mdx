@@ -195,6 +195,12 @@ FFmpeg will write small 5 second segments of the stream to disk.<br />
 The reason for using segments instead of just starting the recorder on an event, is to support the `lookback` feature which makes it possible to record _before_ an event actually happened.
 It also makes it possible to have continuous recordings.
 
+Recorder HLS segments use the camera stream timestamps by default. This gives the
+smoothest replay and synced playback when the camera provides valid timestamps.
+If a camera has broken or missing source timestamps, set
+`recorder.timestamp_mode: wallclock` to timestamp packets by when FFmpeg receives
+them.
+
 ### Store video segments in memory
 
 To place the video segments in memory instead of writing to disk, you can mount a tmpfs disk in the container.

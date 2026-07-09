@@ -46,6 +46,7 @@ from .const import (
     CONFIG_RECORDER_AUDIO_FILTERS,
     CONFIG_RECORDER_CODEC,
     CONFIG_RECORDER_OUPTUT_ARGS,
+    CONFIG_RECORDER_TIMESTAMP_MODE,
     CONFIG_RECORDER_VIDEO_FILTERS,
     CONFIG_RTSP_TRANSPORT,
     CONFIG_STREAM_FORMAT,
@@ -66,10 +67,35 @@ from .const import (
     HWACCEL_RPI3_DECODER_CODEC_MAP,
     HWACCEL_RPI4_DECODER_CODEC_MAP,
     STREAM_FORMAT_MAP,
+    TIMESTAMP_MODE_WALLCLOCK,
 )
 
 if TYPE_CHECKING:
     from viseron.components.ffmpeg.camera import Camera
+
+
+def _without_wallclock_timestamps(input_args: list[str]) -> list[str]:
+    """Remove wallclock timestamping from generated input args.
+
+    Wallclock arrival timestamps make stream-copy HLS segments jittery when the
+    source RTP timestamps are already stable.
+    """
+    args: list[str] = []
+    skip_next = False
+    for arg in input_args:
+        if skip_next:
+            skip_next = False
+            continue
+        if arg == "-use_wallclock_as_timestamps":
+            skip_next = True
+            continue
+        args.append(arg)
+    return args
+
+
+def _uses_wallclock_timestamps(timestamp_mode: str) -> bool:
+    """Return if generated input args should use wallclock timestamps."""
+    return timestamp_mode == TIMESTAMP_MODE_WALLCLOCK
 
 
 @dataclass
@@ -331,7 +357,12 @@ class Stream:
         return ["-c:v", self.encoder_codec]
 
     def stream_command(
-        self, stream_config: dict[str, Any], stream_codec: str, stream_url: str
+        self,
+        stream_config: dict[str, Any],
+        stream_codec: str,
+        stream_url: str,
+        *,
+        timestamp_mode: str = TIMESTAMP_MODE_WALLCLOCK,
     ) -> list[str]:
         """Return FFmpeg input stream."""
         if stream_config[CONFIG_INPUT_ARGS]:
@@ -350,6 +381,8 @@ class Stream:
             ):
                 timeout_option[0] = "-stimeout"
             input_args = CAMERA_INPUT_ARGS + timeout_option
+            if not _uses_wallclock_timestamps(timestamp_mode):
+                input_args = _without_wallclock_timestamps(input_args)
 
         return (
             input_args
@@ -504,7 +537,12 @@ class Stream:
             return self._config[CONFIG_RAW_COMMAND].split(" ")
 
         stream_input_command = self.stream_command(
-            self._config, self._mainstream.codec, self._mainstream.url
+            self._config,
+            self._mainstream.codec,
+            self._mainstream.url,
+            timestamp_mode=self._config[CONFIG_RECORDER][
+                CONFIG_RECORDER_TIMESTAMP_MODE
+            ],
         )
         return (
             [self.segments_alias]
@@ -533,6 +571,9 @@ class Stream:
                 self._mainstream.config,
                 self._mainstream.codec,
                 self._mainstream.url,
+                timestamp_mode=self._config[CONFIG_RECORDER][
+                    CONFIG_RECORDER_TIMESTAMP_MODE
+                ],
             )
             camera_segment_args = self.segment_args()
 

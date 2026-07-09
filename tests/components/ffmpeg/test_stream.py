@@ -7,8 +7,11 @@ from typing import Any
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
+import voluptuous as vol
 
+from viseron.components.ffmpeg.camera import CAMERA_SCHEMA
 from viseron.components.ffmpeg.const import (
+    CAMERA_INPUT_ARGS,
     CONFIG_AUDIO_CODEC,
     CONFIG_CODEC,
     CONFIG_FFMPEG_LOGLEVEL,
@@ -27,6 +30,7 @@ from viseron.components.ffmpeg.const import (
     CONFIG_RECORDER,
     CONFIG_RECORDER_AUDIO_CODEC,
     CONFIG_RECORDER_CODEC,
+    CONFIG_RECORDER_TIMESTAMP_MODE,
     CONFIG_RTSP_TRANSPORT,
     CONFIG_STREAM_FORMAT,
     CONFIG_SUBSTREAM,
@@ -43,6 +47,8 @@ from viseron.components.ffmpeg.const import (
     DEFAULT_STREAM_FORMAT,
     DEFAULT_USERNAME,
     DEFAULT_WIDTH,
+    TIMESTAMP_MODE_SOURCE,
+    TIMESTAMP_MODE_WALLCLOCK,
 )
 from viseron.components.ffmpeg.stream import FFprobe, Stream
 from viseron.const import (
@@ -52,6 +58,7 @@ from viseron.const import (
     ENV_RASPBERRYPI3,
     ENV_RASPBERRYPI4,
 )
+from viseron.domains.camera.const import CONFIG_NAME
 from viseron.exceptions import StreamInformationError
 from viseron.helpers.validators import UNDEFINED
 
@@ -96,6 +103,56 @@ CONFIG_WITH_SUBSTREAM: dict[str, Any] = {
 
 class TestStream:
     """Test the Stream class."""
+
+    def test_camera_schema_defaults_recorder_timestamp_mode(self) -> None:
+        """Recorder timestamp mode defaults to source timestamps."""
+        config = CAMERA_SCHEMA(
+            {
+                CONFIG_HOST: "test_host",
+                CONFIG_NAME: "Test Camera",
+                CONFIG_PORT: 554,
+                CONFIG_PATH: "/",
+            }
+        )
+
+        assert (
+            config[CONFIG_RECORDER][CONFIG_RECORDER_TIMESTAMP_MODE]
+            == TIMESTAMP_MODE_SOURCE
+        )
+
+    def test_camera_schema_accepts_wallclock_recorder_timestamp_mode(self) -> None:
+        """Recorder timestamp mode can opt into wallclock compatibility."""
+        config = CAMERA_SCHEMA(
+            {
+                CONFIG_HOST: "test_host",
+                CONFIG_NAME: "Test Camera",
+                CONFIG_PORT: 554,
+                CONFIG_PATH: "/",
+                CONFIG_RECORDER: {
+                    CONFIG_RECORDER_TIMESTAMP_MODE: TIMESTAMP_MODE_WALLCLOCK,
+                },
+            }
+        )
+
+        assert (
+            config[CONFIG_RECORDER][CONFIG_RECORDER_TIMESTAMP_MODE]
+            == TIMESTAMP_MODE_WALLCLOCK
+        )
+
+    def test_camera_schema_rejects_invalid_recorder_timestamp_mode(self) -> None:
+        """Recorder timestamp mode rejects unsupported values."""
+        with pytest.raises(vol.Invalid):
+            CAMERA_SCHEMA(
+                {
+                    CONFIG_HOST: "test_host",
+                    CONFIG_NAME: "Test Camera",
+                    CONFIG_PORT: 554,
+                    CONFIG_PATH: "/",
+                    CONFIG_RECORDER: {
+                        CONFIG_RECORDER_TIMESTAMP_MODE: "invalid",
+                    },
+                }
+            )
 
     @pytest.mark.parametrize(
         "config, stream_information, expected_width, expected_height, "
@@ -296,6 +353,96 @@ class TestStream:
         if stream_format == "rtmp":
             assert "-stimeout" not in result
             assert "-timeout" not in result
+
+    def test_stream_command_uses_source_timestamps(self) -> None:
+        """Generated recorder input args can preserve source timestamps."""
+        config = {
+            **CONFIG,
+            CONFIG_STREAM_FORMAT: DEFAULT_STREAM_FORMAT,
+            CONFIG_INPUT_ARGS: None,
+            CONFIG_HWACCEL_ARGS: [],
+            CONFIG_RTSP_TRANSPORT: DEFAULT_RTSP_TRANSPORT,
+        }
+
+        with (
+            patch.object(Stream, "__init__", MagicMock(spec=Stream, return_value=None)),
+            patch.object(Stream, "get_decoder_codec", MagicMock(return_value=[])),
+        ):
+            stream = Stream(
+                config, MockCamera(identifier="test_camera_identifier"), "test_camera"
+            )
+            result = stream.stream_command(
+                config,
+                "h264",
+                "test_stream_url",
+                timestamp_mode=TIMESTAMP_MODE_SOURCE,
+            )
+
+        assert "-use_wallclock_as_timestamps" not in result
+        assert (
+            "1"
+            not in result[result.index("-err_detect") : result.index("-rtsp_transport")]
+        )
+
+    def test_stream_command_can_use_wallclock_timestamps(self) -> None:
+        """Generated recorder input args can use wallclock timestamps."""
+        config = {
+            **CONFIG,
+            CONFIG_STREAM_FORMAT: DEFAULT_STREAM_FORMAT,
+            CONFIG_INPUT_ARGS: None,
+            CONFIG_HWACCEL_ARGS: [],
+            CONFIG_RTSP_TRANSPORT: DEFAULT_RTSP_TRANSPORT,
+        }
+
+        with (
+            patch.object(Stream, "__init__", MagicMock(spec=Stream, return_value=None)),
+            patch.object(Stream, "get_decoder_codec", MagicMock(return_value=[])),
+        ):
+            stream = Stream(
+                config, MockCamera(identifier="test_camera_identifier"), "test_camera"
+            )
+            result = stream.stream_command(
+                config,
+                "h264",
+                "test_stream_url",
+                timestamp_mode=TIMESTAMP_MODE_WALLCLOCK,
+            )
+
+        wallclock_index = result.index("-use_wallclock_as_timestamps")
+        assert result[wallclock_index : wallclock_index + 2] == [
+            "-use_wallclock_as_timestamps",
+            "1",
+        ]
+
+    def test_stream_command_preserves_explicit_input_args(self) -> None:
+        """Explicit user input args are not rewritten for recorder commands."""
+        config = {
+            **CONFIG,
+            CONFIG_STREAM_FORMAT: DEFAULT_STREAM_FORMAT,
+            CONFIG_INPUT_ARGS: CAMERA_INPUT_ARGS,
+            CONFIG_HWACCEL_ARGS: [],
+            CONFIG_RTSP_TRANSPORT: DEFAULT_RTSP_TRANSPORT,
+        }
+
+        with (
+            patch.object(Stream, "__init__", MagicMock(spec=Stream, return_value=None)),
+            patch.object(Stream, "get_decoder_codec", MagicMock(return_value=[])),
+        ):
+            stream = Stream(
+                config, MockCamera(identifier="test_camera_identifier"), "test_camera"
+            )
+            result = stream.stream_command(
+                config,
+                "h264",
+                "test_stream_url",
+                timestamp_mode=TIMESTAMP_MODE_SOURCE,
+            )
+
+        wallclock_index = result.index("-use_wallclock_as_timestamps")
+        assert result[wallclock_index : wallclock_index + 2] == [
+            "-use_wallclock_as_timestamps",
+            "1",
+        ]
 
     def test_get_stream_information(self):
         """Test that the correct stream information is returned."""
