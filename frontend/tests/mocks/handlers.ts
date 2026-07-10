@@ -327,6 +327,23 @@ export const handlers = [
       { status: 200 },
     ),
   ),
+  http.get(`${API_BASE_URL}/profile/access_tokens`, () =>
+    HttpResponse.json(
+      {
+        access_tokens: [
+          {
+            id: "1",
+            name: "Token 1",
+            created_at: getDayjs().unix(),
+            expires_at: getDayjs().add(1, "year").unix(),
+            last_used_at: getDayjs().add(1234, "minutes").unix(),
+            last_used_by: "testuser",
+          },
+        ],
+      } as types.AccessTokensResponse,
+      { status: 200 },
+    ),
+  ),
   http.put(`${API_BASE_URL}/profile/preferences`, () =>
     HttpResponse.json({}, { status: 200 }),
   ),
