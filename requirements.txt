@@ -19,7 +19,7 @@ path.py==12.5.0
 pillow==11.1.0
 psutil==7.0.0
 psycopg2-binary==2.9.9
-pyjwt==2.8.0
+pyjwt==2.13.0
 python-debouncer==0.1.5
 python-slugify==8.0.4
 PyGObject==3.42.2 # Newer versions does not compile for the Jetson Nano
