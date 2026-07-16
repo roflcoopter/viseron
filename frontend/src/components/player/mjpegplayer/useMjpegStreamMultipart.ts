@@ -26,14 +26,21 @@ export function useMjpegStreamMultipart(
 ): { error: string | null; isLoading: boolean } {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const abortRef = useRef<AbortController | null>(null);
   const prevBlobUrl = useRef<string | null>(null);
+  const prevSrcRef = useRef<string>(src);
+
+  // Reset state synchronously during render when src changes
+  if (prevSrcRef.current !== src) {
+    prevSrcRef.current = src;
+    if (error !== null) setError(null);
+    if (!isLoading) setIsLoading(true);
+  }
 
   useEffect(() => {
-    // Reset state whenever src changes (new stream)
-    setError(null);
-    setIsLoading(true);
-
     const controller = new AbortController();
+    abortRef.current = controller;
+
     let cancelled = false;
 
     // Display a single JPEG frame by creating a blob URL and revoking the previous one
