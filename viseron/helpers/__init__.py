@@ -16,6 +16,7 @@ import sys
 import time
 import tracemalloc
 import urllib.parse
+from functools import lru_cache
 from queue import Empty, Full, Queue
 from typing import TYPE_CHECKING, Any, Literal, overload
 from zoneinfo import ZoneInfoNotFoundError
@@ -108,6 +109,19 @@ def calculate_relative_contours(
     return relative_contours
 
 
+@lru_cache(maxsize=1)
+def _get_motion_mask(scaled_contours: tuple[bytes, ...]) -> np.ndarray:
+    """Return a cached motion mask for scaled contours."""
+    grid_size = 1000
+    motion_mask = np.zeros((grid_size, grid_size), dtype=np.uint8)
+    contours = [
+        np.frombuffer(contour, dtype=np.int32).reshape(-1, 2)
+        for contour in scaled_contours
+    ]
+    cv2.fillPoly(motion_mask, contours, (1,))
+    return motion_mask
+
+
 def object_motion_overlap(
     rel_bbox: tuple[float, float, float, float], rel_contours: list[np.ndarray]
 ) -> float:
@@ -142,7 +156,6 @@ def object_motion_overlap(
     if bbox_area <= 0:
         return 0.0
 
-    motion_mask = np.zeros((grid_size, grid_size), dtype=np.uint8)
     scaled_contours = []
     for rel_contour in rel_contours:
         contour = np.asarray(rel_contour, dtype=np.float32)
@@ -156,12 +169,12 @@ def object_motion_overlap(
         scaled = np.rint(contour.reshape(-1, 2) * grid_size).astype(np.int32)
         np.clip(scaled, 0, grid_size - 1, out=scaled)
         if len(scaled) >= min_polygon_points:
-            scaled_contours.append(scaled)
+            scaled_contours.append(scaled.tobytes())
 
     if not scaled_contours:
         return 0.0
 
-    cv2.fillPoly(motion_mask, scaled_contours, (1,))
+    motion_mask = _get_motion_mask(tuple(scaled_contours))
     motion_area = np.count_nonzero(motion_mask[y1_px:y2_px, x1_px:x2_px])
     overlap = motion_area / bbox_area
     return float(max(0.0, min(1.0, overlap)))

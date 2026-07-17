@@ -840,17 +840,15 @@ class TestNVRRunBoth:
         assert camera.is_recording
         assert nvr._frame_scanners[MOTION_DETECTOR].scan is True
 
-    def test_require_motion_overlap_blocks_start_without_overlap(
-        self, vis, monkeypatch
-    ):
-        """require_motion_overlap blocks start when motion does not overlap object."""
+    def test_require_motion_overlap_gates_start_and_stop(self, vis, monkeypatch):
+        """require_motion_overlap gates recording start and stop."""
         object_detector = MockObjectDetector(fps=5, scan_on_motion_only=False)
         motion_detector = MockMotionDetector(
-            fps=5, trigger_event_recording=False, recorder_keepalive=True
+            fps=5, trigger_event_recording=False, recorder_keepalive=False
         )
         object_detector.object_filters = {
             "person": SimpleNamespace(
-                require_motion=True,
+                require_motion=False,
                 require_motion_overlap=True,
                 motion_overlap_threshold=0.1,
             )
@@ -903,6 +901,33 @@ class TestNVRRunBoth:
         feed_frame_to_nvr(nvr)
         nvr._run()
         assert camera.is_recording
+
+        # Motion no longer overlaps the object -> recording stops.
+        motion_detector.motion_contours = SimpleNamespace(
+            rel_contours=[non_overlapping_contour]
+        )
+        feed_frame_to_nvr(nvr)
+        nvr._run()
+        assert nvr._stop_recorder_at is not None
+
+        fake_time.advance(1)
+        feed_frame_to_nvr(nvr)
+        nvr._run()
+        fake_time.advance(1)
+        feed_frame_to_nvr(nvr)
+        nvr._run()
+        assert not camera.is_recording
+
+    def test_require_motion_overlap_allows_external_motion_without_contours(self, vis):
+        """External motion without contours satisfies overlap."""
+        motion_detector = MockMotionDetectorExternal(
+            motion_detected=True,
+            motion_contours=None,
+        )
+        nvr, _ = make_nvr(vis, motion_detector=motion_detector)
+        filter_obj = SimpleNamespace(require_motion_overlap=True)
+
+        assert nvr._object_has_motion_overlap(SimpleNamespace(), filter_obj)
 
     def test_require_motion_stops_when_motion_lost(self, vis, monkeypatch):
         """Stops via countdown when motion lost."""

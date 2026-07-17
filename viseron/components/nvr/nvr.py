@@ -584,8 +584,8 @@ class NVR(AbstractNVR):
             return False
 
         motion_contours = self._motion_detector.motion_contours
-        if not motion_contours:
-            return False
+        if not motion_contours or not motion_contours.rel_contours:
+            return True
 
         overlap = object_motion_overlap(
             (obj.rel_x1, obj.rel_y1, obj.rel_x2, obj.rel_y2),
@@ -598,7 +598,9 @@ class NVR(AbstractNVR):
     ) -> bool:
         """Check if motion should stop the recorder."""
         filter_obj = object_filters.get(obj.label)
-        if filter_obj and filter_obj.require_motion:
+        if filter_obj and (
+            filter_obj.require_motion or filter_obj.require_motion_overlap
+        ):
             if self._motion_detector and self._object_has_motion_overlap(
                 obj, filter_obj
             ):
