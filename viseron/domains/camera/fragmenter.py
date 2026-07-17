@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import errno
+import hashlib
 import logging
 import multiprocessing as mp
 import os
@@ -115,6 +116,15 @@ def _get_mp4_files_to_fragment(path: str) -> list[str]:
         except psutil.Error:
             pass
     return [str(f.name) for f in mp4_files if str(f.name) not in files_in_use]
+
+
+def _hash_file(path: str) -> str:
+    """Return SHA-256 digest for a file."""
+    digest = hashlib.sha256()
+    with open(path, "rb") as file:
+        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _extract_extinf_number(playlist_content: str, file: str) -> float | None:
@@ -343,21 +353,20 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
             except FileNotFoundError:
                 pass
 
-    def _move_to_segments_folder_mp4box(self, file: str) -> bool:
+    def _move_to_segments_folder_mp4box(self, file: str) -> str | None:
         """Move fragmented mp4 created by mp4box to segments folder."""
         self._segment_hook_mp4box(file)
+        init_path = os.path.join(
+            self.temp_segments_folder,
+            file.split(".", maxsplit=1)[0],
+            "clip_init.mp4",
+        )
+        init_hash = _hash_file(init_path)
         try:
             # Publish init before the media segment: the segment create/metadata
             # path is the DB-visible commit point, and playback needs init.mp4
             # available by the time that segment is visible.
-            copy_file_atomic(
-                os.path.join(
-                    self.temp_segments_folder,
-                    file.split(".", maxsplit=1)[0],
-                    "clip_init.mp4",
-                ),
-                os.path.join(self.segments_folder, "init.mp4"),
-            )
+            self._publish_init_files(init_path, init_hash)
             move_file_atomic(
                 os.path.join(
                     self.temp_segments_folder,
@@ -370,7 +379,7 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
             )
         except FileNotFoundError:
             self._logger.debug(f"{file} not found")
-            return False
+            return None
         except OSError as err:
             if err.errno == errno.ENOSPC:
                 self._handle_no_space_left(
@@ -390,8 +399,8 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
                     file,
                     exc_info=err,
                 )
-            return False
-        return True
+            return None
+        return init_hash
 
     def _handle_no_space_left(self, err: OSError, src: str, dst: str) -> None:
         """Handle no space left on device."""
@@ -410,24 +419,23 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
         )
         self._worker_event.wait(timeout=1)
 
-    def _move_to_segments_folder(self, file: str) -> bool:
+    def _move_to_segments_folder(self, file: str) -> str | None:
         """Move fragmented mp4 created by encoder to segments folder."""
         self._segment_hook(file)
+        init_path = os.path.join(self.temp_segments_folder, "init.mp4")
+        init_hash = _hash_file(init_path)
         try:
             # Publish init before the media segment: the segment create/metadata
             # path is the DB-visible commit point, and playback needs init.mp4
             # available by the time that segment is visible.
-            copy_file_atomic(
-                os.path.join(self.temp_segments_folder, "init.mp4"),
-                os.path.join(self.segments_folder, "init.mp4"),
-            )
+            self._publish_init_files(init_path, init_hash)
             move_file_atomic(
                 os.path.join(self.temp_segments_folder, file),
                 os.path.join(self.segments_folder, file),
             )
         except FileNotFoundError:
             self._logger.debug(f"{file} not found", exc_info=True)
-            return False
+            return None
         except OSError as err:
             if err.errno == errno.ENOSPC:
                 self._handle_no_space_left(
@@ -441,14 +449,23 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
                     file,
                     exc_info=err,
                 )
-            return False
-        return True
+            return None
+        return init_hash
+
+    def _publish_init_files(self, init_path: str, init_hash: str) -> None:
+        """Publish legacy and hash-addressed HLS init sidecars."""
+        copy_file_atomic(init_path, os.path.join(self.segments_folder, "init.mp4"))
+        copy_file_atomic(
+            init_path,
+            os.path.join(self.segments_folder, f"init-{init_hash}.mp4"),
+        )
 
     def _write_files_metadata(
         self,
         file: str,
         extinf: float,
         program_date_time: datetime.datetime | None = None,
+        hls_init_hash: str | None = None,
     ) -> None:
         """Save temporary metadata which is later used when inserting into the DB."""
         if program_date_time:
@@ -472,6 +489,7 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
                 "path": path,
                 "orig_ctime": orig_ctime,
                 "duration": extinf,
+                "hls_init_hash": hls_init_hash,
             }
         )
         self._worker_event.wait(timeout=1)
@@ -505,8 +523,11 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
                     self._read_m3u8_mp4box(file), "clip_1.m4s"
                 )
                 if extinf:
-                    if self._move_to_segments_folder_mp4box(file):
-                        self._write_files_metadata(file, extinf)
+                    init_hash = self._move_to_segments_folder_mp4box(file)
+                    if init_hash:
+                        self._write_files_metadata(
+                            file, extinf, hls_init_hash=init_hash
+                        )
                 else:
                     self._logger.error(f"Failed to get extinf for {file}")
         except Exception as err:  # pylint: disable=broad-except
@@ -527,8 +548,14 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
             extinf = _extract_extinf_number(m3u8, file)
             program_date_time = _extract_program_date_time(m3u8, file)
             if extinf:
-                if self._move_to_segments_folder(file):
-                    self._write_files_metadata(file, extinf, program_date_time)
+                init_hash = self._move_to_segments_folder(file)
+                if init_hash:
+                    self._write_files_metadata(
+                        file,
+                        extinf,
+                        program_date_time,
+                        hls_init_hash=init_hash,
+                    )
             else:
                 self._logger.error(f"Failed to get extinf for {file}")
                 os.remove(os.path.join(self.temp_segments_folder, file))
@@ -562,6 +589,7 @@ class Fragmenter:
         if camera.temp_timelapse_folder is not None:
             os.makedirs(camera.temp_timelapse_folder, exist_ok=True)
         self._storage.ignore_file("init.mp4")
+        self._storage.ignore_file("init-*.mp4")
 
         self._log_pipe_ffmpeg = LogPipe(
             logging.getLogger(f"{self.__module__}.{camera.identifier}.ffmpeg"),
@@ -595,7 +623,9 @@ class Fragmenter:
     def _on_metadata_from_worker(self, item) -> None:
         """Update temporary_files_meta with metadata from subprocess."""
         self._storage.temporary_files_meta[item["path"]] = FilesMeta(
-            orig_ctime=item["orig_ctime"], duration=item["duration"]
+            orig_ctime=item["orig_ctime"],
+            duration=item["duration"],
+            hls_init_hash=item.get("hls_init_hash"),
         )
 
     def _fragment_command(self) -> None:
@@ -701,6 +731,13 @@ def gap_in_fragments(prev_fragment: Fragment, fragment: Fragment) -> bool:
     ).total_seconds() > 1
 
 
+def discontinuity_in_fragments(prev_fragment: Fragment, fragment: Fragment) -> bool:
+    """Check if there is an HLS discontinuity between two fragments."""
+    return gap_in_fragments(prev_fragment, fragment) or (
+        prev_fragment.init_file != fragment.init_file
+    )
+
+
 def generate_playlist(
     fragments: list[Fragment],
     init_file: str,
@@ -730,12 +767,22 @@ def generate_playlist(
 
     playlist.append(f"#EXT-X-TARGETDURATION:{target_duration}")
     playlist.append("#EXT-X-INDEPENDENT-SEGMENTS")
-    playlist.append(f'#EXT-X-MAP:URI="{_get_file_path(init_file, file_directive)}"')
 
     prev_fragment: Fragment | None = None
+    prev_init_file: str | None = None
     for fragment in fragments:
-        if prev_fragment and gap_in_fragments(prev_fragment, fragment):
+        fragment_init_file = fragment.init_file or init_file
+        init_file_changed = (
+            prev_init_file is not None and prev_init_file != fragment_init_file
+        )
+        if prev_fragment and (
+            gap_in_fragments(prev_fragment, fragment) or init_file_changed
+        ):
             playlist.append("#EXT-X-DISCONTINUITY")
+        if prev_init_file != fragment_init_file:
+            playlist.append(
+                f'#EXT-X-MAP:URI="{_get_file_path(fragment_init_file, file_directive)}"'
+            )
         program_date_time = fragment.creation_time.replace(
             tzinfo=datetime.timezone.utc
         ).isoformat(timespec="milliseconds")
@@ -743,6 +790,7 @@ def generate_playlist(
         playlist.append(f"#EXTINF:{fragment.duration},")
         playlist.append(_get_file_path(fragment.path, file_directive))
         prev_fragment = fragment
+        prev_init_file = fragment_init_file
     if end:
         playlist.append("#EXT-X-ENDLIST")
     return "\n".join(playlist)
@@ -756,6 +804,7 @@ class Fragment:
     path: str
     duration: float
     creation_time: datetime.datetime
+    init_file: str | None = None
 
 
 class Timespan(TypedDict):

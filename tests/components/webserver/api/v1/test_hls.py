@@ -16,7 +16,7 @@ from viseron.components.webserver.api.v1.hls import (
     count_files_removed,
 )
 from viseron.domains.camera.const import CONFIG_LOOKBACK, CONFIG_RECORDER
-from viseron.domains.camera.fragmenter import Fragment
+from viseron.domains.camera.fragmenter import Fragment, generate_playlist
 from viseron.helpers import utcnow
 
 from tests.common import BaseTestWithRecordings, MockCamera
@@ -440,14 +440,49 @@ def test_count_discontinuities_removed_no_overlap_counts_forward_gap():
     assert count_discontinuities_removed(prev_list, curr_list) == 2
 
 
+def test_count_discontinuities_removed_init_change():
+    """Test removed init changes count as discontinuities."""
+    now = utcnow()
+    prev_list = [
+        Fragment("file1", "file1", 5, now, "/init-a.mp4"),
+        Fragment(
+            "file2",
+            "file2",
+            5,
+            now + datetime.timedelta(seconds=5),
+            "/init-b.mp4",
+        ),
+        Fragment(
+            "file3",
+            "file3",
+            5,
+            now + datetime.timedelta(seconds=10),
+            "/init-b.mp4",
+        ),
+    ]
+    curr_list = [
+        Fragment(
+            "file3",
+            "file3",
+            5,
+            now + datetime.timedelta(seconds=10),
+            "/init-b.mp4",
+        ),
+    ]
+
+    assert count_discontinuities_removed(prev_list, curr_list) == 1
+
+
 def test_adjust_fragment_paths_uses_hls_file_id_urls():
     """Test HLS fragments use logical segment URLs."""
     files = [
         SimpleNamespace(
             id=123,
+            tier_id=0,
             filename="1.m4s",
             duration=5,
             orig_ctime=utcnow(),
+            hls_init_hash=None,
         )
     ]
 
@@ -467,6 +502,7 @@ def test_adjust_fragment_paths_stable_across_tier_move():
             filename="1.m4s",
             duration=5,
             orig_ctime=orig_ctime,
+            hls_init_hash=None,
         )
     ]
     after_move = [
@@ -477,6 +513,7 @@ def test_adjust_fragment_paths_stable_across_tier_move():
             filename="1.m4s",
             duration=5,
             orig_ctime=orig_ctime,
+            hls_init_hash=None,
         )
     ]
 
@@ -494,8 +531,59 @@ def test_adjust_fragment_paths_stable_across_tier_move():
 def test_init_file_url_uses_camera_and_first_fragment_tier():
     """Test HLS init URL does not expose filesystem paths."""
     camera = MockCamera(identifier="test")
-    files = [SimpleNamespace(tier_id=2)]
+    files = [SimpleNamespace(tier_id=2, hls_init_hash=None)]
 
     assert _init_file_url(camera, "/subpath", files) == (
         "/subpath/api/v1/hls/init/test/2.mp4"
     )
+
+
+def test_init_file_url_uses_camera_and_init_hash():
+    """Test hash-addressed HLS init URL."""
+    camera = MockCamera(identifier="test")
+    files = [SimpleNamespace(tier_id=2, hls_init_hash="a" * 64)]
+
+    assert _init_file_url(camera, "/subpath", files) == (
+        f"/subpath/api/v1/hls/init/test/{'a' * 64}.mp4"
+    )
+
+
+def test_adjust_fragment_paths_adds_hash_init_url():
+    """Test HLS fragments carry hash-addressed init URLs."""
+    files = [
+        SimpleNamespace(
+            id=123,
+            tier_id=0,
+            filename="1.m4s",
+            duration=5,
+            orig_ctime=utcnow(),
+            hls_init_hash="b" * 64,
+        )
+    ]
+
+    fragments = adjust_fragment_paths(MockCamera(identifier="test"), "/subpath", files)
+
+    assert fragments[0].init_file == f"/subpath/api/v1/hls/init/test/{'b' * 64}.mp4"
+
+
+def test_generate_playlist_emits_new_map_when_init_changes():
+    """Test playlist switches EXT-X-MAP when fragment init changes."""
+    now = utcnow()
+    playlist = generate_playlist(
+        [
+            Fragment("1.m4s", "/segments/1.m4s", 5, now, "/init-a.mp4"),
+            Fragment(
+                "2.m4s",
+                "/segments/2.m4s",
+                5,
+                now + datetime.timedelta(seconds=5),
+                "/init-b.mp4",
+            ),
+        ],
+        "/fallback-init.mp4",
+    )
+
+    assert playlist.count("#EXT-X-MAP") == 2
+    assert '#EXT-X-MAP:URI="/init-a.mp4"' in playlist
+    assert '#EXT-X-MAP:URI="/init-b.mp4"' in playlist
+    assert playlist.count("#EXT-X-DISCONTINUITY") == 1

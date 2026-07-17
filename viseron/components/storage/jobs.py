@@ -26,7 +26,6 @@ from viseron.components.storage.const import (
     CleanupJobNames,
 )
 from viseron.components.storage.files import (
-    delete_file_location_by_path,
     find_file_id_for_artifact_path,
     repair_file_locations,
 )
@@ -308,7 +307,7 @@ class OrphanedFilesCleanup(BaseCleanupJob):
 
                         total_files_processed += 1
                         files_processed += 1
-                        if file in self._storage.ignored_files:
+                        if self._storage.is_ignored_file(file):
                             continue
                         file_path = os.path.join(root, file)
                         try:
@@ -717,7 +716,7 @@ class OrphanedThumbnailsCleanup(BaseCleanupJob):
                     files_to_check.extend(
                         os.path.join(root, f)
                         for f in files
-                        if f not in self._storage.ignored_files
+                        if not self._storage.is_ignored_file(f)
                         and not is_storage_temp_file(f)
                     )
 
@@ -834,7 +833,7 @@ class OrphanedEventClipsCleanup(BaseCleanupJob):
                     files_to_check.extend(
                         os.path.join(root, f)
                         for f in files
-                        if f not in self._storage.ignored_files
+                        if not self._storage.is_ignored_file(f)
                         and not is_storage_temp_file(f)
                     )
 

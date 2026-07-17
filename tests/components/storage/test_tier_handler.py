@@ -76,7 +76,7 @@ class MoveCallbackSession:
         self.execute_count += 1
         if self.execute_count == 1:
             return MoveCallbackScalarResult(
-                MagicMock(orig_ctime=utcnow(), duration=1.0)
+                MagicMock(orig_ctime=utcnow(), duration=1.0, hls_init_hash=None)
             )
         return MoveCallbackRowcountResult()
 
@@ -93,6 +93,7 @@ def test_on_any_event_ignores_storage_temp_file() -> None:
     """Internal temporary files should not be queued for DB insertion."""
     tier_handler = TierHandler.__new__(TierHandler)
     tier_handler._storage = MagicMock(ignored_files=[])
+    tier_handler._storage.is_ignored_file.return_value = False
     tier_handler._event_queue = MagicMock()
 
     tier_handler.on_any_event(FileCreatedEvent("/tmp/.viseron-tmp-file.m4s.1.abc"))
@@ -104,6 +105,7 @@ def test_on_any_event_queues_moved_file_from_storage_temp_file() -> None:
     """Atomic publishes should be treated as destination create events."""
     tier_handler = TierHandler.__new__(TierHandler)
     tier_handler._storage = MagicMock(ignored_files=[])
+    tier_handler._storage.is_ignored_file.return_value = False
     tier_handler._event_queue = MagicMock()
     tier_handler._path = "/tmp"
     event = FileMovedEvent(
@@ -291,6 +293,40 @@ def test_move_file_skips_segment_move_when_init_sidecar_missing() -> None:
 
     assert storage.tier_check_worker_send_command.call_count == 1
     assert dst not in storage.temporary_files_meta
+
+
+def test_move_file_copies_hashed_init_sidecar() -> None:
+    """A segment with hls_init_hash should copy the matching init sidecar."""
+    src = "/tier1/segments/camera/1.m4s"
+    dst = "/tier2/segments/camera/1.m4s"
+    session = MoveCallbackSession()
+    session.execute = MagicMock(
+        return_value=MoveCallbackScalarResult(
+            MagicMock(orig_ctime=utcnow(), duration=1.0, hls_init_hash="abc123")
+        )
+    )
+    storage = MagicMock()
+    storage.temporary_files_meta = {}
+
+    tier_handler_move_file(
+        MagicMock(),
+        storage,
+        lambda: session,
+        "camera",
+        0,
+        TIER_CATEGORY_RECORDER,
+        TIER_SUBCATEGORY_SEGMENTS,
+        1,
+        "/tier2",
+        src,
+        dst,
+        MagicMock(),
+    )
+
+    copy_call = storage.tier_check_worker_send_command.call_args_list[0]
+    assert isinstance(copy_call.args[0], DataItemCopyFile)
+    assert copy_call.args[0].src == "/tier1/segments/camera/init-abc123.mp4"
+    assert copy_call.args[0].dst == "/tier2/segments/camera/init-abc123.mp4"
 
 
 @patch("viseron.components.storage.tier_handler.delete_file")
