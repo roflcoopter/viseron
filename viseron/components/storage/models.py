@@ -138,6 +138,7 @@ class Files(Base):
     filename: Mapped[str] = mapped_column(String)
     size: Mapped[int] = mapped_column(Integer)
     duration: Mapped[float] = mapped_column(Float, nullable=True)
+    hls_init_hash: Mapped[str | None] = mapped_column(String, nullable=True)
     orig_ctime: Mapped[datetime.datetime] = mapped_column(
         UTCDateTime(timezone=False), nullable=False
     )
@@ -201,6 +202,7 @@ class FilesMeta:
 
     orig_ctime: datetime.datetime
     duration: float
+    hls_init_hash: str | None = None
 
 
 class TriggerTypes(Enum):

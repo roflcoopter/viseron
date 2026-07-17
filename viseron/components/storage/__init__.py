@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import fnmatch
 import logging
 import os
 import pathlib
@@ -611,6 +612,13 @@ class Storage:
         """
         if filename not in self.ignored_files:
             self.ignored_files.append(filename)
+
+    def is_ignored_file(self, filename: str) -> bool:
+        """Return if filename matches an ignored filename or pattern."""
+        return any(
+            filename == ignored_file or fnmatch.fnmatch(filename, ignored_file)
+            for ignored_file in self.ignored_files
+        )
 
     def _camera_registered(
         self, event_data: Event[EventDomainRegisteredData[AbstractCamera]]

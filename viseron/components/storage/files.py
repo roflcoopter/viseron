@@ -577,6 +577,7 @@ def upsert_file_at_location(
     *,
     orig_ctime=None,
     duration: float | None = None,
+    hls_init_hash: str | None = None,
 ) -> UpsertedFile | None:
     """Ensure a logical file and physical location exist."""
     if not os.path.isfile(path):
@@ -597,6 +598,7 @@ def upsert_file_at_location(
         "size": stat_result.st_size,
         "orig_ctime": orig_ctime or utcnow(),
         "duration": duration,
+        "hls_init_hash": hls_init_hash,
     }
     with get_session() as session:
         existing_file_id = session.execute(
@@ -653,6 +655,7 @@ def upsert_file_at_location(
         if created or duration is not None:
             update_values["orig_ctime"] = values["orig_ctime"]
             update_values["duration"] = values["duration"]
+            update_values["hls_init_hash"] = values["hls_init_hash"]
         session.execute(update(Files).where(Files.id == file_id).values(update_values))
         session.commit()
         return UpsertedFile(file_id=file_id, created=created)
@@ -668,6 +671,7 @@ def upsert_file_with_location(
     *,
     orig_ctime=None,
     duration: float | None = None,
+    hls_init_hash: str | None = None,
 ) -> UpsertedFile | None:
     """Ensure a logical file and physical location exist by configured path."""
     normalized_path = os.path.normpath(path)
@@ -697,6 +701,7 @@ def upsert_file_with_location(
         normalized_path,
         orig_ctime=orig_ctime,
         duration=duration,
+        hls_init_hash=hls_init_hash,
     )
 
 

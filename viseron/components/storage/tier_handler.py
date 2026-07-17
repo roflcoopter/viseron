@@ -75,7 +75,6 @@ from viseron.components.storage.files import (
     upsert_file,
     upsert_file_at_location,
     upsert_file_location,
-    upsert_file_with_location,
 )
 from viseron.components.storage.thumbnails import upsert_thumbnail_file
 from viseron.components.storage.storage_subprocess import (
@@ -369,7 +368,7 @@ class TierHandler(FileSystemEventHandler):
             event_path = event.src_path
         else:
             event_path = self._event_path(event)
-        if os.path.basename(event_path) in self._storage.ignored_files:
+        if self._storage.is_ignored_file(os.path.basename(event_path)):
             return
         if is_storage_temp_file(event_path):
             return
@@ -380,7 +379,7 @@ class TierHandler(FileSystemEventHandler):
         event_path = self._event_path(event)
         self._logger.debug("File created: %s", event_path)
         try:
-            stat_result = os.stat(event_path)
+            os.stat(event_path)
         except FileNotFoundError:
             self._logger.debug("File not found after create event: %s", event_path)
             return
@@ -414,6 +413,7 @@ class TierHandler(FileSystemEventHandler):
             event_path,
             orig_ctime=file_meta.orig_ctime if file_meta else utcnow(),
             duration=file_meta.duration if file_meta else None,
+            hls_init_hash=file_meta.hls_init_hash if file_meta else None,
         )
         if upserted_file and upserted_file.created:
             self._vis.dispatch_event(
@@ -1233,7 +1233,11 @@ def move_file(
             )
             res = session.execute(sel).scalar_one()
             file_id = res.id
-            file_meta = FilesMeta(orig_ctime=res.orig_ctime, duration=res.duration)
+            file_meta = FilesMeta(
+                orig_ctime=res.orig_ctime,
+                duration=res.duration,
+                hls_init_hash=res.hls_init_hash,
+            )
     except NoResultFound as error:
         logger.debug(f"Failed to find metadata for {src}: {error}")
         with get_session() as session:
@@ -1284,6 +1288,7 @@ def move_file(
                     size=item.size,
                     orig_ctime=file_meta.orig_ctime,
                     duration=file_meta.duration,
+                    hls_init_hash=file_meta.hls_init_hash,
                 )
             )
             session.commit()
@@ -1353,7 +1358,7 @@ def move_file(
         if item.published:
             if item.source_missing:
                 logger.debug(
-                    "Using existing destination init.mp4 while moving %s to %s; "
+                    "Using existing destination HLS init while moving %s to %s; "
                     "source sidecar %s was missing",
                     src,
                     dst,
@@ -1386,13 +1391,19 @@ def move_file(
         and _curr_tier_subcategory == TIER_SUBCATEGORY_SEGMENTS
         and os.path.basename(src) != "init.mp4"
     ):
-        src_init = os.path.join(os.path.dirname(src), "init.mp4")
-        dst_init = os.path.join(os.path.dirname(dst), "init.mp4")
+        init_filename = (
+            f"init-{file_meta.hls_init_hash}.mp4"
+            if file_meta.hls_init_hash
+            else "init.mp4"
+        )
+        src_init = os.path.join(os.path.dirname(src), init_filename)
+        dst_init = os.path.join(os.path.dirname(dst), init_filename)
         if src_init != dst_init:
-            # init.mp4 is intentionally ignored by storage watchers and has no
-            # Files row, but fMP4 HLS needs it beside any segment directory the
-            # playlist references. Copy it before committing the segment move so
-            # a later-tier segment never becomes visible without its sidecar.
+            # HLS init files are intentionally ignored by storage watchers and
+            # have no Files rows, but fMP4 HLS needs the matching init beside
+            # any segment directory the playlist references. Copy it before
+            # committing the segment move so a later-tier segment never becomes
+            # visible without its sidecar.
             storage.tier_check_worker_send_command(
                 DataItemCopyFile(
                     cmd="copy_file",
