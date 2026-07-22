@@ -19,4 +19,4 @@ fi
 
 
 cd /src
-exec justc-envdir /var/run/environment s6-setuidgid abc exec -a "viseron" python3 -u -m viseron
+exec justc-envdir /var/run/environment s6-setuidgid abc viseron
