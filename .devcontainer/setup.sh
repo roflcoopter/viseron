@@ -8,6 +8,7 @@ echo "export WORKSPACE_DIR=$PWD" >> $HOME/.bashrc
 
 # Install python deps
 python3 -m pip install -r requirements.txt
+python3 -m pip install --no-deps -r requirements_conflicts.txt
 
 # Install frontend dependencies
 cd $WORKSPACE_DIR/frontend

@@ -39,7 +39,7 @@ jobs:
         env:
           cache-name: cache-python-venv
         run: >-
-          echo "key=${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ steps.python.outputs.python-version }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements.txt') }}-${{ hashFiles('requirements_test.txt') }}-${{ hashFiles('requirements_ci.txt') }}" >> $GITHUB_OUTPUT
+          echo "key=${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ steps.python.outputs.python-version }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements.txt') }}-${{ hashFiles('requirements_test.txt') }}-${{ hashFiles('requirements_ci.txt') }}-${{ hashFiles('requirements_conflicts.txt') }}" >> $GITHUB_OUTPUT
       - name: Restore Python virtual environment
         id: cache-venv
         uses: actions/cache@v5
@@ -61,6 +61,7 @@ jobs:
         with:
           command: |
             pip3 install --extra-index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pkgs.dev.azure.com/viseron/Viseron%20Pipelines/_packaging/viseron-wheels/pypi/simple -r requirements.txt -r requirements_test.txt -r requirements_ci.txt && \
+            pip3 install --no-deps -r requirements_conflicts.txt && \
             pre-commit install
 
   prepare-pre-commit:
@@ -93,7 +94,7 @@ jobs:
         env:
           cache-name: cache-pre-commit
         run: >-
-          echo "key=${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements.txt') }}-${{ hashFiles('requirements_test.txt') }}-${{ hashFiles('requirements_ci.txt') }}" >> $GITHUB_OUTPUT
+          echo "key=${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements.txt') }}-${{ hashFiles('requirements_test.txt') }}-${{ hashFiles('requirements_ci.txt') }}-${{ hashFiles('requirements_conflicts.txt') }}" >> $GITHUB_OUTPUT
       # Install pre-commit hooks into the cached virtual environment
       - name: Restore pre-commit hooks
         id: cache-pre-commit
