@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+APP_DIR="${VISERON_APP_DIR:-/src}"
+
+reload_viseron() {
+  mapfile -t pids < <(pgrep -f "^viseron" || true)
+
+  if [ "${#pids[@]}" -eq 0 ]; then
+    echo "No running viseron process found" >&2
+    return 1
+  fi
+
+  local failed=0
+  for pid in "${pids[@]}"; do
+    if ! kill -HUP "$pid"; then
+      echo "Failed to send SIGHUP to viseron pid ${pid}" >&2
+      failed=1
+    else
+      echo "Sent SIGHUP to viseron pid ${pid}, see logs for details" >&2
+    fi
+  done
+
+  return "$failed"
+}
+
+if [ "${1:-}" = "--reload" ]; then
+  if [ "$#" -gt 1 ]; then
+    echo "Usage: viseron --reload" >&2
+    exit 1
+  fi
+  reload_viseron
+  exit "$?"
+fi
+
+cd "$APP_DIR"
+exec -a "viseron" python3 -u -m viseron "$@"
