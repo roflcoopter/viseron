@@ -63,6 +63,15 @@ class DataItem:
     events_min_age: datetime.timedelta | None = None
     events_max_age: datetime.timedelta | None = None
     events_min_bytes: int | None = None
+    # Free-space retention: keep at least this many bytes free on the
+    # filesystem holding ``tier_fs_path``, evicting the oldest files on this
+    # tier (across ALL cameras) when live free space drops below the floor.
+    # 0 disables it. ``tier_fs_path`` is the tier's configured path (matches
+    # the Files.tier_path column and is what shutil.disk_usage is called on).
+    # Orthogonal to the per-camera move/delete driven by max_bytes/max_age
+    # above — it only ever deletes, never moves.
+    min_free_bytes: int = 0
+    tier_fs_path: str | None = None
     callback_id: str | None = None
     data: np.ndarray | None = None
     error: str | None = None

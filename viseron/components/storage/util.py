@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import threading
 from dataclasses import dataclass
 from datetime import timedelta
@@ -15,6 +16,7 @@ from viseron.components.storage.const import (
     CONFIG_MB,
     CONFIG_MINUTES,
     CONFIG_PATH,
+    CONFIG_PERCENT,
     CONFIG_SECONDS,
     TIER_CATEGORY_SNAPSHOTS,
     TIER_SUBCATEGORY_EVENT_CLIPS,
@@ -62,6 +64,41 @@ def convert_mb_to_bytes(mb: int) -> int:
 def convert_gb_to_bytes(gb: int) -> int:
     """Convert gb to bytes."""
     return gb * 1024 * 1024 * 1024
+
+
+def calculate_free_space_floor(free_space: dict[str, Any] | None, path: str) -> int:
+    """Bytes of free space to maintain on the filesystem holding ``path``.
+
+    ``percent`` is taken of ``shutil.disk_usage(path).total``; ``gb``/``mb`` are
+    absolute and reuse :func:`calculate_bytes`. When several are set the largest
+    (most conservative) floor is used. Returns ``0`` when nothing is configured,
+    which callers treat as "free-space eviction disabled".
+
+    The filesystem total is read once here (it does not change over the life of
+    a mount); the live ``free`` figure is polled at eviction time.
+    """
+    if not free_space:
+        return 0
+
+    floor = 0
+    percent = free_space.get(CONFIG_PERCENT)
+    if percent:
+        try:
+            total = shutil.disk_usage(path).total
+        except OSError:
+            total = 0
+        floor = max(floor, int(total * percent / 100))
+
+    floor = max(
+        floor,
+        calculate_bytes(
+            {
+                CONFIG_GB: free_space.get(CONFIG_GB),
+                CONFIG_MB: free_space.get(CONFIG_MB),
+            }
+        ),
+    )
+    return floor
 
 
 def get_segments_path(

@@ -39,6 +39,7 @@ from viseron.components.storage.const import (
     CONFIG_MAX_AGE,
     CONFIG_MAX_SIZE,
     CONFIG_MIN_AGE,
+    CONFIG_MIN_FREE_SPACE,
     CONFIG_MIN_SIZE,
     CONFIG_MINUTES,
     CONFIG_MOVE_ON_SHUTDOWN,
@@ -77,6 +78,7 @@ from viseron.components.storage.util import (
     EventFileDeleted,
     calculate_age,
     calculate_bytes,
+    calculate_free_space_floor,
     get_event_clips_path,
     get_segments_path,
     get_thumbnails_path,
@@ -223,6 +225,9 @@ class TierHandler(FileSystemEventHandler):
         self._min_bytes = calculate_bytes(self._tier[CONFIG_MIN_SIZE])
         self._max_age = calculate_age(self._tier[CONFIG_MAX_AGE])
         self._min_age = calculate_age(self._tier[CONFIG_MIN_AGE])
+        self._min_free_bytes = calculate_free_space_floor(
+            self._tier.get(CONFIG_MIN_FREE_SPACE), self._tier[CONFIG_PATH]
+        )
 
         if (
             self._next_tier is None
@@ -251,6 +256,8 @@ class TierHandler(FileSystemEventHandler):
             max_age=self._max_age,
             min_bytes=self._min_bytes,
             drain=self._tier[CONFIG_DRAIN],
+            min_free_bytes=self._min_free_bytes,
+            tier_fs_path=self._tier[CONFIG_PATH],
         )
 
     def _check_tier_event_handler(self, _event: Event) -> None:
@@ -543,6 +550,20 @@ class SegmentsTierHandler(TierHandler):
             self._events_min_age,
         ]
 
+        # Free space is a property of the filesystem, not of continuous vs
+        # events, so take the most conservative (largest) floor configured
+        # under either block for this tier's path.
+        self._min_free_bytes = max(
+            calculate_free_space_floor(
+                self._tier[CONFIG_CONTINUOUS].get(CONFIG_MIN_FREE_SPACE),
+                self._tier[CONFIG_PATH],
+            ),
+            calculate_free_space_floor(
+                self._tier[CONFIG_EVENTS].get(CONFIG_MIN_FREE_SPACE),
+                self._tier[CONFIG_PATH],
+            ),
+        )
+
         self._events_enabled = any(self._events_params)
         self._continuous_enabled = (
             any(self._continuous_params)
@@ -591,6 +612,8 @@ class SegmentsTierHandler(TierHandler):
             events_min_age=self._events_min_age,
             events_max_age=self._events_max_age,
             events_min_bytes=self._events_min_bytes,
+            min_free_bytes=self._min_free_bytes,
+            tier_fs_path=self._tier[CONFIG_PATH],
         )
 
     @property

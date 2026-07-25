@@ -75,6 +75,13 @@ class Worker:
         self._last_call: dict[str, float] = {}
         self._check_locks: dict[str, threading.Lock] = {}
         self._checks_in_progress: dict[str, bool] = {}
+        # Free-space eviction is a filesystem-global (all-cameras) pass, but it
+        # is triggered off each camera's per-tier check_tier. These serialize
+        # and throttle it so concurrent camera checks don't each run the whole
+        # eviction on the same filesystem. Keyed by tier_fs_path.
+        self._free_space_locks: dict[str, threading.Lock] = {}
+        self._free_space_locks_meta = threading.Lock()
+        self._free_space_last_run: dict[str, float] = {}
 
     def _should_check_tier_files(self, item: DataItem) -> bool:
         """Quick aggregate check if tier actually needs processing.
@@ -236,6 +243,10 @@ class Worker:
         try:
             if item.cmd == "check_tier":
                 self.check_tier(item)
+                # Filesystem-global free-space eviction, piggybacked on the
+                # per-camera check. Self-throttled and self-guarding; never
+                # raises, so it cannot fail the camera's normal tier check.
+                self.free_space_evict(item)
             if item.cmd == "move_file":
                 self.move_file(item)
             if item.cmd == "delete_file":
@@ -402,6 +413,119 @@ class Worker:
 
         return rows_to_move
 
+    def _get_free_space_lock(self, fs_path: str) -> threading.Lock:
+        with self._free_space_locks_meta:
+            return self._free_space_locks.setdefault(fs_path, threading.Lock())
+
+    def free_space_evict(self, item: DataItem) -> None:
+        """Delete the oldest files on a tier until the free-space floor is met.
+
+        Runs off each camera's check_tier but operates across all cameras on
+        the tier's filesystem. Serialized + throttled per filesystem so N
+        cameras checking at once cause one eviction pass, not N. A no-op when
+        ``min_free_bytes`` is 0 (feature disabled) or free space is already at
+        or above the floor. Never raises — a failure here must not fail the
+        camera's normal tier check.
+        """
+        fs_path = item.tier_fs_path
+        floor = item.min_free_bytes
+        if not fs_path or floor <= 0:
+            return
+
+        lock = self._get_free_space_lock(fs_path)
+        # Non-blocking: if another camera's check already holds it, that pass
+        # will satisfy the floor for this filesystem — no need to queue behind.
+        if not lock.acquire(blocking=False):
+            return
+        try:
+            now = utcnow().timestamp()
+            throttle = item.throttle_period.total_seconds()
+            last = self._free_space_last_run.get(fs_path, 0.0)
+            if throttle > 0 and (now - last) < throttle:
+                return
+            self._free_space_last_run[fs_path] = now
+
+            try:
+                usage = shutil.disk_usage(fs_path)
+            except OSError as error:
+                LOGGER.warning("free-space check: cannot stat %s: %s", fs_path, error)
+                return
+            if usage.free >= floor:
+                return
+
+            deficit = floor - usage.free
+            subcategory = item.subcategories[0]
+            data = load_free_space_candidates(
+                self._get_session,
+                item.category,
+                subcategory,
+                item.tier_id,
+                fs_path,
+            )
+            if data.size == 0:
+                LOGGER.warning(
+                    "free-space: %s is below the %.2f GiB floor (%.2f GiB free) "
+                    "but has no evictable %s files on this tier",
+                    fs_path,
+                    floor / (1024**3),
+                    usage.free / (1024**3),
+                    subcategory,
+                )
+                return
+
+            # Protect files younger than 5x the segment duration — they may
+            # still be referenced by an active HLS playlist.
+            max_ctime_ts = (
+                utcnow() - datetime.timedelta(seconds=CAMERA_SEGMENT_DURATION * 5)
+            ).timestamp()
+            selected = get_files_to_delete_for_free_space(
+                data, deficit, max_ctime_ts
+            )
+            if selected.size == 0:
+                LOGGER.warning(
+                    "free-space: %s is below the %.2f GiB floor (%.2f GiB free) "
+                    "but all %s files are within the write-protection window; "
+                    "nothing evicted this pass",
+                    fs_path,
+                    floor / (1024**3),
+                    usage.free / (1024**3),
+                    subcategory,
+                )
+                return
+
+            deleted = 0
+            freed = 0
+            for row in selected:
+                path = str(row["path"])
+                try:
+                    delete_file(self._get_session, path, LOGGER)
+                except FileNotFoundError:
+                    # File already gone; delete_file still removed the DB row.
+                    pass
+                except OSError as error:
+                    LOGGER.warning(
+                        "free-space: stopping eviction on %s after delete error: %s",
+                        fs_path,
+                        error,
+                    )
+                    break
+                deleted += 1
+                freed += int(row["size"])
+            LOGGER.warning(
+                "free-space: %s had %.2f GiB free (< %.2f GiB floor); evicted "
+                "%d oldest %s file(s), ~%.2f GiB",
+                fs_path,
+                usage.free / (1024**3),
+                floor / (1024**3),
+                deleted,
+                subcategory,
+                freed / (1024**3),
+            )
+        except Exception:  # pylint: disable=broad-except
+            LOGGER.exception("free-space eviction failed for %s", fs_path)
+        finally:
+            lock.release()
+
 
 def load_tier(
     get_session: Callable[..., Session],
@@ -435,6 +559,45 @@ def load_tier(
             data,
             dtype=FILES_DTYPE,
         )
+
+
+def load_free_space_candidates(
+    get_session: Callable[..., Session],
+    category: str,
+    subcategory: str,
+    tier_id: int,
+    tier_path: str,
+):
+    """Load a tier's files across ALL cameras for free-space eviction.
+
+    Unlike :func:`load_tier` this is deliberately not filtered by
+    ``camera_identifier``: free space is a filesystem-global property, so the
+    oldest files across every camera on ``tier_path`` are the eviction
+    candidates. Restricted to a single ``subcategory`` (segments for the
+    recorder, the snapshot domain for snapshots) so thumbnails / event clips —
+    which are managed alongside their recording — are never free-space evicted.
+    """
+    with get_session() as session:
+        stmt = select(
+            Files.id, Files.size, Files.orig_ctime, Files.path, Files.tier_path
+        ).where(
+            Files.tier_id == tier_id,
+            Files.category == category,
+            Files.subcategory == subcategory,
+            Files.tier_path == tier_path,
+        )
+        result = session.execute(stmt).yield_per(1000)
+        data = [
+            (
+                row.id,
+                row.size,
+                int(row.orig_ctime.timestamp()),
+                row.path,
+                row.tier_path,
+            )
+            for row in result
+        ]
+    return np.array(data, dtype=FILES_DTYPE)
 
 
 def load_recordings(
@@ -521,6 +684,47 @@ def get_files_to_move(
 
     stripped_rows = rows_to_move[["id", "path", "tier_path"]]
     return stripped_rows[::-1]
+
+
+def get_files_to_delete_for_free_space(
+    data: np.ndarray,
+    deficit_bytes: int,
+    max_ctime_timestamp: float,
+):
+    """Return the oldest files to delete to recover ``deficit_bytes``.
+
+    ``data`` is a tier's files (``FILES_DTYPE``) for *all* cameras on one
+    filesystem. Rows are sorted oldest-first; the smallest oldest-first prefix
+    whose cumulative size covers ``deficit_bytes`` is returned (full rows, so
+    the caller has ``path``/``size``).
+
+    Only files with ``orig_ctime <= max_ctime_timestamp`` are eligible — this
+    protects freshly written segments that may still be referenced by an active
+    HLS playlist, mirroring the ``file_min_age`` guard used by the recordings
+    path.
+
+    Deletion is chosen (never a move) because free space is only returned to a
+    disk by deletion; on a shared/terminal tier that is the only lever. The
+    selection is a single size-summed batch (no re-poll of ``disk_usage`` per
+    row) so a filesystem whose accounting lags behind unlinks (e.g. btrfs,
+    which only updates on transaction commit) is not over-evicted.
+    """
+    if deficit_bytes <= 0 or data.size == 0:
+        return np.empty(0, dtype=data.dtype)
+
+    order = np.argsort(data["orig_ctime"], kind="stable")
+    ordered = data[order]
+
+    eligible = ordered[ordered["orig_ctime"] <= max_ctime_timestamp]
+    if eligible.size == 0:
+        return np.empty(0, dtype=data.dtype)
+
+    cumulative_size = np.cumsum(eligible["size"])
+    # First index whose running total reaches the deficit; include it so the
+    # cumulative sum is >= the deficit.
+    idx = int(np.searchsorted(cumulative_size, deficit_bytes, side="left"))
+    count = min(idx + 1, eligible.size)
+    return eligible[:count]
 
 
 def get_recordings_to_move(

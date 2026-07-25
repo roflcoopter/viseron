@@ -33,6 +33,15 @@ def create_size_config(gb=None, mb=None):
     }
 
 
+def create_free_space_config(percent=None, gb=None, mb=None):
+    """Create a standardized min_free_space configuration."""
+    return {
+        "percent": percent,
+        "gb": gb,
+        "mb": mb,
+    }
+
+
 def create_check_interval(days=0, hours=0, minutes=1, seconds=0):
     """Create a standardized check interval configuration."""
     return {
@@ -43,7 +52,9 @@ def create_check_interval(days=0, hours=0, minutes=1, seconds=0):
     }
 
 
-def create_retain_config(max_age=None, min_age=None, max_size=None, min_size=None):
+def create_retain_config(
+    max_age=None, min_age=None, max_size=None, min_size=None, min_free_space=None
+):
     """Create a standardized configuration for retention rules."""
     return {
         "max_age": create_time_config(
@@ -54,6 +65,9 @@ def create_retain_config(max_age=None, min_age=None, max_size=None, min_size=Non
         ),
         "max_size": create_size_config(**(max_size or {"gb": None, "mb": None})),
         "min_size": create_size_config(**(min_size or {"gb": None, "mb": None})),
+        "min_free_space": create_free_space_config(
+            **(min_free_space or {"percent": None, "gb": None, "mb": None})
+        ),
     }
 
 
@@ -318,6 +332,66 @@ def test_validate_tiers(config, raises, error_message):
 
     if _config:
         assert _config == config
+
+
+MIN_FREE_SPACE_CASES = [
+    # percent within (0, 100] is accepted
+    ({"percent": 15}, nullcontext()),
+    ({"percent": 100}, nullcontext()),
+    ({"percent": 0.5}, nullcontext()),
+    # absolute gb/mb accepted
+    ({"gb": 40}, nullcontext()),
+    ({"mb": 500, "gb": 1}, nullcontext()),
+    # percent must be > 0 and <= 100
+    ({"percent": 0}, pytest.raises(vol.Invalid)),
+    ({"percent": -5}, pytest.raises(vol.Invalid)),
+    ({"percent": 150}, pytest.raises(vol.Invalid)),
+]
+
+
+@pytest.mark.parametrize("min_free_space, raises", MIN_FREE_SPACE_CASES)
+def test_min_free_space_schema(min_free_space, raises):
+    """min_free_space accepts percent/gb/mb and rejects out-of-range percent."""
+    config = {
+        "storage": {
+            "recorder": {
+                "tiers": [
+                    create_tier(
+                        path="/tier1",
+                        continuous={
+                            "max_age": {"days": 7},
+                            "min_free_space": min_free_space,
+                        },
+                    ),
+                ]
+            }
+        }
+    }
+    with patch("viseron.components.storage.config._check_path_exists"):
+        with raises:
+            CONFIG_SCHEMA(config)
+
+
+def test_min_free_space_defaults_present():
+    """The schema fills min_free_space defaults on continuous, events, snapshots."""
+    config = CONFIG_SCHEMA({"storage": {}})
+    tier = config["storage"]["recorder"]["tiers"][0]
+    assert tier["continuous"]["min_free_space"] == {
+        "percent": None,
+        "gb": None,
+        "mb": None,
+    }
+    assert tier["events"]["min_free_space"] == {
+        "percent": None,
+        "gb": None,
+        "mb": None,
+    }
+    snapshot_tier = config["storage"]["snapshots"]["tiers"][0]
+    assert snapshot_tier["min_free_space"] == {
+        "percent": None,
+        "gb": None,
+        "mb": None,
+    }
 
 
 def test_check_path_exists():
