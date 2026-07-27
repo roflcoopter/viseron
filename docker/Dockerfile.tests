@@ -13,11 +13,10 @@ COPY .coveragerc /src/
 COPY manager.py /src/manager.py
 COPY rootfs/ /
 COPY --from=wheels /wheels /wheels
-COPY requirements.txt requirements.txt
 COPY requirements_test.txt requirements_test.txt
 RUN \
-  python3 -m pip install /wheels/*.whl \
-  && python3 -m pip install -r requirements_test.txt \
+  python3 -m pip install --no-deps --ignore-installed /wheels/*.whl \
+  && python3 -m pip install --ignore-installed -r requirements_test.txt \
   && rm -r /wheels \
   && rm -r /etc/services.d/viseron \
   && mkdir -p /config \

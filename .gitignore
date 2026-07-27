@@ -78,6 +78,7 @@
 !/viseron/watchdog
 !/viseron/watchdog/*
 !/requirements_ci.txt
+!/requirements_conflicts.txt
 !/requirements_container_test.txt
 !/requirements_test.txt
 !/requirements.txt

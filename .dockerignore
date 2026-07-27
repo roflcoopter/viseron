@@ -10,6 +10,7 @@
 !docker/ffmpeg_wrapper
 !docker/ffprobe_wrapper
 !requirements.txt
+!requirements_conflicts.txt
 !requirements_test.txt
 !requirements-3.9.txt
 !docker/azure-agent-start.sh

@@ -127,7 +127,7 @@ RUN \
   python3-gst-1.0 \
   && rm -rf /var/lib/apt/lists/* \
   \
-  && python3 -m pip install --ignore-installed /wheels/*.whl \
+  && python3 -m pip install --no-deps --ignore-installed /wheels/*.whl \
   # Register PyTorch runtime libs (installed via ultralytics) with the system
   # linker so that ldd and ld.so can resolve libtorch.so / libc10.so etc.
   && python3 -c \
@@ -162,12 +162,12 @@ RUN \
   # architectures where the old SONAME is already present.
   && ldconfig \
   && for pair in "libtiff.so.5 libtiff.so.6" "libwebp.so.6 libwebp.so.7"; do \
-       old="${pair%% *}"; new="${pair##* }"; \
-       if ! ldconfig -p | grep -qF " $old "; then \
-         src=$(find /usr/lib -name "$new" -not -name "$new.*" 2>/dev/null | head -1); \
-         [ -n "$src" ] && ln -sf "$new" "$(dirname "$src")/$old" || true; \
-       fi; \
-     done \
+  old="${pair%% *}"; new="${pair##* }"; \
+  if ! ldconfig -p | grep -qF " $old "; then \
+  src=$(find /usr/lib -name "$new" -not -name "$new.*" 2>/dev/null | head -1); \
+  [ -n "$src" ] && ln -sf "$new" "$(dirname "$src")/$old" || true; \
+  fi; \
+  done \
   && ldconfig \
   \
   && chmod +x /tmp/s6-overlay-installer && /tmp/s6-overlay-installer / \
