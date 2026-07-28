@@ -3,14 +3,20 @@ from __future__ import annotations
 
 import datetime
 import json
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from sqlalchemy import delete, insert, update
 
-from viseron.components.storage.models import Files, Recordings
-from viseron.components.webserver.api.v1.hls import count_files_removed
+from viseron.components.storage.models import FileLocations, Files, Recordings
+from viseron.components.webserver.api.v1.hls import (
+    _init_file_url,
+    adjust_fragment_paths,
+    count_discontinuities_removed,
+    count_files_removed,
+)
 from viseron.domains.camera.const import CONFIG_LOOKBACK, CONFIG_RECORDER
-from viseron.domains.camera.fragmenter import Fragment
+from viseron.domains.camera.fragmenter import Fragment, generate_playlist
 from viseron.helpers import utcnow
 
 from tests.common import BaseTestWithRecordings, MockCamera
@@ -45,6 +51,8 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
         assert response.code == 200
         response_string = response.body.decode()
         assert response_string.count("#EXTINF") == 3
+        assert response_string.count("/api/v1/hls/segments/") == 3
+        assert "?first_tier_path=" not in response_string
         assert response_string.count("#EXT-X-ENDLIST") == 1
 
     def test_get_recording_hls_playlist_gap_segments(self):
@@ -83,6 +91,35 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
         response_string = response.body.decode()
         assert response_string.count("#EXTINF") == 11
         assert response_string.count("#EXT-X-DISCONTINUITY") == 1
+
+    def test_get_recording_hls_playlist_no_fragments_skips_init_lookup(self):
+        """Test getting a recording HLS playlist with no fragments."""
+        with self._get_db_session() as session:
+            session.execute(delete(Files))
+            session.commit()
+
+        mocked_camera = MockCamera(
+            identifier="test", config={CONFIG_RECORDER: {CONFIG_LOOKBACK: 5}}
+        )
+        with patch(
+            (
+                "viseron.components.webserver.request_handler.ViseronRequestHandler."
+                "_get_camera"
+            ),
+            return_value=mocked_camera,
+        ), patch(
+            (
+                "viseron.components.webserver.request_handler.ViseronRequestHandler"
+                "._get_session"
+            ),
+            return_value=self._get_db_session(),
+        ), patch(
+            "viseron.components.webserver.api.v1.hls._get_init_file",
+        ) as mock_get_init_file:
+            response = self.fetch("/api/v1/hls/test/1/index.m3u8")
+
+        assert response.code == 404
+        mock_get_init_file.assert_not_called()
 
     def test_get_recording_hls_ongoing(self):
         """Test getting a recording HLS playlist for a recording that has not ended."""
@@ -139,7 +176,7 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
                     + datetime.timedelta(hours=5)
                 )
                 filename = f"{int(timestamp.timestamp())}.m4s"
-                session.execute(
+                file_result = session.execute(
                     insert(Files).values(
                         tier_id=0,
                         tier_path="/test/",
@@ -152,6 +189,20 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
                         size=10,
                         orig_ctime=timestamp,
                         duration=5,
+                        created_at=timestamp,
+                    )
+                )
+                file_id = file_result.inserted_primary_key[0]
+                session.execute(
+                    insert(FileLocations).values(
+                        file_id=file_id,
+                        tier_id=0,
+                        tier_path="/test/",
+                        path=f"/test/{filename}",
+                        directory="test",
+                        filename=filename,
+                        size=10,
+                        state="available",
                         created_at=timestamp,
                     )
                 )
@@ -245,6 +296,38 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
         """Test getting HLS playlist for a specific time period with date not today."""
         self._get_hls_playlist_time_period(0, None, "2023-10-01", 0, 1)
 
+    def test_get_hls_playlist_time_period_no_fragments_skips_init_lookup(self):
+        """Test getting HLS playlist for a time period with no fragments."""
+        with self._get_db_session() as session:
+            session.execute(delete(Files))
+            session.commit()
+
+        mocked_camera = MockCamera(
+            identifier="test",
+        )
+        with patch(
+            (
+                "viseron.components.webserver.request_handler.ViseronRequestHandler."
+                "_get_camera"
+            ),
+            return_value=mocked_camera,
+        ), patch(
+            (
+                "viseron.components.webserver.request_handler.ViseronRequestHandler"
+                "._get_session"
+            ),
+            return_value=self._get_db_session(),
+        ), patch(
+            "viseron.components.webserver.api.v1.hls._get_init_file",
+        ) as mock_get_init_file:
+            response = self.fetch(
+                "/api/v1/hls/test/index.m3u8?"
+                f"start_timestamp={int(self._now.timestamp())}"
+            )
+
+        assert response.code == 404
+        mock_get_init_file.assert_not_called()
+
 
 def test_count_files_removed_no_files_removed():
     """Test count_files_removed with no files removed."""
@@ -310,3 +393,197 @@ def test_count_files_removed_all_files_changed():
         Fragment("file6", "file6", 1, utcnow()),
     ]
     assert count_files_removed(prev_list, curr_list) == 3
+
+
+def test_count_discontinuities_removed_no_gap():
+    """Test count_discontinuities_removed with no removed discontinuity."""
+    now = utcnow()
+    prev_list = [
+        Fragment("file1", "file1", 5, now),
+        Fragment("file2", "file2", 5, now + datetime.timedelta(seconds=5)),
+        Fragment("file3", "file3", 5, now + datetime.timedelta(seconds=10)),
+    ]
+    curr_list = [
+        Fragment("file2", "file2", 5, now + datetime.timedelta(seconds=5)),
+        Fragment("file3", "file3", 5, now + datetime.timedelta(seconds=10)),
+    ]
+
+    assert count_discontinuities_removed(prev_list, curr_list) == 0
+
+
+def test_count_discontinuities_removed_gap_before_new_first():
+    """Test count_discontinuities_removed counts removed gap boundary."""
+    now = utcnow()
+    prev_list = [
+        Fragment("file1", "file1", 5, now),
+        Fragment("file2", "file2", 5, now + datetime.timedelta(seconds=20)),
+        Fragment("file3", "file3", 5, now + datetime.timedelta(seconds=25)),
+    ]
+    curr_list = [
+        Fragment("file3", "file3", 5, now + datetime.timedelta(seconds=25)),
+    ]
+
+    assert count_discontinuities_removed(prev_list, curr_list) == 1
+
+
+def test_count_discontinuities_removed_no_overlap_counts_forward_gap():
+    """Test count_discontinuities_removed includes forward gap with no overlap."""
+    now = utcnow()
+    prev_list = [
+        Fragment("file1", "file1", 5, now),
+        Fragment("file2", "file2", 5, now + datetime.timedelta(seconds=20)),
+    ]
+    curr_list = [
+        Fragment("file3", "file3", 5, now + datetime.timedelta(seconds=40)),
+    ]
+
+    assert count_discontinuities_removed(prev_list, curr_list) == 2
+
+
+def test_count_discontinuities_removed_init_change():
+    """Test removed init changes count as discontinuities."""
+    now = utcnow()
+    prev_list = [
+        Fragment("file1", "file1", 5, now, "/init-a.mp4"),
+        Fragment(
+            "file2",
+            "file2",
+            5,
+            now + datetime.timedelta(seconds=5),
+            "/init-b.mp4",
+        ),
+        Fragment(
+            "file3",
+            "file3",
+            5,
+            now + datetime.timedelta(seconds=10),
+            "/init-b.mp4",
+        ),
+    ]
+    curr_list = [
+        Fragment(
+            "file3",
+            "file3",
+            5,
+            now + datetime.timedelta(seconds=10),
+            "/init-b.mp4",
+        ),
+    ]
+
+    assert count_discontinuities_removed(prev_list, curr_list) == 1
+
+
+def test_adjust_fragment_paths_uses_hls_file_id_urls():
+    """Test HLS fragments use logical segment URLs."""
+    files = [
+        SimpleNamespace(
+            id=123,
+            tier_id=0,
+            filename="1.m4s",
+            duration=5,
+            orig_ctime=utcnow(),
+            hls_init_hash=None,
+        )
+    ]
+
+    fragments = adjust_fragment_paths(MockCamera(identifier="test"), "/subpath", files)
+
+    assert fragments[0].path == "/subpath/api/v1/hls/segments/123.m4s"
+
+
+def test_adjust_fragment_paths_stable_across_tier_move():
+    """Test HLS segment URL remains stable when physical tier fields change."""
+    orig_ctime = utcnow()
+    before_move = [
+        SimpleNamespace(
+            id=123,
+            tier_id=0,
+            path="/segments/test/1.m4s",
+            filename="1.m4s",
+            duration=5,
+            orig_ctime=orig_ctime,
+            hls_init_hash=None,
+        )
+    ]
+    after_move = [
+        SimpleNamespace(
+            id=123,
+            tier_id=1,
+            path="/remote/segments/test/1.m4s",
+            filename="1.m4s",
+            duration=5,
+            orig_ctime=orig_ctime,
+            hls_init_hash=None,
+        )
+    ]
+
+    before_fragments = adjust_fragment_paths(
+        MockCamera(identifier="test"), "/subpath", before_move
+    )
+    after_fragments = adjust_fragment_paths(
+        MockCamera(identifier="test"), "/subpath", after_move
+    )
+
+    assert before_fragments[0].path == after_fragments[0].path
+    assert after_fragments[0].path == "/subpath/api/v1/hls/segments/123.m4s"
+
+
+def test_init_file_url_uses_camera_and_first_fragment_tier():
+    """Test HLS init URL does not expose filesystem paths."""
+    camera = MockCamera(identifier="test")
+    files = [SimpleNamespace(tier_id=2, hls_init_hash=None)]
+
+    assert _init_file_url(camera, "/subpath", files) == (
+        "/subpath/api/v1/hls/init/test/2.mp4"
+    )
+
+
+def test_init_file_url_uses_camera_and_init_hash():
+    """Test hash-addressed HLS init URL."""
+    camera = MockCamera(identifier="test")
+    files = [SimpleNamespace(tier_id=2, hls_init_hash="a" * 64)]
+
+    assert _init_file_url(camera, "/subpath", files) == (
+        f"/subpath/api/v1/hls/init/test/{'a' * 64}.mp4"
+    )
+
+
+def test_adjust_fragment_paths_adds_hash_init_url():
+    """Test HLS fragments carry hash-addressed init URLs."""
+    files = [
+        SimpleNamespace(
+            id=123,
+            tier_id=0,
+            filename="1.m4s",
+            duration=5,
+            orig_ctime=utcnow(),
+            hls_init_hash="b" * 64,
+        )
+    ]
+
+    fragments = adjust_fragment_paths(MockCamera(identifier="test"), "/subpath", files)
+
+    assert fragments[0].init_file == f"/subpath/api/v1/hls/init/test/{'b' * 64}.mp4"
+
+
+def test_generate_playlist_emits_new_map_when_init_changes():
+    """Test playlist switches EXT-X-MAP when fragment init changes."""
+    now = utcnow()
+    playlist = generate_playlist(
+        [
+            Fragment("1.m4s", "/segments/1.m4s", 5, now, "/init-a.mp4"),
+            Fragment(
+                "2.m4s",
+                "/segments/2.m4s",
+                5,
+                now + datetime.timedelta(seconds=5),
+                "/init-b.mp4",
+            ),
+        ],
+        "/fallback-init.mp4",
+    )
+
+    assert playlist.count("#EXT-X-MAP") == 2
+    assert '#EXT-X-MAP:URI="/init-a.mp4"' in playlist
+    assert '#EXT-X-MAP:URI="/init-b.mp4"' in playlist
+    assert playlist.count("#EXT-X-DISCONTINUITY") == 1

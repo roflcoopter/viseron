@@ -22,6 +22,48 @@ See the [table](#architecture-and-hardware-specific-images) below for supported 
 
 :::
 
+### Timeline replay testing
+
+For local Reolink replay testing, run the local test container and verify that segment data is being written before opening the UI.
+
+```shell
+local-test/run.sh
+podman ps --filter name=viseron-local-test
+podman exec viseron-local-test find /segments /remote/segments -type f | head
+```
+
+Open Chromium through `uwsm` first when testing the browser UI:
+
+```shell
+uwsm app -- chromium http://127.0.0.1:8888
+```
+
+If `http://localhost:8888` resets from the host browser, use the IPv4 loopback address instead:
+
+```text
+http://127.0.0.1:8888/#/events?camera=reolink&tab=timeline
+```
+
+Replay check:
+
+1. Wait for the live player to load and verify that video is playing.
+2. Click a visible timeline row that is inside the retained HLS playlist window. The local test setup has short retention, so older visible rows can already be outside the current playlist.
+3. Confirm the selected replay marker appears under the current live time.
+4. Confirm the video remains ready, has no media error, and advances over a few seconds.
+5. Test `Rewind 10 seconds`, `Forward 10 seconds`, `Pause`, `Play`, and `LIVE`.
+
+The active playlist window can be checked directly:
+
+```shell
+curl -sS "http://127.0.0.1:8888/api/v1/hls/reolink/index.m3u8?start_timestamp=$(date +%s)&date=$(date +%F)" | head -40
+```
+
+Known local-test observations:
+
+- Clicking inside the retained playlist window should replay smoothly and advance normally.
+- Clicking before the retained playlist window can move the replay marker while leaving the player paused at `0s`.
+- `Rewind 10 seconds` needs verification when changing HLS replay code. In one local test run, playback continued forward and the page showed an HLS `discontinuity sequence mismatch` warning.
+
 ### Rebuild Python dependencies (wheels)
 
 In order to speed up builds, Viseron uses precompiled Python wheels.

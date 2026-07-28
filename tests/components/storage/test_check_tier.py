@@ -1,22 +1,308 @@
 """Test the query functions."""
 
 import datetime
+import os
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+import pytest
 from sqlalchemy import update
+from sqlalchemy.exc import NoResultFound
 
 from viseron.components.storage.check_tier import (
     Worker,
+    copy_file_for_tier_worker,
+    delete_file,
     get_files_to_move,
     get_recordings_to_move,
     load_recordings,
     load_tier,
+    move_file_for_tier_worker,
 )
 from viseron.components.storage.models import Recordings
 from viseron.components.storage.storage_subprocess import DataItem
 
 from tests.common import BaseTestWithRecordings
+
+
+class FakeScalarResult:
+    """Fake SQLAlchemy scalar result."""
+
+    def scalar_one(self) -> None:
+        """Raise no result found."""
+        raise NoResultFound
+
+
+class FakeSession:
+    """Fake SQLAlchemy session."""
+
+    def __init__(self) -> None:
+        self.executed = False
+        self.committed = False
+
+    def __enter__(self):
+        """Return context manager session."""
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        """Exit context manager."""
+
+    def execute(self, _stmt):
+        """Record statement execution."""
+        self.executed = True
+        return FakeScalarResult()
+
+    def commit(self) -> None:
+        """Record commit."""
+        self.committed = True
+
+
+def test_check_tier_throttles_recent_non_forced_check() -> None:
+    """Recent tier checks should be throttled by default."""
+    item = DataItem(
+        cmd="check_tier",
+        camera_identifier="test",
+        tier_id=0,
+        category="recorder",
+        subcategories=["segments"],
+        throttle_period=datetime.timedelta(minutes=1),
+        max_bytes=0,
+        min_age=datetime.timedelta(seconds=0),
+        max_age=datetime.timedelta(seconds=0),
+        min_bytes=0,
+        drain=False,
+    )
+    worker = Worker.__new__(Worker)
+    worker._last_call = {item.throttle_key: datetime.datetime.now().timestamp()}
+    worker._check_locks = {}
+    worker._checks_in_progress = {}
+    worker._check_tier = MagicMock()
+
+    worker.check_tier(item)
+
+    worker._check_tier.assert_not_called()
+    assert item.data is None
+
+
+def test_check_tier_force_bypasses_recent_throttle() -> None:
+    """Forced tier checks should bypass the worker throttle."""
+    item = DataItem(
+        cmd="check_tier",
+        camera_identifier="test",
+        tier_id=0,
+        category="recorder",
+        subcategories=["segments"],
+        throttle_period=datetime.timedelta(minutes=1),
+        max_bytes=0,
+        min_age=datetime.timedelta(seconds=0),
+        max_age=datetime.timedelta(seconds=0),
+        min_bytes=0,
+        drain=False,
+        force=True,
+    )
+    worker = Worker.__new__(Worker)
+    worker._last_call = {item.throttle_key: datetime.datetime.now().timestamp()}
+    worker._check_locks = {}
+    worker._checks_in_progress = {}
+    worker._check_tier = MagicMock()
+
+    worker.check_tier(item)
+
+    worker._check_tier.assert_called_once_with(item)
+
+
+class TestFileOperations:
+    """Test destructive file operations."""
+
+    def test_move_file_destination_error_keeps_source_state(
+        self, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Destination failures must not delete source file or DB row."""
+        src = tmp_path / "src.m4s"
+        dst = tmp_path / "dst.m4s"
+        src.write_bytes(b"segment")
+        session = FakeSession()
+
+        def raise_oserror(_src: str, _dst: str) -> int:
+            raise OSError("destination unavailable")
+
+        monkeypatch.setattr(
+            "viseron.components.storage.check_tier.move_file_atomic",
+            raise_oserror,
+        )
+
+        with pytest.raises(OSError, match="destination unavailable"):
+            move_file_for_tier_worker(lambda: session, str(src), str(dst), MagicMock())
+
+        assert src.exists()
+        assert session.executed is False
+        assert session.committed is False
+
+    def test_move_file_missing_source_deletes_stale_db_row(self, tmp_path) -> None:
+        """Missing source means stale DB state, not a retryable move."""
+        src = tmp_path / "missing.m4s"
+        dst = tmp_path / "dst.m4s"
+        session = FakeSession()
+
+        result = move_file_for_tier_worker(
+            lambda: session, str(src), str(dst), MagicMock()
+        )
+
+        assert result.moved is False
+        assert result.published is False
+        assert result.source_missing is True
+        assert result.source_removed is False
+        assert result.source_remove_error is None
+        assert result.size is None
+        assert session.executed is True
+        assert session.committed is True
+
+    def test_move_file_source_remove_error_reports_published(
+        self, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A failed source cleanup must still report the destination as published."""
+        src = tmp_path / "src.m4s"
+        dst = tmp_path / "dst.m4s"
+        src.write_bytes(b"segment")
+        session = FakeSession()
+        real_remove = os.remove
+
+        def remove_with_source_error(path: str) -> None:
+            if path == str(src):
+                raise OSError("unlink failed")
+            real_remove(path)
+
+        monkeypatch.setattr(
+            "viseron.components.storage.util.os.remove",
+            remove_with_source_error,
+        )
+
+        result = move_file_for_tier_worker(
+            lambda: session, str(src), str(dst), MagicMock()
+        )
+
+        assert result.moved is True
+        assert result.published is True
+        assert result.source_missing is False
+        assert result.source_removed is False
+        assert result.source_remove_error == "unlink failed"
+        assert result.size == len(b"segment")
+        assert src.exists()
+        assert dst.read_bytes() == b"segment"
+        assert session.executed is False
+        assert session.committed is False
+
+    def test_move_file_replace_error_after_publish_reports_published(
+        self, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An ACK-lost replace should commit if the destination verifies."""
+        src = tmp_path / "src.m4s"
+        dst = tmp_path / "dst.m4s"
+        src.write_bytes(b"segment")
+        session = FakeSession()
+        real_replace = os.replace
+
+        def replace_then_error(src_path: str, dst_path: str) -> None:
+            real_replace(src_path, dst_path)
+            raise OSError("replace ack lost")
+
+        monkeypatch.setattr(
+            "viseron.components.storage.util.os.replace",
+            replace_then_error,
+        )
+
+        result = move_file_for_tier_worker(
+            lambda: session, str(src), str(dst), MagicMock()
+        )
+
+        assert result.moved is True
+        assert result.published is True
+        assert result.source_missing is False
+        assert result.source_removed is True
+        assert result.source_remove_error is None
+        assert result.size == len(b"segment")
+        assert not src.exists()
+        assert dst.read_bytes() == b"segment"
+        assert session.executed is False
+        assert session.committed is False
+
+    def test_delete_file_transient_error_keeps_db_row(
+        self, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A failed remove should not delete the DB row."""
+        src = tmp_path / "src.m4s"
+        src.write_bytes(b"segment")
+        session = FakeSession()
+
+        def raise_oserror(_path: str) -> None:
+            raise OSError("remove failed")
+
+        monkeypatch.setattr(
+            "viseron.components.storage.check_tier.os.remove", raise_oserror
+        )
+
+        with pytest.raises(OSError, match="remove failed"):
+            delete_file(lambda: session, str(src), MagicMock())
+
+        assert session.executed is False
+        assert session.committed is False
+
+    def test_move_file_unavailable_parent_keeps_db_row(
+        self, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Unavailable source/destination parents should not delete DB rows."""
+        src = tmp_path / "src.m4s"
+        dst = tmp_path / "dst.m4s"
+        src.write_bytes(b"segment")
+        session = FakeSession()
+
+        def raise_oserror(_path: str) -> None:
+            raise OSError("parent unavailable")
+
+        monkeypatch.setattr(
+            "viseron.components.storage.check_tier.raise_if_path_unavailable",
+            raise_oserror,
+        )
+
+        with pytest.raises(OSError, match="parent unavailable"):
+            move_file_for_tier_worker(lambda: session, str(src), str(dst), MagicMock())
+
+        assert session.executed is False
+        assert session.committed is False
+
+    def test_copy_file_copies_without_removing_source(self, tmp_path) -> None:
+        """Copying sidecars should publish dst and preserve src."""
+        src = tmp_path / "src" / "init.mp4"
+        dst = tmp_path / "dst" / "init.mp4"
+        src.parent.mkdir()
+        dst.parent.mkdir()
+        src.write_bytes(b"init")
+
+        result = copy_file_for_tier_worker(str(src), str(dst), MagicMock())
+
+        assert result.copied is True
+        assert result.published is True
+        assert result.source_missing is False
+        assert result.size == len(b"init")
+        assert src.read_bytes() == b"init"
+        assert dst.read_bytes() == b"init"
+
+    def test_copy_file_missing_source_reports_existing_destination(
+        self, tmp_path
+    ) -> None:
+        """A missing source is OK if the destination sidecar already exists."""
+        src = tmp_path / "src" / "init.mp4"
+        dst = tmp_path / "dst" / "init.mp4"
+        src.parent.mkdir()
+        dst.parent.mkdir()
+        dst.write_bytes(b"init")
+
+        result = copy_file_for_tier_worker(str(src), str(dst), MagicMock())
+
+        assert result.copied is False
+        assert result.published is True
+        assert result.source_missing is True
+        assert result.size == len(b"init")
 
 
 class TestCheckTier(BaseTestWithRecordings):

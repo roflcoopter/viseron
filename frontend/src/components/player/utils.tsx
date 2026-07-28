@@ -33,7 +33,7 @@ export function getVideoElement(
         camera={camera}
         recording={recording}
         loop
-        poster={`${recording.thumbnail_path}`}
+        poster={recording.thumbnail_url || undefined}
       />
     </Suspense>
   );

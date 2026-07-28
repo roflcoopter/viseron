@@ -13,20 +13,36 @@ from typing import TYPE_CHECKING, Any
 
 import setproctitle
 from apscheduler.triggers.cron import CronTrigger
-from sqlalchemy import and_, delete, exists, func, select
+from sqlalchemy import and_, delete, exists, func, or_, select, update
 
 from viseron.components.storage.const import (
     TIER_CATEGORY_RECORDER,
+    TIER_CATEGORY_SNAPSHOTS,
+    TIER_SUBCATEGORY_EVENT_CLIPS,
+    TIER_SUBCATEGORY_MOTION_DETECTOR,
+    TIER_SUBCATEGORY_OBJECT_DETECTOR,
     TIER_SUBCATEGORY_SEGMENTS,
+    TIER_SUBCATEGORY_THUMBNAILS,
     CleanupJobNames,
+)
+from viseron.components.storage.files import (
+    find_file_id_for_artifact_path,
+    repair_file_locations,
 )
 from viseron.components.storage.models import (
     Events,
+    FileLocations,
+    FileLocationState,
     Files,
     Motion,
     Objects,
     PostProcessorResults,
     Recordings,
+)
+from viseron.components.storage.util import (
+    is_storage_temp_file,
+    path_exists,
+    tier_path_available,
 )
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
@@ -49,6 +65,45 @@ LOGGER = logging.getLogger(__name__)
 LOG_THROTTLE_SECONDS = 5
 
 BATCH_SIZE = 100
+ORPHAN_FILE_GRACE_SECONDS = 5 * 60
+STALE_TEMP_FILE_SECONDS = 60 * 60
+
+
+def try_remove_file(path: str, job_name: str, *, missing_ok: bool = False) -> bool:
+    """Return if cleanup can proceed after attempting to remove a file."""
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        return missing_ok
+    except OSError as error:
+        LOGGER.warning("%s failed to delete file %s: %s", job_name, path, error)
+        return False
+    return True
+
+
+def try_delete_orphan_file(
+    path: str,
+    job_name: str,
+    *,
+    file_exists: bool,
+    stat_result: os.stat_result | None = None,
+) -> bool:
+    """Delete an old orphan file while preserving transient filesystem errors."""
+    if file_exists:
+        return False
+
+    if stat_result is None:
+        try:
+            stat_result = os.stat(path)
+        except FileNotFoundError:
+            return False
+        except OSError as error:
+            LOGGER.warning("%s skipping unavailable file %s: %s", job_name, path, error)
+            return False
+
+    if time.time() - stat_result.st_mtime <= ORPHAN_FILE_GRACE_SECONDS:
+        return False
+    return try_remove_file(path, job_name)
 
 
 class BaseCleanupJob(ABC):
@@ -127,6 +182,7 @@ class BaseTableCleanupJob(BaseCleanupJob):
         session: Session,
         table: type[PostProcessorResults | Motion | Objects],
         path_column: Any,
+        file_id_column: Any,
     ) -> None:
         """Delete orphaned records in batches using cursor-based pagination.
 
@@ -134,6 +190,7 @@ class BaseTableCleanupJob(BaseCleanupJob):
             session: Database session
             table: SQLAlchemy table to clean up
             path_column: Column containing the file path to check against Files table
+            file_id_column: Column containing the Files id to check against Files table
         """
         total_deleted = 0
         last_id = 0
@@ -148,11 +205,20 @@ class BaseTableCleanupJob(BaseCleanupJob):
 
             # Get next batch of records that need checking
             batch = session.execute(
-                select(table.id, path_column)
+                select(table.id, path_column, file_id_column)
                 .where(
                     and_(
                         table.id > last_id,
-                        ~exists().where(Files.path == path_column),
+                        or_(
+                            and_(
+                                file_id_column.is_not(None),
+                                ~exists().where(Files.id == file_id_column),
+                            ),
+                            and_(
+                                file_id_column.is_(None),
+                                ~exists().where(FileLocations.path == path_column),
+                            ),
+                        ),
                         table.created_at
                         < cutoff_time,  # Only consider records older than 5 minutes
                     )
@@ -226,6 +292,9 @@ class OrphanedFilesCleanup(BaseCleanupJob):
             for path in paths:
                 if self.kill_event.is_set():
                     break
+                if not tier_path_available(path):
+                    LOGGER.warning("%s skipping unavailable path %s", self.name, path)
+                    continue
                 LOGGER.debug("%s checking %s", self.name, path)
                 for root, _, files in os.walk(path):
                     if self.kill_event.is_set():
@@ -238,14 +307,44 @@ class OrphanedFilesCleanup(BaseCleanupJob):
 
                         total_files_processed += 1
                         files_processed += 1
-                        if file in self._storage.ignored_files:
+                        if self._storage.is_ignored_file(file):
                             continue
                         file_path = os.path.join(root, file)
+                        try:
+                            stat_result = os.stat(file_path)
+                        except FileNotFoundError:
+                            continue
+                        except OSError as error:
+                            LOGGER.warning(
+                                "%s skipping file %s: %s",
+                                self.name,
+                                file_path,
+                                error,
+                            )
+                            continue
+                        file_age = time.time() - stat_result.st_mtime
+                        if is_storage_temp_file(file_path):
+                            if file_age <= STALE_TEMP_FILE_SECONDS:
+                                continue
+                            if try_remove_file(file_path, self.name):
+                                LOGGER.debug(
+                                    "%s deleted stale temporary file %s",
+                                    self.name,
+                                    file_path,
+                                )
+                                deleted_count += 1
+                            continue
                         file_exists = session.execute(
-                            select(Files).where(Files.path == file_path)
+                            select(FileLocations.id).where(
+                                FileLocations.path == file_path
+                            )
                         ).first()
-                        if not file_exists and os.path.exists(file_path):
-                            os.remove(file_path)
+                        if try_delete_orphan_file(
+                            file_path,
+                            self.name,
+                            file_exists=file_exists is not None,
+                            stat_result=stat_result,
+                        ):
                             LOGGER.debug("%s deleted %s", self.name, file_path)
                             deleted_count += 1
                         self.log_progress(
@@ -269,7 +368,7 @@ class OrphanedFilesCleanup(BaseCleanupJob):
 
 
 class OrphanedDatabaseFilesCleanup(BaseCleanupJob):
-    """Cleanup job that removes rows from Files with no corresponding files on disk."""
+    """Cleanup job that removes stale physical locations from the database."""
 
     @property
     def name(self) -> str:
@@ -288,45 +387,88 @@ class OrphanedDatabaseFilesCleanup(BaseCleanupJob):
             count = session.execute(
                 select(
                     func.count(),  # pylint: disable=not-callable
-                ).select_from(Files)
+                ).select_from(FileLocations)
             ).scalar()
+
+            pending_locations = session.execute(
+                select(FileLocations.id, FileLocations.file_id, FileLocations.path)
+                .where(FileLocations.state == FileLocationState.PENDING_DELETE.value)
+                .order_by(FileLocations.id)
+                .limit(BATCH_SIZE)
+            ).all()
+            for location_id, file_id, file_path in pending_locations:
+                if self.kill_event.is_set():
+                    break
+                if try_remove_file(file_path, self.name, missing_ok=True):
+                    session.execute(
+                        delete(FileLocations).where(FileLocations.id == location_id)
+                    )
+                    if not session.execute(
+                        select(FileLocations.id)
+                        .where(FileLocations.file_id == file_id)
+                        .limit(1)
+                    ).first():
+                        session.execute(delete(Files).where(Files.id == file_id))
+                    total_deleted += 1
+            session.commit()
 
             while True:
                 if self.kill_event.is_set():
                     break
 
-                # Get next batch of files to check
+                # Get next batch of physical locations to check.
                 time.sleep(1)
-                files = session.execute(
-                    select(Files.id, Files.path)
-                    .where(Files.id > last_id)
-                    .order_by(Files.id)
+                locations = session.execute(
+                    select(FileLocations.id, FileLocations.file_id, FileLocations.path)
+                    .where(FileLocations.id > last_id)
+                    .where(FileLocations.state == FileLocationState.AVAILABLE.value)
+                    .order_by(FileLocations.id)
                     .limit(BATCH_SIZE)
                 ).all()
 
-                if not files:
+                if not locations:
                     break
 
                 # Update cursor
-                last_id = files[-1][0]
+                last_id = locations[-1][0]
 
-                # Find records where files don't exist
-                to_delete = [
-                    file_id
-                    for file_id, file_path in files
-                    if not os.path.exists(file_path)
-                ]
+                # Find records where physical locations don't exist. Non-missing
+                # OSError is treated as transient so unavailable tiers do not erase
+                # metadata.
+                to_delete: list[tuple[int, int]] = []
+                for location_id, file_id, file_path in locations:
+                    try:
+                        if not path_exists(file_path):
+                            to_delete.append((location_id, file_id))
+                    except OSError as error:
+                        LOGGER.warning(
+                            "%s skipping unavailable file %s: %s",
+                            self.name,
+                            file_path,
+                            error,
+                        )
 
                 if to_delete:
+                    location_ids = [location_id for location_id, _ in to_delete]
+                    file_ids = {file_id for _, file_id in to_delete}
                     result = session.execute(
-                        delete(Files).where(Files.id.in_(to_delete))
+                        delete(FileLocations).where(FileLocations.id.in_(location_ids))
                     )
+                    for file_id in file_ids:
+                        if not session.execute(
+                            select(FileLocations.id)
+                            .where(FileLocations.file_id == file_id)
+                            .limit(1)
+                        ).first():
+                            session.execute(delete(Files).where(Files.id == file_id))
                     session.commit()
                     total_deleted += result.rowcount
                     LOGGER.debug(
-                        "%s deleted %d rows in batch", self.name, result.rowcount
+                        "%s deleted %d location rows in batch",
+                        self.name,
+                        result.rowcount,
                     )
-                total_files_processed += len(files)
+                total_files_processed += len(locations)
                 self.log_progress(
                     f"{self.name} processed {total_files_processed}/{count} files"
                 )
@@ -369,15 +511,17 @@ class ZeroSizeFilesCleanup(BaseCleanupJob):
 
                 batch = (
                     session.execute(
-                        select(Files)
+                        select(FileLocations)
                         .where(
                             and_(
-                                Files.id > last_id,
-                                Files.size == 0,
-                                Files.created_at < cutoff_time,
+                                FileLocations.id > last_id,
+                                FileLocations.size == 0,
+                                FileLocations.created_at < cutoff_time,
+                                FileLocations.state
+                                == FileLocationState.AVAILABLE.value,
                             )
                         )
-                        .order_by(Files.id)
+                        .order_by(FileLocations.id)
                         .limit(BATCH_SIZE)
                     )
                     .scalars()
@@ -390,27 +534,55 @@ class ZeroSizeFilesCleanup(BaseCleanupJob):
                 last_id = batch[-1].id
 
                 to_delete_ids: list[int] = []
-                for file_row in batch:
+                affected_file_ids: set[int] = set()
+                for location in batch:
                     if self.kill_event.is_set():
                         break
                     processed += 1
-                    path = file_row.path
+                    path = location.path
                     try:
                         stat_size = os.path.getsize(path)
+                    except FileNotFoundError:
+                        to_delete_ids.append(location.id)
+                        affected_file_ids.add(location.file_id)
+                        deleted += 1
+                        continue
                     except OSError:
-                        stat_size = 0
+                        LOGGER.warning(
+                            "%s skipping unavailable file %s", self.name, path
+                        )
+                        continue
 
                     if stat_size > 0:
-                        file_row.size = stat_size
+                        location.size = stat_size
+                        session.execute(
+                            update(Files)
+                            .where(Files.path == location.path)
+                            .values(size=stat_size)
+                        )
                         updated += 1
                     else:
-                        if os.path.exists(path):
-                            os.remove(path)
-                        to_delete_ids.append(file_row.id)
-                        deleted += 1
+                        # Only drop the DB row after a confirmed delete. Remote
+                        # filesystems can report transient unlink errors, and in
+                        # that case the row should survive for a later retry.
+                        if try_remove_file(path, self.name, missing_ok=True):
+                            to_delete_ids.append(location.id)
+                            affected_file_ids.add(location.file_id)
+                            deleted += 1
 
                 if to_delete_ids:
-                    session.execute(delete(Files).where(Files.id.in_(to_delete_ids)))
+                    session.execute(
+                        delete(FileLocations).where(
+                            FileLocations.id.in_(to_delete_ids)
+                        )
+                    )
+                    for file_id in affected_file_ids:
+                        if not session.execute(
+                            select(FileLocations.id)
+                            .where(FileLocations.file_id == file_id)
+                            .limit(1)
+                        ).first():
+                            session.execute(delete(Files).where(Files.id == file_id))
                 session.commit()
                 time.sleep(0.5)
 
@@ -464,6 +636,9 @@ class EmptyFoldersCleanup(BaseCleanupJob):
 
         for path in paths:
             time.sleep(1)
+            if not tier_path_available(path):
+                LOGGER.warning("%s skipping unavailable path %s", self.name, path)
+                continue
             for root, dirs, files in os.walk(path, topdown=False):
                 processed_count += 1
                 self.log_progress(f"{self.name} processed {processed_count} folders")
@@ -471,8 +646,17 @@ class EmptyFoldersCleanup(BaseCleanupJob):
                     continue
                 if not dirs and not files:
                     LOGGER.debug("Deleting folder %s", root)
-                    os.rmdir(root)
-                    deleted_count += 1
+                    try:
+                        os.rmdir(root)
+                    except OSError as error:
+                        LOGGER.debug(
+                            "%s failed to delete folder %s: %s",
+                            self.name,
+                            root,
+                            error,
+                        )
+                    else:
+                        deleted_count += 1
 
         LOGGER.debug(
             "%s deleted %d empty folders, took %s",
@@ -508,7 +692,23 @@ class OrphanedThumbnailsCleanup(BaseCleanupJob):
         with self._storage.get_session() as session:
             for thumbnails_path in paths:
                 files_processed = 0
-                if not os.path.exists(thumbnails_path):
+                try:
+                    if not path_exists(thumbnails_path):
+                        continue
+                except OSError as error:
+                    LOGGER.warning(
+                        "%s skipping unavailable path %s: %s",
+                        self.name,
+                        thumbnails_path,
+                        error,
+                    )
+                    continue
+                if not tier_path_available(thumbnails_path):
+                    LOGGER.warning(
+                        "%s skipping unavailable path %s",
+                        self.name,
+                        thumbnails_path,
+                    )
                     continue
 
                 files_to_check: list[str] = []
@@ -516,7 +716,8 @@ class OrphanedThumbnailsCleanup(BaseCleanupJob):
                     files_to_check.extend(
                         os.path.join(root, f)
                         for f in files
-                        if f not in self._storage.ignored_files
+                        if not self._storage.is_ignored_file(f)
+                        and not is_storage_temp_file(f)
                     )
 
                 # Process files in batches
@@ -533,13 +734,29 @@ class OrphanedThumbnailsCleanup(BaseCleanupJob):
                             )
                         ).all()
                     }
+                    existing_thumbnails.update(
+                        row[0]
+                        for row in session.execute(
+                            select(FileLocations.path)
+                            .join(
+                                Files,
+                                Files.id == FileLocations.file_id,
+                            )
+                            .join(
+                                Recordings,
+                                Recordings.thumbnail_file_id == Files.id,
+                            )
+                            .where(FileLocations.path.in_(batch))
+                        ).all()
+                    )
 
                     # Delete files that don't exist in database
                     for file_path in batch:
-                        if file_path not in existing_thumbnails and os.path.exists(
-                            file_path
+                        if try_delete_orphan_file(
+                            file_path,
+                            self.name,
+                            file_exists=file_path in existing_thumbnails,
                         ):
-                            os.remove(file_path)
                             deleted_count += 1
                         total_files_processed += 1
                         files_processed += 1
@@ -591,7 +808,23 @@ class OrphanedEventClipsCleanup(BaseCleanupJob):
         with self._storage.get_session() as session:
             for event_clips_path in paths:
                 files_processed = 0
-                if not os.path.exists(event_clips_path):
+                try:
+                    if not path_exists(event_clips_path):
+                        continue
+                except OSError as error:
+                    LOGGER.warning(
+                        "%s skipping unavailable path %s: %s",
+                        self.name,
+                        event_clips_path,
+                        error,
+                    )
+                    continue
+                if not tier_path_available(event_clips_path):
+                    LOGGER.warning(
+                        "%s skipping unavailable path %s",
+                        self.name,
+                        event_clips_path,
+                    )
                     continue
 
                 # Collect all files first
@@ -600,7 +833,8 @@ class OrphanedEventClipsCleanup(BaseCleanupJob):
                     files_to_check.extend(
                         os.path.join(root, f)
                         for f in files
-                        if f not in self._storage.ignored_files
+                        if not self._storage.is_ignored_file(f)
+                        and not is_storage_temp_file(f)
                     )
 
                 # Process files in batches
@@ -617,13 +851,23 @@ class OrphanedEventClipsCleanup(BaseCleanupJob):
                             )
                         ).all()
                     }
+                    existing_clips.update(
+                        row[0]
+                        for row in session.execute(
+                            select(FileLocations.path)
+                            .join(Files, Files.id == FileLocations.file_id)
+                            .join(Recordings, Recordings.clip_file_id == Files.id)
+                            .where(FileLocations.path.in_(batch))
+                        ).all()
+                    )
 
                     # Delete files that don't exist in database
                     for file_path in batch:
-                        if file_path not in existing_clips and os.path.exists(
-                            file_path
+                        if try_delete_orphan_file(
+                            file_path,
+                            self.name,
+                            file_exists=file_path in existing_clips,
                         ):
-                            os.remove(file_path)
                             deleted_count += 1
                         total_files_processed += 1
                         files_processed += 1
@@ -761,7 +1005,10 @@ class OrphanedPostProcessorResultsCleanup(BaseTableCleanupJob):
         LOGGER.debug("Running %s", self.name)
         with self._storage.get_session() as session:
             self.batch_delete_orphaned(
-                session, PostProcessorResults, PostProcessorResults.snapshot_path
+                session,
+                PostProcessorResults,
+                PostProcessorResults.snapshot_path,
+                PostProcessorResults.snapshot_file_id,
             )
 
 
@@ -782,7 +1029,9 @@ class OrphanedObjectsCleanup(BaseTableCleanupJob):
         """Run the job."""
         LOGGER.debug("Running %s", self.name)
         with self._storage.get_session() as session:
-            self.batch_delete_orphaned(session, Objects, Objects.snapshot_path)
+            self.batch_delete_orphaned(
+                session, Objects, Objects.snapshot_path, Objects.snapshot_file_id
+            )
 
 
 class OrphanedMotionCleanup(BaseTableCleanupJob):
@@ -802,7 +1051,9 @@ class OrphanedMotionCleanup(BaseTableCleanupJob):
         """Run the job."""
         LOGGER.debug("Running %s", self.name)
         with self._storage.get_session() as session:
-            self.batch_delete_orphaned(session, Motion, Motion.snapshot_path)
+            self.batch_delete_orphaned(
+                session, Motion, Motion.snapshot_path, Motion.snapshot_file_id
+            )
 
 
 class OldEventsCleanup(BaseCleanupJob):
@@ -835,6 +1086,303 @@ class OldEventsCleanup(BaseCleanupJob):
             )
 
 
+class FileReferencesRepair(BaseCleanupJob):
+    """Repair stale file rows and missing file-id artifact references."""
+
+    def __init__(
+        self, vis: Viseron, storage: Storage, interval_trigger: IntervalTrigger
+    ) -> None:
+        super().__init__(vis, storage, interval_trigger)
+        self._queued_file_ids: set[int] = set()
+        self._queued_file_ids_lock = threading.Lock()
+        self._active_file_ids: set[int] | None = None
+
+    @property
+    def name(self) -> str:
+        """Return job name."""
+        return CleanupJobNames.FILE_REFERENCES.value
+
+    def queue_file_id(self, file_id: int) -> None:
+        """Queue a specific Files row for repair."""
+        with self._queued_file_ids_lock:
+            self._queued_file_ids.add(file_id)
+
+    def _pop_queued_file_ids(self) -> set[int]:
+        """Pop queued Files row ids."""
+        with self._queued_file_ids_lock:
+            queued_file_ids = set(self._queued_file_ids)
+            self._queued_file_ids.clear()
+        return queued_file_ids
+
+    def run(self) -> None:
+        """Run the repair job using multiprocessing."""
+        with self.run_lock:
+            if self.running:
+                return
+            self.running = True
+
+        self._active_file_ids = self._pop_queued_file_ids()
+        process = RestartableProcess(
+            name=self.name, target=self._wrapped_run, daemon=True, register=False
+        )
+        process.start()
+        process.join()
+        self._active_file_ids = None
+
+        with self.run_lock:
+            self.running = False
+
+    def _repair_files(self, session: Session, file_ids: set[int] | None = None) -> int:
+        """Repair stale Files rows."""
+        repaired = 0
+        last_id = 0
+        while True:
+            if self.kill_event.is_set():
+                break
+
+            stmt = select(Files).order_by(Files.id).limit(BATCH_SIZE)
+            if file_ids is not None:
+                if not file_ids:
+                    break
+                stmt = stmt.where(Files.id.in_(file_ids))
+            else:
+                stmt = stmt.where(Files.id > last_id)
+
+            batch = session.execute(stmt).scalars().all()
+            if not batch:
+                break
+
+            if file_ids is None:
+                last_id = batch[-1].id
+
+            for file in batch:
+                if repair_file_locations(session, self._storage, file):
+                    repaired += 1
+            session.commit()
+            self.log_progress(f"{self.name} repaired {repaired} Files rows")
+            if file_ids is not None:
+                break
+            time.sleep(1)
+        return repaired
+
+    def _repair_recording_references(self, session: Session) -> int:
+        """Repair missing recording file references from legacy paths."""
+        repaired = 0
+        last_id = 0
+        while True:
+            if self.kill_event.is_set():
+                break
+            batch = session.execute(
+                select(
+                    Recordings.id,
+                    Recordings.camera_identifier,
+                    Recordings.thumbnail_path,
+                    Recordings.thumbnail_file_id,
+                    Recordings.clip_path,
+                    Recordings.clip_file_id,
+                )
+                .where(Recordings.id > last_id)
+                .where(
+                    or_(
+                        and_(
+                            Recordings.thumbnail_file_id.is_(None),
+                            Recordings.thumbnail_path.is_not(None),
+                        ),
+                        and_(
+                            Recordings.clip_file_id.is_(None),
+                            Recordings.clip_path.is_not(None),
+                        ),
+                    )
+                )
+                .order_by(Recordings.id)
+                .limit(BATCH_SIZE)
+            ).all()
+            if not batch:
+                break
+
+            last_id = batch[-1].id
+            for recording in batch:
+                values = {}
+                if (
+                    recording.thumbnail_file_id is None
+                    and recording.thumbnail_path is not None
+                ):
+                    file_id = find_file_id_for_artifact_path(
+                        session,
+                        self._storage,
+                        recording.camera_identifier,
+                        TIER_CATEGORY_RECORDER,
+                        TIER_SUBCATEGORY_THUMBNAILS,
+                        recording.thumbnail_path,
+                    )
+                    if file_id is not None:
+                        values["thumbnail_file_id"] = file_id
+
+                if recording.clip_file_id is None and recording.clip_path is not None:
+                    file_id = find_file_id_for_artifact_path(
+                        session,
+                        self._storage,
+                        recording.camera_identifier,
+                        TIER_CATEGORY_RECORDER,
+                        TIER_SUBCATEGORY_EVENT_CLIPS,
+                        recording.clip_path,
+                    )
+                    if file_id is not None:
+                        values["clip_file_id"] = file_id
+
+                if values:
+                    session.execute(
+                        update(Recordings)
+                        .where(Recordings.id == recording.id)
+                        .values(**values)
+                    )
+                    repaired += len(values)
+            session.commit()
+            self.log_progress(f"{self.name} repaired {repaired} recording refs")
+            time.sleep(1)
+        return repaired
+
+    def _repair_snapshot_references(self, session: Session) -> int:
+        """Repair missing snapshot file references from legacy paths."""
+        repaired = 0
+        repaired += self._repair_snapshot_table(
+            session,
+            Objects,
+            Objects.snapshot_path,
+            Objects.snapshot_file_id,
+            TIER_SUBCATEGORY_OBJECT_DETECTOR,
+        )
+        repaired += self._repair_snapshot_table(
+            session,
+            Motion,
+            Motion.snapshot_path,
+            Motion.snapshot_file_id,
+            TIER_SUBCATEGORY_MOTION_DETECTOR,
+        )
+        repaired += self._repair_post_processor_references(session)
+        return repaired
+
+    def _repair_snapshot_table(
+        self,
+        session: Session,
+        table: type[Objects | Motion],
+        path_column: Any,
+        file_id_column: Any,
+        subcategory: str,
+    ) -> int:
+        """Repair missing snapshot references for one table."""
+        repaired = 0
+        last_id = 0
+        while True:
+            if self.kill_event.is_set():
+                break
+            batch = session.execute(
+                select(table.id, table.camera_identifier, path_column)
+                .where(table.id > last_id)
+                .where(file_id_column.is_(None))
+                .where(path_column.is_not(None))
+                .order_by(table.id)
+                .limit(BATCH_SIZE)
+            ).all()
+            if not batch:
+                break
+
+            last_id = batch[-1].id
+            for row in batch:
+                file_id = find_file_id_for_artifact_path(
+                    session,
+                    self._storage,
+                    row.camera_identifier,
+                    TIER_CATEGORY_SNAPSHOTS,
+                    subcategory,
+                    row[2],
+                )
+                if file_id is None:
+                    continue
+                session.execute(
+                    update(table).where(table.id == row.id).values(
+                        {file_id_column.key: file_id}
+                    )
+                )
+                repaired += 1
+            session.commit()
+            self.log_progress(f"{self.name} repaired {repaired} snapshot refs")
+            time.sleep(1)
+        return repaired
+
+    def _repair_post_processor_references(self, session: Session) -> int:
+        """Repair missing post-processor snapshot references."""
+        repaired = 0
+        last_id = 0
+        while True:
+            if self.kill_event.is_set():
+                break
+            batch = session.execute(
+                select(
+                    PostProcessorResults.id,
+                    PostProcessorResults.camera_identifier,
+                    PostProcessorResults.domain,
+                    PostProcessorResults.snapshot_path,
+                )
+                .where(PostProcessorResults.id > last_id)
+                .where(PostProcessorResults.snapshot_file_id.is_(None))
+                .where(PostProcessorResults.snapshot_path.is_not(None))
+                .order_by(PostProcessorResults.id)
+                .limit(BATCH_SIZE)
+            ).all()
+            if not batch:
+                break
+
+            last_id = batch[-1].id
+            for row in batch:
+                file_id = find_file_id_for_artifact_path(
+                    session,
+                    self._storage,
+                    row.camera_identifier,
+                    TIER_CATEGORY_SNAPSHOTS,
+                    row.domain,
+                    row.snapshot_path,
+                )
+                if file_id is None:
+                    continue
+                session.execute(
+                    update(PostProcessorResults)
+                    .where(PostProcessorResults.id == row.id)
+                    .values(snapshot_file_id=file_id)
+                )
+                repaired += 1
+            session.commit()
+            self.log_progress(f"{self.name} repaired {repaired} post processor refs")
+            time.sleep(1)
+        return repaired
+
+    def _run(self) -> None:
+        """Run the job."""
+        now = time.time()
+        queued_file_ids = self._active_file_ids or set()
+        LOGGER.debug(
+            "Running %s%s",
+            self.name,
+            f" for {len(queued_file_ids)} queued files" if queued_file_ids else "",
+        )
+        with self._storage.get_session() as session:
+            repaired_files = self._repair_files(
+                session, queued_file_ids if queued_file_ids else None
+            )
+            repaired_references = 0
+            if not queued_file_ids:
+                repaired_references += self._repair_recording_references(session)
+                repaired_references += self._repair_snapshot_references(session)
+
+        LOGGER.debug(
+            "%s repaired %d Files rows and %d artifact refs, took %s",
+            self.name,
+            repaired_files,
+            repaired_references,
+            time.time() - now,
+        )
+
+
 class CleanupManager:
     """Manager class that handles scheduling and running of cleanup jobs.
 
@@ -861,6 +1409,9 @@ class CleanupManager:
             OrphanedObjectsCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
             OrphanedMotionCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
             OldEventsCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
+            FileReferencesRepair(
+                vis, storage, CronTrigger(minute="*/15", jitter=120)
+            ),
         ]
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
 
@@ -878,6 +1429,14 @@ class CleanupManager:
                     register=False,
                     daemon=True,
                 ).start()
+                return
+
+    def queue_file_reference_repair(self, file_id: int) -> None:
+        """Queue a specific Files row for asynchronous reference repair."""
+        for job in self.jobs:
+            if isinstance(job, FileReferencesRepair):
+                job.queue_file_id(file_id)
+                self.run_job(CleanupJobNames.FILE_REFERENCES)
                 return
 
     def start(self) -> None:

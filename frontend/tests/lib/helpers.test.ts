@@ -107,7 +107,7 @@ describe("getVideoElement", () => {
   it("should render HlsVodPlayer if recording has values", async () => {
     import("components/player/hlsplayer/HlsVodPlayer");
     const recording: types.Recording = {
-      thumbnail_path: "thumbnail.jpg",
+      thumbnail_url: "thumbnail.jpg",
       hls_url: "video.m3u8",
       id: 0,
       camera_identifier: "",

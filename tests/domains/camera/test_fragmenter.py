@@ -75,6 +75,32 @@ def test_generate_playlist() -> None:
     )
 
 
+def test_generate_playlist_discontinuity_sequence() -> None:
+    """Test generate_playlist uses independent discontinuity sequence."""
+    now = utcnow()
+    fragments = [
+        Fragment("test1.mp4", "/test/test1.mp4", 5, now),
+        Fragment(
+            "test2.mp4",
+            "/test/test2.mp4",
+            5,
+            now + datetime.timedelta(seconds=20),
+        ),
+    ]
+
+    playlist = generate_playlist(
+        fragments,
+        "/test/init.mp4",
+        media_sequence=12,
+        discontinuity_sequence=3,
+    )
+
+    playlist_lines = playlist.splitlines()
+    assert "#EXT-X-MEDIA-SEQUENCE:12" in playlist
+    assert "#EXT-X-DISCONTINUITY-SEQUENCE:3" in playlist
+    assert playlist_lines.count("#EXT-X-DISCONTINUITY") == 1
+
+
 class TestFragmenter:
     """Tests for Fragmenter."""
 

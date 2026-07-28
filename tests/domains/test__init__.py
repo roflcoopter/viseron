@@ -6,7 +6,7 @@ import logging
 from concurrent.futures import Future, ThreadPoolExecutor
 from logging import DEBUG
 from typing import TYPE_CHECKING, Any, Literal
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 import pytest
 import voluptuous as vol
@@ -1014,13 +1014,12 @@ class TestSetupSingleDomain:
             assert result is False
             assert "Unknown error calling test_comp.camera CONFIG_SCHEMA" in caplog.text
 
-    def test_setup_domain_not_ready_retry_success(
+    def test_setup_domain_not_ready_schedules_retry(
         self,
         vis: MockViseron,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """Test DomainNotReady triggers retry and eventually succeeds."""
-        # First call raises DomainNotReady, second succeeds
+        """Test DomainNotReady schedules retry without blocking startup."""
         mock_domain = MockDomainModule(
             setup_side_effects=[
                 (None, DomainNotReady("Not ready")),
@@ -1040,14 +1039,22 @@ class TestSetupSingleDomain:
 
         with (
             patch("viseron.domains.DOMAIN_RETRY_INTERVAL", 0),
+            patch("viseron.domains.NamedTimer") as mock_timer,
             patch(
                 "viseron.components.importlib.import_module", return_value=mock_domain
             ),
         ):
             result: bool = _setup_single_domain(vis, entry)
 
-            assert result is True
-            assert mock_domain.setup_call_count == 2
+            assert result is False
+            assert mock_domain.setup_call_count == 1
+            assert entry.state == DomainState.RETRYING
+            mock_timer.assert_any_call(
+                0,
+                ANY,
+                name="camera_cam1_retry_timer",
+                daemon=True,
+            )
             assert "is not ready" in caplog.text
             assert "Retrying in" in caplog.text
 

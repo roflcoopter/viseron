@@ -169,6 +169,7 @@ export const TimelineTable = memo(({ parentRef, date }: TimelineTableProps) => {
   return (
     <div
       ref={containerRef}
+      style={{ position: "relative" }}
       onClick={(event) =>
         timelineClick(
           event,
@@ -188,6 +189,7 @@ export const TimelineTable = memo(({ parentRef, date }: TimelineTableProps) => {
       </div>
       <HoverLine
         containerRef={containerRef}
+        parentRef={parentRef}
         startRef={startRef}
         endRef={endRef}
       />

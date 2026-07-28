@@ -5,8 +5,8 @@ from __future__ import annotations
 import datetime
 import logging
 import os
-import shutil
 import threading
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -14,7 +14,18 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 from viseron.components.storage.const import ENGINE
-from viseron.components.storage.models import Files, Recordings
+from viseron.components.storage.files import delete_file_location_by_path
+from viseron.components.storage.models import (
+    FileLocations,
+    FileLocationState,
+    Files,
+    Recordings,
+)
+from viseron.components.storage.util import (
+    copy_file_atomic,
+    move_file_atomic,
+    raise_if_path_unavailable,
+)
 from viseron.const import CAMERA_SEGMENT_DURATION
 from viseron.helpers import utcnow
 
@@ -25,11 +36,13 @@ if TYPE_CHECKING:
 
     from viseron.components.storage.storage_subprocess import (
         DataItem,
+        DataItemCopyFile,
         DataItemDeleteFile,
         DataItemMoveFile,
     )
 
 LOGGER = logging.getLogger(__name__)
+FILE_LOCK_SHARDS = 256
 
 FILES_DTYPE = np.dtype(
     [
@@ -63,6 +76,28 @@ RECORDINGS_FILES_DTYPE = np.dtype(
 )
 
 
+@dataclass(frozen=True)
+class FileMoveResult:
+    """Result of a worker file move."""
+
+    moved: bool
+    published: bool
+    source_missing: bool
+    source_removed: bool
+    source_remove_error: str | None
+    size: int | None
+
+
+@dataclass(frozen=True)
+class FileCopyResult:
+    """Result of a worker file copy."""
+
+    copied: bool
+    published: bool
+    source_missing: bool
+    size: int | None
+
+
 class Worker:
     """Worker process for checking storage tiers in a separate shell."""
 
@@ -75,6 +110,14 @@ class Worker:
         self._last_call: dict[str, float] = {}
         self._check_locks: dict[str, threading.Lock] = {}
         self._checks_in_progress: dict[str, bool] = {}
+        # Multiple worker threads can dequeue move/delete jobs for the same source.
+        # Serialize by source path, but use fixed shards so segment filenames do not
+        # leave an unbounded lock dictionary in long-running processes.
+        self._file_locks = [threading.Lock() for _ in range(FILE_LOCK_SHARDS)]
+
+    def _file_lock(self, path: str) -> threading.Lock:
+        """Return a lock for a file operation path."""
+        return self._file_locks[hash(path) % FILE_LOCK_SHARDS]
 
     def _should_check_tier_files(self, item: DataItem) -> bool:
         """Quick aggregate check if tier actually needs processing.
@@ -87,9 +130,14 @@ class Worker:
 
         with self._get_session() as session:
             result = session.execute(
-                select(func.sum(Files.size), func.min(Files.orig_ctime)).where(
+                select(
+                    func.sum(FileLocations.size), func.min(Files.orig_ctime)
+                )
+                .join(Files, Files.id == FileLocations.file_id)
+                .where(
                     Files.camera_identifier == item.camera_identifier,
-                    Files.tier_id == item.tier_id,
+                    FileLocations.tier_id == item.tier_id,
+                    FileLocations.state == FileLocationState.AVAILABLE.value,
                     Files.category == item.category,
                     Files.subcategory.in_(item.subcategories),
                 )
@@ -194,7 +242,11 @@ class Worker:
             now = utcnow().timestamp()
             throttle_period = item.throttle_period.total_seconds()
             last_call = self._last_call[item.throttle_key]
-            if throttle_period > 0 and (now - last_call) < throttle_period:
+            if (
+                not item.force
+                and throttle_period > 0
+                and (now - last_call) < throttle_period
+            ):
                 item.data = None
                 return
             self._checks_in_progress[item.camera_identifier] = True
@@ -216,26 +268,51 @@ class Worker:
 
     def move_file(self, item: DataItemMoveFile) -> None:
         """Move file from source to destination."""
-        move_file(
-            self._get_session,
-            item.src,
-            item.dst,
-            LOGGER,
-        )
+        with self._file_lock(item.src):
+            result = move_file_for_tier_worker(
+                self._get_session,
+                item.src,
+                item.dst,
+                LOGGER,
+            )
+            item.moved = result.moved
+            item.published = result.published
+            item.source_missing = result.source_missing
+            item.source_removed = result.source_removed
+            item.source_remove_error = result.source_remove_error
+            item.size = result.size
+
+    def copy_file(self, item: DataItemCopyFile) -> None:
+        """Copy file from source to destination."""
+        with self._file_lock(item.src):
+            result = copy_file_for_tier_worker(
+                item.src,
+                item.dst,
+                LOGGER,
+            )
+            item.copied = result.copied
+            item.published = result.published
+            item.source_missing = result.source_missing
+            item.size = result.size
 
     def delete_file(self, item: DataItemDeleteFile) -> None:
         """Delete file."""
-        delete_file(
-            self._get_session,
-            item.src,
-            LOGGER,
-        )
+        with self._file_lock(item.src):
+            delete_file(
+                self._get_session,
+                item.src,
+                LOGGER,
+            )
 
-    def work_input(self, item: DataItem | DataItemMoveFile | DataItemDeleteFile):
+    def work_input(
+        self, item: DataItem | DataItemCopyFile | DataItemMoveFile | DataItemDeleteFile
+    ):
         """Perform work on input item from child process."""
         try:
             if item.cmd == "check_tier":
                 self.check_tier(item)
+            if item.cmd == "copy_file":
+                self.copy_file(item)
             if item.cmd == "move_file":
                 self.move_file(item)
             if item.cmd == "delete_file":
@@ -413,10 +490,17 @@ def load_tier(
     """Load the tier files data for the camera."""
     with get_session() as session:
         stmt = select(
-            Files.id, Files.size, Files.orig_ctime, Files.path, Files.tier_path
+            Files.id,
+            FileLocations.size,
+            Files.orig_ctime,
+            FileLocations.path,
+            FileLocations.tier_path,
+        ).join(
+            Files, Files.id == FileLocations.file_id
         ).where(
             Files.camera_identifier == camera_identifier,
-            Files.tier_id == tier_id,
+            FileLocations.tier_id == tier_id,
+            FileLocations.state == FileLocationState.AVAILABLE.value,
             Files.category == category,
             Files.subcategory.in_(subcategories),
         )
@@ -688,24 +772,26 @@ def delete_file(
 ) -> None:
     """Delete file."""
     logger.debug("Deleting file %s", path)
-    with get_session() as session:
-        stmt = delete(Files).where(Files.path == path)
-        session.execute(stmt)
-        session.commit()
-
+    raise_if_path_unavailable(path)
     try:
         os.remove(path)
     except FileNotFoundError as error:
         logger.debug(f"Failed to delete file {path}: {error}")
+    except OSError as error:
+        logger.debug(f"Failed to delete file {path}: {error}")
         raise error
 
+    with get_session() as session:
+        delete_file_location_by_path(session, path)
+        session.commit()
 
-def move_file(
+
+def move_file_for_tier_worker(
     get_session: Callable[..., Session],
     src: str,
     dst: str,
     logger: logging.Logger,
-) -> None:
+) -> FileMoveResult:
     """Move file from src to dst.
 
     To avoid race conditions where a file is referenced at the same time as it is being
@@ -713,25 +799,80 @@ def move_file(
     delete the old one.
     """
     logger.debug("Moving file from %s to %s", src, dst)
+    raise_if_path_unavailable(src)
+    raise_if_path_unavailable(dst)
     try:
-        os.makedirs(os.path.dirname(dst), exist_ok=True)
-        shutil.copy(src, dst)
-        os.remove(src)
+        result = move_file_atomic(src, dst)
     except FileNotFoundError as error:
         logger.debug(f"Failed to move file {src} to {dst}: {error}")
         with get_session() as session:
-            stmt = delete(Files).where(Files.path == src)
-            session.execute(stmt)
+            delete_file_location_by_path(session, src)
             session.commit()
-        raise error
+        return FileMoveResult(
+            moved=False,
+            published=False,
+            source_missing=True,
+            source_removed=False,
+            source_remove_error=None,
+            size=None,
+        )
     except OSError as error:
         logger.debug(f"Failed to move file {src} to {dst}: {error}")
-        with get_session() as session:
-            stmt = delete(Files).where(Files.path == src)
-            session.execute(stmt)
-            session.commit()
-        try:
-            os.remove(src)
-        except FileNotFoundError as _error:
-            logger.debug(f"Failed to delete file {src}: {_error}")
         raise error
+    if result.source_remove_error:
+        logger.warning(
+            "Published %s to %s but failed to remove source: %s",
+            src,
+            dst,
+            result.source_remove_error,
+        )
+    return FileMoveResult(
+        moved=result.published,
+        published=result.published,
+        source_missing=False,
+        source_removed=result.source_removed,
+        source_remove_error=str(result.source_remove_error)
+        if result.source_remove_error
+        else None,
+        size=result.size,
+    )
+
+
+def copy_file_for_tier_worker(
+    src: str,
+    dst: str,
+    logger: logging.Logger,
+) -> FileCopyResult:
+    """Copy file from src to dst without removing src."""
+    logger.debug("Copying file from %s to %s", src, dst)
+    raise_if_path_unavailable(dst)
+    try:
+        raise_if_path_unavailable(src)
+        size = copy_file_atomic(src, dst)
+    except FileNotFoundError as error:
+        logger.debug("Failed to copy file %s to %s: %s", src, dst, error)
+        try:
+            size = os.path.getsize(dst)
+        except FileNotFoundError:
+            return FileCopyResult(
+                copied=False,
+                published=False,
+                source_missing=True,
+                size=None,
+            )
+        return FileCopyResult(
+            copied=False,
+            published=True,
+            source_missing=True,
+            size=size,
+        )
+    except OSError as error:
+        logger.debug("Failed to copy file %s to %s: %s", src, dst, error)
+        raise error
+
+    return FileCopyResult(
+        copied=True,
+        published=True,
+        source_missing=False,
+        size=size,
+    )

@@ -20,9 +20,13 @@ import {
 } from "components/events/utils";
 import { HlsErrorOverlay } from "components/player/hlsplayer/HlsErrorOverlay";
 import {
+  HlsPlaybackMode,
   cleanupHlsInstance,
   createHlsInstance,
+  seekMediaAndStartLoad,
   setupHlsErrorHandling,
+  startLoadAtBeginning,
+  startLoadAtCurrentTime,
 } from "components/player/hlsplayer/utils";
 import { useAuthContext } from "context/AuthContext";
 import { ViseronContext } from "context/ViseronContext";
@@ -78,7 +82,7 @@ const onLevelLoaded = (
   const fragment = findFragmentByTimestamp(fragments, playingDateMillis);
   if (fragment) {
     const seekTarget = getSeekTarget(fragment, playingDateMillis);
-    videoRef.current.currentTime = seekTarget;
+    seekMediaAndStartLoad(hlsRef.current, videoRef.current, seekTarget);
     videoRef.current.play().catch(() => {
       // Ignore play errors
     });
@@ -96,7 +100,7 @@ const onManifestParsed = (
   }
 
   videoRef.current.muted = true;
-  hlsRef.current.startLoad(0);
+  startLoadAtBeginning(hlsRef.current);
 };
 
 const initializePlayer = (
@@ -123,7 +127,11 @@ const initializePlayer = (
   }
 
   // Create a new hls instance using shared factory
-  hlsRef.current = createHlsInstance(auth, hlsClientIdRef);
+  hlsRef.current = createHlsInstance(
+    auth,
+    hlsClientIdRef,
+    HlsPlaybackMode.Synced,
+  );
 
   // Setup error handling using shared utility
   setupHlsErrorHandling(hlsRef.current, {
@@ -261,7 +269,7 @@ const useInitializePlayer = (
     if (!connected && hlsRef.current) {
       hlsRef.current.stopLoad();
     } else if (connected && hlsRef.current) {
-      hlsRef.current.startLoad();
+      startLoadAtCurrentTime(hlsRef.current);
     }
   }, [connected, hlsRef]);
 
@@ -315,7 +323,7 @@ const useSeekToTimestamp = (
 
     if (fragment) {
       const seekTarget = getSeekTarget(fragment, requestedTimestampMillis);
-      videoRef.current.currentTime = seekTarget;
+      seekMediaAndStartLoad(hlsRef.current, videoRef.current, seekTarget);
       videoRef.current.play().catch(() => {
         // Ignore play errors
       });

@@ -2428,6 +2428,23 @@
                     "default": []
                   },
                   {
+                    "type": "select",
+                    "options": [
+                      {
+                        "type": "constant",
+                        "value": "source"
+                      },
+                      {
+                        "type": "constant",
+                        "value": "wallclock"
+                      }
+                    ],
+                    "name": "timestamp_mode",
+                    "description": "Timestamp source for recorder HLS segments.<br><code>source</code> preserves camera stream timestamps and is best for smooth synced playback when the camera provides valid timestamps.<br><code>wallclock</code> timestamps packets by when FFmpeg receives them and can help cameras with broken or missing source timestamps.",
+                    "optional": true,
+                    "default": "source"
+                  },
+                  {
                     "type": "string",
                     "name": {
                       "type": "deprecated",

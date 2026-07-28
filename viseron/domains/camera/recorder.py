@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import datetime
+import errno
 import logging
 import os
-import shutil
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -17,11 +17,28 @@ import numpy as np
 from sqlalchemy import delete, func, insert, select, update
 from sqlalchemy.orm import Session
 
-from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
+from viseron.components.storage.const import (
+    COMPONENT as STORAGE_COMPONENT,
+    TIER_CATEGORY_RECORDER,
+    TIER_SUBCATEGORY_EVENT_CLIPS,
+)
+from viseron.components.storage.files import upsert_file
 from viseron.components.storage.models import Recordings
 from viseron.components.storage.queries import get_recording_fragments
+from viseron.components.storage.thumbnails import (
+    recover_recording_thumbnail,
+    upsert_thumbnail_file,
+)
+from viseron.components.storage.util import (
+    fsync_directory,
+    get_storage_temp_path,
+    move_file_atomic,
+)
 from viseron.const import CAMERA_SEGMENT_DURATION
-from viseron.domains.camera.fragmenter import Fragment
+from viseron.domains.camera.fragmenter import (
+    Fragment,
+    recover_from_storage_pressure,
+)
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.events import EventData
 from viseron.helpers import create_directory, draw_objects, get_utc_offset, utcnow
@@ -63,7 +80,9 @@ class RecordingDict(TypedDict):
     end_timestamp: float | None
     trigger_type: TriggerTypes | None
     trigger_id: int | None
-    thumbnail_path: str
+    thumbnail_url: str | None
+    thumbnail_file_id: int | None
+    clip_file_id: int | None
     hls_url: str
 
 
@@ -97,6 +116,8 @@ class Recording:
     clip_path: str | None
     objects: list[DetectedObject]
     trigger_type: TriggerTypes | None
+    thumbnail_file_id: int | None = None
+    clip_file_id: int | None = None
 
     def as_dict(self):
         """Return as dict."""
@@ -108,6 +129,8 @@ class Recording:
             "end_timestamp": self.end_timestamp,
             "date": self.date,
             "thumbnail_path": self.thumbnail_path,
+            "thumbnail_file_id": self.thumbnail_file_id,
+            "clip_file_id": self.clip_file_id,
             "objects": self.objects,
             "trigger_type": self.trigger_type,
         }
@@ -242,7 +265,7 @@ class AbstractRecorder(ABC, RecorderBase):
         recording_id: int,
         frame: np.ndarray,
         objects: list[DetectedObject],
-    ) -> tuple[np.ndarray, str]:
+    ) -> tuple[np.ndarray, str | None]:
         """Create thumbnails, sent to MQTT and/or saved to disk based on config."""
         self._logger.debug(f"Saving thumbnail in {self._camera.thumbnails_folder}")
         thumbnail_name = f"{recording_id}.jpg"
@@ -253,17 +276,54 @@ class AbstractRecorder(ABC, RecorderBase):
                 frame,
                 objects,
             )
-        if not cv2.imwrite(thumbnail_path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), 100]):
-            self._logger.error(f"Failed saving thumbnail {thumbnail_path} to disk")
+        if not self._write_thumbnail_atomic(thumbnail_path, frame):
+            thumbnail_path = None
 
         if self._config[CONFIG_RECORDER][CONFIG_THUMBNAIL][CONFIG_SAVE_TO_DISK]:
-            if not cv2.imwrite(
+            self._write_thumbnail_atomic(
                 os.path.join(self._camera.thumbnails_folder, "latest_thumbnail.jpg"),
                 frame,
-                [int(cv2.IMWRITE_JPEG_QUALITY), 100],
-            ):
-                self._logger.error("Failed saving latest_thumbnail.jpg to disk")
+            )
         return frame, thumbnail_path
+
+    def _write_thumbnail_atomic(self, path: str, frame: np.ndarray) -> bool:
+        """Write a thumbnail through a same-directory temp file."""
+        create_directory(os.path.dirname(path))
+        temp_path = f"{get_storage_temp_path(path)}.jpg"
+        try:
+            if not cv2.imwrite(
+                temp_path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), 100]
+            ):
+                self._logger.error("Failed saving thumbnail %s to disk", path)
+                return False
+            if os.path.getsize(temp_path) <= 0:
+                self._logger.error("Thumbnail %s was written as an empty file", path)
+                return False
+            os.replace(temp_path, path)
+            fsync_directory(os.path.dirname(path))
+        except OSError as error:
+            if error.errno == errno.ENOSPC:
+                self._logger.warning(
+                    "No space left while publishing thumbnail %s; "
+                    "triggering storage pressure recovery: %s",
+                    path,
+                    error,
+                )
+                recover_from_storage_pressure(
+                    self._vis,
+                    self._storage,
+                    self._camera.identifier,
+                    self._logger,
+                )
+            else:
+                self._logger.error("Failed saving thumbnail %s", path, exc_info=error)
+            return False
+        finally:
+            try:
+                os.remove(temp_path)
+            except FileNotFoundError:
+                pass
+        return True
 
     def start(
         self,
@@ -296,10 +356,21 @@ class AbstractRecorder(ABC, RecorderBase):
                 self._camera.shared_frames.get_decoded_frame_rgb(shared_frame).copy(),
                 objects_in_fov,
             )
+            thumbnail_file_id = (
+                upsert_thumbnail_file(
+                    self._storage.get_session,
+                    self._storage,
+                    self._camera.identifier,
+                    thumbnail_path,
+                )
+                if thumbnail_path
+                else None
+            )
             stmt2 = (
                 update(Recordings)
                 .values(
                     thumbnail_path=thumbnail_path,
+                    thumbnail_file_id=thumbnail_file_id,
                 )
                 .where(Recordings.id == recording_id)
             )
@@ -322,6 +393,7 @@ class AbstractRecorder(ABC, RecorderBase):
             clip_path=None,
             objects=objects_in_fov,
             trigger_type=trigger_type,
+            thumbnail_file_id=thumbnail_file_id,
         )
 
         self._start(recording, shared_frame, objects_in_fov)
@@ -376,6 +448,19 @@ class AbstractRecorder(ABC, RecorderBase):
             ),
         )
         self.is_recording = False
+        if (
+            self._config[CONFIG_RECORDER][CONFIG_THUMBNAIL][CONFIG_SAVE_TO_DISK]
+            and (
+                recording.thumbnail_path is None
+                or not os.path.exists(recording.thumbnail_path)
+            )
+        ):
+            RestartableThread(
+                name=f"viseron.camera.{self._camera.identifier}.repair_thumbnail",
+                target=self._repair_thumbnail,
+                args=(recording,),
+                register=False,
+            ).start()
 
         if self._config[CONFIG_RECORDER][CONFIG_CREATE_EVENT_CLIP]:
             concat_thread = RestartableThread(
@@ -392,6 +477,22 @@ class AbstractRecorder(ABC, RecorderBase):
             self._config[CONFIG_RECORDER][CONFIG_FILENAME_PATTERN]
         )
         return f"{filename_pattern}.{self._camera.extension}"
+
+    def _repair_thumbnail(self, recording: Recording) -> str | None:
+        """Repair a missing thumbnail from the recording fragments."""
+        recovered_thumbnail = recover_recording_thumbnail(
+            self._storage,
+            self._camera,
+            recording.id,
+            recording.thumbnail_path,
+            self.lookback,
+            wait_for_segments=True,
+        )
+        if recovered_thumbnail is None:
+            return None
+        recording.thumbnail_path = recovered_thumbnail.path
+        recording.thumbnail_file_id = recovered_thumbnail.file_id
+        return recovered_thumbnail.path
 
     def _concatenate_fragments(self, recording: Recording) -> int | None:
         sleep(CAMERA_SEGMENT_DURATION * 2)  # include segments still being written to
@@ -423,11 +524,41 @@ class AbstractRecorder(ABC, RecorderBase):
         clip_path = os.path.join(full_path, video_name)
 
         create_directory(os.path.dirname(clip_path))
-        shutil.move(
-            event_clip,
+        try:
+            move_file_atomic(event_clip, clip_path)
+        except FileNotFoundError:
+            self._logger.error("Failed to find generated event clip %s", event_clip)
+            return None
+        except OSError as error:
+            if error.errno == errno.ENOSPC:
+                self._logger.warning(
+                    "No space left while publishing event clip %s; "
+                    "triggering storage pressure recovery: %s",
+                    clip_path,
+                    error,
+                )
+                recover_from_storage_pressure(
+                    self._vis,
+                    self._storage,
+                    self._camera.identifier,
+                    self._logger,
+                )
+            else:
+                self._logger.error(
+                    "Failed to publish event clip %s",
+                    clip_path,
+                    exc_info=error,
+                )
+            return None
+        self._logger.debug(f"Moved event clip to {clip_path}")
+        clip_file_id = upsert_file(
+            self._storage.get_session,
+            self._storage,
+            self._camera.identifier,
+            TIER_CATEGORY_RECORDER,
+            TIER_SUBCATEGORY_EVENT_CLIPS,
             clip_path,
         )
-        self._logger.debug(f"Moved event clip to {clip_path}")
 
         with self._storage.get_session() as session:
             stmt = (
@@ -435,12 +566,14 @@ class AbstractRecorder(ABC, RecorderBase):
                 .where(Recordings.id == recording.id)
                 .values(
                     clip_path=clip_path,
+                    clip_file_id=clip_file_id,
                 )
             )
             session.execute(stmt)
             session.commit()
 
         recording.clip_path = clip_path
+        recording.clip_file_id = clip_file_id
         self._vis.dispatch_event(
             EVENT_RECORDER_COMPLETE.format(camera_identifier=self._camera.identifier),
             EventRecorderData(
@@ -549,7 +682,8 @@ def get_recordings(
                 recordings[_local_date] = {}
 
             recordings[_local_date][recording.id] = _recording_file_dict(
-                recording, subpath
+                recording,
+                subpath,
             )
 
     return recordings
@@ -581,7 +715,10 @@ def delete_recordings(
     return _deleted_recordings
 
 
-def _recording_file_dict(recording: Recordings, subpath: str = "") -> RecordingDict:
+def _recording_file_dict(
+    recording: Recordings,
+    subpath: str = "",
+) -> RecordingDict:
     """Return a dict with recording file information."""
     return {
         "id": recording.id,
@@ -592,7 +729,14 @@ def _recording_file_dict(recording: Recordings, subpath: str = "") -> RecordingD
         "end_timestamp": recording.end_time.timestamp() if recording.end_time else None,
         "trigger_type": recording.trigger_type,
         "trigger_id": recording.trigger_id,
-        "thumbnail_path": f"{subpath}/files{recording.thumbnail_path}",
+        "thumbnail_url": (
+            f"{subpath}/api/v1/recordings/"
+            f"{recording.camera_identifier}/{recording.id}/thumbnail"
+            if recording.thumbnail_file_id or recording.thumbnail_path
+            else None
+        ),
+        "thumbnail_file_id": recording.thumbnail_file_id,
+        "clip_file_id": recording.clip_file_id,
         "hls_url": (
             # pylint: disable=line-too-long
             f"{subpath}/api/v1/hls/{recording.camera_identifier}/{recording.id}/index.m3u8"

@@ -149,6 +149,7 @@ const sidebars: SidebarsConfig = {
         "developers/backend/data_stream_component",
         "developers/backend/vis_object",
         "developers/backend/database",
+        "developers/storage",
         "developers/backend/logging",
       ],
     },

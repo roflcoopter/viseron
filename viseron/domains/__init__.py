@@ -291,22 +291,22 @@ def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bo
             f"Error: {error!s}"
         )
 
-        # Block until wait_time elapses or the domain is cancelled/shutdown.
-        # cancel_event.wait() returns True if the event was set (cancelled),
-        # False if it timed out (meaning we should retry).
-        cancelled = entry.cancel_event.wait(timeout=wait_time)
-        if cancelled or vis.shutdown_event.is_set():
-            LOGGER.warning(warning_text)
-            _handle_failed_domain(vis, entry, DomainState.FAILED, error=str(error))
-            return False
+        def retry_domain_setup() -> None:
+            """Retry domain setup unless cancellation or shutdown has started."""
+            if entry.cancel_event.is_set() or vis.shutdown_event.is_set():
+                LOGGER.warning(warning_text)
+                _handle_failed_domain(vis, entry, DomainState.FAILED, error=str(error))
+                return
+            _setup_single_domain(vis, entry, tries + 1)
 
-        # Running with ThreadPoolExecutor and awaiting the future does not
-        # cause a max recursion error if we retry for a long time
-        with ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix="Component.setup_domain"
-        ) as executor:
-            future = executor.submit(_setup_single_domain, vis, entry, tries + 1)
-            return future.result()
+        retry_timer = NamedTimer(
+            wait_time,
+            retry_domain_setup,
+            name=f"{entry.domain}_{entry.identifier}_retry_timer",
+            daemon=True,
+        )
+        retry_timer.start()
+        return False
     except Exception as error:  # pylint: disable=broad-except
         LOGGER.exception(
             f"Uncaught exception setting up domain {entry.domain} for"

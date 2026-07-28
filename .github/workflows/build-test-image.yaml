@@ -1,0 +1,90 @@
+name: Build test image
+
+on:
+  push:
+    branches:
+      - storage-cifs-hardening
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
+  BUILDKIT_PROGRESS: plain
+  DOCKER_COMPOSE_CI_FILES: >-
+    --file azure-pipelines/docker-compose-build.yaml
+    --env-file azure-pipelines/.env
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/viseron
+  BRANCH_TAG: storage-cifs-hardening
+  SHA_TAG: storage-cifs-hardening-${{ github.sha }}
+
+jobs:
+  build-test-publish:
+    name: Build, smoke test, and publish amd64 image
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          install: true
+
+      - name: Build amd64 Viseron image
+        run: |
+          docker compose ${{ env.DOCKER_COMPOSE_CI_FILES }} build amd64-viseron
+          docker tag roflcoopter/amd64-viseron:dev "${IMAGE_NAME}:${SHA_TAG}"
+          docker tag roflcoopter/amd64-viseron:dev "${IMAGE_NAME}:${BRANCH_TAG}"
+
+      - name: Set up Python for smoke tests
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements_container_test.txt
+
+      - name: Install smoke test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements_container_test.txt
+
+      - name: Run container smoke tests
+        env:
+          VISERON_SMOKE_ARTIFACT_DIR: ${{ runner.temp }}/smoke-artifacts
+        run: |
+          mkdir -p "$VISERON_SMOKE_ARTIFACT_DIR"
+          pytest \
+            -rs \
+            tests/container/ \
+            --confcutdir=tests/container \
+            --image="${IMAGE_NAME}:${SHA_TAG}" \
+            --arch=amd64 \
+            --boot-timeout=240 \
+            --timeout=300 \
+            -v
+
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-artifacts-amd64-viseron
+          path: ${{ runner.temp }}/smoke-artifacts
+          if-no-files-found: ignore
+
+      - name: Log in to GitHub Container Registry
+        if: success()
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish image
+        if: success()
+        run: |
+          docker push "${IMAGE_NAME}:${SHA_TAG}"
+          docker push "${IMAGE_NAME}:${BRANCH_TAG}"

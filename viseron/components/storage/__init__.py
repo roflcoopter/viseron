@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import fnmatch
 import logging
 import os
 import pathlib
@@ -39,6 +40,7 @@ from viseron.components.storage.const import (
     DEFAULT_COMPONENT,
     DESC_COMPONENT,
     ENGINE,
+    CleanupJobNames,
     TIER_CATEGORY_RECORDER,
     TIER_CATEGORY_SNAPSHOTS,
     TIER_CATEGORY_TIMELAPSE,
@@ -82,6 +84,7 @@ if TYPE_CHECKING:
     from viseron import Event, Viseron
     from viseron.components.storage.storage_subprocess import (
         DataItem,
+        DataItemCopyFile,
         DataItemDeleteFile,
         DataItemMoveFile,
     )
@@ -271,6 +274,7 @@ class Storage:
         self._get_session: Callable[[], Session] | None = None
 
         self.temporary_files_meta: dict[str, FilesMeta] = {}
+        self.temporary_moving_files: set[str] = set()
 
         self.cleanup_manager = CleanupManager(vis, self)
         self.cleanup_manager.start()
@@ -289,6 +293,10 @@ class Storage:
         """Return the number of files to process in a single batch."""
         return self._config[CONFIG_TIER_CHECK_BATCH_SIZE]
 
+    def queue_file_repair(self, file_id: int) -> None:
+        """Queue a stale Files row for asynchronous repair."""
+        self.cleanup_manager.queue_file_reference_repair(file_id)
+
     @property
     def sleep_between_batches(self) -> float:
         """Return the number of seconds to sleep between batches."""
@@ -298,6 +306,7 @@ class Storage:
         """Initialize storage component."""
         self._alembic_cfg = self._get_alembic_config()
         self.create_database()
+        self.cleanup_manager.run_job(CleanupJobNames.FILE_REFERENCES)
 
         self._vis.listen_event(
             EVENT_DOMAIN_REGISTERED.format(domain=CAMERA_DOMAIN),
@@ -604,6 +613,13 @@ class Storage:
         if filename not in self.ignored_files:
             self.ignored_files.append(filename)
 
+    def is_ignored_file(self, filename: str) -> bool:
+        """Return if filename matches an ignored filename or pattern."""
+        return any(
+            filename == ignored_file or fnmatch.fnmatch(filename, ignored_file)
+            for ignored_file in self.ignored_files
+        )
+
     def _camera_registered(
         self, event_data: Event[EventDomainRegisteredData[AbstractCamera]]
     ) -> None:
@@ -677,13 +693,20 @@ class Storage:
     @overload
     def tier_check_worker_send_command(
         self,
+        item: DataItemCopyFile,
+        callback: Callable[[DataItemCopyFile], None] | None = None,
+    ) -> None: ...
+
+    @overload
+    def tier_check_worker_send_command(
+        self,
         item: DataItemDeleteFile,
         callback: Callable[[DataItemDeleteFile], None] | None = None,
     ) -> None: ...
 
     def tier_check_worker_send_command(
         self,
-        item: DataItem | DataItemMoveFile | DataItemDeleteFile,
+        item: DataItem | DataItemCopyFile | DataItemMoveFile | DataItemDeleteFile,
         callback: Callable[[Any], None] | None = None,
     ) -> None:
         """Send command to tier check worker."""

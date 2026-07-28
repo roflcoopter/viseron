@@ -20,6 +20,13 @@ from telegram.ext import (
     CommandHandler,
 )
 
+from viseron.components.storage.const import (
+    COMPONENT as STORAGE_COMPONENT,
+    TIER_CATEGORY_RECORDER,
+    TIER_SUBCATEGORY_EVENT_CLIPS,
+    TIER_SUBCATEGORY_THUMBNAILS,
+)
+from viseron.components.storage.files import resolve_file_id
 from viseron.components.storage.models import TriggerTypes
 from viseron.components.telegram.ptz_control import TelegramPTZ
 from viseron.components.telegram.utils import limit_user_access
@@ -83,6 +90,17 @@ if TYPE_CHECKING:
     from viseron.domains.camera import AbstractCamera
 
 LOGGER = logging.getLogger(__name__)
+
+THUMBNAIL_FILE_TYPES = frozenset(
+    {
+        (TIER_CATEGORY_RECORDER, TIER_SUBCATEGORY_THUMBNAILS),
+    }
+)
+EVENT_CLIP_FILE_TYPES = frozenset(
+    {
+        (TIER_CATEGORY_RECORDER, TIER_SUBCATEGORY_EVENT_CLIPS),
+    }
+)
 
 CAMERA_SCHEMA = vol.Schema(
     {
@@ -223,6 +241,7 @@ class TelegramEventNotifier:
     def __init__(self, vis: Viseron, config: dict[str, Any]) -> None:
         self._vis = vis
         self._config = config
+        self._storage = vis.data[STORAGE_COMPONENT]
         self._sensitive_string_tracker = SensitiveInformationFilterTracker()
         self._sensitive_string_tracker.add_sensitive_string(
             self._config[CONFIG_TELEGRAM_BOT_TOKEN]
@@ -299,6 +318,51 @@ class TelegramEventNotifier:
 
         return DEFAULT_DETECTION_LABELS
 
+    def _resolve_recording_file_path(
+        self,
+        file_id: int | None,
+        fallback_path: str | None,
+        allowed_file_types: frozenset[tuple[str, str]],
+    ) -> str | None:
+        """Resolve a recording artifact path, preferring the stable Files id."""
+        if file_id is not None:
+            resolved_file = resolve_file_id(
+                self._storage.get_session,
+                self._storage,
+                file_id,
+                allowed_file_types,
+            )
+            if resolved_file is not None:
+                return resolved_file.path
+
+        if fallback_path is not None and os.path.exists(fallback_path):
+            return fallback_path
+        return None
+
+    async def _async_resolve_recording_file_path(
+        self,
+        file_id: int | None,
+        fallback_path: str | None,
+        allowed_file_types: frozenset[tuple[str, str]],
+    ) -> str | None:
+        """Resolve a recording artifact path without blocking the notifier loop."""
+        if file_id is not None:
+            loop = asyncio.get_running_loop()
+            resolved_file = await loop.run_in_executor(
+                None,
+                resolve_file_id,
+                self._storage.get_session,
+                self._storage,
+                file_id,
+                allowed_file_types,
+            )
+            if resolved_file is not None:
+                return resolved_file.path
+
+        if fallback_path is not None and os.path.exists(fallback_path):
+            return fallback_path
+        return None
+
     async def _send_notifications(self, event_data: Event[EventRecorderData]) -> None:
         LOGGER.debug(
             "Preparing to send Telegram notification for event from camera %s",
@@ -330,18 +394,24 @@ class TelegramEventNotifier:
                 "No detected objects for event from camera %s", camera_identifier
             )
 
-        file = event_data.data.recording.clip_path
-        if file and os.path.exists(file) and self._config[CONFIG_SEND_VIDEO]:
+        recording = event_data.data.recording
+        file = await self._async_resolve_recording_file_path(
+            recording.clip_file_id,
+            recording.clip_path,
+            EVENT_CLIP_FILE_TYPES,
+        )
+        if file and self._config[CONFIG_SEND_VIDEO]:
             caption = f"{event_data.data.camera.identifier}"
             if matching_object is not None:
                 caption += f" detected a {matching_object.label}"
 
-            if event_data.data.recording.thumbnail_path and os.path.exists(
-                event_data.data.recording.thumbnail_path
-            ):
-                thumb = rescale_image_cv2(
-                    event_data.data.recording.thumbnail_path, max_size=320
-                )
+            thumbnail_path = await self._async_resolve_recording_file_path(
+                recording.thumbnail_file_id,
+                recording.thumbnail_path,
+                THUMBNAIL_FILE_TYPES,
+            )
+            if thumbnail_path:
+                thumb = rescale_image_cv2(thumbnail_path, max_size=320)
             else:
                 thumb = None
 
@@ -353,17 +423,19 @@ class TelegramEventNotifier:
                         video=video_file,
                         caption=caption,
                     )
-        if (
-            event_data.data.recording.thumbnail_path
-            and os.path.exists(event_data.data.recording.thumbnail_path)
-            and self._config[CONFIG_SEND_THUMBNAIL]
-        ):
+        thumbnail_path = await self._async_resolve_recording_file_path(
+            recording.thumbnail_file_id,
+            recording.thumbnail_path,
+            THUMBNAIL_FILE_TYPES,
+        )
+        if thumbnail_path and self._config[CONFIG_SEND_THUMBNAIL]:
             for chat_id in self._chat_ids:
-                await self._bot.send_photo(
-                    chat_id=chat_id,
-                    photo=open(event_data.data.recording.thumbnail_path, "rb"),
-                    caption=f"Thumbnail for {event_data.data.camera.identifier}",
-                )
+                with open(thumbnail_path, "rb") as thumbnail_file:
+                    await self._bot.send_photo(
+                        chat_id=chat_id,
+                        photo=thumbnail_file,
+                        caption=f"Thumbnail for {event_data.data.camera.identifier}",
+                    )
         if self._config[CONFIG_SEND_MESSAGE]:
             for chat_id in self._chat_ids:
                 await self._bot.send_message(
