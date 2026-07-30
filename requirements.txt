@@ -15,7 +15,7 @@ matplotlib==3.10.9
 numpy==1.26.4
 paho-mqtt==2.1.0
 path.py==12.5.0
-pillow==12.2.0
+pillow==12.3.0
 psutil==7.0.0
 psycopg2-binary==2.9.9
 pyjwt==2.13.0
