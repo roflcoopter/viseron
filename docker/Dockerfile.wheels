@@ -45,7 +45,10 @@ RUN apt-get -yqq update && apt-get install -yq --no-install-recommends \
   add-apt-repository ppa:deadsnakes/ppa -y && \
   apt-get update && apt-get install -y --no-install-recommends \
   python3.9 \
+  python3.9-dev \
   python3.9-distutils ; \
+  else \
+  apt-get install -y --no-install-recommends python3.9-dev ; \
   fi \
   # Remove EXTERNALLY-MANAGED to allow pip to install packages since its safe to do so when building a container
   && find /usr/lib/python3* -name EXTERNALLY-MANAGED -delete \
