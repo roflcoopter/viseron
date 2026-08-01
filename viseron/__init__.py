@@ -19,7 +19,8 @@ from typing import TYPE_CHECKING, Any, Literal, overload
 import voluptuous as vol
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.base import Job, SchedulerNotRunningError
-from jinja2 import BaseLoader, Environment, StrictUndefined
+from jinja2 import BaseLoader, StrictUndefined
+from jinja2.sandbox import SandboxedEnvironment
 from sqlalchemy import insert
 
 from viseron.components import (
@@ -43,6 +44,7 @@ from viseron.components.storage.models import Events
 from viseron.config import load_config
 from viseron.const import (
     ENV_LOG_BACKUP_COUNT,
+    ENV_LOG_FD,
     ENV_LOG_MAX_BYTES,
     ENV_PROFILE_MEMORY,
     FAILED,
@@ -58,7 +60,12 @@ from viseron.domains import setup_domains
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.events import Event, EventData
 from viseron.exceptions import DataStreamNotLoaded
-from viseron.helpers import memory_usage_profiler, parse_size_to_bytes, utcnow
+from viseron.helpers import (
+    check_fd_usage,
+    memory_usage_profiler,
+    parse_size_to_bytes,
+    utcnow,
+)
 from viseron.helpers.json import JSONEncoder
 from viseron.helpers.logs import (
     LOG_DATE_FORMAT,
@@ -68,7 +75,7 @@ from viseron.helpers.logs import (
     ViseronLogFormat,
 )
 from viseron.states import States
-from viseron.viseron_types import Domain, SupportedDomains
+from viseron.viseron_types import Domain, SupportedDomains, ViseronData
 from viseron.watchdog.process_watchdog import ProcessWatchDog
 from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
 from viseron.watchdog.thread_watchdog import ThreadWatchDog
@@ -258,7 +265,7 @@ class Viseron:
 
         self.setup_threads: list[threading.Thread] = []
 
-        self.data: dict[str, Any] = {}
+        self.data: ViseronData = {}
         self.data[LOADING] = {}
         self.data[LOADED] = {}
         self.data[FAILED] = {}
@@ -279,7 +286,7 @@ class Viseron:
             self._process_watchdog = ProcessWatchDog(self.background_scheduler)
 
         self.storage: Storage | None = None
-        self.jinja_env = Environment(
+        self.jinja_env = SandboxedEnvironment(
             loader=BaseLoader(), undefined=StrictUndefined, autoescape=True
         )
 
@@ -662,6 +669,11 @@ class Viseron:
             tracemalloc.start()
             self.background_scheduler.add_job(
                 memory_usage_profiler, "interval", seconds=5, args=[LOGGER]
+            )
+
+        if os.getenv(ENV_LOG_FD) == "true":
+            self.background_scheduler.add_job(
+                check_fd_usage, "interval", seconds=5, args=[LOGGER]
             )
 
 

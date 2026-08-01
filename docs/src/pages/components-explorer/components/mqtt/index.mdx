@@ -31,6 +31,31 @@ mqtt:
 
 <ComponentConfiguration config={config} />
 
+## Motion detection trigger
+
+The MQTT component can be used as a motion detector by using the following configuration:
+
+```yaml title="/config/config.yaml"
+mqtt:
+  broker: mqtt_broker.lan
+  port: 1883
+  username: !secret mqtt_user
+  password: !secret mqtt_pass
+  motion_detector:
+    cameras:
+      camera_one:
+        topic: viseron/camera_one/motion
+        payload_on: "on"
+        payload_off: "off"
+        max_motion_duration: 60
+```
+
+The motion detector will subscribe to the specified topic and trigger motion when a message with the `payload_on` is received.
+Motion will be considered ended when a message with the `payload_off` is received or when the `max_motion_duration` is reached.
+
+The MQTT motion detector can be used in the exact same way as other motion detectors in Viseron, but with the added benefit of being able to utilize any method of detecting motion that can publish to MQTT, such as a PIR sensor or similar.
+Since it is not analyzing the video stream, it will also use very little resources.
+
 ## Topics
 
 Viseron internally manages entities, which in turn are published to MQTT topics. Available entity domains are:

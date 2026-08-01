@@ -39,15 +39,11 @@ from viseron.viseron_types import Domain
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
-    DATA_NO_DETECTOR_RESULT,
-    DATA_NO_DETECTOR_SCAN,
     DOMAIN,
     EVENT_OPERATION_STATE,
     EVENT_PROCESSED_FRAME_TOPIC,
     EVENT_SCAN_FRAMES,
     MOTION_DETECTOR,
-    NO_DETECTOR,
-    NO_DETECTOR_FPS,
     OBJECT_DETECTOR,
     SCANNER_RESULT_RETRIES,
 )
@@ -289,6 +285,9 @@ class NVR(AbstractNVR):
         self._motion_only_frames = 0
         self._motion_recorder_keepalive_reached = False
         self._motion_detector = motion_detector
+        self._motion_is_scanner = isinstance(
+            self._motion_detector, AbstractMotionDetectorScanner
+        )
         if self._motion_detector and isinstance(
             self._motion_detector, AbstractMotionDetectorScanner
         ):
@@ -307,6 +306,8 @@ class NVR(AbstractNVR):
                 ),
                 self._motion_detector,
             )
+        elif self._motion_detector:
+            self._logger.info("Motion detector is event-driven")
         else:
             self._logger.info("Motion detector is disabled")
 
@@ -336,36 +337,22 @@ class NVR(AbstractNVR):
                 and self._object_detector
                 and self._object_detector.scan_on_motion_only
             ):
-                self._frame_scanners[MOTION_DETECTOR].scan = True
+                if self._motion_is_scanner:
+                    self._frame_scanners[MOTION_DETECTOR].scan = True
                 self._frame_scanners[OBJECT_DETECTOR].scan = False
 
             case _ if self._object_detector and self._motion_detector:
                 self._frame_scanners[OBJECT_DETECTOR].scan = True
-                self._frame_scanners[
-                    MOTION_DETECTOR
-                ].scan = self._motion_detector.trigger_event_recording
+                if self._motion_is_scanner:
+                    self._frame_scanners[
+                        MOTION_DETECTOR
+                    ].scan = self._motion_detector.trigger_event_recording
 
             case _ if self._object_detector:
                 self._frame_scanners[OBJECT_DETECTOR].scan = True
 
-            case _ if self._motion_detector:
+            case _ if self._motion_detector and self._motion_is_scanner:
                 self._frame_scanners[MOTION_DETECTOR].scan = True
-
-        if not self._object_detector and not self._motion_detector:
-            self._logger.debug("Running without any detectors")
-            self._frame_scanners[NO_DETECTOR] = FrameIntervalCalculator(
-                vis,
-                self._camera.identifier,
-                NO_DETECTOR,
-                self._logger,
-                self._camera.output_fps,
-                NO_DETECTOR_FPS,
-                DATA_NO_DETECTOR_SCAN.format(camera_identifier=self._camera.identifier),
-                DATA_NO_DETECTOR_RESULT.format(
-                    camera_identifier=self._camera.identifier
-                ),
-                None,
-            )
 
         # Check if any filter in self._object_detector.object_filters requires motion
         # and warn if motion detector is not configured
@@ -397,8 +384,7 @@ class NVR(AbstractNVR):
         )
         self._nvr_thread.start()
 
-        if self._frame_scanners:
-            self.calculate_output_fps(list(self._frame_scanners.values()))
+        self.calculate_output_fps(list(self._frame_scanners.values()))
 
         vis.add_entity(
             COMPONENT, OperationStateSensor(vis, self), DOMAIN, self._camera.identifier
@@ -465,7 +451,9 @@ class NVR(AbstractNVR):
             operation_state = OperationState.IDLE
         elif self._object_detector and self._frame_scanners[OBJECT_DETECTOR].scan:
             operation_state = OperationState.SCANNING_FOR_OBJECTS
-        elif self._motion_detector and self._frame_scanners[MOTION_DETECTOR].scan:
+        elif self._motion_detector and (
+            self._motion_is_scanner and self._frame_scanners[MOTION_DETECTOR].scan
+        ):
             operation_state = OperationState.SCANNING_FOR_MOTION
 
         self.operation_state = operation_state
@@ -601,8 +589,13 @@ class NVR(AbstractNVR):
 
         if (
             self._motion_detector
-            and self._frame_scanners[MOTION_DETECTOR].scan
-            and not self._frame_scanners[MOTION_DETECTOR].scan_error
+            and (
+                not self._motion_is_scanner
+                or (
+                    self._frame_scanners[MOTION_DETECTOR].scan
+                    and not self._frame_scanners[MOTION_DETECTOR].scan_error
+                )
+            )
             and self._motion_detector.recorder_keepalive
             and self._motion_detector.motion_detected
         ):
@@ -687,11 +680,15 @@ class NVR(AbstractNVR):
             return
 
         # Only process motion if we are actively scanning for motion and the last
-        # scan did not return an error
+        # scan did not return an error. External (event-driven) motion detectors
+        # do not have a frame scanner, so this gate is skipped for them.
         if (
             self._motion_detector
-            and not self._frame_scanners[MOTION_DETECTOR].scan
-            and not self._frame_scanners[MOTION_DETECTOR].scan_error
+            and self._motion_is_scanner
+            and (
+                not self._frame_scanners[MOTION_DETECTOR].scan
+                or self._frame_scanners[MOTION_DETECTOR].scan_error
+            )
         ):
             return
 
@@ -738,6 +735,7 @@ class NVR(AbstractNVR):
 
         if (
             self._motion_detector
+            and self._motion_is_scanner
             and self._motion_detector.recorder_keepalive
             and not self._frame_scanners[MOTION_DETECTOR].scan
         ):
@@ -772,6 +770,7 @@ class NVR(AbstractNVR):
         if utcnow() >= self._stop_recorder_at:
             if (
                 self._motion_detector
+                and self._motion_is_scanner
                 and self._object_detector
                 and not self._object_detector.scan_on_motion_only
                 and not self._motion_detector.trigger_event_recording

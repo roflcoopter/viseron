@@ -14,22 +14,30 @@ import voluptuous as vol
 
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import EVENT_RECORDER_COMPLETE, EVENT_RECORDER_START
-from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
+from viseron.helpers.validators import (
+    UNDEFINED,
+    CameraIdentifier,
+    CoerceNoneToDict,
+    Deprecated,
+    Maybe,
+)
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
     COMPONENT,
     CONFIG_CAMERAS,
     CONFIG_DETECTION_LABEL,
-    CONFIG_DETECTION_LABEL_DEFAULT,
+    CONFIG_DETECTION_LABELS,
     CONFIG_DISCORD_WEBHOOK_URL,
     CONFIG_MAX_VIDEO_SIZE_MB,
     CONFIG_MAX_VIDEO_SIZE_MB_DEFAULT,
     CONFIG_SEND_THUMBNAIL,
     CONFIG_SEND_VIDEO,
+    DEFAULT_DETECTION_LABELS,
     DESC_CAMERAS,
     DESC_COMPONENT,
     DESC_DETECTION_LABEL,
+    DESC_DETECTION_LABELS,
     DESC_DISCORD_WEBHOOK_URL,
     DESC_MAX_VIDEO_SIZE_MB,
     DESC_SEND_THUMBNAIL,
@@ -40,6 +48,7 @@ if TYPE_CHECKING:
     from viseron import Event, Viseron
     from viseron.domains.camera import AbstractCamera
     from viseron.domains.camera.recorder import EventRecorderData, Recording
+    from viseron.domains.object_detector.detected_object import DetectedObject
 
 LOGGER = logging.getLogger(__name__)
 
@@ -49,10 +58,15 @@ CAMERA_SCHEMA = vol.Schema(
             CONFIG_DISCORD_WEBHOOK_URL,
             description=DESC_DISCORD_WEBHOOK_URL,
         ): str,
-        vol.Optional(
+        Deprecated(
             CONFIG_DETECTION_LABEL,
             description=DESC_DETECTION_LABEL,
         ): str,
+        vol.Optional(
+            CONFIG_DETECTION_LABELS,
+            description=DESC_DETECTION_LABELS,
+            default=UNDEFINED,
+        ): Maybe([str]),
         vol.Optional(
             CONFIG_SEND_THUMBNAIL,
             description=DESC_SEND_THUMBNAIL,
@@ -75,11 +89,15 @@ CONFIG_SCHEMA: vol.Schema = vol.Schema(
             vol.Required(
                 CONFIG_DISCORD_WEBHOOK_URL, description=DESC_DISCORD_WEBHOOK_URL
             ): str,
-            vol.Optional(
+            Deprecated(
                 CONFIG_DETECTION_LABEL,
                 description=DESC_DETECTION_LABEL,
-                default=CONFIG_DETECTION_LABEL_DEFAULT,
             ): str,
+            vol.Optional(
+                CONFIG_DETECTION_LABELS,
+                description=DESC_DETECTION_LABELS,
+                default=DEFAULT_DETECTION_LABELS,
+            ): [str],
             vol.Optional(
                 CONFIG_SEND_THUMBNAIL, description=DESC_SEND_THUMBNAIL, default=True
             ): bool,
@@ -157,7 +175,9 @@ class DiscordNotifier:
             vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
         )
 
-    def _get_camera_config(self, camera_identifier: str, key: str, default=None) -> Any:
+    def _get_camera_config(
+        self, camera_identifier: str, key: str, default: Any = None
+    ) -> Any:
         """Get camera-specific config or global default."""
         camera_config = self._config[CONFIG_CAMERAS].get(camera_identifier, {})
         return camera_config.get(key, self._config.get(key, default))
@@ -167,19 +187,63 @@ class DiscordNotifier:
         camera_config = self._config[CONFIG_CAMERAS].get(camera_identifier, {})
         return camera_config.get(CONFIG_DISCORD_WEBHOOK_URL, self._webhook_url)
 
+    def _get_effective_detection_labels(self, camera_identifier: str) -> list[str]:
+        """Return the list of allowed detection labels for a camera."""
+        camera_config = self._config[CONFIG_CAMERAS].get(camera_identifier, {})
+
+        # Camera-level deprecated key (comma-separated string)
+        camera_label_str = camera_config.get(CONFIG_DETECTION_LABEL)
+        if camera_label_str is not None:
+            return [lbl.strip() for lbl in camera_label_str.split(",") if lbl.strip()]
+
+        # Camera-level new key
+        camera_labels = camera_config.get(CONFIG_DETECTION_LABELS)
+        if camera_labels and camera_labels != UNDEFINED:
+            return camera_labels
+
+        # Global deprecated key (comma-separated string)
+        global_label_str = self._config.get(CONFIG_DETECTION_LABEL)
+        if global_label_str:
+            return [lbl.strip() for lbl in global_label_str.split(",") if lbl.strip()]
+
+        # Global new key
+        global_labels = self._config.get(CONFIG_DETECTION_LABELS)
+        if global_labels:
+            return global_labels
+
+        return DEFAULT_DETECTION_LABELS
+
+    def _matches_detection_label(
+        self, camera_identifier: str, objects: list[DetectedObject]
+    ) -> tuple[bool, str | None]:
+        """Return True if any detected object matches the configured labels."""
+        if not objects:
+            return True, None
+        allowed = self._get_effective_detection_labels(camera_identifier)
+        for obj in objects:
+            if obj.label in allowed:
+                return True, obj.label
+        return False, None
+
     def _recorder_start_event(self, event_data: Event[EventRecorderData]) -> None:
         """Handle recorder start event."""
         camera = event_data.data.camera
         recording = event_data.data.recording
 
+        matches, label = self._matches_detection_label(
+            camera.identifier, recording.objects
+        )
+        if not matches:
+            return
+
         # Always send a start notification with message
         message = f"Recording started on {camera.identifier}"
-        if recording.objects:
-            message += f" - Detected {recording.objects[0].label}"
+        if label:
+            message += f" - Detected {label}"
 
         # Check if thumbnail should be included
         send_thumbnail = self._get_camera_config(
-            camera.identifier, CONFIG_SEND_THUMBNAIL, True
+            camera.identifier, CONFIG_SEND_THUMBNAIL, default=True
         )
         thumbnail_path = recording.thumbnail_path
 
@@ -199,20 +263,30 @@ class DiscordNotifier:
     def _recorder_complete_event(self, event_data: Event[EventRecorderData]) -> None:
         """Handle recorder complete event."""
         asyncio.run_coroutine_threadsafe(
-            self._send_notifications(event_data), self._loop
+            self._async_recorder_complete_event(event_data), self._loop
         )
 
-    async def _send_notifications(self, event_data: Event[EventRecorderData]) -> None:
+    async def _async_recorder_complete_event(
+        self, event_data: Event[EventRecorderData]
+    ) -> None:
         """Send notifications to Discord webhook."""
         camera: AbstractCamera = event_data.data.camera
         recording = event_data.data.recording
+
+        matches, label = self._matches_detection_label(
+            camera.identifier, recording.objects
+        )
+        if not matches:
+            return
 
         # Check if this recording has already been sent
         with self._lock:
             already_sent = recording.id in self._sent_recordings
 
         # Check if video sending is enabled for this camera
-        send_video = self._get_camera_config(camera.identifier, CONFIG_SEND_VIDEO, True)
+        send_video = self._get_camera_config(
+            camera.identifier, CONFIG_SEND_VIDEO, default=True
+        )
 
         # Get max video size for this camera
         max_size_mb = self._get_camera_config(
@@ -224,8 +298,8 @@ class DiscordNotifier:
 
         # Prepare message
         message = f"Recording completed for {camera.identifier}"
-        if recording.objects:
-            message += f" - Detected {recording.objects[0].label}"
+        if label:
+            message += f" - Detected {label}"
 
         # Check if we can send video
         clip_path = recording.clip_path
@@ -243,7 +317,7 @@ class DiscordNotifier:
 
             # Send thumbnail if configured and available
             send_thumbnail = self._get_camera_config(
-                camera.identifier, CONFIG_SEND_THUMBNAIL, True
+                camera.identifier, CONFIG_SEND_THUMBNAIL, default=True
             )
             thumbnail_path = recording.thumbnail_path
             if (
@@ -264,20 +338,23 @@ class DiscordNotifier:
 
             # Prepare caption for video
             caption = f"Complete video from {camera.identifier}"
-            if recording.objects:
-                caption += f" - Detected {recording.objects[0].label}"
+            if label:
+                caption += f" - Detected {label}"
 
             # If file is smaller than the limit, send the complete video
             if file_size <= max_size_bytes:
                 LOGGER.info(
                     f"Sending complete video file ({file_size / 1024 / 1024:.1f}MB)."
                 )
-                self._send_discord_file(
+                success = self._send_discord_file(
                     clip_path,
                     caption,
                     f"{camera.identifier}_event_complete.mp4",
                     camera.identifier,
                 )
+                if success:
+                    with self._lock:
+                        self._sent_recordings.add(recording.id)
             else:
                 # Video is too large, send the first max_size_bytes
                 LOGGER.info(
@@ -286,7 +363,7 @@ class DiscordNotifier:
                 )
                 # Calculate approximate percentage of the video that is being sent
                 percentage = min(100, int((max_size_bytes / file_size) * 100))
-                self._send_discord_file_partial(
+                success = self._send_discord_file_partial(
                     clip_path,
                     f"{caption} \r\n"
                     f"Truncated to {max_size_mb}MB / {percentage}% of the original "
@@ -297,6 +374,9 @@ class DiscordNotifier:
                     max_size_bytes,
                     camera.identifier,
                 )
+                if success:
+                    with self._lock:
+                        self._sent_recordings.add(recording.id)
 
     def _send_discord_message(self, content: str, camera_identifier: str) -> bool:
         """Send a text message to Discord webhook."""

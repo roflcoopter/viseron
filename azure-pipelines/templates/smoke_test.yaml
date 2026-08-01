@@ -1,0 +1,73 @@
+parameters:
+  - name: image
+    type: string
+    # The base image name without arch prefix, e.g. "viseron".
+  - name: architecture
+    type: string
+    # One of: amd64, amd64-cuda, aarch64, rpi3
+  - name: namespace
+    type: string
+    default: roflcoopter
+  - name: imageTag
+    type: string
+    default: dev
+  - name: pythonVersion
+    type: string
+    default: "3.12"
+  - name: timeoutMinutes
+    type: number
+    default: 10
+  - name: pytestTimeout
+    type: number
+    default: 300
+
+steps:
+  - script: docker run --rm --privileged tonistiigi/binfmt --install all
+    displayName: "Smoke: register QEMU emulators"
+    condition: succeeded()
+
+  - script: |
+      set -euo pipefail
+      python3 -m venv "$AGENT_TEMPDIRECTORY/smoke-venv"
+      "$AGENT_TEMPDIRECTORY/smoke-venv/bin/pip" install --upgrade pip
+      "$AGENT_TEMPDIRECTORY/smoke-venv/bin/pip" install \
+        -r requirements_container_test.txt
+    displayName: "Smoke: install test harness requirements"
+    condition: succeeded()
+
+  - script: |
+      set -euxo pipefail
+      mkdir -p "$BUILD_ARTIFACTSTAGINGDIRECTORY/smoke-${{ parameters.architecture }}"
+      export VISERON_SMOKE_ARTIFACT_DIR="$BUILD_ARTIFACTSTAGINGDIRECTORY/smoke-${{ parameters.architecture }}"
+      "$AGENT_TEMPDIRECTORY/smoke-venv/bin/pytest" \
+        -rs \
+        tests/container/ \
+        --confcutdir=tests/container \
+        --image=${{ parameters.namespace }}/${{ parameters.architecture }}-${{ parameters.image }}:${{ parameters.imageTag }} \
+        --arch=${{ parameters.architecture }} \
+        --boot-timeout=$((${{ parameters.pytestTimeout }} - 60)) \
+        --timeout=${{ parameters.pytestTimeout }} \
+        --junitxml=$(Common.TestResultsDirectory)/smoke-${{ parameters.architecture }}.xml \
+        -v
+    displayName: "Smoke: run pytest"
+    timeoutInMinutes: ${{ parameters.timeoutMinutes }}
+    condition: succeeded()
+    continueOnError: true
+
+  - task: PublishTestResults@2
+    displayName: "Smoke: publish JUnit results"
+    condition: always()
+    inputs:
+      testResultsFormat: "JUnit"
+      testResultsFiles: "$(Common.TestResultsDirectory)/smoke-${{ parameters.architecture }}.xml"
+      testRunTitle: "Smoke ${{ parameters.architecture }}-${{ parameters.image }}"
+      mergeTestResults: false
+      failTaskOnFailedTests: false
+
+  - task: PublishBuildArtifacts@1
+    displayName: "Smoke: publish container artifacts"
+    condition: always()
+    inputs:
+      pathToPublish: "$(Build.ArtifactStagingDirectory)/smoke-${{ parameters.architecture }}"
+      artifactName: "smoke-artifacts-${{ parameters.architecture }}-${{ parameters.image }}"
+      publishLocation: "Container"

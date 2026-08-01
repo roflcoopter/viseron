@@ -16,10 +16,14 @@ afterEach(() => server.resetHandlers());
 afterAll(() => server.close()); // codespell-ignore
 
 // Mock ResizeObserver for tests since it is not available in the test environment
-global.ResizeObserver = vitest.fn().mockImplementation(() => ({
-  observe: vitest.fn(),
-  unobserve: vitest.fn(),
-  disconnect: vitest.fn(),
-}));
+class ResizeObserverMock {
+  observe = vitest.fn();
+
+  unobserve = vitest.fn();
+
+  disconnect = vitest.fn();
+}
+
+global.ResizeObserver = ResizeObserverMock as typeof ResizeObserver;
 
 export {};

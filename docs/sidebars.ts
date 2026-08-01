@@ -110,6 +110,7 @@ const sidebars: SidebarsConfig = {
         { type: "doc", id: "documentation/configuration/recordings" },
         { type: "doc", id: "documentation/configuration/snapshots" },
         { type: "doc", id: "documentation/configuration/live_view" },
+        { type: "doc", id: "documentation/configuration/motion_detection" },
         {
           type: "doc",
           id: "documentation/configuration/run_without_detectors",
@@ -118,6 +119,7 @@ const sidebars: SidebarsConfig = {
         { type: "doc", id: "documentation/configuration/logging" },
         { type: "doc", id: "documentation/configuration/templating" },
         { type: "doc", id: "documentation/configuration/system_events" },
+        { type: "doc", id: "documentation/configuration/api" },
       ],
     },
   ],

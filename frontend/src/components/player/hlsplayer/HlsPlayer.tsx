@@ -99,30 +99,6 @@ const onManifestParsed = (
   hlsRef.current.startLoad(0);
 };
 
-const onMediaAttached = (
-  hlsRef: React.MutableRefObject<Hls | null>,
-  videoRef: React.RefObject<HTMLVideoElement | null>,
-  initialProgramDateTime: React.MutableRefObject<number | null>,
-  playingDateRef: React.MutableRefObject<number>,
-) => {
-  hlsRef.current!.once(Hls.Events.MANIFEST_PARSED, () => {
-    onManifestParsed(hlsRef, videoRef);
-  });
-
-  hlsRef.current!.once(
-    Hls.Events.LEVEL_LOADED,
-    (event: any, data: LevelLoadedData) => {
-      onLevelLoaded(
-        data,
-        hlsRef,
-        videoRef,
-        initialProgramDateTime,
-        playingDateRef,
-      );
-    },
-  );
-};
-
 const initializePlayer = (
   hlsRef: React.MutableRefObject<Hls | null>,
   hlsClientIdRef: React.MutableRefObject<string>,
@@ -149,18 +125,6 @@ const initializePlayer = (
   // Create a new hls instance using shared factory
   hlsRef.current = createHlsInstance(auth, hlsClientIdRef);
 
-  if (videoRef.current) {
-    hlsRef.current.attachMedia(videoRef.current);
-  }
-
-  // Load the source and start the hls instance
-  loadSource(hlsRef, hlsClientIdRef, playingDateRef.current, camera);
-
-  // Handle MEDIA_ATTACHED event
-  hlsRef.current.on(Hls.Events.MEDIA_ATTACHED, () => {
-    onMediaAttached(hlsRef, videoRef, initialProgramDateTime, playingDateRef);
-  });
-
   // Setup error handling using shared utility
   setupHlsErrorHandling(hlsRef.current, {
     hlsRef,
@@ -182,6 +146,34 @@ const initializePlayer = (
       );
     },
   });
+
+  // Register the manifest/level handlers before attaching media and loading the
+  // source. The config uses autoStartLoad: false and startLoad(0) is only
+  // triggered from MANIFEST_PARSED, so the listener must be registered before
+  // loadSource to avoid a race where MANIFEST_PARSED fires before it is set up,
+  // leaving the player stuck with readyState 0 and an infinite spinner.
+  hlsRef.current.once(Hls.Events.MANIFEST_PARSED, () => {
+    onManifestParsed(hlsRef, videoRef);
+  });
+  hlsRef.current.once(
+    Hls.Events.LEVEL_LOADED,
+    (event: any, data: LevelLoadedData) => {
+      onLevelLoaded(
+        data,
+        hlsRef,
+        videoRef,
+        initialProgramDateTime,
+        playingDateRef,
+      );
+    },
+  );
+
+  if (videoRef.current) {
+    hlsRef.current.attachMedia(videoRef.current);
+  }
+
+  // Load the source and start the hls instance
+  loadSource(hlsRef, hlsClientIdRef, playingDateRef.current, camera);
 };
 
 const useInitializePlayer = (

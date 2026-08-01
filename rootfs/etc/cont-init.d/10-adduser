@@ -10,6 +10,25 @@ usermod -o -u "$PUID" abc
 
 log_info "************************ UID/GID *************************"
 log_info "Changing ownership of files to abc:abc, this may take a while..."
+
+# Symlink all folders to /data, so that they can be used with a Home Assistant add-on with a single volume mapping
+if [ -d "/data" ]; then
+    log_info "Symlinking folders to /data"
+    for folder in event_clips segments snapshots thumbnails; do
+        mkdir -p "/data/${folder}"
+        chown -R --silent abc:abc "/data/${folder}" || :
+        # Create symlink only if the path does not already exist
+        if [ ! -e "/${folder}" ]; then
+            log_info "Creating symlink for /${folder} to /data/${folder}"
+            ln -s "/data/${folder}" "/${folder}"
+        elif [ -L "/${folder}" ]; then
+            log_info "/${folder} already exists and is a symlink, skipping"
+        else
+            log_info "/${folder} already exists and is not a symlink, skipping"
+        fi
+    done
+fi
+
 chown -R abc:abc /home/abc/bin
 chown -R --silent abc:abc /config || :
 # Remove /recordings in a future release, it's deprecated in favor of /event_clips

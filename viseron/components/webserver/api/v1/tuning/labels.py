@@ -33,8 +33,13 @@ from viseron.components.yolo.const import (
     COMPONENT as YOLO_COMPONENT,
     CONFIG_MODEL_PATH as YOLO_CONFIG_MODEL_PATH,
 )
+from viseron.helpers.ultralytics_telemetry import disable_ultralytics_telemetry
 
 LOGGER = logging.getLogger(__name__)
+
+# Opt out of ultralytics' built-in analytics/crash reporting at import time,
+# before any model is loaded.
+disable_ultralytics_telemetry()
 
 CODEPROJECTAI_MODELS = {
     "ipcam-animal": [

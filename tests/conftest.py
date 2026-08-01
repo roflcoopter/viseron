@@ -1,8 +1,9 @@
 """Viseron fixtures."""
+
 from __future__ import annotations
 
-from collections.abc import Generator, Iterator
-from typing import Any
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -20,6 +21,11 @@ from viseron.components.webserver import COMPONENT as WEBSERVER, Webserver
 from viseron.const import FAILED, LOADED, LOADING
 
 from tests.common import MockCamera
+
+if TYPE_CHECKING:
+    from collections.abc import Generator, Iterator
+
+    from pytest_postgresql.executor import PostgreSQLExecutor
 
 test_db = factories.postgresql_proc(port=None, dbname="test_db")
 
@@ -60,7 +66,9 @@ def vis() -> MockViseron:
     viseron = MockViseron()
     viseron.data[DATA_STREAM] = MagicMock(spec=DataStream)
     viseron.data[STORAGE] = MagicMock(spec=Storage)
-    viseron.data[STORAGE].file_batch_size = DEFAULT_TIER_CHECK_BATCH_SIZE
+    viseron.data[STORAGE].file_batch_size = (  # type: ignore[misc]
+        DEFAULT_TIER_CHECK_BATCH_SIZE
+    )
     viseron.data[WEBSERVER] = MagicMock(spec=Webserver)
     viseron.data[LOADED] = {}
     viseron.data[LOADING] = {}
@@ -89,7 +97,7 @@ def patch_enable_logging() -> Iterator[None]:
         yield
 
 
-def _make_db_session(database) -> Generator[Session, Any, None]:
+def _make_db_session(database: PostgreSQLExecutor) -> Generator[Session, Any, None]:
     """Create a DB session."""
     with DatabaseJanitor(
         user=database.user,
@@ -111,7 +119,9 @@ def _make_db_session(database) -> Generator[Session, Any, None]:
         Base.metadata.drop_all(engine)
 
 
-def _get_db_session(database) -> Generator[sessionmaker[Session], Any, None]:
+def _get_db_session(
+    database: PostgreSQLExecutor,
+) -> Generator[sessionmaker[Session], Any, None]:
     """Create a DB session."""
     with DatabaseJanitor(
         user=database.user,
@@ -131,26 +141,26 @@ def _get_db_session(database) -> Generator[sessionmaker[Session], Any, None]:
         Base.metadata.drop_all(engine)
 
 
-@pytest.fixture(scope="function")
-def db_session(test_db):
+@pytest.fixture
+def db_session(test_db: PostgreSQLExecutor):
     """Session for SQLAlchemy."""
     yield from _make_db_session(test_db)
 
 
 @pytest.fixture(scope="class")
-def db_session_class(test_db):
+def db_session_class(test_db: PostgreSQLExecutor):
     """Session for SQLAlchemy."""
     yield from _make_db_session(test_db)
 
 
-@pytest.fixture(scope="function")
-def get_db_session(test_db):
+@pytest.fixture
+def get_db_session(test_db: PostgreSQLExecutor):
     """Session for SQLAlchemy with function scope."""
     yield from _get_db_session(test_db)
 
 
 @pytest.fixture(scope="class")
-def get_db_session_class(test_db):
+def get_db_session_class(test_db: PostgreSQLExecutor):
     """Session for SQLAlchemy with class scope."""
     yield from _get_db_session(test_db)
 
@@ -165,7 +175,7 @@ def alembic_config() -> dict[str, str]:
 
 
 @pytest.fixture
-def alembic_engine(test_db):
+def alembic_engine(test_db: PostgreSQLExecutor):
     """Return engine for pytest-alembic."""
     with DatabaseJanitor(
         user=test_db.user,
@@ -180,3 +190,44 @@ def alembic_engine(test_db):
             f"{test_db.user}:@{test_db.host}:{test_db.port}/{test_db.dbname}"
         )
         yield create_engine(connection_str)
+
+
+CONTAINER_TESTS_DIR = Path(__file__).parent / "container"
+
+
+def _is_inside_container_tests(path: Path) -> bool:
+    """Return True if path is the container smoke test dir or below it."""
+    try:
+        path.resolve().relative_to(CONTAINER_TESTS_DIR.resolve())
+    except ValueError:
+        return False
+    return True
+
+
+def _container_tests_requested(config: pytest.Config) -> bool:
+    """Return True if the user explicitly requested tests/container."""
+    rootpath = Path(config.rootpath)
+
+    for arg in config.args:
+        path_arg = arg.split("::", 1)[0]
+        candidate = Path(path_arg)
+        if not candidate.is_absolute():
+            candidate = rootpath / candidate
+
+        if _is_inside_container_tests(candidate):
+            return True
+
+    return False
+
+
+def pytest_ignore_collect(
+    collection_path: Path,
+    config: pytest.Config,
+) -> bool | None:
+    """Skip container smoke tests unless explicitly requested."""
+    if _is_inside_container_tests(collection_path) and not _container_tests_requested(
+        config
+    ):
+        return True
+
+    return None

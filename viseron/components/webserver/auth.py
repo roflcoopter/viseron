@@ -181,14 +181,6 @@ class Preferences:
     date_format: str | None = None
     time_format: str | None = None
 
-    def asdict(self) -> dict[str, Any]:
-        """Convert preferences to dict."""
-        return {
-            "timezone": self.timezone,
-            "date_format": self.date_format,
-            "time_format": self.time_format,
-        }
-
 
 @dataclass
 class User:
@@ -202,17 +194,6 @@ class User:
     enabled: bool = True
     assigned_cameras: list[str] | None = None
     preferences: Preferences | None = None
-
-    def asdict(self) -> dict[str, Any]:
-        """Convert user to dict."""
-        return {
-            "id": self.id,
-            "name": self.name,
-            "username": self.username,
-            "role": self.role.value,
-            "assigned_cameras": self.assigned_cameras,
-            "preferences": self.preferences,
-        }
 
 
 @dataclass

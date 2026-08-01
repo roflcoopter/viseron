@@ -19,6 +19,7 @@ from viseron.helpers.validators import (
 
 from .const import (
     COMPONENT,
+    CONFIG_CA_CERT,
     CONFIG_CONDITION,
     CONFIG_CONTENT_TYPE,
     CONFIG_EVENT,
@@ -31,6 +32,7 @@ from .const import (
     CONFIG_URL,
     CONFIG_USERNAME,
     CONFIG_VERIFY_SSL,
+    DEFAULT_CA_CERT,
     DEFAULT_CONDITION,
     DEFAULT_CONTENT_TYPE,
     DEFAULT_HEADERS,
@@ -40,6 +42,7 @@ from .const import (
     DEFAULT_TIMEOUT,
     DEFAULT_USERNAME,
     DEFAULT_VERIFY_SSL,
+    DESC_CA_CERT,
     DESC_COMPONENT,
     DESC_CONDITION,
     DESC_CONTENT_TYPE,
@@ -132,6 +135,11 @@ HOOK_SCHEMA = vol.Schema(
             default=DEFAULT_VERIFY_SSL,
             description=DESC_VERIFY_SSL,
         ): bool,
+        vol.Optional(
+            CONFIG_CA_CERT,
+            default=DEFAULT_CA_CERT,
+            description=DESC_CA_CERT,
+        ): Maybe(str),
     }
 )
 
@@ -223,6 +231,12 @@ class Webhook:
         if hook_conf[CONFIG_CONTENT_TYPE]:
             headers["Content-Type"] = hook_conf[CONFIG_CONTENT_TYPE]
 
+        # A custom CA certificate path takes precedence over the verify_ssl
+        # boolean so that servers fronted by a self-hosted CA can be verified
+        # without disabling TLS verification entirely.
+        ca_cert = hook_conf[CONFIG_CA_CERT]
+        verify = ca_cert if ca_cert else hook_conf[CONFIG_VERIFY_SSL]
+
         try:
             LOGGER.debug(
                 f"Sending webhook '{hook_name}' "
@@ -234,10 +248,10 @@ class Webhook:
             resp = requests.request(
                 method=hook_conf[CONFIG_METHOD],
                 url=url,
-                data=payload,
+                data=payload.encode("utf-8") if payload else None,
                 headers=headers,
                 timeout=hook_conf[CONFIG_TIMEOUT],
-                verify=hook_conf[CONFIG_VERIFY_SSL],
+                verify=verify,
                 auth=auth,
             )
             LOGGER.debug(f"Webhook '{hook_name}' status code: {resp.status_code}")

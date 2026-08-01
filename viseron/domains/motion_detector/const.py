@@ -1,4 +1,5 @@
 """Motion detector domain constants."""
+
 from typing import Final
 
 DOMAIN: Final = "motion_detector"
@@ -26,6 +27,7 @@ CONFIG_TRIGGER_RECORDER = "trigger_recorder"
 CONFIG_TRIGGER_EVENT_RECORDING = "trigger_event_recording"
 CONFIG_RECORDER_KEEPALIVE = "recorder_keepalive"
 CONFIG_MAX_RECORDER_KEEPALIVE = "max_recorder_keepalive"
+CONFIG_MAX_MOTION_DURATION = "max_motion_duration"
 
 DEFAULT_FPS = 1
 DEFAULT_AREA = 0.08
@@ -35,6 +37,7 @@ DEFAULT_MASK: list[dict[str, int]] = []
 DEFAULT_TRIGGER_EVENT_RECORDING = False
 DEFAULT_RECORDER_KEEPALIVE = True
 DEFAULT_MAX_RECORDER_KEEPALIVE = 30
+DEFAULT_MAX_MOTION_DURATION = 0
 
 DESC_CAMERAS = (
     "Camera-specific configuration. All subordinate "
@@ -75,5 +78,12 @@ DESC_MAX_RECORDER_KEEPALIVE = (
     "recorder going when no objects are detected.<br>"
     "Use this to prevent never-ending recordings.<br>"
     "Only applicable if <code>recorder_keepalive: true</code>.<br>"
+    "<b>A value of <code>0</code> disables this functionality.</b>"
+)
+DESC_MAX_MOTION_DURATION = (
+    "Value in seconds for the maximum time motion is allowed to stay active "
+    "before being automatically cleared.<br>"
+    "Acts as a safety net for external motion sources that may fail to send an "
+    "<code>off</code> signal.<br>"
     "<b>A value of <code>0</code> disables this functionality.</b>"
 )

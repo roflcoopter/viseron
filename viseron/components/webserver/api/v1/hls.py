@@ -146,7 +146,6 @@ class HlsAPIHandler(BaseAPIHandler):
 
         self.set_header("Content-Type", "application/x-mpegURL")
         self.set_header("Cache-Control", "no-cache")
-        self.set_header("Access-Control-Allow-Origin", "*")
         await self.response_success(response=playlist)
 
     async def get_hls_playlist_time_period(
@@ -184,7 +183,6 @@ class HlsAPIHandler(BaseAPIHandler):
 
         self.set_header("Content-Type", "application/x-mpegURL")
         self.set_header("Cache-control", "no-cache, must-revalidate, max-age=0")
-        self.set_header("Access-Control-Allow-Origin", "*")
         await self.response_success(response=playlist)
 
     async def get_available_timespans(
@@ -328,7 +326,11 @@ def _generate_playlist(
     now = utcnow()
 
     with get_session() as session:
-        stmt = select(Recordings).where(Recordings.id == recording_id)
+        stmt = (
+            select(Recordings)
+            .where(Recordings.id == recording_id)
+            .where(Recordings.camera_identifier == camera.identifier)
+        )
         recording = session.execute(stmt).scalar()
         if recording is None:
             return None

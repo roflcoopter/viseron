@@ -3,6 +3,10 @@ parameters:
     displayName: "Build without cache"
     type: boolean
     default: false
+  - name: skipSmokeTests
+    displayName: "Skip container smoke tests"
+    type: boolean
+    default: false
 
 trigger:
   branches:
@@ -61,7 +65,19 @@ stages:
           release: false
           noCache: ${{ parameters.noCache }}
 
-  - stage: "Publish"
+  - stage: Test
+    dependsOn: Build
+    condition: and(succeeded('Build'), eq('${{ parameters.skipSmokeTests }}', false))
+    jobs:
+      - template: templates/smoke_test_stage.yaml
+        parameters:
+          image: viseron
+
+  - stage: Publish
+    dependsOn:
+      - Build
+      - Test
+    condition: and(succeeded('Build'), in(dependencies.Test.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'))
     jobs:
       - job: "ReleaseViseron"
         pool:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from abc import abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -31,6 +32,7 @@ from viseron.domains.motion_detector.const import (
     CONFIG_FPS,
     CONFIG_HEIGHT,
     CONFIG_MASK,
+    CONFIG_MAX_MOTION_DURATION,
     CONFIG_MAX_RECORDER_KEEPALIVE,
     CONFIG_RECORDER_KEEPALIVE,
     CONFIG_TRIGGER_EVENT_RECORDING,
@@ -40,6 +42,7 @@ from viseron.domains.motion_detector.const import (
     DEFAULT_FPS,
     DEFAULT_HEIGHT,
     DEFAULT_MASK,
+    DEFAULT_MAX_MOTION_DURATION,
     DEFAULT_MAX_RECORDER_KEEPALIVE,
     DEFAULT_RECORDER_KEEPALIVE,
     DEFAULT_TRIGGER_EVENT_RECORDING,
@@ -51,6 +54,7 @@ from viseron.domains.motion_detector.const import (
     DESC_FPS,
     DESC_HEIGHT,
     DESC_MASK,
+    DESC_MAX_MOTION_DURATION,
     DESC_MAX_RECORDER_KEEPALIVE,
     DESC_RECORDER_KEEPALIVE,
     DESC_TRIGGER_EVENT_RECORDING,
@@ -500,3 +504,96 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
         self._kill_received = True
         self._motion_detection_thread.stop()
         self._motion_detection_thread.join()
+
+
+CAMERA_SCHEMA_EXTERNAL = CAMERA_SCHEMA.extend(
+    {
+        vol.Optional(
+            CONFIG_MAX_MOTION_DURATION,
+            default=DEFAULT_MAX_MOTION_DURATION,
+            description=DESC_MAX_MOTION_DURATION,
+        ): vol.All(int, vol.Range(min=0)),
+    }
+)
+
+
+class AbstractMotionDetectorExternal(AbstractMotionDetector):
+    """Abstract motion detector driven by an external source.
+
+    Subclasses receive motion state from outside Viseron (e.g. MQTT, HTTP)
+    and push state changes through :py:meth:`set_motion_detected` rather than
+    scanning frames themselves.
+    """
+
+    def __init__(
+        self,
+        vis: Viseron,
+        component: str,
+        config: dict[Any, Any],
+        camera_identifier: str,
+    ) -> None:
+        super().__init__(vis, component, config, camera_identifier)
+        self._max_motion_duration: int = config[CONFIG_CAMERAS][camera_identifier][
+            CONFIG_MAX_MOTION_DURATION
+        ]
+        self._safety_timer: threading.Timer | None = None
+        self._timer_lock = threading.Lock()
+        self._listeners: list[Callable] = []
+        self._listeners.append(
+            vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
+        )
+
+    def set_motion_detected(
+        self,
+        detected: bool,
+        shared_frame: SharedFrame | None = None,
+        contours: Contours | None = None,
+    ) -> None:
+        """Set motion state from an external source.
+
+        Cancels any pending safety auto-clear timer; if ``detected`` is true and
+        ``max_motion_duration`` is greater than zero a new timer is scheduled to
+        clear motion automatically.
+        """
+        with self._timer_lock:
+            if self._safety_timer is not None:
+                self._safety_timer.cancel()
+                self._safety_timer = None
+
+            self._motion_detected_setter(detected, shared_frame, contours)
+
+            if detected and self._max_motion_duration > 0:
+                self._safety_timer = threading.Timer(
+                    self._max_motion_duration,
+                    self._safety_clear,
+                )
+                self._safety_timer.daemon = True
+                self._safety_timer.start()
+
+    def _safety_clear(self) -> None:
+        """Auto-clear motion when the safety timer fires."""
+        self._logger.debug(
+            "max_motion_duration (%ss) reached, clearing motion",
+            self._max_motion_duration,
+        )
+        with self._timer_lock:
+            self._safety_timer = None
+            self._motion_detected_setter(False, None, None)
+
+    @property
+    def max_motion_duration(self) -> int:
+        """Return the configured max motion duration in seconds."""
+        return self._max_motion_duration
+
+    def unload(self) -> None:
+        """Unload motion detector."""
+        for unsubscribe in self._listeners:
+            unsubscribe()
+        self.stop()
+
+    def stop(self) -> None:
+        """Stop motion detector, cancelling any pending safety timer."""
+        with self._timer_lock:
+            if self._safety_timer is not None:
+                self._safety_timer.cancel()
+                self._safety_timer = None

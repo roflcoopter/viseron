@@ -41,6 +41,7 @@ class AccessTokenStaticFileHandler(
                     reason="Missing camera identifier in request",
                 )
                 self.finish()
+                return
 
             camera = self._get_camera(self._camera_identifier, failed=self._failed)
             if not camera:

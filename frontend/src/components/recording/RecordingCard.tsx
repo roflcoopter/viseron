@@ -1,4 +1,5 @@
 import {
+  Download,
   FaceActivated,
   Movement,
   TrashCan,
@@ -8,17 +9,21 @@ import Card from "@mui/material/Card";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
+import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
+import { useState } from "react";
 import LazyLoad from "react-lazyload";
 
 import MutationIconButton from "components/buttons/MutationIconButton";
+import ConfirmDeleteDialog from "components/dialog/ConfirmDeleteDialog";
 import LicensePlateRecognitionIcon from "components/icons/LicensePlateRecognition";
 import { getVideoElement } from "components/player/utils";
 import VideoPlayerPlaceholder from "components/player/videoplayer/VideoPlayerPlaceholder";
 import { useAuthContext } from "context/AuthContext";
+import { useExportRecording } from "hooks/UseExportRecording";
 import { useDeleteRecording } from "lib/api/recordings";
 import {
   getDayjsFromDateTimeString,
@@ -38,6 +43,8 @@ export default function RecordingCard({
   const theme = useTheme();
   const { user } = useAuthContext();
   const deleteRecording = useDeleteRecording();
+  const exportRecording = useExportRecording();
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   return (
     <Card
@@ -98,27 +105,49 @@ export default function RecordingCard({
           {getVideoElement(camera, recording)}
         </LazyLoad>
       </CardMedia>
-      {!user || user.role === "admin" || user.role === "write" ? (
-        <CardActions>
-          <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
+      <CardActions>
+        <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
+          <Tooltip title="Download Recording">
+            <IconButton
+              onClick={() => {
+                exportRecording(camera.identifier, recording.id);
+              }}
+            >
+              <Download size={20} />
+            </IconButton>
+          </Tooltip>
+          {!user || user.role === "admin" || user.role === "write" ? (
             <Tooltip title="Delete Recording">
               <MutationIconButton
                 mutation={deleteRecording}
                 color="error"
-                onClick={() => {
-                  deleteRecording.mutate({
-                    identifier: camera.identifier,
-                    recording_id: recording.id,
-                    failed: camera.failed,
-                  });
-                }}
+                onClick={() => setConfirmOpen(true)}
               >
                 <TrashCan size={20} />
               </MutationIconButton>
             </Tooltip>
-          </Stack>
-        </CardActions>
-      ) : null}
+          ) : null}
+        </Stack>
+        {!user || user.role === "admin" || user.role === "write" ? (
+          <ConfirmDeleteDialog
+            open={confirmOpen}
+            onClose={() => setConfirmOpen(false)}
+            onConfirm={() => {
+              deleteRecording.mutate(
+                {
+                  identifier: camera.identifier,
+                  recording_id: recording.id,
+                  failed: camera.failed,
+                },
+                { onSuccess: () => setConfirmOpen(false) },
+              );
+            }}
+            isPending={deleteRecording.isPending}
+            title="Delete recording"
+            description="Delete this recording? This action cannot be undone."
+          />
+        ) : null}
+      </CardActions>
     </Card>
   );
 }

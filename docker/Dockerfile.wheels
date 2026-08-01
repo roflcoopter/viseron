@@ -9,10 +9,12 @@ COPY --from=dlib /wheels /wheels
 
 ARG ARCH
 ARG EXTRA_PIP_ARGS=""
+ARG MAKEFLAGS="-j2"
 
 ENV \
   DEBIAN_FRONTEND=noninteractive \
-  PIP_IGNORE_INSTALLED=0
+  PIP_IGNORE_INSTALLED=0 \
+  MAKEFLAGS=${MAKEFLAGS}
 
 ARG BUILDPLATFORM
 RUN \
@@ -43,7 +45,10 @@ RUN apt-get -yqq update && apt-get install -yq --no-install-recommends \
   add-apt-repository ppa:deadsnakes/ppa -y && \
   apt-get update && apt-get install -y --no-install-recommends \
   python3.9 \
+  python3.9-dev \
   python3.9-distutils ; \
+  else \
+  apt-get install -y --no-install-recommends python3.9-dev ; \
   fi \
   # Remove EXTERNALLY-MANAGED to allow pip to install packages since its safe to do so when building a container
   && find /usr/lib/python3* -name EXTERNALLY-MANAGED -delete \
@@ -61,6 +66,7 @@ RUN echo "opencv-python-headless==$OPENCV_VERSION" >> /requirements.txt
 
 # We need to setup Rust compiler for bcrypt
 # A tmpfs is needed: https://github.com/rust-lang/cargo/issues/8719
+COPY requirements_conflicts.txt requirements_conflicts.txt
 COPY requirements-3.9.txt requirements-3.9.txt
 RUN --mount=type=tmpfs,target=/root/.cargo curl https://sh.rustup.rs -sSf | bash -s -- -y \
   && . $HOME/.cargo/env \
@@ -70,6 +76,8 @@ RUN --mount=type=tmpfs,target=/root/.cargo curl https://sh.rustup.rs -sSf | bash
   else export PLATFORM="$ARCH"; fi \
   \
   && python3 -m pip wheel --wheel-dir=/wheels --find-links=/wheels ${EXTRA_PIP_ARGS} /opencv-python-headless -r /requirements.txt \
+  # Ignore conflicts for some abandoned packages
+  && python3 -m pip wheel --no-deps --wheel-dir=/wheels --find-links=/wheels ${EXTRA_PIP_ARGS} -r /requirements_conflicts.txt \
   && python3.9 -m pip wheel \
   --extra-index-url https://google-coral.github.io/py-repo/ \
   --wheel-dir=/wheels-3.9 \

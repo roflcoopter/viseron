@@ -1,8 +1,20 @@
 import { WebSocketClientConnectionProtocol } from "@mswjs/interceptors/WebSocket";
 import { WebSocketData, ws } from "msw";
+import { DEFAULT_YAML_CONFIG } from "tests/utils/const";
 
 // Catch all ws connections
 const socket = ws.link(/ws(s)?:\/\/[^/]+\/?.*/);
+
+// Controls what the mocked `get_setup_status` command responds with. Defaults
+// to no errors.
+// Tests can override by setting `setupStatusMock.components`
+export const setupStatusMock: { components: unknown[] } = {
+  components: [],
+};
+
+export const resetSetupStatusMock = () => {
+  setupStatusMock.components = [];
+};
 
 const messageHandler = (
   client: WebSocketClientConnectionProtocol,
@@ -29,12 +41,28 @@ const messageHandler = (
       case "get_cameras":
         payload = { cameras: [] };
         break;
+      case "get_setup_status":
+        console.debug("Mock get_setup_status");
+        payload = {
+          command_id: msg.command_id,
+          type: "result",
+          success: true,
+          result: {
+            components: setupStatusMock.components,
+          },
+        };
+        break;
       case "get_config":
-        payload = { config: "version: 1" };
+        payload = {
+          command_id: msg.command_id,
+          type: "result",
+          success: true,
+          result: { config: DEFAULT_YAML_CONFIG },
+        };
         break;
       default:
         console.warn("wsHandlers.ts: Unknown WS message type:", type);
-        payload = { ok: true, type };
+        payload = { command_id: msg.command_id, ok: true, type };
     }
   } catch {
     throw new Error("Failed to parse WS message");

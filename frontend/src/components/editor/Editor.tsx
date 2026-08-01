@@ -423,6 +423,7 @@ function ConfigEditor() {
           </span>
           <span>
             <Button
+              data-testid="config-editor-reload-button"
               startIcon={<Renew />}
               loadingPosition="start"
               onClick={handleReloadConfig}

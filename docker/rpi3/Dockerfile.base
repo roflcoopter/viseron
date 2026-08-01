@@ -27,7 +27,8 @@ RUN \
   libopenexr-3-1-30 \
   libpng16-16t64 \
   ## FFmpeg
-  libx265-199 && \
+  libx265-199 \
+  clinfo && \
   echo "/opt/vc/lib" > /etc/ld.so.conf.d/00-vmcs.conf && \
   ldconfig  && \
   ln -s /detectors/models/darknet/yolov7-tiny.weights /detectors/models/darknet/default.weights && \

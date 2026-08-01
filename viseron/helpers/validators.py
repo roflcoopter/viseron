@@ -264,12 +264,13 @@ class StringKey:
     ) -> None:
         self.description = description
 
-    def __call__(self, value):
-        """Ensure slug."""
+    def __call__(self, value: Any) -> str:
+        """Ensure string."""
         if not isinstance(value, str):
             msg = f"Expected string. Got {value}"
             LOGGER.error(msg)
             raise vol.Invalid(msg)
+        return value
 
 
 class Url:

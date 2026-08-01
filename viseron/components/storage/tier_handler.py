@@ -224,6 +224,17 @@ class TierHandler(FileSystemEventHandler):
         self._max_age = calculate_age(self._tier[CONFIG_MAX_AGE])
         self._min_age = calculate_age(self._tier[CONFIG_MIN_AGE])
 
+        if (
+            self._next_tier is None
+            and not self._max_age
+            and not self._max_bytes
+        ):
+            self._logger.warning(
+                "Last tier '%s' has no max_age or max_size configured; "
+                "files on this tier will accumulate indefinitely.",
+                self._tier[CONFIG_PATH],
+            )
+
     def _create_dataitem(
         self,
     ) -> DataItem:
@@ -537,6 +548,18 @@ class SegmentsTierHandler(TierHandler):
             any(self._continuous_params)
             and self._camera.config[CONFIG_RECORDER][CONFIG_CONTINUOUS_RECORDING]
         )
+
+        if (
+            self._next_tier is None
+            and not any(self._events_params)
+            and not any(self._continuous_params)
+        ):
+            self._logger.warning(
+                "Last recorder tier '%s' has no retention (max_age/max_size) "
+                "configured for events or continuous; files on this tier will "
+                "accumulate indefinitely.",
+                self._path,
+            )
 
         self.add_file_handler(self._path, rf"{self._path}/(.*.m4s$)")
         self.add_file_handler(self._path, rf"{self._path}/(.*.mp4$)")
@@ -999,6 +1022,7 @@ def handle_file(
         logger.debug("File %s is recently requested, skipping", path)
         return
 
+    stuck_row = False
     if force_delete or next_tier is None:
         delete_file(
             storage,
@@ -1013,6 +1037,7 @@ def handle_file(
                 "changed the tier paths or a previous move failed.",
                 path,
             )
+            stuck_row = True
         else:
             move_file(
                 vis,
@@ -1027,17 +1052,24 @@ def handle_file(
                 logger,
             )
 
-    # Delete the file from the database if tier_path is not the same as
-    # curr_tier[CONFIG_PATH]. This is an indication that the tier configuration
-    # has changed and since the old path is not monitored, the delete signal
-    # will not be received by Viseron
-    if tier_path != curr_tier[CONFIG_PATH]:
+    # Delete the file from the database if:
+    # - tier_path is not the same as curr_tier[CONFIG_PATH]. This is an
+    #   indication that the tier configuration has changed and since the old
+    #   path is not monitored, the delete signal will not be received by
+    #   Viseron.
+    # - the move target equals the source (stuck_row). The row points at a
+    #   path this handler can never move or delete, so each tier-check pass
+    #   would re-process it and slowly leak SQLAlchemy connection objects in
+    #   the storage subprocess. Drop the row; OrphanedFilesCleanup will sweep
+    #   the on-disk file if it still exists.
+    if stuck_row or tier_path != curr_tier[CONFIG_PATH]:
         logger.debug(
             "Deleting file %s from database since tier paths are different. "
-            "file tier_path: %s, current tier_path: %s",
+            "file tier_path: %s, current tier_path: %s, stuck_row: %s",
             path,
             tier_path,
             curr_tier[CONFIG_PATH],
+            stuck_row,
         )
         with get_session() as session:
             stmt = delete(Files).where(Files.path == path)

@@ -25,6 +25,32 @@
         "type": "map",
         "value": [
           {
+            "type": "map",
+            "value": [
+              {
+                "type": "string",
+                "name": {
+                  "type": "deprecated",
+                  "name": "detection_label",
+                  "value": "Config option 'detection_label' is deprecated and will be removed in a future version."
+                },
+                "description": "Deprecated. Use detection_labels instead.",
+                "deprecated": true,
+                "default": null
+              },
+              {
+                "type": "list",
+                "values": [
+                  {
+                    "type": "string"
+                  }
+                ],
+                "name": "detection_labels",
+                "description": "Labels of objects to send notifications for.",
+                "optional": true,
+                "default": null
+              }
+            ],
             "name": {
               "type": "CAMERA_IDENTIFIER"
             },
@@ -52,10 +78,28 @@
       },
       {
         "type": "string",
-        "name": "detection_label",
-        "description": "Label of the object to send notifications for.",
+        "name": {
+          "type": "deprecated",
+          "name": "detection_label",
+          "value": "Config option 'detection_label' is deprecated and will be removed in a future version."
+        },
+        "description": "Deprecated. Use detection_labels instead.",
+        "deprecated": true,
+        "default": null
+      },
+      {
+        "type": "list",
+        "values": [
+          {
+            "type": "string"
+          }
+        ],
+        "name": "detection_labels",
+        "description": "Labels of objects to send notifications for.",
         "optional": true,
-        "default": "person"
+        "default": [
+          "person"
+        ]
       },
       {
         "type": "boolean",

@@ -18,7 +18,7 @@ from viseron.components.webserver.auth import Role
 from viseron.components.webserver.const import COMPONENT
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import DomainNotRegisteredError
-from viseron.helpers import get_utc_offset, utcnow
+from viseron.helpers import get_utc_offset, normalize_subpath, utcnow
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -49,7 +49,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         # Manually set xsrf cookie
         self.xsrf_token  # pylint: disable=pointless-statement # noqa: B018
 
-    async def run_in_executor(self, func: Callable[..., _T], *args) -> _T:
+    async def run_in_executor(self, func: Callable[..., _T], *args: Any) -> _T:
         """Run function in executor."""
         return await self.ioloop.run_in_executor(None, func, *args)
 
@@ -123,11 +123,15 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         return IOLoop.current()
 
     def get_subpath(self) -> str:
-        """Get the configured subpath.
+        """Get the subpath for URL construction.
 
-        Returns the subpath configured in the webserver configuration.
-        Returns empty string if not configured.
+        Checks the X-Ingress-Path request header first (set by Home Assistant
+        Ingress proxy), then falls back to the configured subpath.
+        Returns empty string if neither is set.
         """
+        ingress_path = self.request.headers.get("X-Ingress-Path", "")
+        if ingress_path:
+            return normalize_subpath(ingress_path)
         return self._webserver.configured_subpath
 
     def on_finish(self) -> None:
@@ -235,7 +239,9 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
                         LOGGER.debug("PAT owner not found or disabled")
                         return False
                     self.current_user = user
-                    self._webserver.auth.update_pat_used(pat, self.request.remote_ip)
+                    self._webserver.auth.update_pat_used(
+                        pat, self.request.remote_ip or "unknown"
+                    )
                     return True
             LOGGER.debug("Access token not valid")
             return False
@@ -438,11 +444,29 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             if refresh_token and hmac.compare_digest(
                 refresh_token.static_asset_key, static_asset_key.decode()
             ):
+                user = self._webserver.auth.get_user(refresh_token.user_id)
+                if user is None or not user.enabled:
+                    LOGGER.debug("Cookie session user not found or disabled")
+                    return False
+                if (
+                    user.role != Role.ADMIN
+                    and user.assigned_cameras is not None
+                    and camera.identifier not in user.assigned_cameras
+                ):
+                    LOGGER.debug(
+                        "Cookie session user %s not permitted to access camera %s",
+                        user.id,
+                        camera.identifier,
+                    )
+                    return False
                 return True
         return False
 
     def _validate_camera_pat(self, raw_token: str, camera: AbstractCamera) -> bool:
         """Validate a PAT and check that its owner may access camera."""
+        if not self._webserver.auth:
+            raise RuntimeError("Auth is not set up, cannot validate camera token.")
+
         pat = self._webserver.auth.validate_access_token_pat(raw_token)
         if pat is None:
             return False
@@ -465,7 +489,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             return False
 
         self.current_user = user
-        self._webserver.auth.update_pat_used(pat, self.request.remote_ip)
+        self._webserver.auth.update_pat_used(pat, self.request.remote_ip or "unknown")
         LOGGER.debug(
             "Camera %s accessed via PAT by user %s", camera.identifier, user.id
         )

@@ -6,16 +6,23 @@ To edit or change your `config.yaml`, you can either access the file directly on
 
 The `Configuration Editor` is a convenient way to make changes to your configuration without having to access the file system.
 
+You access the editor from the sidebar by clicking on `Settings` > `Configuration`
+
+<details>
+  <summary>Configuration Editor screenshot</summary>
+
+  <img src="/img/ui/config/main.png" alt="Configuration Editor" width={700} />
+
+</details>
+
 :::tip
 
 The built in Configuration Editor has syntax highlighting, making your YAML endeavors a bit easier.
 
 <details>
-  <summary>Demonstration of the Editor</summary>
+  <summary>YAML syntax error highlight</summary>
 
-<p align="center">
-  <img src="/img/screenshots/Viseron-demo-configuration.gif" alt-text="Configuration Editor"/>
-</p>
+  <img src="/img/ui/config/yaml-syntax-error.png" alt="YAML syntax error highlight" width={700} />
 
 </details>
 
@@ -46,8 +53,40 @@ width={700}
 
 :::note
 
-Note that you still need to restart Viseron after changing the settings for the changes to take effect.
-A future release will include hot reloading of all settings to make this process more seamless.
-Most code is already in place for this but it has not been exposed to the frontend properly yet.
+Note that you still need to reload the config or restart Viseron after changing the settings for the changes to take effect.
 
 :::
+
+## Reloading config without restarting
+
+Viseron supports hot reloading of the configuration without having to restart the container.
+
+Viseron will detect what components/domains have changed in the configuration and will only reload what is necessary, making the reload process faster and more efficient.
+
+For instance, if you change the settings for a camera, only that camera (and any dependent domains like an object detector or nvr) will be reloaded and not the entire system. This means less downtime and less disruption to your system.
+
+### Reloading from the frontend
+
+A config reload can be triggered by clicking the `Reload Config` button in the `Configuration Editor`.
+
+<details>
+  <summary>Reload Config button (highlighted in green)</summary>
+  <img src="/img/ui/config/reload-button.png" alt="Reload Config button" />
+</details>
+
+Potential errors will be presented in a sidebar next to the editor.
+
+<details>
+  <summary>Errors sidebar</summary>
+  <img src="/img/ui/config/setup-errors.png" alt="Errors sidebar" />
+</details>
+
+### Reloading from the command line
+
+The config can also be reloaded from the command line by using the command:
+
+```bash
+docker exec -it viseron viseron --reload
+```
+
+The `--reload` command sends `SIGHUP` to all running `viseron` processes in the container.

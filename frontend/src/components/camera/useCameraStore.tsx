@@ -13,6 +13,7 @@ interface CameraState {
   selectedCameras: string[];
   toggleCamera: (cameraIdentifier: string) => void;
   selectSingleCamera: (cameraIdentifier: string) => void;
+  clearSelectedCameras: () => void;
   selectionOrder: string[];
   setSelectedCameras: (cameras: string[]) => void;
   setSelectionOrder: (order: string[]) => void;
@@ -55,6 +56,19 @@ export const useCameraStore = create<CameraState>()(
             cameras: newCameras,
             selectedCameras: [cameraIdentifier],
             selectionOrder: [cameraIdentifier],
+          };
+        });
+      },
+      clearSelectedCameras: () => {
+        set((state) => {
+          const newCameras = { ...state.cameras };
+          Object.keys(newCameras).forEach((key) => {
+            newCameras[key] = false;
+          });
+          return {
+            cameras: newCameras,
+            selectedCameras: [],
+            selectionOrder: [],
           };
         });
       },

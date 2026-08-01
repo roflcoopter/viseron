@@ -85,8 +85,9 @@ class TieredFileHandler(AccessTokenStaticFileHandler):
         """Look through tiers to find a potentially moved file."""
         tier_hint_redirect_path = self.handle_tier_hint(path)
         if tier_hint_redirect_path:
+            subpath = self.get_subpath()
             self._redirect = True
-            self.redirect(f"/files{tier_hint_redirect_path}", permanent=True)
+            self.redirect(f"{subpath}/files{tier_hint_redirect_path}", permanent=True)
             return
 
         if not self._failed:

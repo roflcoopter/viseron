@@ -97,6 +97,9 @@ RUN \
   # OpenCV and FFmpeg Dependencies
   libgomp1 \
   libwebpdemux2 \
+  # Qt XCB platform plugin dependencies (bundled with opencv-python)
+  libsm6 \
+  libice6 \
   # dlib Dependencies
   # OpenBLAS provided via build-arg since Jetson Nano runs on older Ubuntu version
   "${OPENBLAS_APT_PACKAGE}" \
@@ -124,7 +127,13 @@ RUN \
   python3-gst-1.0 \
   && rm -rf /var/lib/apt/lists/* \
   \
-  && python3 -m pip install --ignore-installed /wheels/*.whl \
+  && python3 -m pip install --no-deps --ignore-installed /wheels/*.whl \
+  # Register PyTorch runtime libs (installed via ultralytics) with the system
+  # linker so that ldd and ld.so can resolve libtorch.so / libc10.so etc.
+  && python3 -c \
+  "import torch, os; open('/etc/ld.so.conf.d/torch.conf','w').write(os.path.join(os.path.dirname(torch.__file__),'lib')+'\n')" \
+  2>/dev/null || true \
+  && ldconfig \
   && rm -r /wheels \
   \
   # Install Python 3.9 if it doesn't exist
@@ -146,6 +155,21 @@ RUN \
   && python3.9 -m pip install --ignore-installed /wheels-3.9/*.whl \
   && rm -r /wheels-3.9 \
   \
+  # Python 3.9 wheels (e.g. Pillow for armhf) may have been compiled against
+  # Ubuntu 22.04 which shipped libtiff.so.5 and libwebp.so.6.  Ubuntu 24.04
+  # ships libtiff.so.6 and libwebp.so.7 instead.  Create compatibility
+  # symlinks so that those wheels can load on 24.04.  The loop is a no-op on
+  # architectures where the old SONAME is already present.
+  && ldconfig \
+  && for pair in "libtiff.so.5 libtiff.so.6" "libwebp.so.6 libwebp.so.7"; do \
+  old="${pair%% *}"; new="${pair##* }"; \
+  if ! ldconfig -p | grep -qF " $old "; then \
+  src=$(find /usr/lib -name "$new" -not -name "$new.*" 2>/dev/null | head -1); \
+  [ -n "$src" ] && ln -sf "$new" "$(dirname "$src")/$old" || true; \
+  fi; \
+  done \
+  && ldconfig \
+  \
   && chmod +x /tmp/s6-overlay-installer && /tmp/s6-overlay-installer / \
   && apt-get autoremove -y \
   && apt-get clean -y \
@@ -154,7 +178,7 @@ RUN \
   && rm -r /tmp/s6-overlay-installer \
   && useradd --uid 911 --user-group --create-home abc \
   && if id -u ubuntu >/dev/null 2>&1; then deluser --remove-home ubuntu; fi \
-  && mkdir -p /home/abc/bin /segments
+  && mkdir -p /home/abc/bin
 
 ENTRYPOINT ["/init"]
 

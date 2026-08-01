@@ -54,7 +54,13 @@ class PublicimageAPIHandler(BaseAPIHandler):
             # Try all allowed extensions to find the file
             file_path = None
             for ext in ALLOWED_EXTENSIONS:
-                candidate = os.path.join(PUBLIC_IMAGES_PATH, f"{token}{ext}")
+                candidate = os.path.realpath(
+                    os.path.join(PUBLIC_IMAGES_PATH, f"{token}{ext}")
+                )
+                base = os.path.realpath(PUBLIC_IMAGES_PATH) + os.sep
+                if not candidate.startswith(base):
+                    self.response_error(HTTPStatus.BAD_REQUEST, reason="Invalid token")
+                    return
                 if await self.run_in_executor(os.path.exists, candidate):
                     file_path = candidate
                     break

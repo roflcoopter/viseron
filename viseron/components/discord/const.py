@@ -8,14 +8,17 @@ DESC_COMPONENT = "Discord webhook to send notifications."
 CONFIG_DISCORD_WEBHOOK_URL = "webhook_url"
 CONFIG_CAMERAS = "cameras"
 CONFIG_DETECTION_LABEL = "detection_label"
-CONFIG_DETECTION_LABEL_DEFAULT = "person"
+CONFIG_DETECTION_LABELS = "detection_labels"
 CONFIG_SEND_THUMBNAIL = "send_detection_thumbnail"
 CONFIG_SEND_VIDEO = "send_detection_video"
 CONFIG_MAX_VIDEO_SIZE_MB = "max_video_size_mb"
 CONFIG_MAX_VIDEO_SIZE_MB_DEFAULT = 8
 
+DEFAULT_DETECTION_LABELS = ["person"]
+
 DESC_DISCORD_WEBHOOK_URL = "Discord webhook URL. Can be overridden per camera."
-DESC_DETECTION_LABEL = "Label of the object to send notifications for."
+DESC_DETECTION_LABEL = "Deprecated. Use detection_labels instead."
+DESC_DETECTION_LABELS = "Labels of objects to send notifications for."
 DESC_SEND_THUMBNAIL = "Send a thumbnail of the detected object."
 DESC_SEND_VIDEO = "Send a video of the detected object."
 DESC_MAX_VIDEO_SIZE_MB = (

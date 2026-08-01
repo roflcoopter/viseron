@@ -1,0 +1,1 @@
+"""Docker container smoke tests."""

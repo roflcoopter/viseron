@@ -4,7 +4,7 @@
 import react from "@vitejs/plugin-react";
 import { resolve } from "path";
 import { defineConfig, loadEnv } from "vite";
-import eslint from "vite-plugin-eslint";
+import checker from "vite-plugin-checker";
 import svgr from "vite-plugin-svgr";
 import viteTsconfigPaths from "vite-tsconfig-paths";
 
@@ -26,10 +26,15 @@ export default defineConfig(({ mode }) => {
           plugins: ["babel-plugin-react-compiler"],
         },
       }),
-      ,
       viteTsconfigPaths(),
       svgr(),
-      eslint(),
+      checker({
+        typescript: true,
+        eslint: {
+          lintCommand: 'eslint \"src/**/**.{js,jsx,ts,tsx,json}\"',
+          watchPath: "./src",
+        },
+      }),
     ],
     build: {
       rollupOptions: {

@@ -10,9 +10,7 @@ import numpy as np
 import pytest
 
 from viseron.components.nvr.const import (
-    DATA_NO_DETECTOR_RESULT,
     MOTION_DETECTOR,
-    NO_DETECTOR,
     OBJECT_DETECTOR,
 )
 from viseron.components.nvr.nvr import EVENT_MOTION_DETECTOR_RESULT, NVR
@@ -25,7 +23,12 @@ from viseron.helpers import utcnow
 from viseron.viseron_types import Domain
 from viseron.watchdog.thread_watchdog import RestartableThread
 
-from tests.common import MockCamera, MockMotionDetector, MockObjectDetector
+from tests.common import (
+    MockCamera,
+    MockMotionDetector,
+    MockMotionDetectorExternal,
+    MockObjectDetector,
+)
 from tests.conftest import MockViseron
 
 
@@ -162,23 +165,22 @@ def make_nvr(
 class TestNVRInit:
     """Init tests."""
 
-    def test_init_no_detectors_creates_no_detector_scanner(self, vis: MockViseron):
-        """No detectors -> NO_DETECTOR scanner."""
+    def test_init_no_detectors_no_scanners(self, vis: MockViseron):
+        """No detectors -> no frame scanners, output fps still recalculated."""
         nvr, cam = make_nvr(vis)
 
-        assert NO_DETECTOR in nvr._frame_scanners
+        # Without any detectors there is nothing to scan, so no frame scanners
+        # are created.
+        assert nvr._frame_scanners == {}
         assert OBJECT_DETECTOR not in nvr._frame_scanners
         assert MOTION_DETECTOR not in nvr._frame_scanners
 
-        # No detector scanner exists but is not scanning by default
-        assert nvr._frame_scanners[NO_DETECTOR].scan is False
-
-        # Subscribed to camera bytes and result topic
+        # Subscribed to camera bytes
         vis.listen_event.assert_any_call(cam.frame_bytes_topic, ANY)
-        vis.listen_event.assert_any_call(
-            DATA_NO_DETECTOR_RESULT.format(camera_identifier=cam.identifier),
-            ANY,
-        )
+
+        # Output fps is recalculated with an empty scanner list, which lets the
+        # camera fall back to its default low output fps.
+        cam.calculate_output_fps.assert_called_once_with([])
 
         # Camera started and NVR registered
         cam.start_camera.assert_called_once()
@@ -192,7 +194,6 @@ class TestNVRInit:
         assert OBJECT_DETECTOR in nvr._frame_scanners
         assert nvr._frame_scanners[OBJECT_DETECTOR].scan is True
         assert MOTION_DETECTOR not in nvr._frame_scanners
-        assert NO_DETECTOR not in nvr._frame_scanners
 
     def test_init_motion_only_scanner_enabled(self, vis: MockViseron):
         """Motion only -> motion scan on."""
@@ -207,6 +208,20 @@ class TestNVRInit:
             EVENT_MOTION_DETECTOR_RESULT.format(camera_identifier=cam.identifier),
             ANY,
         )
+
+    def test_init_external_motion_only_no_scanners(self, vis: MockViseron):
+        """External motion only -> no frame scanners, output fps still recalculated."""
+        motion_detector = MockMotionDetectorExternal(trigger_event_recording=True)
+        nvr, cam = make_nvr(vis, motion_detector=motion_detector)
+
+        # An external (event-driven) detector does not scan frames, so no frame
+        # scanners are created
+        assert nvr._frame_scanners == {}
+        assert MOTION_DETECTOR not in nvr._frame_scanners
+
+        # Output fps is still recalculated with an empty scanner list, which lets
+        # the camera fall back to its default low output fps.
+        cam.calculate_output_fps.assert_called_once_with([])
 
     def test_init_both_scan_on_motion_only_true(self, vis):
         """Both with motion-only -> motion on object off."""
