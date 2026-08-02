@@ -1,0 +1,49 @@
+import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
+import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting/index.mdx";
+
+import ComponentMetadata from "./_meta";
+import config from "./config.json";
+import LicensePlateRecognition from "@site/src/pages/components-explorer/_domains/license_plate_recognition/index.mdx";
+
+<ComponentHeader meta={ComponentMetadata} />
+
+fastALPR runs Automatic License Plate Recognition (ALPR) locally, in-process, using the
+[fast-alpr](https://github.com/ankandrew/fast-alpr) Python package. Detection and OCR both run
+as ONNX models on your own hardware (CPU or GPU) - no external server, API key, or internet
+access is required at inference time, unlike components such as CodeProject.AI or Deepstack.
+
+fastALPR is a post processor and works together with an object detector component (e.g.
+`darknet`, `yolo`, `edgetpu`). It runs on the bounding boxes of detected vehicles (e.g. `car`,
+`truck`) and looks for a license plate within them.
+
+## Configuration
+
+<details>
+  <summary>Configuration example</summary>
+
+```yaml title="/config/config.yaml"
+fastalpr:
+  license_plate_recognition:
+    cameras:
+      viseron_CHANGEME_camera:
+    labels:
+      - car
+      - truck
+    known_plates:
+      - ABC123
+    save_plates: true
+    min_confidence: 0.6
+    detector_model: yolo-v9-t-384-license-plate-end2end
+    ocr_model: cct-xs-v2-global-model
+    device: auto
+```
+
+</details>
+
+<ComponentConfiguration meta={ComponentMetadata} config={config} />
+
+<LicensePlateRecognition />
+
+<ComponentTroubleshooting meta={ComponentMetadata} />
+
