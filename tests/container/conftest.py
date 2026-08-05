@@ -182,6 +182,12 @@ def host_nginx_port() -> int:
 
 
 @pytest.fixture(scope="session")
+def host_nginx_port_data_mount() -> int:
+    """Pick a random free host port to map to the data-mount container's nginx."""
+    return _free_port()
+
+
+@pytest.fixture(scope="session")
 def artifact_dir(request: pytest.FixtureRequest) -> Path:
     """Return (and create) the directory where smoke-test artifacts are written.
 
