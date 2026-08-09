@@ -17,6 +17,8 @@ from viseron.const import (
     EVENT_STATE_CHANGED,
     VISERON_SIGNAL_SHUTDOWN,
 )
+from viseron.domains import RequireDomain, setup_domain
+from viseron.domains.motion_detector.const import CONFIG_CAMERAS
 from viseron.events import EventEmptyData
 from viseron.helpers.validators import CoerceNoneToDict, Maybe
 from viseron.watchdog.thread_watchdog import RestartableThread
@@ -29,6 +31,7 @@ from .const import (
     CONFIG_DISCOVERY_PREFIX,
     CONFIG_HOME_ASSISTANT,
     CONFIG_LAST_WILL_TOPIC,
+    CONFIG_MOTION_DETECTOR,
     CONFIG_PASSWORD,
     CONFIG_PORT,
     CONFIG_PUBLISH_HA_CONFIG_ON_RECONNECT,
@@ -52,6 +55,7 @@ from .const import (
     DESC_DISCOVERY_PREFIX,
     DESC_HOME_ASSISTANT,
     DESC_LAST_WILL_TOPIC,
+    DESC_MOTION_DETECTOR,
     DESC_PASSWORD,
     DESC_PORT,
     DESC_PUBLISH_HA_CONFIG_ON_RECONNECT,
@@ -73,6 +77,7 @@ from .entity.toggle import ManualRecordingToggleMQTTEntity, ToggleMQTTEntity
 from .event import EventMQTTEntityAddedData
 from .helpers import PublishPayload, SubscribeTopic
 from .homeassistant import HassMQTTInterface
+from .motion_detector import MOTION_DETECTOR_SCHEMA
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -152,6 +157,10 @@ CONFIG_SCHEMA = vol.Schema(
                     CONFIG_HOME_ASSISTANT,
                     description=DESC_HOME_ASSISTANT,
                 ): vol.All(CoerceNoneToDict(), HOME_ASSISTANT_SCHEMA),
+                vol.Optional(
+                    CONFIG_MOTION_DETECTOR,
+                    description=DESC_MOTION_DETECTOR,
+                ): MOTION_DETECTOR_SCHEMA,
             },
         )
     },
@@ -182,6 +191,24 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
         vis.data[COMPONENT].hass_interface = HassMQTTInterface(vis, config)
 
     return True
+
+
+def setup_domains(vis: Viseron, config: dict) -> None:
+    """Set up mqtt domains."""
+    config = config[COMPONENT]
+    motion_detector_config = config.get(CONFIG_MOTION_DETECTOR)
+    if motion_detector_config:
+        for camera_identifier in motion_detector_config[CONFIG_CAMERAS]:
+            setup_domain(
+                vis,
+                COMPONENT,
+                CONFIG_MOTION_DETECTOR,
+                config,
+                identifier=camera_identifier,
+                require_domains=[
+                    RequireDomain(domain="camera", identifier=camera_identifier)
+                ],
+            )
 
 
 def unload(vis: Viseron) -> None:
@@ -276,7 +303,9 @@ class MQTT:
         """Return registered MQTT entities."""
         return self._entities
 
-    def on_connect(self, _client, _userdata, _flags, returncode) -> None:
+    def on_connect(
+        self, _client: mqtt.Client, _userdata: Any, _flags: dict, returncode: int
+    ) -> None:
         """On established MQTT connection."""
         LOGGER.debug(f"MQTT connected with returncode {returncode!s}")
         if returncode != 0:
@@ -324,7 +353,9 @@ class MQTT:
                 entity.publish_state()
         self._vis.dispatch_event(EVENT_MQTT_BROKER_RECONNECT, EventEmptyData())
 
-    def on_disconnect(self, _client, _userdata, returncode) -> None:
+    def on_disconnect(
+        self, _client: mqtt.Client, _userdata: Any, returncode: int
+    ) -> None:
         """On MQTT disconnection."""
         if returncode != MQTTErrorCode.MQTT_ERR_SUCCESS:
             LOGGER.warning(
@@ -334,12 +365,14 @@ class MQTT:
             self._reconnect = True
             self._connected = False
 
-    def on_message(self, _client, _userdata, msg) -> None:
+    def on_message(
+        self, _client: mqtt.Client, _userdata: Any, msg: mqtt.MQTTMessage
+    ) -> None:
         """On message received."""
         LOGGER.debug(
             f"Message received on topic {msg.topic}, message {msg.payload.decode()!s}"
         )
-        for callback in self._subscriptions[msg.topic]:
+        for callback in self._subscriptions.get(msg.topic, []).copy():
             # Run callback in thread to not block the message queue
             RestartableThread(
                 name=f"mqtt_callback.{callback}",
@@ -384,6 +417,22 @@ class MQTT:
         LOGGER.debug(f"Subscribing to topic {subscription.topic}")
         self._subscriptions.setdefault(subscription.topic, [])
         self._subscriptions[subscription.topic].append(subscription.callback)
+
+    def unsubscribe(self, subscription: SubscribeTopic) -> None:
+        """Unsubscribe from a topic."""
+        if subscription.topic not in self._subscriptions:
+            return
+
+        try:
+            self._subscriptions[subscription.topic].remove(subscription.callback)
+            LOGGER.debug(f"Unsubscribing from topic {subscription.topic}")
+            if not self._subscriptions[subscription.topic]:
+                self._client.unsubscribe(subscription.topic)
+                del self._subscriptions[subscription.topic]
+        except ValueError:
+            LOGGER.warning(
+                f"Callback not found for topic {subscription.topic} during unsubscribe"
+            )
 
     def publish(self, payload: PublishPayload) -> None:
         """Put payload in publish queue."""

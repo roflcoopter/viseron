@@ -61,6 +61,7 @@ from .const import (
     CONFIG_STILL_IMAGE_WIDTH,
     CONFIG_STORAGE,
     CONFIG_URL,
+    DEFAULT_OUTPUT_FPS,
     EVENT_CAMERA_STARTED,
     EVENT_CAMERA_STATUS,
     EVENT_CAMERA_STATUS_CONNECTED,
@@ -215,7 +216,7 @@ class AbstractCamera(AbstractDomain):
             self._logger.debug("Still image is configured, setting availability.")
             self.still_image_available = True
 
-    def __post_init__(self, *args, **kwargs) -> None:
+    def __post_init__(self, *args: Any, **kwargs: Any) -> None:
         """Post init hook."""
         self._vis.register_domain(DOMAIN, self._identifier, self)
 
@@ -265,7 +266,15 @@ class AbstractCamera(AbstractDomain):
         self._access_token_entity.set_state()
 
     def calculate_output_fps(self, scanners: list[FrameIntervalCalculator]) -> None:
-        """Calculate the camera output fps based on registered frame scanners."""
+        """Calculate the camera output fps based on registered frame scanners.
+
+        When no scanners require frames (e.g. only an external, event-driven
+        motion detector is configured) the output fps is set to
+        ``DEFAULT_OUTPUT_FPS`` so we don't decode frames that nothing consumes.
+        """
+        if not scanners:
+            self.output_fps = DEFAULT_OUTPUT_FPS
+            return
         highest_fps = max(scanner.scan_fps for scanner in scanners)
         self.output_fps = highest_fps
 

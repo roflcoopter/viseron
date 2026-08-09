@@ -17,7 +17,7 @@ CONFIG_TELEGRAM_LOG_IDS = "telegram_log_ids"
 
 CONFIG_CAMERAS = "cameras"
 CONFIG_DETECTION_LABEL = "detection_label"
-CONFIG_DETECTION_LABEL_DEFAULT = "person"
+CONFIG_DETECTION_LABELS = "detection_labels"
 
 CONFIG_SEND_THUMBNAIL = "send_detection_thumbnail"
 CONFIG_SEND_VIDEO = "send_detection_video"
@@ -28,6 +28,7 @@ DEFAULT_SEND_THUMBNAIL: Final = False
 DEFAULT_SEND_VIDEO: Final = False
 DEFAULT_SEND_MESSAGE: Final = True
 DEFAULT_TELEGRAM_LOG_IDS: Final = False
+DEFAULT_DETECTION_LABELS: Final = ["person"]
 
 DESC_TELEGRAM_BOT_TOKEN = "Telegram bot token."
 DESC_TELEGRAM_CHAT_IDS = "List of chat IDs to send messages to."
@@ -36,7 +37,8 @@ DESC_TELEGRAM_USER_IDS = (
 )
 DESC_TELEGRAM_LOG_IDS = "True if we should log the id of a user who was denied access."
 
-DESC_DETECTION_LABEL = "Label of the object to send notifications for."
+DESC_DETECTION_LABEL = "Deprecated. Use detection_labels instead."
+DESC_DETECTION_LABELS = "Labels of objects to send notifications for."
 DESC_SEND_THUMBNAIL = "Send a thumbnail of the detected object."
 DESC_SEND_VIDEO = "Send a video of the detected object."
 DESC_SEND_MESSAGE = "Send a text message with the detected object."

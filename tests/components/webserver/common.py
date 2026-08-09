@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
@@ -23,6 +24,8 @@ if TYPE_CHECKING:
 USER_ID = "ffa448c2623b45ba8be62bfc6b0ae859"
 USER_NAME = "asd"
 REFRESH_TOKEN_ID = "77541fd8343543a7be6057270b23cdfe"
+CREATED_AT = time.time() - 1
+USED_AT = time.time()
 
 READ_USER_ID = "b2f5ff467c4d4a3e8f1a0b7c9e6d2f3b"
 READ_USER_NAME = "read_user"
@@ -60,12 +63,12 @@ AUTH_STORAGE_DATA = {
                 "session_expiration": 3600,
                 "access_token_type": "normal",
                 "access_token_expiration": 1800,
-                "created_at": 1678198479.662633,
+                "created_at": CREATED_AT,
                 "id": REFRESH_TOKEN_ID,
                 "token": "token",
                 "jwt_key": "jwt_key",
                 "static_asset_key": STATIC_ASSET_KEY,
-                "used_at": 1678196574.598274,
+                "used_at": USED_AT,
                 "used_by": "192.168.100.100",
             },
             READ_REFRESH_TOKEN_ID: {
@@ -74,12 +77,12 @@ AUTH_STORAGE_DATA = {
                 "session_expiration": 3600,
                 "access_token_type": "normal",
                 "access_token_expiration": 1800,
-                "created_at": 1678198479.662633,
+                "created_at": CREATED_AT,
                 "id": READ_REFRESH_TOKEN_ID,
                 "token": "read_token",
                 "jwt_key": "jwt_key",
                 "static_asset_key": STATIC_ASSET_KEY,
-                "used_at": 1678196574.598274,
+                "used_at": USED_AT,
                 "used_by": "192.168.100.100",
             },
         },

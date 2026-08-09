@@ -13,6 +13,8 @@ pytest-postgresql==8.0.0
 pytest-sugar==1.1.1
 pytest-timeout==2.4.0
 pytest-xdist==3.8.0
+pytest-testinfra==10.1.1
+docker==7.1.0
 vulture==2.14
 
 # The following libraries has to be kept in sync with .pre-commit-config.yaml

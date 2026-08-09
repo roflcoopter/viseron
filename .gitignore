@@ -59,10 +59,12 @@
 !/tests/*
 !/tests/components
 !/tests/components/**
+!/tests/container
+!/tests/container/**
 !/tests/domains
 !/tests/domains/**
 !/tests/helpers
-!/tests/helpers/*
+!/tests/helpers/**
 
 # Source
 !/viseron
@@ -76,6 +78,8 @@
 !/viseron/watchdog
 !/viseron/watchdog/*
 !/requirements_ci.txt
+!/requirements_conflicts.txt
+!/requirements_container_test.txt
 !/requirements_test.txt
 !/requirements.txt
 !/requirements-3.9.txt

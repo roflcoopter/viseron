@@ -96,7 +96,7 @@ Several screenshots are taken programmatically during end-to-end tests, thus cam
 
 ### Configuration Editor
 
-<img src="/img/screenshots/Viseron-screenshot-configuration.png" alt-text="Configuration Editor"/>
+<img src="/img/ui/config/main.png" alt="Configuration Editor"/>
 
 ## How does Viseron compare to other NVR software?
 

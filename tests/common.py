@@ -3,25 +3,30 @@
 from __future__ import annotations
 
 import datetime
-from collections.abc import Callable, Generator
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy import insert
-from sqlalchemy.orm import Session
 
 from viseron.components import Component
 from viseron.components.storage.models import Files, Recordings
 from viseron.const import LOADED
 from viseron.domain_registry import DomainState
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
-from viseron.domains.motion_detector import AbstractMotionDetectorScanner
+from viseron.domains.motion_detector import (
+    AbstractMotionDetectorExternal,
+    AbstractMotionDetectorScanner,
+)
 from viseron.domains.object_detector import AbstractObjectDetector
 from viseron.helpers import utcnow
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Generator
+
+    from sqlalchemy.orm import Session
+
     from viseron import Viseron
 
 
@@ -211,6 +216,31 @@ class MockMotionDetector(MagicMock):
         super().__init__(
             spec=AbstractMotionDetectorScanner,
             fps=fps,
+            trigger_event_recording=trigger_event_recording,
+            recorder_keepalive=recorder_keepalive,
+            max_recorder_keepalive=max_recorder_keepalive,
+            motion_detected=motion_detected,
+            motion_contours=motion_contours,
+            **kwargs,
+        )
+
+
+class MockMotionDetectorExternal(MagicMock):
+    """Representation of a fake external (event-driven) motion detector."""
+
+    def __init__(
+        self,
+        *,
+        trigger_event_recording: bool = True,
+        recorder_keepalive: bool = False,
+        max_recorder_keepalive: int | None = None,
+        motion_detected: bool = False,
+        motion_contours=None,
+        **kwargs,
+    ):
+        """Initialize the mock external motion detector."""
+        super().__init__(
+            spec=AbstractMotionDetectorExternal,
             trigger_event_recording=trigger_event_recording,
             recorder_keepalive=recorder_keepalive,
             max_recorder_keepalive=max_recorder_keepalive,

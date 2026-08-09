@@ -10,7 +10,7 @@ fi
 
 log_info "Wait for Viseron to stop..."
 PID=$(pgrep -f ^viseron)
-while ps -p $PID > /dev/null; do
+while [ -n "$PID" ] && ps -p $PID > /dev/null; do
   sleep 1
 done
 log_info "Viseron has stopped!"

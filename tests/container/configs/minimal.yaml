@@ -1,0 +1,7 @@
+# Minimal Viseron config used by the container smoke tests.
+#
+# Viseron always loads its core/default components (logger, data_stream,
+# webserver, storage). Specifying logger here forces a non-empty config so the
+# default-config heuristic in viseron/config.py does not kick in.
+logger:
+  default_level: info

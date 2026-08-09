@@ -1,4 +1,5 @@
 """Test helpers module."""
+
 from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone
 
@@ -128,6 +129,31 @@ def test_fractional_hour_offset():
 
     assert time_from == datetime(2023, 12, 31, 18, 30, 0, 0, tzinfo=timezone.utc)
     assert time_to == datetime(2024, 1, 1, 18, 29, 59, 999999, tzinfo=timezone.utc)
+
+
+@pytest.mark.parametrize(
+    "subpath, expected",
+    [
+        (None, ""),
+        ("", ""),
+        ("/", ""),
+        ("//", ""),
+        ("///", ""),
+        ("//evil.com", "/evil.com"),
+        ("///evil.com", "/evil.com"),
+        ("//evil.com/", "/evil.com"),
+        ("///foo///", "/foo"),
+        ("/normal/path", "/normal/path"),
+        ("normal/path", "/normal/path"),
+        ("/normal/path/", "/normal/path"),
+        ("normal/path/", "/normal/path"),
+        ("/api/hassio_ingress/abc123", "/api/hassio_ingress/abc123"),
+        ("  /spaced/path/  ", "/spaced/path"),
+    ],
+)
+def test_normalize_subpath(subpath: str | None, expected: str) -> None:
+    """Test normalize_subpath with various inputs."""
+    assert helpers.normalize_subpath(subpath) == expected
 
 
 def test_year_boundary():

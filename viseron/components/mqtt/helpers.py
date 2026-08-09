@@ -1,7 +1,10 @@
 """MQTT helpers."""
+
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
+
+from paho.mqtt.client import MQTTMessage
 
 
 @dataclass
@@ -18,4 +21,4 @@ class SubscribeTopic:
     """Subscribe to a topic."""
 
     topic: str
-    callback: Callable
+    callback: Callable[[MQTTMessage], None]

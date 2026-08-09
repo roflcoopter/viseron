@@ -6,10 +6,15 @@ Mocking is only done when it is strictly necessary.
 
 import json
 import os
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import PropertyMock, patch
 
+from tornado.httpclient import HTTPResponse
+from tornado.web import create_signed_value
+
 from viseron.components.webserver.auth import (
+    REFRESH_TOKEN_REUSE_GRACE,
     LastAdminUserError,
     Role,
     User,
@@ -18,6 +23,7 @@ from viseron.components.webserver.auth import (
 )
 
 from tests.components.webserver.common import (
+    AUTH_STORAGE_DATA,
     CLIENT_ID,
     READ_REFRESH_TOKEN_ID,
     REFRESH_TOKEN_ID,
@@ -238,6 +244,208 @@ class TestAuthAPIHandler(TestAppBaseAuth):
         assert "header" in body
         assert "payload" in body
         assert "session_expires_at" in body
+
+    def test_auth_token_rotates_old_token(self):
+        """A successful /auth/token revokes the old refresh token."""
+        response = self.fetch_with_auth(
+            "/api/v1/auth/token",
+            method="POST",
+            body=json.dumps(
+                {
+                    "grant_type": "refresh_token",
+                    "client_id": CLIENT_ID,
+                }
+            ),
+        )
+        assert response.code == 200
+        # Old token must be gone and replaced by a fresh one for the same user.
+        assert REFRESH_TOKEN_ID not in self.webserver.auth.refresh_tokens
+        new_tokens = [
+            rt
+            for rt in self.webserver.auth.refresh_tokens.values()
+            if rt.user_id == USER_ID
+        ]
+        assert len(new_tokens) == 1
+        assert new_tokens[0].token != "token"
+
+    def test_auth_token_preserves_absolute_session_expiry(self):
+        """Rotation must not extend the absolute session window."""
+        self._seed_auth_store()
+        original = self.webserver.auth.get_refresh_token(REFRESH_TOKEN_ID)
+        assert original is not None
+        original_session_expires_at = (
+            original.created_at + original.session_expiration.total_seconds()
+        )
+
+        response = self.fetch_with_auth(
+            "/api/v1/auth/token",
+            method="POST",
+            body=json.dumps(
+                {
+                    "grant_type": "refresh_token",
+                    "client_id": CLIENT_ID,
+                }
+            ),
+        )
+        assert response.code == 200
+        body = json.loads(response.body)
+        # The rotated token's session_expires_at must equal the original's,
+        # not be pushed forward by the refresh request.
+        assert body["session_expires_at_timestamp"] == int(original_session_expires_at)
+
+    def _replay_with_original_cookie(self, client_id: str = CLIENT_ID) -> HTTPResponse:
+        """Replay /auth/token with the original (pre-rotation) refresh cookie."""
+        refresh_token_cookie = create_signed_value(
+            self._app.settings["cookie_secret"],
+            "refresh_token",
+            "token",
+        ).decode()
+        return self.fetch(
+            "/api/v1/auth/token",
+            method="POST",
+            headers={"Cookie": f"refresh_token={refresh_token_cookie}"},
+            body=json.dumps(
+                {
+                    "grant_type": "refresh_token",
+                    "client_id": client_id,
+                }
+            ),
+        )
+
+    def test_auth_token_replay_within_grace_does_not_clear_cookies(self):
+        """A replay inside the reuse grace window must NOT clear cookies."""
+        # Rotate once successfully
+        response = self.fetch_with_auth(
+            "/api/v1/auth/token",
+            method="POST",
+            body=json.dumps(
+                {
+                    "grant_type": "refresh_token",
+                    "client_id": CLIENT_ID,
+                }
+            ),
+        )
+        assert response.code == 200
+
+        replay = self._replay_with_original_cookie()
+        assert replay.code == 400
+        assert json.loads(replay.body) == {
+            "error": "Invalid grant",
+            "status": 400,
+        }
+        # Within the grace window the handler must NOT emit clearing cookies.
+        assert not any(
+            header.startswith("refresh_token=")
+            for header in replay.headers.get_list("Set-Cookie")
+        )
+
+    def test_auth_token_replay_after_grace_clears_cookies(self):
+        """A replay after the grace window has elapsed must clear cookies."""
+        response = self.fetch_with_auth(
+            "/api/v1/auth/token",
+            method="POST",
+            body=json.dumps(
+                {
+                    "grant_type": "refresh_token",
+                    "client_id": CLIENT_ID,
+                }
+            ),
+        )
+        assert response.code == 200
+
+        future = (
+            datetime.now(timezone.utc)
+            + REFRESH_TOKEN_REUSE_GRACE
+            + timedelta(seconds=1)
+        )
+        with patch("viseron.components.webserver.auth.utcnow", return_value=future):
+            replay = self._replay_with_original_cookie()
+
+        assert replay.code == 400
+        assert json.loads(replay.body) == {
+            "error": "Invalid grant",
+            "status": 400,
+        }
+        # The grace window is over -> the cookie must be cleared.
+        assert any(
+            header.startswith("refresh_token=")
+            for header in replay.headers.get_list("Set-Cookie")
+        )
+
+    def test_auth_token_replay_wrong_client_id_clears_cookies(self):
+        """A replay inside the grace window but with a different client_id clears."""
+        response = self.fetch_with_auth(
+            "/api/v1/auth/token",
+            method="POST",
+            body=json.dumps(
+                {
+                    "grant_type": "refresh_token",
+                    "client_id": CLIENT_ID,
+                }
+            ),
+        )
+        assert response.code == 200
+
+        replay = self._replay_with_original_cookie(client_id="some_other_client")
+        assert replay.code == 400
+        assert json.loads(replay.body) == {
+            "error": "Invalid grant",
+            "status": 400,
+        }
+        # client_id mismatch -> grace does NOT apply -> cookies must be cleared.
+        assert any(
+            header.startswith("refresh_token=")
+            for header in replay.headers.get_list("Set-Cookie")
+        )
+
+    def test_auth_token_expired_session_rejected(self):
+        """An expired session must not be rotatable."""
+        self._seed_auth_store()
+        token = self.webserver.auth.get_refresh_token(REFRESH_TOKEN_ID)
+        assert token is not None
+        # Force the seeded refresh token's session to have already elapsed.
+        token.created_at = 0.0
+        token.session_expiration = timedelta(seconds=1)
+
+        response = self.fetch_with_auth(
+            "/api/v1/auth/token",
+            method="POST",
+            body=json.dumps(
+                {
+                    "grant_type": "refresh_token",
+                    "client_id": CLIENT_ID,
+                }
+            ),
+        )
+        assert response.code == 400
+        assert json.loads(response.body) == {
+            "error": "Invalid grant",
+            "status": 400,
+        }
+        # The expired token must have been revoked.
+        assert REFRESH_TOKEN_ID not in self.webserver.auth.refresh_tokens
+
+    def _seed_auth_store(self) -> None:
+        """Write the shared AUTH_STORAGE_DATA fixture and prime the loader.
+
+        This is needed for tests that need to manipulate the refresh token's
+        properties in ways that TestAppBaseAuth.fetch_with_auth doesn't allow,
+        such as expiring the session or tampering with the token value.
+        """
+        os.makedirs(
+            os.path.dirname(self.webserver.auth._auth_store.path),
+            exist_ok=True,
+        )
+        with open(
+            self.webserver.auth._auth_store.path,
+            "w",
+            encoding="utf-8",
+        ) as file:
+            json.dump(AUTH_STORAGE_DATA, file)
+        self.webserver.auth._refresh_tokens = None
+        self.webserver.auth._users = None
+        # Touch the property to trigger _load().
+        _ = self.webserver.auth.refresh_tokens
 
     def test_auth_token_invalid_grant(self):
         """Test getting a token with an invalid grant type."""

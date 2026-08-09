@@ -753,5 +753,6 @@ RUN \
   cp -r ${PREFIX}/share/ffmpeg /usr/local/share/
 
 FROM scratch
+COPY --from=ffmpeg /opt/ffmpeg /opt/ffmpeg/
 COPY --from=ffmpeg /usr/local/bin /usr/local/bin/
 COPY --from=ffmpeg /usr/local/share /usr/local/share/

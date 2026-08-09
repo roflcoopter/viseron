@@ -137,6 +137,12 @@ class AbstractFaceRecognition(AbstractPostProcessor):
                     DOMAIN,
                     camera_identifier,
                 )
+            vis.add_entity(
+                component,
+                FaceDetectionBinarySensor(vis, self._camera, UNKNOWN_FACE),
+                DOMAIN,
+                camera_identifier,
+            )
 
     def __post_init__(self, *args, **kwargs) -> None:
         """Post init hook."""
@@ -218,6 +224,11 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         extra_attributes: dict[str, Any] | None = None,
     ) -> None:
         """Save unknown faces."""
+        # Cancel the expiry timer if face has already been detected
+        if self._faces.get(UNKNOWN_FACE, None):
+            self._faces[UNKNOWN_FACE].timer.cancel()
+
+        # Adds unknown face and schedules an expiry timer
         face_dict = FaceDict(
             UNKNOWN_FACE,
             coordinates,
@@ -225,9 +236,21 @@ class AbstractFaceRecognition(AbstractPostProcessor):
             Timer(self._config[CONFIG_EXPIRE_AFTER], self.expire_face, [UNKNOWN_FACE]),
             extra_attributes=extra_attributes,
         )
+        face_dict.timer.start()
 
         if self._config[CONFIG_SAVE_UNKNOWN_FACES]:
             self._save_face(face_dict, coordinates, shared_frame)
+
+        self._vis.dispatch_event(
+            EVENT_FACE_DETECTED.format(
+                camera_identifier=self._camera.identifier, face=UNKNOWN_FACE
+            ),
+            EventFaceDetected(
+                camera_identifier=self._camera.identifier,
+                face=face_dict,
+            ),
+        )
+        self._faces[UNKNOWN_FACE] = face_dict
 
     def expire_face(self, face: str) -> None:
         """Expire no longer found face."""

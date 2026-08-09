@@ -23,6 +23,7 @@ CONFIG_PAYLOAD: Final = "payload"
 CONFIG_TIMEOUT: Final = "timeout"
 CONFIG_CONTENT_TYPE: Final = "content_type"
 CONFIG_VERIFY_SSL: Final = "verify_ssl"
+CONFIG_CA_CERT: Final = "ca_cert"
 
 DEFAULT_CONDITION: Final = None
 DEFAULT_HEADERS: Final = None
@@ -33,6 +34,7 @@ DEFAULT_CONTENT_TYPE: Final = "application/json"
 DEFAULT_TIMEOUT: Final = 10
 DEFAULT_METHOD: Final = "get"
 DEFAULT_VERIFY_SSL: Final = True
+DEFAULT_CA_CERT: Final = None
 
 DESC_TRIGGER: Final = "The trigger configuration for the webhook."
 DESC_EVENT: Final = "The event type that triggers the webhook."
@@ -51,6 +53,12 @@ DESC_PAYLOAD: Final = "Payload to send with the webhook request."
 DESC_TIMEOUT: Final = "The timeout for the webhook request in seconds."
 DESC_CONTENT_TYPE: Final = "The content type of the webhook request."
 DESC_VERIFY_SSL: Final = "Whether to verify SSL certificates for the webhook request."
+DESC_CA_CERT: Final = (
+    "Path to a custom CA certificate bundle (PEM file or directory) used to "
+    "verify the webhook server's TLS certificate. When set, it takes precedence "
+    "over verify_ssl. Useful for servers fronted by a self-hosted Certificate "
+    "Authority."
+)
 
 INCLUSION_GROUP_AUTHENTICATION: Final = "authentication"
 

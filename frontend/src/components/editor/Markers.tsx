@@ -39,6 +39,7 @@ function Markers({ editor, markers, width }: MarkersProps) {
       }}
     >
       <List
+        data-testid="config-editor-markers-list"
         sx={{
           [`& .active, & .${listItemClasses.root}:hover`]: {
             backgroundColor: "rgba(100, 100, 100, 0.7)",

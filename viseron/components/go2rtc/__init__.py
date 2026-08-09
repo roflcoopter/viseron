@@ -60,7 +60,7 @@ class Go2RTC:
         try:
             response = requests.get("http://localhost:1984/api/streams", timeout=5)
             response.raise_for_status()
-        except requests.RequestException:
+        except requests.exceptions.ConnectionError:
             LOGGER.exception("Failed to fetch cameras from go2rtc")
             return []
 
@@ -72,7 +72,7 @@ class Go2RTC:
         LOGGER.debug("Restarting go2rtc")
         try:
             response = requests.post("http://localhost:1984/api/restart", timeout=5)
-        except requests.RequestException:
+        except requests.exceptions.ConnectionError:
             LOGGER.exception("Failed to restart go2rtc")
             return
 

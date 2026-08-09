@@ -128,6 +128,13 @@
             "description": "Whether to verify SSL certificates for the webhook request.",
             "optional": true,
             "default": true
+          },
+          {
+            "type": "string",
+            "name": "ca_cert",
+            "description": "Path to a custom CA certificate bundle (PEM file or directory) used to verify the webhook server's TLS certificate. When set, it takes precedence over verify_ssl. Useful for servers fronted by a self-hosted Certificate Authority.",
+            "optional": true,
+            "default": null
           }
         ],
         "name": {

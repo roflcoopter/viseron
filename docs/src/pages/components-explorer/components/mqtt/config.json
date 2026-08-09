@@ -87,6 +87,97 @@
         "description": "See <a href=#home-assistant-mqtt-discovery>Home Assistant MQTT Discovery.</a>",
         "optional": true,
         "default": null
+      },
+      {
+        "type": "map",
+        "value": [
+          {
+            "type": "map",
+            "value": [
+              {
+                "type": "map",
+                "value": [
+                  {
+                    "type": "string",
+                    "name": "topic",
+                    "description": "MQTT topic to subscribe to for motion state messages.",
+                    "required": true,
+                    "default": null
+                  },
+                  {
+                    "type": "boolean",
+                    "name": {
+                      "type": "deprecated",
+                      "name": "trigger_recorder",
+                      "value": "Use <code>trigger_event_recording</code> instead."
+                    },
+                    "description": "If true, detected motion will start the recorder.",
+                    "deprecated": true,
+                    "default": null
+                  },
+                  {
+                    "type": "boolean",
+                    "name": "trigger_event_recording",
+                    "description": "If true, detected motion will trigger an event recording.",
+                    "optional": true,
+                    "default": false
+                  },
+                  {
+                    "type": "boolean",
+                    "name": "recorder_keepalive",
+                    "description": "If true, recording will continue until no motion is detected.",
+                    "optional": true,
+                    "default": true
+                  },
+                  {
+                    "type": "integer",
+                    "valueMin": 0,
+                    "name": "max_recorder_keepalive",
+                    "description": "Value in seconds for how long motion is allowed to keep the recorder going when no objects are detected.<br>Use this to prevent never-ending recordings.<br>Only applicable if <code>recorder_keepalive: true</code>.<br><b>A value of <code>0</code> disables this functionality.</b>",
+                    "optional": true,
+                    "default": 30
+                  },
+                  {
+                    "type": "integer",
+                    "valueMin": 0,
+                    "name": "max_motion_duration",
+                    "description": "Value in seconds for the maximum time motion is allowed to stay active before being automatically cleared.<br>Acts as a safety net for external motion sources that may fail to send an <code>off</code> signal.<br><b>A value of <code>0</code> disables this functionality.</b>",
+                    "optional": true,
+                    "default": 0
+                  },
+                  {
+                    "type": "string",
+                    "name": "payload_on",
+                    "description": "Payload that indicates motion has started. Ignored when the payload is JSON with a <code>detected</code> boolean field.",
+                    "optional": true,
+                    "default": "on"
+                  },
+                  {
+                    "type": "string",
+                    "name": "payload_off",
+                    "description": "Payload that indicates motion has stopped. Ignored when the payload is JSON with a <code>detected</code> boolean field.",
+                    "optional": true,
+                    "default": "off"
+                  }
+                ],
+                "name": {
+                  "type": "CAMERA_IDENTIFIER"
+                },
+                "description": "Camera identifier. Valid characters are lowercase a-z, numbers and underscores.",
+                "cameraidentifier": true,
+                "default": null
+              }
+            ],
+            "name": "cameras",
+            "description": "Camera-specific configuration. All subordinate keys corresponds to the <code>camera_identifier</code> of a configured camera.",
+            "required": true,
+            "default": null
+          }
+        ],
+        "name": "motion_detector",
+        "description": "Use MQTT messages as an external motion source for one or more cameras.",
+        "optional": true,
+        "default": null
       }
     ],
     "name": "mqtt",

@@ -18,7 +18,7 @@ from viseron.components.webserver.auth import Auth
 from viseron.components.webserver.rate_limit import RateLimiter
 from viseron.const import DEFAULT_PORT, VISERON_SIGNAL_SHUTDOWN
 from viseron.exceptions import ComponentNotReady
-from viseron.helpers import current_system_datetime
+from viseron.helpers import current_system_datetime, normalize_subpath
 from viseron.helpers.storage import Storage
 from viseron.helpers.validators import CoerceNoneToDict, Deprecated
 
@@ -317,7 +317,7 @@ class Webserver(threading.Thread):
         if self._config.get(CONFIG_AUTH, False):
             self._auth = Auth(vis, config)
         self._store = WebserverStore(vis)
-        self._subpath = self._normalize_subpath(config.get(CONFIG_SUBPATH))
+        self._subpath = normalize_subpath(config.get(CONFIG_SUBPATH))
 
         # Rate limiters for auth-sensitive endpoints.
         auth_config = self._config.get(CONFIG_AUTH) or {}
@@ -370,18 +370,6 @@ class Webserver(threading.Thread):
 
         # Schedule periodic cleanup of expired public images (every hour)
         self._cleanup_task: asyncio.Task | None = None
-
-    @staticmethod
-    def _normalize_subpath(subpath: str | None) -> str:
-        """Normalize subpath to ensure it starts with / and doesn't end with /."""
-        if not subpath:
-            return ""
-        subpath = subpath.strip()
-        if not subpath.startswith("/"):
-            subpath = "/" + subpath
-        if subpath.endswith("/"):
-            subpath = subpath.rstrip("/")
-        return subpath
 
     def _cleanup_expired_public_images(self) -> None:
         """Clean up expired public images (files older than max expiry)."""

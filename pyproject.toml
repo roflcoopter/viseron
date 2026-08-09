@@ -84,6 +84,7 @@ ignore = [
     "TRY003",  ##  https://docs.astral.sh/ruff/rules/raise-vanilla-args/ Disabled for simplicity
     "TRY400",  ##  https://docs.astral.sh/ruff/rules/error-instead-of-exception/ Disabled because most of the time logger.error is enough
     "SIM105",  ##  https://docs.astral.sh/ruff/rules/suppressible-exception/ Disabled for performance reasons
+    "SIM114",  ##  https://docs.astral.sh/ruff/rules/if-with-same-arms/ Disabled for clarity
     "S603",    ##  https://docs.astral.sh/ruff/rules/subprocess-without-shell-equals-true/ Contradicts S602
     "ANN401",  ##  https://docs.astral.sh/ruff/rules/any-type/ Disabled since Any is useful in some cases
     "EXE002",  ##   https://docs.astral.sh/ruff/rules/shebang-missing-executable-file/ False positives
@@ -142,7 +143,6 @@ ignore = [
     "RSE102",  ##     5   https://docs.astral.sh/ruff/rules/unnecessary-paren-on-raise-exception/
     "RUF046",  ##     5   https://docs.astral.sh/ruff/rules/unnecessary-cast-to-int/
     "SIM108",  ##     5   https://docs.astral.sh/ruff/rules/if-else-block-instead-of-if-exp/
-    "SIM114",  ##     5 * https://docs.astral.sh/ruff/rules/if-with-same-arms/
     "SIM117",  ##     5   https://docs.astral.sh/ruff/rules/multiple-with-statements/
     "TRY401",  ##     5   https://docs.astral.sh/ruff/rules/verbose-log-message/
     "UP031",   ##     5   https://docs.astral.sh/ruff/rules/printf-string-formatting/
@@ -170,7 +170,6 @@ ignore = [
     "N813",    ##     2   https://docs.astral.sh/ruff/rules/camelcase-imported-as-lowercase/
     "PERF102", ##     2   https://docs.astral.sh/ruff/rules/incorrect-dict-iterator/
     "PT011",   ##     2   https://docs.astral.sh/ruff/rules/pytest-raises-too-broad/
-    "PT019",   ##     2   https://docs.astral.sh/ruff/rules/pytest-fixture-param-without-value/
     "PYI024",  ##     2   https://docs.astral.sh/ruff/rules/collections-named-tuple/
     "RUF006",  ##     2   https://docs.astral.sh/ruff/rules/asyncio-dangling-task/
     "RUF043",  ##     2   https://docs.astral.sh/ruff/rules/pytest-raises-ambiguous-pattern/
@@ -221,6 +220,7 @@ forced-separate = ["tests"]
     "PLR2004", ##  https://docs.astral.sh/ruff/rules/magic-value-comparison/
     "ANN201",  ##  https://docs.astral.sh/ruff/rules/missing-return-type-undocumented-public-function/
     "FBT001",  ##  https://docs.astral.sh/ruff/rules/boolean-type-hint-positional-argument/
+    "S108",    ##  https://docs.astral.sh/ruff/rules/hardcoded-temp-file/
 ]
 
 # Generation of docs use many long lines, so we disable line length rule for scripts/gen_docs

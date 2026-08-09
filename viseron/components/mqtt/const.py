@@ -1,4 +1,5 @@
 """mqtt component constants."""
+
 from typing import Final
 
 COMPONENT: Final = "mqtt"
@@ -78,3 +79,26 @@ DESC_PUBLISH_HA_CONFIG_ON_RECONNECT = (
 INCLUSION_GROUP_AUTHENTICATION = "authentication"
 
 MESSAGE_AUTHENTICATION = "username and password must be provided together"
+
+
+# MOTION_DETECTOR_SCHEMA constants
+CONFIG_MOTION_DETECTOR: Final = "motion_detector"
+CONFIG_TOPIC: Final = "topic"
+CONFIG_PAYLOAD_ON: Final = "payload_on"
+CONFIG_PAYLOAD_OFF: Final = "payload_off"
+
+DEFAULT_PAYLOAD_ON: Final = "on"
+DEFAULT_PAYLOAD_OFF: Final = "off"
+
+DESC_MOTION_DETECTOR = (
+    "Use MQTT messages as an external motion source for one or more cameras."
+)
+DESC_TOPIC = "MQTT topic to subscribe to for motion state messages."
+DESC_PAYLOAD_ON = (
+    "Payload that indicates motion has started. "
+    "Ignored when the payload is JSON with a <code>detected</code> boolean field."
+)
+DESC_PAYLOAD_OFF = (
+    "Payload that indicates motion has stopped. "
+    "Ignored when the payload is JSON with a <code>detected</code> boolean field."
+)

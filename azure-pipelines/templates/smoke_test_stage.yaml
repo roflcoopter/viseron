@@ -1,0 +1,57 @@
+parameters:
+  - name: architectures
+    type: object
+    default:
+      - aarch64
+      - amd64
+      - amd64-cuda
+      - rpi3
+  - name: namespace
+    type: string
+    default: roflcoopter
+  - name: image
+    type: string
+  - name: imageTag
+    type: string
+    default: dev
+
+jobs:
+  - ${{ each architecture in parameters.architectures }}:
+      - job: smoke_${{ replace(architecture, '-', '_') }}
+        displayName: "Smoke test ${{ architecture }}"
+        pool:
+          ${{ if eq(architecture, 'aarch64') }}:
+            name: rpi5
+          ${{ else }}:
+            name: amd64
+        steps:
+          - task: Docker@2
+            displayName: Login to Docker Hub
+            inputs:
+              command: login
+              containerRegistry: "Docker Hub"
+
+          - script: |
+              docker pull ${{ parameters.namespace }}/${{ architecture }}-${{ parameters.image }}:${{ parameters.imageTag }}
+            displayName: "Smoke: pull ${{ architecture }}-${{ parameters.image }}:${{ parameters.imageTag }}"
+            condition: succeeded()
+
+          - template: smoke_test.yaml
+            parameters:
+              image: ${{ parameters.image }}
+              architecture: ${{ architecture }}
+              namespace: ${{ parameters.namespace }}
+              imageTag: ${{ parameters.imageTag }}
+              ${{ if eq(architecture, 'rpi3') }}:
+                timeoutMinutes: 10
+                pytestTimeout: 360
+              ${{ else }}:
+                timeoutMinutes: 10
+                pytestTimeout: 300
+
+          - task: Docker@2
+            displayName: Logoff Docker Hub
+            condition: always()
+            inputs:
+              command: logout
+              containerRegistry: "Docker Hub"

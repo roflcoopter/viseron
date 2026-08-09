@@ -81,9 +81,14 @@ class AccessTokenLimitExceededError(ViseronError):
     """Access token limit exceeded."""
 
 
+class SessionExpiredError(ViseronError):
+    """Refresh token session has expired."""
+
+
 MAX_ACCESS_TOKENS_PER_USER = 20
 MAX_TOKEN_NAME_LENGTH = 100
 PAT_LAST_USED_SAVE_INTERVAL = datetime.timedelta(minutes=1)
+REFRESH_TOKEN_REUSE_GRACE = datetime.timedelta(seconds=10)
 
 
 VALID_DATE_FORMATS = [
@@ -120,6 +125,15 @@ class RefreshToken:
     static_asset_key: str = field(default_factory=lambda: secrets.token_hex(64))
     used_at: float | None = None
     used_by: str | None = None
+
+
+@dataclass
+class RecentlyRotatedRefreshToken:
+    """Recently rotated refresh token metadata."""
+
+    client_id: str
+    replacement_id: str
+    expires_at: float
 
 
 @dataclass
@@ -167,14 +181,6 @@ class Preferences:
     date_format: str | None = None
     time_format: str | None = None
 
-    def asdict(self) -> dict[str, Any]:
-        """Convert preferences to dict."""
-        return {
-            "timezone": self.timezone,
-            "date_format": self.date_format,
-            "time_format": self.time_format,
-        }
-
 
 @dataclass
 class User:
@@ -188,17 +194,6 @@ class User:
     enabled: bool = True
     assigned_cameras: list[str] | None = None
     preferences: Preferences | None = None
-
-    def asdict(self) -> dict[str, Any]:
-        """Convert user to dict."""
-        return {
-            "id": self.id,
-            "name": self.name,
-            "username": self.username,
-            "role": self.role.value,
-            "assigned_cameras": self.assigned_cameras,
-            "preferences": self.preferences,
-        }
 
 
 @dataclass
@@ -248,9 +243,13 @@ class Auth:
         self._refresh_tokens: dict[str, RefreshToken] | None = None
         self._access_tokens: dict[str, AccessToken] | None = None
         self._pat_last_used_persisted_at: dict[str, float] = {}
+        self._recent_refresh_token_rotations: dict[
+            str, RecentlyRotatedRefreshToken
+        ] = {}
         self._auth_store = Storage(vis, AUTH_STORAGE_KEY)
         self._data_lock = Lock()
         self._user_lock = Lock()
+        self._decoy_jwt_key = secrets.token_hex(64)
 
     @property
     def users(self) -> dict[str, User]:
@@ -631,8 +630,96 @@ class Auth:
                 del self.refresh_tokens[refresh_token.id]
                 self.save()
 
+    @staticmethod
+    def _hash_refresh_token(token: str) -> str:
+        """Hash a refresh token secret for short-lived reuse tracking."""
+        return hashlib.sha256(token.encode()).hexdigest()
+
+    def _purge_recent_refresh_token_rotations(self) -> None:
+        """Purge expired or orphaned refresh-token rotation records."""
+        now = utcnow().timestamp()
+        expired_token_hashes = [
+            token_hash
+            for token_hash, rotation in self._recent_refresh_token_rotations.items()
+            if rotation.expires_at <= now
+            or rotation.replacement_id not in self.refresh_tokens
+        ]
+        for token_hash in expired_token_hashes:
+            del self._recent_refresh_token_rotations[token_hash]
+
+    def is_recent_refresh_token_reuse(self, token: str, client_id: str) -> bool:
+        """Return true if a refresh token was just rotated for this client."""
+        token_hash = self._hash_refresh_token(token)
+        with self._user_lock:
+            self._purge_recent_refresh_token_rotations()
+            rotation = self._recent_refresh_token_rotations.get(token_hash)
+            if rotation is None:
+                return False
+            if not hmac.compare_digest(rotation.client_id, client_id):
+                return False
+            return rotation.replacement_id in self.refresh_tokens
+
+    def rotate_refresh_token(self, old: RefreshToken) -> RefreshToken | None:
+        """Rotate a refresh token.
+
+        Issues a brand-new refresh token (new id, token, jwt key, static asset
+        key) for the same user/client and revokes the old one. If the old
+        token has already been consumed, None is returned and no replacement is
+        issued. The absolute session expiry is preserved by copying created_at
+        and session_expiration from the old token, so a long-lived session
+        cannot be extended indefinitely by repeatedly refreshing.
+
+        If the absolute session expiry has already passed, the stored token is
+        revoked and None is returned.
+        """
+        with self._user_lock:
+            stored = self.refresh_tokens.get(old.id)
+            if stored is None or not hmac.compare_digest(stored.token, old.token):
+                return None
+
+            try:
+                self.validate_refresh_token(stored)
+            except SessionExpiredError:
+                del self.refresh_tokens[old.id]
+                self.save()
+                return None
+
+            new = RefreshToken(
+                user_id=stored.user_id,
+                client_id=stored.client_id,
+                session_expiration=stored.session_expiration,
+                access_token_type=stored.access_token_type,
+                access_token_expiration=stored.access_token_expiration,
+                created_at=stored.created_at,
+            )
+            self.refresh_tokens[new.id] = new
+            self._purge_recent_refresh_token_rotations()
+            self._recent_refresh_token_rotations[
+                self._hash_refresh_token(stored.token)
+            ] = RecentlyRotatedRefreshToken(
+                client_id=stored.client_id,
+                replacement_id=new.id,
+                expires_at=(
+                    utcnow().timestamp() + REFRESH_TOKEN_REUSE_GRACE.total_seconds()
+                ),
+            )
+            del self.refresh_tokens[old.id]
+            self.save()
+        return new
+
     def validate_refresh_token(self, refresh_token: RefreshToken) -> None:
-        """Validate refresh token."""
+        """Validate refresh token.
+
+        Raises SessionExpiredError if the absolute session expiry, computed
+        from the token's created_at plus session_expiration, has passed. This
+        enforces the stored session lifetime server-side so it cannot be
+        extended by repeatedly rotating the cookie.
+        """
+        session_expires_at = (
+            refresh_token.created_at + refresh_token.session_expiration.total_seconds()
+        )
+        if utcnow().timestamp() > session_expires_at:
+            raise SessionExpiredError
 
     def generate_access_token(
         self,
@@ -641,7 +728,6 @@ class Auth:
         expiry: datetime.timedelta | None = None,
     ) -> str:
         """Generate access token using JWT."""
-        self.validate_refresh_token(refresh_token)
         with self._user_lock:
             now = utcnow()
             refresh_token.used_at = now.timestamp()
@@ -669,12 +755,11 @@ class Auth:
             return None
 
         refresh_token = self.get_refresh_token(cast("str", unverif_claims.get("iss")))
-        if refresh_token is None:
-            jwt_key = ""
-            issuer = ""
-        else:
-            jwt_key = refresh_token.jwt_key
-            issuer = refresh_token.id
+
+        # Always perform a JWT verification regardless of whether the issuer
+        # was found, to keep timing uniform.
+        jwt_key = refresh_token.jwt_key if refresh_token else self._decoy_jwt_key
+        issuer = refresh_token.id if refresh_token else ""
 
         try:
             jwt.decode(
@@ -684,6 +769,12 @@ class Auth:
             return None
 
         if refresh_token is None:
+            return None
+
+        try:
+            self.validate_refresh_token(refresh_token)
+        except SessionExpiredError:
+            self.delete_refresh_token(refresh_token)
             return None
 
         user = self.get_user(refresh_token.user_id)

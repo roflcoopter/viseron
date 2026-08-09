@@ -1,4 +1,9 @@
-import { FolderDetails, FolderOff, TrashCan } from "@carbon/icons-react";
+import {
+  Download,
+  FolderDetails,
+  FolderOff,
+  TrashCan,
+} from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardActions from "@mui/material/CardActions";
@@ -10,13 +15,16 @@ import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
+import { useState } from "react";
 import LazyLoad from "react-lazyload";
 import { Link } from "react-router-dom";
 
 import MutationIconButton from "components/buttons/MutationIconButton";
+import ConfirmDeleteDialog from "components/dialog/ConfirmDeleteDialog";
 import { getVideoElement } from "components/player/utils";
 import VideoPlayerPlaceholder from "components/player/videoplayer/VideoPlayerPlaceholder";
 import { useAuthContext } from "context/AuthContext";
+import { useExportRecording } from "hooks/UseExportRecording";
 import { useCamera } from "lib/api/camera";
 import { useDeleteRecording, useRecordings } from "lib/api/recordings";
 import { objHasValues } from "lib/helpers";
@@ -39,6 +47,8 @@ export default function RecordingCardLatest({
   const theme = useTheme();
   const { user } = useAuthContext();
   const deleteRecording = useDeleteRecording();
+  const exportRecording = useExportRecording();
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const recordingsQuery = useRecordings({
     camera_identifier,
@@ -194,24 +204,48 @@ export default function RecordingCardLatest({
                 </IconButton>
               </span>
             </Tooltip>
+            <Tooltip title="Download Recording">
+              <span>
+                <IconButton
+                  disabled={!objHasValues(recording)}
+                  onClick={() => {
+                    if (recording) {
+                      exportRecording(camera_identifier, recording.id);
+                    }
+                  }}
+                >
+                  <Download size={20} />
+                </IconButton>
+              </span>
+            </Tooltip>
             {!user || user.role === "admin" || user.role === "write" ? (
-              <Tooltip title="Delete Recordings">
-                <span>
-                  <MutationIconButton
-                    mutation={deleteRecording}
-                    disabled={!objHasValues(recording)}
-                    color="error"
-                    onClick={() => {
-                      deleteRecording.mutate({
-                        identifier: camera_identifier,
-                        failed,
-                      });
-                    }}
-                  >
-                    <TrashCan size={20} />
-                  </MutationIconButton>
-                </span>
-              </Tooltip>
+              <>
+                <Tooltip title="Delete Recordings">
+                  <span>
+                    <MutationIconButton
+                      mutation={deleteRecording}
+                      disabled={!objHasValues(recording)}
+                      color="error"
+                      onClick={() => setConfirmOpen(true)}
+                    >
+                      <TrashCan size={20} />
+                    </MutationIconButton>
+                  </span>
+                </Tooltip>
+                <ConfirmDeleteDialog
+                  open={confirmOpen}
+                  onClose={() => setConfirmOpen(false)}
+                  onConfirm={() => {
+                    deleteRecording.mutate(
+                      { identifier: camera_identifier, failed },
+                      { onSuccess: () => setConfirmOpen(false) },
+                    );
+                  }}
+                  isPending={deleteRecording.isPending}
+                  title="Delete all recordings"
+                  description={`Delete all recordings for ${cameraQuery.data?.name ?? camera_identifier}? This action cannot be undone.`}
+                />
+              </>
             ) : null}
           </Stack>
         </Stack>

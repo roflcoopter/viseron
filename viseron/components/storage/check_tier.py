@@ -7,11 +7,10 @@ import logging
 import os
 import shutil
 import threading
-from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import numpy as np
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 from viseron.components.storage.const import ENGINE
@@ -20,6 +19,8 @@ from viseron.const import CAMERA_SEGMENT_DURATION
 from viseron.helpers import utcnow
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from sqlalchemy.orm import Session
 
     from viseron.components.storage.storage_subprocess import (
@@ -74,6 +75,43 @@ class Worker:
         self._last_call: dict[str, float] = {}
         self._check_locks: dict[str, threading.Lock] = {}
         self._checks_in_progress: dict[str, bool] = {}
+
+    def _should_check_tier_files(self, item: DataItem) -> bool:
+        """Quick aggregate check if tier actually needs processing.
+
+        For files-only checks, does a SUM(size)/MIN(orig_ctime) query
+        to determine if any files exceed limits.
+        """
+        if not item.files_enabled:
+            return False
+
+        with self._get_session() as session:
+            result = session.execute(
+                select(func.sum(Files.size), func.min(Files.orig_ctime)).where(
+                    Files.camera_identifier == item.camera_identifier,
+                    Files.tier_id == item.tier_id,
+                    Files.category == item.category,
+                    Files.subcategory.in_(item.subcategories),
+                )
+            ).first()
+
+            if result is None or result[0] is None:
+                return False
+
+            total_size = result[0]
+            oldest_ctime = result[1]
+            now = utcnow()
+
+            if item.max_bytes > 0 and total_size >= item.max_bytes:
+                return True
+            if (  # noqa: SIM103
+                item.max_age.total_seconds() > 0
+                and total_size >= item.min_bytes
+                and oldest_ctime < now - item.max_age
+            ):
+                return True
+
+            return False
 
     def _check_tier(self, item: DataItem) -> None:
         files = np.empty(0, dtype=FILES_DTYPE)
@@ -239,6 +277,17 @@ class Worker:
 
     def check_tier_files(self, item: DataItem):
         """Check the tier using the loaded numpy array."""
+        if not self._should_check_tier_files(item):
+            LOGGER.debug(
+                "Fast-path: skipping tier check for %s tier %s "
+                "category %s subcategory %s (nothing to move)",
+                item.camera_identifier,
+                item.tier_id,
+                item.category,
+                item.subcategories[0],
+            )
+            return np.empty(0, dtype=FILES_DTYPE)
+
         data = self.load_tier(item)
         now = utcnow()
 
@@ -271,7 +320,7 @@ class Worker:
             max_age_timestamp,
         )
 
-        rows_to_move = get_files_to_move(
+        return get_files_to_move(
             data,
             item.max_bytes,
             min_age_timestamp,
@@ -279,8 +328,6 @@ class Worker:
             max_age_timestamp,
             item.drain,
         )
-
-        return rows_to_move
 
     def check_tier_recordings(
         self,

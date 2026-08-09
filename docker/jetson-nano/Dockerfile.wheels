@@ -66,11 +66,14 @@ RUN sed -i "s/OPENCV_VERSION = \"TBD\"/OPENCV_VERSION = \"$OPENCV_VERSION\"/" /o
 RUN echo "opencv-python-headless==$OPENCV_VERSION" >> /requirements.txt
 
 ADD requirements.txt requirements.txt
+ADD requirements_conflicts.txt requirements_conflicts.txt
 ADD requirements-3.9.txt requirements-3.9.txt
 RUN \
   mkdir -p /wheels \
   \
   && python3 -m pip wheel --wheel-dir=/wheels --find-links=/wheels /opencv-python-headless -r /requirements.txt \
+  # Ignore conflicts for some abandoned packages
+  && python3 -m pip wheel --no-deps --wheel-dir=/wheels -r /requirements_conflicts.txt \
   && python3.9 -m pip wheel \
   --extra-index-url https://google-coral.github.io/py-repo/ \
   --wheel-dir=/wheels-3.9 \

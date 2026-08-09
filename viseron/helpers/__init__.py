@@ -9,6 +9,7 @@ import logging
 import math
 import os
 import re
+import resource
 import socket
 import sys
 import time
@@ -24,7 +25,13 @@ import slugify as unicode_slug
 import supervision as sv
 import tornado.queues as tq
 
-from viseron.const import FONT, FONT_SIZE, FONT_THICKNESS, MIN_LABEL_Y_POSITION
+from viseron.const import (
+    FONT,
+    FONT_SIZE,
+    FONT_THICKNESS,
+    MIN_LABEL_Y_POSITION,
+    ULIMIT_WARNING_THRESHOLD,
+)
 
 if TYPE_CHECKING:
     import multiprocessing as mp
@@ -699,6 +706,27 @@ def escape_string(string: str) -> str:
     return urllib.parse.quote(string, safe="")
 
 
+def normalize_subpath(subpath: str | None) -> str:
+    """Normalize subpath to ensure it starts with / and doesn't end with /.
+
+    Collapses multiple leading slashes to a single / to prevent protocol-relative
+    URL injection (e.g. //evil.com). A bare / is treated as an empty subpath.
+    """
+    if not subpath:
+        return ""
+    subpath = subpath.strip()
+    if not subpath.startswith("/"):
+        subpath = "/" + subpath
+    if subpath.endswith("/"):
+        subpath = subpath.rstrip("/")
+    # Collapse multiple leading slashes to prevent protocol-relative URLs
+    # e.g. //evil.com -> /evil.com
+    subpath = "/" + subpath.lstrip("/")
+    if subpath == "/":
+        return ""
+    return subpath
+
+
 def parse_size_to_bytes(size_str: str) -> int:
     """Convert human-readable size strings to bytes (e.g. '10mb' -> 10485760)."""
 
@@ -774,6 +802,33 @@ def memory_usage_profiler(logger, key_type="lineno", limit=5) -> None:
     log_message += "\nTotal allocated size: %.1f KiB" % (total / 1024)
     log_message += "\n----------------------------------------------------------------"
     logger.debug(log_message)
+
+
+def check_fd_usage(logger: logging.Logger) -> None:
+    """Warn if file descriptor usage approaches the limit."""
+    try:
+        num_fds = len(os.listdir("/proc/self/fd"))
+    except FileNotFoundError:
+        return
+
+    soft_limit, _hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
+    pct = (num_fds / soft_limit) * 100
+
+    if pct > ULIMIT_WARNING_THRESHOLD:
+        logger.warning(
+            "File descriptor usage critical: %d/%d (%.0f%%). "
+            "Configure ulimit or restart to prevent EMFILE errors.",
+            num_fds,
+            soft_limit,
+            pct,
+        )
+        return
+    logger.debug(
+        "File descriptor usage: %d/%d (%.0f%%)",
+        num_fds,
+        soft_limit,
+        pct,
+    )
 
 
 def caller_name(skip=2) -> str:

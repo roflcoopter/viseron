@@ -34,7 +34,13 @@ from viseron.helpers import escape_string
 from viseron.helpers.logs import (
     SensitiveInformationFilterTracker,
 )
-from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
+from viseron.helpers.validators import (
+    UNDEFINED,
+    CameraIdentifier,
+    CoerceNoneToDict,
+    Deprecated,
+    Maybe,
+)
 from viseron.viseron_types import Domain
 from viseron.watchdog.thread_watchdog import RestartableThread
 
@@ -42,7 +48,7 @@ from .const import (
     COMPONENT,
     CONFIG_CAMERAS,
     CONFIG_DETECTION_LABEL,
-    CONFIG_DETECTION_LABEL_DEFAULT,
+    CONFIG_DETECTION_LABELS,
     CONFIG_PTZ_COMPONENT,
     CONFIG_SEND_MESSAGE,
     CONFIG_SEND_THUMBNAIL,
@@ -53,6 +59,7 @@ from .const import (
     CONFIG_TELEGRAM_USER_IDS,
     DATA_NOTIFIER,
     DATA_PTZ,
+    DEFAULT_DETECTION_LABELS,
     DEFAULT_SEND_MESSAGE,
     DEFAULT_SEND_THUMBNAIL,
     DEFAULT_SEND_VIDEO,
@@ -61,6 +68,7 @@ from .const import (
     DESC_CAMERAS,
     DESC_COMPONENT,
     DESC_DETECTION_LABEL,
+    DESC_DETECTION_LABELS,
     DESC_SEND_MESSAGE,
     DESC_SEND_THUMBNAIL,
     DESC_SEND_VIDEO,
@@ -77,7 +85,17 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 CAMERA_SCHEMA = vol.Schema(
-    {},
+    {
+        Deprecated(
+            CONFIG_DETECTION_LABEL,
+            description=DESC_DETECTION_LABEL,
+        ): str,
+        vol.Optional(
+            CONFIG_DETECTION_LABELS,
+            description=DESC_DETECTION_LABELS,
+            default=UNDEFINED,
+        ): Maybe([str]),
+    },
     extra=vol.ALLOW_EXTRA,
 )
 
@@ -95,11 +113,15 @@ CONFIG_SCHEMA: vol.Schema = vol.Schema(
                 description=DESC_TELEGRAM_USER_IDS,
                 default=DEFAULT_TELEGRAM_USER_IDS,
             ): [int],
-            vol.Optional(
+            Deprecated(
                 CONFIG_DETECTION_LABEL,
                 description=DESC_DETECTION_LABEL,
-                default=CONFIG_DETECTION_LABEL_DEFAULT,
             ): str,
+            vol.Optional(
+                CONFIG_DETECTION_LABELS,
+                description=DESC_DETECTION_LABELS,
+                default=DEFAULT_DETECTION_LABELS,
+            ): [str],
             vol.Optional(
                 CONFIG_SEND_THUMBNAIL,
                 description=DESC_SEND_THUMBNAIL,
@@ -251,15 +273,78 @@ class TelegramEventNotifier:
             self._send_notifications(event_data), self._loop
         )
 
+    def _get_effective_detection_labels(self, camera_identifier: str) -> list[str]:
+        """Return the list of allowed detection labels for a camera."""
+        camera_config = self._config[CONFIG_CAMERAS].get(camera_identifier, {})
+
+        # Camera-level deprecated key (comma-separated string)
+        camera_label_str = camera_config.get(CONFIG_DETECTION_LABEL)
+        if camera_label_str is not None:
+            return [lbl.strip() for lbl in camera_label_str.split(",") if lbl.strip()]
+
+        # Camera-level new key
+        camera_labels = camera_config.get(CONFIG_DETECTION_LABELS)
+        if camera_labels and camera_labels != UNDEFINED:
+            return camera_labels
+
+        # Global deprecated key (comma-separated string)
+        global_label_str = self._config.get(CONFIG_DETECTION_LABEL)
+        if global_label_str:
+            return [lbl.strip() for lbl in global_label_str.split(",") if lbl.strip()]
+
+        # Global new key
+        global_labels = self._config.get(CONFIG_DETECTION_LABELS)
+        if global_labels:
+            return global_labels
+
+        return DEFAULT_DETECTION_LABELS
+
     async def _send_notifications(self, event_data: Event[EventRecorderData]) -> None:
+        LOGGER.debug(
+            "Preparing to send Telegram notification for event from camera %s",
+            event_data.data.camera.identifier,
+        )
+        camera_identifier = event_data.data.camera.identifier
+        objects = event_data.data.recording.objects
+        matching_object = None
+        if objects:
+            allowed_labels = self._get_effective_detection_labels(camera_identifier)
+            LOGGER.debug(
+                "Allowed labels for camera %s: %s",
+                camera_identifier,
+                allowed_labels,
+            )
+            matching_object = next(
+                (obj for obj in objects if obj.label in allowed_labels), None
+            )
+            if matching_object is None:
+                LOGGER.debug(
+                    "No detected objects with allowed labels for event from camera %s. "
+                    "Detected objects: %s",
+                    camera_identifier,
+                    [obj.label for obj in objects],
+                )
+                return
+        else:
+            LOGGER.debug(
+                "No detected objects for event from camera %s", camera_identifier
+            )
+
         file = event_data.data.recording.clip_path
         if file and os.path.exists(file) and self._config[CONFIG_SEND_VIDEO]:
             caption = f"{event_data.data.camera.identifier}"
-            if event_data.data.recording.objects:
-                caption += f" detected a {event_data.data.recording.objects[0].label}"
-            thumb = rescale_image_cv2(
-                event_data.data.recording.thumbnail_path, max_size=320
-            )
+            if matching_object is not None:
+                caption += f" detected a {matching_object.label}"
+
+            if event_data.data.recording.thumbnail_path and os.path.exists(
+                event_data.data.recording.thumbnail_path
+            ):
+                thumb = rescale_image_cv2(
+                    event_data.data.recording.thumbnail_path, max_size=320
+                )
+            else:
+                thumb = None
+
             for chat_id in self._chat_ids:
                 with open(file, "rb") as video_file:
                     await self._bot.send_video(
