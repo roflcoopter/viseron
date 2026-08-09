@@ -41,41 +41,45 @@ _FATAL_LOG_PATTERNS = (
 )
 
 
-@pytest.fixture(scope="session")
-def viseron_container_data_mount(
+def _data_mount_container(
     docker_client: docker.DockerClient,
     image: str,
     docker_platform: str,
-    host_nginx_port_data_mount: int,
     boot_timeout: float,
     artifact_dir: Path,
     request: pytest.FixtureRequest,
+    *,
+    name_suffix: str,
+    env_overrides: dict[str, str] | None = None,
+    host_nginx_port: int | None = None,
+    log_label: str,
 ) -> Iterator[Any]:
-    """Start a Viseron container seeded with /data only (no individual storage dirs).
+    """Start and manage the lifecycle for a /data-mount smoke-test container."""
+    container_name = f"viseron-smoke-data-mount-{name_suffix}-{int(time.time())}"
 
-    This simulates the Home Assistant add-on scenario where a single /data volume
-    is mounted. The 10-adduser init script detects /data and creates subdirectories
-    and symlinks from /{folder} to /data/{folder}.
-    """
-    container_name = f"viseron-smoke-data-mount-{int(time.time())}"
+    environment = {
+        "PUID": str(os.getuid()),
+        "PGID": str(os.getgid()),
+        "TZ": "UTC",
+    }
+    if env_overrides:
+        environment.update(env_overrides)
 
     run_kwargs: dict[str, Any] = {
         "image": image,
         "name": container_name,
-        "environment": {
-            "PUID": str(os.getuid()),
-            "PGID": str(os.getgid()),
-            "TZ": "UTC",
-        },
-        "ports": {f"{NGINX_PORT}/tcp": host_nginx_port_data_mount},
+        "environment": environment,
     }
+    if host_nginx_port is not None:
+        run_kwargs["ports"] = {f"{NGINX_PORT}/tcp": host_nginx_port}
+
     if Path("/dev/dri").exists():
         run_kwargs["devices"] = ["/dev/dri:/dev/dri"]
     if docker_platform:
         run_kwargs["platform"] = docker_platform
 
     print(  # noqa: T201
-        f"\n[smoke] starting data-mount container {container_name} from {image} "
+        f"\n[smoke] starting {log_label} container {container_name} from {image} "
         f"(platform={docker_platform or 'default'})"
     )
     try:
@@ -107,7 +111,7 @@ def viseron_container_data_mount(
                 container.logs(stdout=True, stderr=True)
             )
         except Exception as exc:  # pylint: disable=broad-except # noqa: BLE001
-            print(f"[smoke] could not capture data-mount logs: {exc}")  # noqa: T201
+            print(f"[smoke] could not capture {log_label} logs: {exc}")  # noqa: T201
         print(f"[smoke] artifacts saved to {artifact_dir}")  # noqa: T201
 
     try:
@@ -138,6 +142,53 @@ def viseron_container_data_mount(
 
 
 @pytest.fixture(scope="session")
+def viseron_container_data_mount(
+    docker_client: docker.DockerClient,
+    image: str,
+    docker_platform: str,
+    host_nginx_port_data_mount: int,
+    boot_timeout: float,
+    artifact_dir: Path,
+    request: pytest.FixtureRequest,
+) -> Iterator[Any]:
+    """Start a /data-mount container with default chown behavior."""
+    yield from _data_mount_container(
+        docker_client,
+        image,
+        docker_platform,
+        boot_timeout,
+        artifact_dir,
+        request,
+        name_suffix="default",
+        host_nginx_port=host_nginx_port_data_mount,
+        log_label="data-mount",
+    )
+
+
+@pytest.fixture(scope="session")
+def viseron_container_data_mount_disable_chown(
+    docker_client: docker.DockerClient,
+    image: str,
+    docker_platform: str,
+    boot_timeout: float,
+    artifact_dir: Path,
+    request: pytest.FixtureRequest,
+) -> Iterator[Any]:
+    """Start a /data-mount container with VISERON_DISABLE_CHOWN enabled."""
+    yield from _data_mount_container(
+        docker_client,
+        image,
+        docker_platform,
+        boot_timeout,
+        artifact_dir,
+        request,
+        name_suffix="no-chown",
+        env_overrides={"VISERON_DISABLE_CHOWN": "true"},
+        log_label="no-chown",
+    )
+
+
+@pytest.fixture(scope="session")
 def host_data_mount(viseron_container_data_mount: Any) -> testinfra.host.Host:
     """Return a testinfra host bound to the data-mount container."""
     return testinfra.get_host(f"docker://{viseron_container_data_mount.name}")
@@ -154,6 +205,26 @@ def webserver_url_data_mount(viseron_container_data_mount: Any) -> str:
 def boot_logs_data_mount(viseron_container_data_mount: Any) -> str:
     """Return the captured boot logs from the data-mount container."""
     return viseron_container_data_mount.logs().decode("utf-8", errors="replace")
+
+
+@pytest.fixture(scope="session")
+def host_data_mount_disable_chown(
+    viseron_container_data_mount_disable_chown: Any,
+) -> testinfra.host.Host:
+    """Return a testinfra host for the no-chown data-mount container."""
+    return testinfra.get_host(
+        f"docker://{viseron_container_data_mount_disable_chown.name}"
+    )
+
+
+@pytest.fixture(scope="session")
+def boot_logs_data_mount_disable_chown(
+    viseron_container_data_mount_disable_chown: Any,
+) -> str:
+    """Return the captured boot logs from the no-chown data-mount container."""
+    return viseron_container_data_mount_disable_chown.logs().decode(
+        "utf-8", errors="replace"
+    )
 
 
 @pytest.mark.parametrize("folder", DATA_SYMLINKED_FOLDERS)
@@ -256,3 +327,27 @@ def test_data_subdir_owned_by_abc(
     assert f.exists, f"{path} does not exist"
     assert f.user == "abc", f"{path} is owned by {f.user!r}, expected 'abc'"
     assert f.group == "abc", f"{path} group is {f.group!r}, expected 'abc'"
+
+
+def test_boot_logs_confirm_chown_skipped_when_disabled(
+    boot_logs_data_mount_disable_chown: str,
+) -> None:
+    """Boot logs should confirm chown was skipped for volume paths."""
+    assert "VISERON_DISABLE_CHOWN is enabled" in boot_logs_data_mount_disable_chown, (
+        "Expected a log line confirming chown is disabled when VISERON_DISABLE_CHOWN is"
+        " set. First 2KB:\n"
+        f"{boot_logs_data_mount_disable_chown[:2048]}"
+    )
+
+
+@pytest.mark.parametrize("folder", DATA_SYMLINKED_FOLDERS)
+def test_data_subdir_not_owned_by_abc_when_chown_disabled(
+    host_data_mount_disable_chown: testinfra.host.Host,
+    folder: str,
+) -> None:
+    """/data/{folder} should keep root ownership when chown is disabled."""
+    path = f"/data/{folder}"
+    f = host_data_mount_disable_chown.file(path)
+    assert f.exists, f"{path} does not exist"
+    assert f.user != "abc", f"{path} unexpectedly owned by {f.user!r}"
+    assert f.group != "abc", f"{path} unexpectedly grouped to {f.group!r}"
