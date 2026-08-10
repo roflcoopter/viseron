@@ -4,19 +4,34 @@ source /helpers/logger.sh
 
 PUID=${PUID:-0}
 PGID=${PGID:-0}
+VISERON_DISABLE_CHOWN=${VISERON_DISABLE_CHOWN:-false}
 
 groupmod -o -g "$PGID" abc
 usermod -o -u "$PUID" abc
 
+disable_volume_chown=false
+case "${VISERON_DISABLE_CHOWN,,}" in
+    1|true|yes|on)
+        disable_volume_chown=true
+        ;;
+esac
+
 log_info "************************ UID/GID *************************"
-log_info "Changing ownership of files to abc:abc, this may take a while..."
+if [ "$disable_volume_chown" = true ]; then
+    log_info "VISERON_DISABLE_CHOWN is enabled, skipping ownership changes for volume paths"
+else
+    log_info "VISERON_DISABLE_CHOWN is not enabled, applying ownership changes for volume paths"
+    log_info "Changing ownership of files to abc:abc, this may take a while..."
+fi
 
 # Symlink all folders to /data, so that they can be used with a Home Assistant add-on with a single volume mapping
 if [ -d "/data" ]; then
     log_info "Symlinking folders to /data"
     for folder in event_clips segments snapshots thumbnails; do
         mkdir -p "/data/${folder}"
-        chown -R --silent abc:abc "/data/${folder}" || :
+        if [ "$disable_volume_chown" = false ]; then
+            chown -R --silent abc:abc "/data/${folder}" || :
+        fi
         # Create symlink only if the path does not already exist
         if [ ! -e "/${folder}" ]; then
             log_info "Creating symlink for /${folder} to /data/${folder}"
@@ -30,13 +45,15 @@ if [ -d "/data" ]; then
 fi
 
 chown -R abc:abc /home/abc/bin
-chown -R --silent abc:abc /config || :
-# Remove /recordings in a future release, it's deprecated in favor of /event_clips
-chown -R --silent abc:abc /recordings || :
-chown -R --silent abc:abc /event_clips || :
-chown -R --silent abc:abc /segments || :
-chown -R --silent abc:abc /snapshots || :
-chown -R --silent abc:abc /thumbnails || :
+if [ "$disable_volume_chown" = false ]; then
+    chown -R --silent abc:abc /config || :
+    # Remove /recordings in a future release, it's deprecated in favor of /event_clips
+    chown -R --silent abc:abc /recordings || :
+    chown -R --silent abc:abc /event_clips || :
+    chown -R --silent abc:abc /segments || :
+    chown -R --silent abc:abc /snapshots || :
+    chown -R --silent abc:abc /thumbnails || :
+fi
 
 log_info "User uid:    $(id -u abc)"
 log_info "User gid:    $(id -g abc)"

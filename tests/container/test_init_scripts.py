@@ -106,3 +106,11 @@ def test_gstreamer_inspect_runs(host: testinfra.host.Host) -> None:
     output = cmd.stdout + cmd.stderr
     assert cmd.rc == 0, output
     assert "gst-inspect" in output.lower() or "gstreamer" in output.lower()
+
+
+def test_boot_logs_confirm_chown_enabled_by_default(boot_logs: str) -> None:
+    """Boot logs should confirm volume path chown is enabled by default."""
+    assert "VISERON_DISABLE_CHOWN is not enabled" in boot_logs, (
+        "Expected a log line confirming volume path chown is enabled by default. "
+        f"First 2KB:\n{boot_logs[:2048]}"
+    )
