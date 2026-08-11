@@ -71,10 +71,12 @@ CONFIG_DRAIN: Final = "drain"
 CONFIG_CHECK_INTERVAL: Final = "check_interval"
 CONFIG_MIN_SIZE: Final = "min_size"
 CONFIG_MAX_SIZE: Final = "max_size"
+CONFIG_MIN_FREE_SPACE: Final = "min_free_space"
 CONFIG_MAX_AGE: Final = "max_age"
 CONFIG_MIN_AGE: Final = "min_age"
 CONFIG_GB: Final = "gb"
 CONFIG_MB: Final = "mb"
+CONFIG_PERCENT: Final = "percent"
 CONFIG_DAYS: Final = "days"
 CONFIG_HOURS: Final = "hours"
 CONFIG_MINUTES: Final = "minutes"
@@ -140,6 +142,8 @@ DEFAULT_MINUTES: Final = None
 DEFAULT_SECONDS: Final = None
 DEFAULT_MIN_SIZE: dict[str, Any] = {}
 DEFAULT_MAX_SIZE: dict[str, Any] = {}
+DEFAULT_MIN_FREE_SPACE: dict[str, Any] = {}
+DEFAULT_PERCENT: Final = None
 DEFAULT_MIN_AGE: dict[str, Any] = {}
 DEFAULT_MAX_AGE: dict[str, Any] = {}
 DEFAULT_CONTINUOUS: Final = None
@@ -250,6 +254,28 @@ DESC_CHECK_INTERVAL_MINUTES = "Minutes between checks for files to move/delete."
 DESC_CHECK_INTERVAL_SECONDS = "Seconds between checks for files to move/delete."
 DESC_MIN_SIZE = "Minimum size of files to keep in this tier."
 DESC_MAX_SIZE = "Maximum size of files to keep in this tier."
+DESC_MIN_FREE_SPACE = (
+    "Keep at least this much of the <b>filesystem</b> holding this tier free by "
+    "evicting the oldest files on the tier (across all cameras) when free space "
+    "drops below the floor. This layers on top of <code>max_age</code> and "
+    "<code>max_size</code> — a file is removed when <em>any</em> configured "
+    "rule triggers. Because only deletion (not moving) returns space to a disk, "
+    "this is meant for the <b>last</b> tier on a filesystem. Unset by default, "
+    "which disables it and preserves the previous size/age-only behaviour."
+)
+DESC_FREE_SPACE_PERCENT = (
+    "Percentage (0-100, exclusive of 0) of the filesystem's total size to keep "
+    "free. Evaluated live against the filesystem's total capacity."
+)
+DESC_FREE_SPACE_GB = (
+    "Absolute amount of free space to maintain in GB. Added together with "
+    "<code>mb</code>. If <code>percent</code> is also set, the larger (more "
+    "conservative) floor wins."
+)
+DESC_FREE_SPACE_MB = (
+    "Absolute amount of free space to maintain in MB. Added together with "
+    "<code>gb</code>."
+)
 DESC_MIN_AGE = "Minimum age of files to keep in this tier."
 DESC_MAX_AGE = "Maximum age of files to keep in this tier."
 DESC_CONTINUOUS = "Retention rules for continuous recordings."

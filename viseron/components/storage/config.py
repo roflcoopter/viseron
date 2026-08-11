@@ -22,12 +22,14 @@ from viseron.components.storage.const import (
     CONFIG_MAX_SIZE,
     CONFIG_MB,
     CONFIG_MIN_AGE,
+    CONFIG_MIN_FREE_SPACE,
     CONFIG_MIN_SIZE,
     CONFIG_MINUTES,
     CONFIG_MOTION_DETECTOR,
     CONFIG_MOVE_ON_SHUTDOWN,
     CONFIG_OBJECT_DETECTOR,
     CONFIG_PATH,
+    CONFIG_PERCENT,
     CONFIG_POLL,
     CONFIG_RECORDER,
     CONFIG_SECONDS,
@@ -56,11 +58,13 @@ from viseron.components.storage.const import (
     DEFAULT_MAX_SIZE,
     DEFAULT_MB,
     DEFAULT_MIN_AGE,
+    DEFAULT_MIN_FREE_SPACE,
     DEFAULT_MIN_SIZE,
     DEFAULT_MINUTES,
     DEFAULT_MOTION_DETECTOR,
     DEFAULT_MOVE_ON_SHUTDOWN,
     DEFAULT_OBJECT_DETECTOR,
+    DEFAULT_PERCENT,
     DEFAULT_POLL,
     DEFAULT_RECORDER,
     DEFAULT_RECORDER_TIERS,
@@ -82,6 +86,9 @@ from viseron.components.storage.const import (
     DESC_DRAIN,
     DESC_EVENTS,
     DESC_FACE_RECOGNITION,
+    DESC_FREE_SPACE_GB,
+    DESC_FREE_SPACE_MB,
+    DESC_FREE_SPACE_PERCENT,
     DESC_INTERVAL,
     DESC_LICENSE_PLATE_RECOGNITION,
     DESC_MAX_AGE,
@@ -93,6 +100,7 @@ from viseron.components.storage.const import (
     DESC_MAX_SIZE,
     DESC_MIN_AGE,
     DESC_MIN_DAYS,
+    DESC_MIN_FREE_SPACE,
     DESC_MIN_GB,
     DESC_MIN_HOURS,
     DESC_MIN_MB,
@@ -168,6 +176,32 @@ def get_size_schema(
     }
 
 
+def get_free_space_schema() -> dict[vol.Optional, Maybe]:
+    """Get the min_free_space schema (percent and/or absolute gb/mb)."""
+    return {
+        vol.Optional(
+            CONFIG_PERCENT,
+            default=DEFAULT_PERCENT,
+            description=DESC_FREE_SPACE_PERCENT,
+        ): Maybe(
+            vol.All(
+                vol.Coerce(float),
+                vol.Range(min=0, max=100, min_included=False),
+            )
+        ),
+        vol.Optional(
+            CONFIG_GB,
+            default=DEFAULT_GB,
+            description=DESC_FREE_SPACE_GB,
+        ): Maybe(vol.Coerce(float)),
+        vol.Optional(
+            CONFIG_MB,
+            default=DEFAULT_MB,
+            description=DESC_FREE_SPACE_MB,
+        ): Maybe(vol.Coerce(float)),
+    }
+
+
 def get_age_schema(
     age_type: Literal["min"] | Literal["max"],
 ) -> dict[vol.Optional, Maybe]:
@@ -203,6 +237,11 @@ TIER_SCHEMA_BASE = vol.Schema(
             default=DEFAULT_MAX_SIZE,
             description=DESC_MAX_SIZE,
         ): get_size_schema("max"),
+        vol.Optional(
+            CONFIG_MIN_FREE_SPACE,
+            default=DEFAULT_MIN_FREE_SPACE,
+            description=DESC_MIN_FREE_SPACE,
+        ): get_free_space_schema(),
         vol.Optional(
             CONFIG_MAX_AGE,
             default=DEFAULT_MAX_AGE,
