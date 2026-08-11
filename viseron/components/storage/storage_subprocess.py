@@ -63,6 +63,9 @@ class DataItem:
     events_min_age: datetime.timedelta | None = None
     events_max_age: datetime.timedelta | None = None
     events_min_bytes: int | None = None
+    continuous_schedule: list[dict[str, str]] | None = None
+    continuous_schedule_timezone: str | None = None
+    continuous_lookback_seconds: int = 0
     callback_id: str | None = None
     data: np.ndarray | None = None
     error: str | None = None

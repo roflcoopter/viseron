@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import functools
 import inspect
 import linecache
 import logging
@@ -17,6 +18,7 @@ import tracemalloc
 import urllib.parse
 from queue import Empty, Full, Queue
 from typing import TYPE_CHECKING, Any, Literal, overload
+from zoneinfo import ZoneInfoNotFoundError
 
 import cv2
 import numpy as np
@@ -24,6 +26,7 @@ import psutil
 import slugify as unicode_slug
 import supervision as sv
 import tornado.queues as tq
+import tzlocal
 
 from viseron.const import (
     FONT,
@@ -52,6 +55,23 @@ def get_utc_offset() -> datetime.timedelta:
     return datetime.timedelta(seconds=time.localtime().tm_gmtoff)
 
 
+@functools.lru_cache(maxsize=1)
+def get_local_timezone() -> str:
+    """Return the server's IANA timezone name, detected via tzlocal."""
+    try:
+        name = getattr(tzlocal.get_localzone(), "key", None)
+    except ZoneInfoNotFoundError:
+        name = None
+
+    if not name or name == "local":
+        LOGGER.warning(
+            "Could not determine the server's timezone, defaulting to UTC. "
+            "Set recorder.schedule.timezone explicitly to override."
+        )
+        return "UTC"
+    return name
+
+
 def daterange_to_utc(
     date: str, utc_offset: datetime.timedelta
 ) -> tuple[datetime.datetime, datetime.datetime]:
@@ -75,11 +95,6 @@ def daterange_to_utc(
 def client_current_datetime(utc_offset: datetime.timedelta) -> datetime.datetime:
     """Return the current datetime adjusted to the clients timezone."""
     return utcnow() + utc_offset
-
-
-def current_system_datetime() -> datetime.datetime:
-    """Return the current system datetime."""
-    return datetime.datetime.now()
 
 
 def calculate_relative_contours(
