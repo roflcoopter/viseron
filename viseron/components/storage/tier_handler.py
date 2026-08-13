@@ -85,10 +85,14 @@ from viseron.domains.camera.const import (
     CONFIG_CONTINUOUS_RECORDING,
     CONFIG_RECORDER,
     CONFIG_RETAIN,
+    CONFIG_SCHEDULE,
+    CONFIG_SCHEDULE_CONTINUOUS,
 )
+from viseron.domains.camera.schedule import resolve_timezone
 from viseron.events import Event, EventEmptyData
 from viseron.helpers import utcnow
 from viseron.helpers.named_timer import NamedTimer
+from viseron.helpers.validators import UNDEFINED
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
@@ -576,7 +580,7 @@ class SegmentsTierHandler(TierHandler):
         ]
 
         self._events_enabled = any(self._events_params)
-        self._continuous_enabled = (
+        self._continuous_configured = (
             any(self._continuous_params)
             and self._camera.config[CONFIG_RECORDER][CONFIG_CONTINUOUS_RECORDING]
         )
@@ -596,6 +600,31 @@ class SegmentsTierHandler(TierHandler):
         self.add_file_handler(self._path, rf"{self._path}/(.*.m4s$)")
         self.add_file_handler(self._path, rf"{self._path}/(.*.mp4$)")
 
+    def _continuous_schedule_entries(self) -> list[dict[str, str]] | None:
+        """Return the configured continuous-recording schedule entries, if any.
+
+        None means continuous recording is unrestricted by a schedule (either
+        no schedule is configured, or the schedule doesn't restrict
+        continuous).
+        """
+        schedule = self._camera.config[CONFIG_RECORDER][CONFIG_SCHEDULE]
+        if not schedule or schedule == UNDEFINED:
+            return None
+        entries = schedule[CONFIG_SCHEDULE_CONTINUOUS]
+        if not entries or entries == UNDEFINED:
+            return None
+        return entries
+
+    def _continuous_schedule_timezone(self) -> str | None:
+        """Return the timezone the continuous-recording schedule is evaluated in.
+
+        None when there is no continuous schedule to evaluate.
+        """
+        if self._continuous_schedule_entries() is None:
+            return None
+        schedule = self._camera.config[CONFIG_RECORDER][CONFIG_SCHEDULE]
+        return resolve_timezone(schedule)
+
     def _create_dataitem(self) -> DataItem:
         """Create a DataItem for the check tier command."""
         return DataItem(
@@ -609,7 +638,7 @@ class SegmentsTierHandler(TierHandler):
                 TIER_SUBCATEGORY_EVENT_CLIPS,
             ],
             throttle_period=self._throttle_period,
-            files_enabled=self._continuous_enabled,
+            files_enabled=self._continuous_configured,
             max_bytes=self._continuous_max_bytes,
             min_age=max(
                 self._continuous_min_age,
@@ -623,6 +652,9 @@ class SegmentsTierHandler(TierHandler):
             events_min_age=self._events_min_age,
             events_max_age=self._events_max_age,
             events_min_bytes=self._events_min_bytes,
+            continuous_schedule=self._continuous_schedule_entries(),
+            continuous_schedule_timezone=self._continuous_schedule_timezone(),
+            continuous_lookback_seconds=self._camera.recorder.lookback,
         )
 
     @property
@@ -633,7 +665,7 @@ class SegmentsTierHandler(TierHandler):
     @property
     def continuous_enabled(self) -> bool:
         """Return if continuous is enabled."""
-        return self._continuous_enabled
+        return self._continuous_configured
 
     def _handle_events(
         self,
@@ -772,12 +804,12 @@ class SegmentsTierHandler(TierHandler):
     def _check_tier(self, get_session: Callable[[], Session], data: np.ndarray) -> None:
         events_next_tier = None
         recording_ids: list[int] = []
-        if self._events_enabled and not self._continuous_enabled:
+        if self._events_enabled and not self.continuous_enabled:
             events_next_tier = find_next_tier_segments(
                 self._storage, self._tier_id, self._camera, "events"
             )
             recording_ids = self._handle_events(get_session, data, events_next_tier)
-        elif self._continuous_enabled and not self._events_enabled:
+        elif self.continuous_enabled and not self._events_enabled:
             continuous_next_tier = find_next_tier_segments(
                 self._storage, self._tier_id, self._camera, "continuous"
             )

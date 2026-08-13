@@ -21,7 +21,13 @@ from viseron.components.nvr.sensor import OperationStateSensor
 from viseron.components.nvr.toggle import ManualRecordingToggle
 from viseron.components.storage.models import TriggerTypes
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
-from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.domains.camera.const import (
+    CONFIG_RECORDER,
+    CONFIG_SCHEDULE,
+    CONFIG_SCHEDULE_EVENTS,
+    DOMAIN as CAMERA_DOMAIN,
+)
+from viseron.domains.camera.schedule import resolve_timezone, schedule_active
 from viseron.domains.motion_detector import AbstractMotionDetectorScanner
 from viseron.domains.motion_detector.const import (
     EVENT_MOTION_DETECTOR_RESULT,
@@ -35,6 +41,7 @@ from viseron.domains.object_detector.const import (
 from viseron.events import EventData
 from viseron.exceptions import DomainNotRegisteredError
 from viseron.helpers import utcnow
+from viseron.helpers.validators import UNDEFINED
 from viseron.viseron_types import Domain
 from viseron.watchdog.thread_watchdog import RestartableThread
 
@@ -490,6 +497,15 @@ class NVR(AbstractNVR):
                         ):
                             frame_scanner.domain_instance.result_failed_callback()
 
+    def _event_recording_scheduled(self) -> bool:
+        """Return if event recording is currently allowed by the schedule."""
+        schedule = self._camera.config[CONFIG_RECORDER][CONFIG_SCHEDULE]
+        if not schedule or schedule == UNDEFINED:
+            return True
+        return schedule_active(
+            schedule[CONFIG_SCHEDULE_EVENTS], resolve_timezone(schedule)
+        )
+
     def start_manual_recording(self, manual_recording: ManualRecording) -> None:
         """Start a manual recording with a set duration."""
         self._logger.debug(
@@ -647,6 +663,10 @@ class NVR(AbstractNVR):
         if self._camera.is_recording:
             return
 
+        # Only process objects if event recording is currently allowed
+        if not self._event_recording_scheduled():
+            return
+
         # Only process objects if we are actively scanning for objects and the last
         # scan did not return an error
         if (
@@ -704,6 +724,7 @@ class NVR(AbstractNVR):
             if (
                 self._motion_detector.trigger_event_recording
                 and not self._camera.is_recording
+                and self._event_recording_scheduled()
             ):
                 self._trigger_type = TriggerTypes.MOTION
                 self._start_recorder = True
