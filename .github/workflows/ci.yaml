@@ -364,10 +364,6 @@ jobs:
         id: python
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-          install: true
       - name: Build wheels Docker image
         run: |
           docker compose ${{ env.DOCKER_COMPOSE_CI_FILES }} build amd64-wheels

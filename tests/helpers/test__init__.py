@@ -2,6 +2,8 @@
 
 from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone
+from unittest.mock import Mock, patch
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import pytest
 
@@ -207,3 +209,61 @@ def test_microsecond_precision():
 
     assert time_from.microsecond == 0
     assert time_to.microsecond == 999999
+
+
+class TestGetLocalTimezone:
+    """Tests for get_local_timezone."""
+
+    def setup_method(self):
+        """Clear the lru_cache before each test."""
+        helpers.get_local_timezone.cache_clear()
+
+    def test_resolves_iana_name_via_tzlocal(self):
+        """Test that the IANA name is taken from tzlocal.get_localzone()."""
+        with patch(
+            "tzlocal.get_localzone",
+            return_value=ZoneInfo("Europe/Stockholm"),
+        ):
+            assert helpers.get_local_timezone() == "Europe/Stockholm"
+
+    def test_falls_back_to_utc_when_tz_env_is_invalid(
+        self, caplog: pytest.LogCaptureFixture
+    ):
+        """Test fallback to UTC when tzlocal can't resolve an invalid TZ env var."""
+        with patch(
+            "tzlocal.get_localzone",
+            side_effect=ZoneInfoNotFoundError("bad tz"),
+        ):
+            assert helpers.get_local_timezone() == "UTC"
+        assert "Could not determine the server's timezone" in caplog.text
+
+    def test_falls_back_to_utc_when_localtime_is_a_copied_file(
+        self, caplog: pytest.LogCaptureFixture
+    ):
+        """Test fallback to UTC when /etc/localtime is a copy, not a symlink.
+
+        tzlocal represents this case as a ZoneInfo with key "local" - a valid
+        tzinfo for offset/DST purposes, but not a real IANA name we can
+        surface to the user or feed back into the timezone config option.
+        """
+        with patch("tzlocal.get_localzone", return_value=Mock(key="local")):
+            assert helpers.get_local_timezone() == "UTC"
+        assert "Could not determine the server's timezone" in caplog.text
+
+    def test_falls_back_to_utc_when_tzlocal_returns_fixed_offset(
+        self, caplog: pytest.LogCaptureFixture
+    ):
+        """Test fallback to UTC when tzlocal's own last resort has no IANA key."""
+        with patch("tzlocal.get_localzone", return_value=timezone.utc):
+            assert helpers.get_local_timezone() == "UTC"
+        assert "Could not determine the server's timezone" in caplog.text
+
+    def test_result_is_cached(self):
+        """Test that tzlocal is only consulted once thanks to lru_cache."""
+        with patch(
+            "tzlocal.get_localzone",
+            return_value=ZoneInfo("Europe/Stockholm"),
+        ) as mock_get_localzone:
+            helpers.get_local_timezone()
+            helpers.get_local_timezone()
+        mock_get_localzone.assert_called_once()

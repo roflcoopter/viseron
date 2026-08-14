@@ -382,6 +382,56 @@ ffmpeg: # or any other camera component
 </TabItem>
 </Tabs>
 
+## Recording schedule
+
+By default, event and continuous recordings are allowed at any time. You can restrict either (or both) to specific times of day by adding a `schedule` key to a cameras `recorder` configuration.
+
+The schedule is configured independently for `events` and `continuous` recordings, each as a list of entries with a `start` and `end` [cron expression](https://en.wikipedia.org/wiki/Cron).
+
+A recording type is active when the most recently passed `start` time is more recent than the most recently passed `end` time,
+so a window that spans midnight (one that starts at `22:00` and ends at `06:00` for example) works without any extra configuration.
+Multiple entries can be listed and the schedule is then active if **any** entry matches.
+
+:::info
+
+If either `events` or `continuous` is omitted, the recordings will be active 24/7 for that type of recording.
+
+:::
+
+:::info
+
+Manual recordings are not affected by the schedule and can always be started on-demand.
+
+:::
+
+The cron expressions are evaluated using a `timezone` key, which defaults to the server's own timezone.
+If your cameras should follow a different timezone than the server, override it with any [IANA timezone name](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+
+Example configuration to only record events on weekdays between 08:00 and 18:00, and only keep continuous recordings between 22:00 and 06:00 every day:
+
+```yaml title="/config/config.yaml"
+ffmpeg: # or any other camera component
+  camera:
+    camera_one:
+      name: Camera 1
+      host: !secret camera_one_host
+      path: /Streaming/Channels/101/
+      username: !secret camera_one_username
+      password: !secret camera_one_password
+      recorder:
+        continuous_recording: true
+        // highlight-start
+        schedule:
+          timezone: Europe/Stockholm
+          events:
+            - start: "0 8 * * mon-fri" # 08:00 Mon-Fri
+              end: "0 18 * * mon-fri" # 18:00 Mon-Fri
+          continuous:
+            - start: "0 22 * * *" # 22:00 every day
+              end: "0 6 * * *" # 06:00 every day
+        // highlight-end
+```
+
 ## File format
 
 The recordings are saved in short `.m4s` (aka `fMP4` or `fragmented MP4`) segments.

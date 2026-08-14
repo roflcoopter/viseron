@@ -7,20 +7,22 @@ import logging
 import os
 import shutil
 import threading
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
-from sqlalchemy import delete, func, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 from viseron.components.storage.const import ENGINE
 from viseron.components.storage.models import Files, Recordings
 from viseron.const import CAMERA_SEGMENT_DURATION
+from viseron.domains.camera.schedule import schedule_state_changes
 from viseron.helpers import utcnow
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from sqlalchemy import ColumnElement
     from sqlalchemy.orm import Session
 
     from viseron.components.storage.storage_subprocess import (
@@ -30,6 +32,10 @@ if TYPE_CHECKING:
     )
 
 LOGGER = logging.getLogger(__name__)
+
+# Upper bound on the schedule windows the fast-path gate resolves before giving
+# up and letting the full check decide.
+MAX_SCHEDULE_CHANGES = 100
 
 FILES_DTYPE = np.dtype(
     [
@@ -76,6 +82,94 @@ class Worker:
         self._check_locks: dict[str, threading.Lock] = {}
         self._checks_in_progress: dict[str, bool] = {}
 
+    @staticmethod
+    def _tier_files_filter(item: DataItem) -> tuple[ColumnElement[bool], ...]:
+        """Return the filter selecting the files a DataItem covers."""
+        return (
+            Files.camera_identifier == item.camera_identifier,
+            Files.tier_id == item.tier_id,
+            Files.category == item.category,
+            Files.subcategory.in_(item.subcategories),
+        )
+
+    def _inactive_files_exist(
+        self,
+        session: Session,
+        item: DataItem,
+        oldest_ctime: datetime.datetime,
+        now: datetime.datetime,
+    ) -> bool:
+        """Return if the continuous schedule has anything left to evict.
+
+        Files recorded while the schedule was inactive are kept only as event
+        pre-roll, so they can go once they are older than the lookback buffer.
+
+        Age alone is not enough to ask about: a tier nearly always holds files
+        older than the lookback buffer, which would make the answer yes for
+        every camera with a schedule. The inactive windows are worked out first
+        instead, and only files falling inside one of them count.
+        """
+        cutoff = now - datetime.timedelta(
+            seconds=item.continuous_lookback_seconds + CAMERA_SEGMENT_DURATION
+        )
+        if oldest_ctime >= cutoff:
+            return False
+
+        changes = schedule_state_changes(
+            cast("list[dict[str, str]]", item.continuous_schedule),
+            item.continuous_schedule_timezone or "UTC",
+            oldest_ctime,
+            cutoff,
+            max_changes=MAX_SCHEDULE_CHANGES,
+        )
+        if len(changes) > MAX_SCHEDULE_CHANGES:
+            # Too many windows to express as one query, let the full check decide
+            return True
+
+        inactive_windows: list[tuple[datetime.datetime, datetime.datetime]] = []
+        for index, (timestamp, active) in enumerate(changes):
+            if active:
+                continue
+            inactive_windows.append(
+                (
+                    # The first change is the range start, which is oldest_ctime
+                    # itself. Use it verbatim to keep sub-second precision.
+                    oldest_ctime
+                    if index == 0
+                    else datetime.datetime.fromtimestamp(
+                        timestamp, tz=datetime.timezone.utc
+                    ),
+                    datetime.datetime.fromtimestamp(
+                        changes[index + 1][0], tz=datetime.timezone.utc
+                    )
+                    if index + 1 < len(changes)
+                    else cutoff,
+                )
+            )
+
+        if not inactive_windows:
+            return False
+
+        return (
+            session.execute(
+                select(Files.id)
+                .where(
+                    *self._tier_files_filter(item),
+                    or_(
+                        *[
+                            and_(
+                                Files.orig_ctime >= window_start,
+                                Files.orig_ctime < window_end,
+                            )
+                            for window_start, window_end in inactive_windows
+                        ]
+                    ),
+                )
+                .limit(1)
+            ).first()
+            is not None
+        )
+
     def _should_check_tier_files(self, item: DataItem) -> bool:
         """Quick aggregate check if tier actually needs processing.
 
@@ -88,10 +182,7 @@ class Worker:
         with self._get_session() as session:
             result = session.execute(
                 select(func.sum(Files.size), func.min(Files.orig_ctime)).where(
-                    Files.camera_identifier == item.camera_identifier,
-                    Files.tier_id == item.tier_id,
-                    Files.category == item.category,
-                    Files.subcategory.in_(item.subcategories),
+                    *self._tier_files_filter(item)
                 )
             ).first()
 
@@ -104,10 +195,15 @@ class Worker:
 
             if item.max_bytes > 0 and total_size >= item.max_bytes:
                 return True
-            if (  # noqa: SIM103
+            if (
                 item.max_age.total_seconds() > 0
                 and total_size >= item.min_bytes
                 and oldest_ctime < now - item.max_age
+            ):
+                return True
+            if (  # noqa: SIM103
+                item.continuous_schedule is not None
+                and self._inactive_files_exist(session, item, oldest_ctime, now)
             ):
                 return True
 
@@ -305,6 +401,12 @@ class Worker:
         else:
             max_age_timestamp = 0
 
+        # We want to ignore files that are less than 5 times the
+        # segment duration old. This is to improve HLS streaming
+        file_min_age = (
+            now - datetime.timedelta(seconds=CAMERA_SEGMENT_DURATION * 5)
+        ).timestamp()
+
         LOGGER.debug(
             "Files to move parameters: "
             "camera_identifier(%s), tier_id(%s), category(%s), subcategories(%s), "
@@ -320,13 +422,18 @@ class Worker:
             max_age_timestamp,
         )
 
-        return get_files_to_move(
-            data,
-            item.max_bytes,
-            min_age_timestamp,
-            item.min_bytes,
-            max_age_timestamp,
-            item.drain,
+        return get_continuous_files_to_move(
+            data=data,
+            max_bytes=item.max_bytes,
+            min_age_timestamp=min_age_timestamp,
+            min_bytes=item.min_bytes,
+            max_age_timestamp=max_age_timestamp,
+            file_min_age_timestamp=file_min_age,
+            drain=item.drain,
+            now=now,
+            schedule_entries=item.continuous_schedule,
+            timezone=item.continuous_schedule_timezone,
+            lookback_seconds=item.continuous_lookback_seconds,
         )
 
     def check_tier_recordings(
@@ -476,6 +583,7 @@ def get_files_to_move(
     min_age_timestamp: float,
     min_bytes: int,
     max_age_timestamp: float,
+    file_min_age_timestamp: float,
     drain: bool,
 ):
     """Get id of files to move.
@@ -485,6 +593,11 @@ def get_files_to_move(
     2. np.cumsum is used to calculate the cumulative sum of the sizes.
     3. Any rows where the cumulative size exceeds the tier size are marked
         for moving to the next tier.
+    4. file_min_age_timestamp is applied as a hard floor on the selected files,
+        the same way get_recordings_to_move does it. min_age_timestamp only
+        gates the bytes branch, so this is what keeps files that are still
+        being written to from being moved by the age branch. Like
+        get_recordings_to_move, drain bypasses it.
     """
     # Sort by timestamp
     sorted_indices = np.argsort(data["orig_ctime"])
@@ -519,8 +632,89 @@ def get_files_to_move(
         if indices_to_move.size > 0:
             rows_to_move = data[indices_to_move]
 
+        rows_to_move = rows_to_move[
+            rows_to_move["orig_ctime"] <= file_min_age_timestamp
+        ]
+
     stripped_rows = rows_to_move[["id", "path", "tier_path"]]
     return stripped_rows[::-1]
+
+
+def get_continuous_files_to_move(
+    *,
+    data: np.ndarray,
+    max_bytes: int,
+    min_age_timestamp: float,
+    min_bytes: int,
+    max_age_timestamp: float,
+    file_min_age_timestamp: float,
+    drain: bool,
+    now: datetime.datetime,
+    schedule_entries: list[dict[str, str]] | None,
+    timezone: str | None,
+    lookback_seconds: int,
+) -> np.ndarray:
+    """Get id of continuous files to move, aware of an optional recording schedule.
+
+    Without a schedule this is identical to get_files_to_move. With a schedule,
+    each file's own orig_ctime decides whether continuous recording was active
+    when it was written:
+    - Files written while active keep the full configured retention
+      (max_bytes/max_age/etc), exactly as if there were no schedule.
+    - Files written while inactive are capped to the lookback buffer, so they
+      age out once no longer needed as event pre-roll instead of accumulating
+      for the full retention window.
+    """
+    if schedule_entries is None or data.size == 0:
+        return get_files_to_move(
+            data=data,
+            max_bytes=max_bytes,
+            min_age_timestamp=min_age_timestamp,
+            min_bytes=min_bytes,
+            max_age_timestamp=max_age_timestamp,
+            file_min_age_timestamp=file_min_age_timestamp,
+            drain=drain,
+        )
+
+    # Evaluating the schedule per file parses two cron expressions per entry,
+    # which does not scale to the thousands of rows a tier holds. The state only
+    # flips where a cron fires, so the range the files span is resolved once and
+    # each file is bisected into it.
+    ctimes = data["orig_ctime"]
+    changes = schedule_state_changes(
+        schedule_entries,
+        cast("str", timezone),
+        datetime.datetime.fromtimestamp(int(ctimes.min()), tz=datetime.timezone.utc),
+        datetime.datetime.fromtimestamp(int(ctimes.max()), tz=datetime.timezone.utc),
+    )
+    boundaries = np.array([timestamp for timestamp, _ in changes])
+    states = np.array([active for _, active in changes], dtype=bool)
+    active_mask = states[np.searchsorted(boundaries, ctimes, side="right") - 1]
+
+    active_rows = get_files_to_move(
+        data=data[active_mask],
+        max_bytes=max_bytes,
+        min_age_timestamp=min_age_timestamp,
+        min_bytes=min_bytes,
+        max_age_timestamp=max_age_timestamp,
+        file_min_age_timestamp=file_min_age_timestamp,
+        drain=drain,
+    )
+
+    inactive_max_age_timestamp = (
+        now - datetime.timedelta(seconds=lookback_seconds + CAMERA_SEGMENT_DURATION)
+    ).timestamp()
+    inactive_rows = get_files_to_move(
+        data=data[~active_mask],
+        max_bytes=0,
+        min_age_timestamp=0,
+        min_bytes=0,
+        max_age_timestamp=inactive_max_age_timestamp,
+        file_min_age_timestamp=file_min_age_timestamp,
+        drain=False,
+    )
+
+    return np.concatenate((active_rows, inactive_rows))
 
 
 def get_recordings_to_move(

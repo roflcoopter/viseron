@@ -97,6 +97,12 @@ CONFIG_THUMBNAIL = "thumbnail"
 CONFIG_CREATE_EVENT_CLIP: Final = "create_event_clip"
 CONFIG_CONTINUOUS_RECORDING: Final = "continuous_recording"
 CONFIG_STORAGE = "storage"
+CONFIG_SCHEDULE: Final = "schedule"
+CONFIG_SCHEDULE_EVENTS: Final = "events"
+CONFIG_SCHEDULE_CONTINUOUS: Final = "continuous"
+CONFIG_SCHEDULE_START: Final = "start"
+CONFIG_SCHEDULE_END: Final = "end"
+CONFIG_SCHEDULE_TIMEZONE: Final = "timezone"
 
 DEFAULT_LOOKBACK = 5
 DEFAULT_IDLE_TIMEOUT = 10
@@ -167,6 +173,33 @@ DESC_CONTINUOUS_RECORDING = (
     "Enable continuous (24/7) recording. Has to be used in combination with "
     "<code>continuous</code>, <code>storage > tiers > continuous</code> or the "
     "<a href=/components-explorer/components/storage>storage component</a>."
+)
+DESC_SCHEDULE = (
+    "Restrict event and/or continuous recording to specific times of day. "
+    "If omitted, recording is not restricted by a schedule."
+)
+DESC_SCHEDULE_EVENTS = (
+    "Schedule for event recordings. If omitted, event recording is allowed at any time."
+)
+DESC_SCHEDULE_CONTINUOUS = (
+    "Schedule for continuous recording. If omitted, continuous recording "
+    "(when <code>continuous_recording</code> is enabled) is allowed at any time."
+)
+DESC_SCHEDULE_START = (
+    "A <a href=https://en.wikipedia.org/wiki/Cron>cron expression</a> for when "
+    "this schedule entry starts, e.g. <code>0 8 * * mon-fri</code> for 08:00 "
+    "on weekdays."
+)
+DESC_SCHEDULE_END = (
+    "A <a href=https://en.wikipedia.org/wiki/Cron>cron expression</a> for when "
+    "this schedule entry ends. Can occur 'before' <code>start</code> in the day "
+    "to span midnight, e.g. <code>start: 0 22 * * *</code>, "
+    "<code>end: 0 6 * * *</code>."
+)
+DESC_SCHEDULE_TIMEZONE = (
+    "An <a href=https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>"
+    "IANA timezone</a> (e.g. <code>Europe/Stockholm</code>) used to evaluate "
+    "the schedule's cron expressions. Defaults to the server's own timezone."
 )
 
 # STILL_IMAGE_SCHEMA constants

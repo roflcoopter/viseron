@@ -28,7 +28,13 @@ from viseron.components.storage.tier_handler import (
     find_next_tier_segments,
     handle_file,
 )
-from viseron.domains.camera.const import CONFIG_CONTINUOUS_RECORDING, CONFIG_LOOKBACK
+from viseron.domains.camera.const import (
+    CONFIG_CONTINUOUS_RECORDING,
+    CONFIG_LOOKBACK,
+    CONFIG_SCHEDULE,
+    CONFIG_SCHEDULE_CONTINUOUS,
+    CONFIG_SCHEDULE_TIMEZONE,
+)
 from viseron.helpers import utcnow
 
 from tests.common import BaseTestWithRecordings
@@ -264,7 +270,11 @@ class TestSegmentsTierHandler(BaseTestWithRecordings):
         mock_camera = Mock()
         mock_camera.identifier = "test"
         mock_camera.config = {
-            CONFIG_RECORDER: {CONFIG_LOOKBACK: 5, CONFIG_CONTINUOUS_RECORDING: True}
+            CONFIG_RECORDER: {
+                CONFIG_LOOKBACK: 5,
+                CONFIG_CONTINUOUS_RECORDING: True,
+                CONFIG_SCHEDULE: None,
+            }
         }
 
         tier_handler = SegmentsTierHandler(
@@ -363,7 +373,11 @@ class TestSegmentsTierHandler(BaseTestWithRecordings):
         mock_camera = Mock()
         mock_camera.identifier = "test"
         mock_camera.config = {
-            CONFIG_RECORDER: {CONFIG_LOOKBACK: 5, CONFIG_CONTINUOUS_RECORDING: True}
+            CONFIG_RECORDER: {
+                CONFIG_LOOKBACK: 5,
+                CONFIG_CONTINUOUS_RECORDING: True,
+                CONFIG_SCHEDULE: None,
+            }
         }
 
         tier_handlers = []
@@ -446,7 +460,11 @@ class TestCheckTierCallbackLifecycle:
         mock_camera.identifier = "test"
         mock_camera.recorder.lookback = 5
         mock_camera.config = {
-            CONFIG_RECORDER: {CONFIG_LOOKBACK: 5, CONFIG_CONTINUOUS_RECORDING: True}
+            CONFIG_RECORDER: {
+                CONFIG_LOOKBACK: 5,
+                CONFIG_CONTINUOUS_RECORDING: True,
+                CONFIG_SCHEDULE: None,
+            }
         }
         # _create_dataitem reads CONFIG_DRAIN, which _get_tier_config omits.
         tier_config = _get_tier_config(events=True, continuous=True)
@@ -566,7 +584,11 @@ def test_find_next_tier_segments(vis: Viseron):
     mock_camera = Mock()
     mock_camera.identifier = "test_camera"
     mock_camera.config = {
-        CONFIG_RECORDER: {CONFIG_LOOKBACK: 5, CONFIG_CONTINUOUS_RECORDING: True}
+        CONFIG_RECORDER: {
+            CONFIG_LOOKBACK: 5,
+            CONFIG_CONTINUOUS_RECORDING: True,
+            CONFIG_SCHEDULE: None,
+        }
     }
 
     tier_handler_0 = SegmentsTierHandler(
@@ -627,3 +649,143 @@ def test_find_next_tier_segments(vis: Viseron):
 
     result = find_next_tier_segments(mock_storage, 2, mock_camera, "events")
     assert result is None
+
+
+def test_continuous_enabled_is_structural_only(vis: MockViseron) -> None:
+    """continuous_enabled reflects config only, never live schedule state.
+
+    The schedule is applied per-file inside the storage subprocess (see
+    get_continuous_files_to_move), not by disabling the whole continuous
+    retention path here.
+    Disabling it here would route orphan continuous
+    files through the events-only force_delete path and destroy already
+    -retained footage the moment the schedule closes.
+    """
+    mock_camera = Mock()
+    mock_camera.identifier = "test"
+    mock_camera.recorder.lookback = 5
+    mock_camera.config = {
+        CONFIG_RECORDER: {
+            CONFIG_LOOKBACK: 5,
+            CONFIG_CONTINUOUS_RECORDING: True,
+            CONFIG_SCHEDULE: {
+                CONFIG_SCHEDULE_CONTINUOUS: [
+                    {"start": "0 22 * * *", "end": "0 6 * * *"}
+                ],
+                CONFIG_SCHEDULE_TIMEZONE: "UTC",
+            },
+        }
+    }
+
+    tier = _get_tier_config(events=True, continuous=True)
+    tier[CONFIG_DRAIN] = False
+    tier_handler = SegmentsTierHandler(
+        vis,
+        mock_camera,
+        0,
+        "recorder",
+        "segments",
+        tier,
+        None,
+    )
+
+    assert tier_handler.continuous_enabled is True
+    assert tier_handler._create_dataitem().files_enabled is True
+
+
+def test_create_dataitem_passes_continuous_schedule_entries(
+    vis: MockViseron,
+) -> None:
+    """_create_dataitem forwards the configured continuous schedule and lookback."""
+    mock_camera = Mock()
+    mock_camera.identifier = "test"
+    mock_camera.recorder.lookback = 7
+    schedule_entries = [{"start": "0 22 * * *", "end": "0 6 * * *"}]
+    mock_camera.config = {
+        CONFIG_RECORDER: {
+            CONFIG_LOOKBACK: 7,
+            CONFIG_CONTINUOUS_RECORDING: True,
+            CONFIG_SCHEDULE: {
+                CONFIG_SCHEDULE_CONTINUOUS: schedule_entries,
+                CONFIG_SCHEDULE_TIMEZONE: "Europe/Stockholm",
+            },
+        }
+    }
+
+    tier = _get_tier_config(events=True, continuous=True)
+    tier[CONFIG_DRAIN] = False
+    tier_handler = SegmentsTierHandler(
+        vis,
+        mock_camera,
+        0,
+        "recorder",
+        "segments",
+        tier,
+        None,
+    )
+
+    item = tier_handler._create_dataitem()
+    assert item.continuous_schedule == schedule_entries
+    assert item.continuous_schedule_timezone == "Europe/Stockholm"
+    assert item.continuous_lookback_seconds == 7
+
+
+def test_create_dataitem_continuous_schedule_none_when_omitted(
+    vis: MockViseron,
+) -> None:
+    """Omitting the schedule preserves the pre-existing always-on behavior."""
+    mock_camera = Mock()
+    mock_camera.identifier = "test"
+    mock_camera.recorder.lookback = 5
+    mock_camera.config = {
+        CONFIG_RECORDER: {
+            CONFIG_LOOKBACK: 5,
+            CONFIG_CONTINUOUS_RECORDING: True,
+            CONFIG_SCHEDULE: None,
+        }
+    }
+
+    tier = _get_tier_config(events=True, continuous=True)
+    tier[CONFIG_DRAIN] = False
+    tier_handler = SegmentsTierHandler(
+        vis,
+        mock_camera,
+        0,
+        "recorder",
+        "segments",
+        tier,
+        None,
+    )
+
+    assert tier_handler.continuous_enabled is True
+    item = tier_handler._create_dataitem()
+    assert item.continuous_schedule is None
+    assert item.continuous_schedule_timezone is None
+    assert item.files_enabled is True
+
+
+def test_continuous_enabled_now_false_when_continuous_recording_disabled(
+    vis: MockViseron,
+) -> None:
+    """continuous_recording: false still disables continuous regardless of schedule."""
+    mock_camera = Mock()
+    mock_camera.identifier = "test"
+    mock_camera.config = {
+        CONFIG_RECORDER: {
+            CONFIG_LOOKBACK: 5,
+            CONFIG_CONTINUOUS_RECORDING: False,
+            CONFIG_SCHEDULE: None,
+        }
+    }
+
+    tier_handler = SegmentsTierHandler(
+        vis,
+        mock_camera,
+        0,
+        "recorder",
+        "segments",
+        _get_tier_config(events=True, continuous=True),
+        None,
+    )
+
+    assert tier_handler.continuous_enabled is False

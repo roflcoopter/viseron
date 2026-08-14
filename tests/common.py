@@ -14,7 +14,12 @@ from viseron.components import Component
 from viseron.components.storage.models import Files, Recordings
 from viseron.const import LOADED
 from viseron.domain_registry import DomainState
-from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.domains.camera.const import (
+    CONFIG_CONTINUOUS_RECORDING,
+    CONFIG_RECORDER,
+    CONFIG_SCHEDULE,
+    DOMAIN as CAMERA_DOMAIN,
+)
 from viseron.domains.motion_detector import (
     AbstractMotionDetectorExternal,
     AbstractMotionDetectorScanner,
@@ -171,6 +176,15 @@ class MockCamera(MagicMock):
         **kwargs,
     ):
         """Initialize the mock camera."""
+        kwargs.setdefault(
+            "config",
+            {
+                CONFIG_RECORDER: {
+                    CONFIG_CONTINUOUS_RECORDING: True,
+                    CONFIG_SCHEDULE: None,
+                }
+            },
+        )
         super().__init__(
             recorder=MagicMock(lookback=lookback),
             identifier=identifier,
