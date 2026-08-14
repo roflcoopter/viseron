@@ -16,6 +16,7 @@ import sys
 import time
 import tracemalloc
 import urllib.parse
+from functools import lru_cache
 from queue import Empty, Full, Queue
 from typing import TYPE_CHECKING, Any, Literal, overload
 from zoneinfo import ZoneInfoNotFoundError
@@ -106,6 +107,77 @@ def calculate_relative_contours(
         relative_contours.append(np.divide(contour, resolution))
 
     return relative_contours
+
+
+@lru_cache(maxsize=1)
+def _get_motion_mask(scaled_contours: tuple[bytes, ...]) -> np.ndarray:
+    """Return a cached motion mask for scaled contours."""
+    grid_size = 1000
+    motion_mask = np.zeros((grid_size, grid_size), dtype=np.uint8)
+    contours = [
+        np.frombuffer(contour, dtype=np.int32).reshape(-1, 2)
+        for contour in scaled_contours
+    ]
+    cv2.fillPoly(motion_mask, contours, (1,))
+    return motion_mask
+
+
+def object_motion_overlap(
+    rel_bbox: tuple[float, float, float, float], rel_contours: list[np.ndarray]
+) -> float:
+    """Return the fraction of the object's relative bbox covered by motion contours.
+
+    rel_bbox: (rel_x1, rel_y1, rel_x2, rel_y2) in 0..1 relative coords.
+    rel_contours: list of numpy contour arrays in 0..1 relative coords.
+    Returns a float 0.0..1.0. Returns 0.0 if the bbox has zero area or there
+    are no contours.
+    """
+    if len(rel_contours) == 0:
+        return 0.0
+
+    coordinate_pair_length = 2
+    min_contour_ndim = 2
+    min_polygon_points = 3
+    grid_size = 1000
+    rel_x1, rel_y1, rel_x2, rel_y2 = rel_bbox
+    x1 = max(0.0, min(1.0, rel_x1))
+    y1 = max(0.0, min(1.0, rel_y1))
+    x2 = max(0.0, min(1.0, rel_x2))
+    y2 = max(0.0, min(1.0, rel_y2))
+
+    if x2 <= x1 or y2 <= y1:
+        return 0.0
+
+    x1_px = math.floor(x1 * grid_size)
+    y1_px = math.floor(y1 * grid_size)
+    x2_px = math.ceil(x2 * grid_size)
+    y2_px = math.ceil(y2 * grid_size)
+    bbox_area = (x2_px - x1_px) * (y2_px - y1_px)
+    if bbox_area <= 0:
+        return 0.0
+
+    scaled_contours = []
+    for rel_contour in rel_contours:
+        contour = np.asarray(rel_contour, dtype=np.float32)
+        if (
+            contour.size == 0
+            or contour.ndim < min_contour_ndim
+            or contour.shape[-1] != coordinate_pair_length
+        ):
+            continue
+
+        scaled = np.rint(contour.reshape(-1, 2) * grid_size).astype(np.int32)
+        np.clip(scaled, 0, grid_size - 1, out=scaled)
+        if len(scaled) >= min_polygon_points:
+            scaled_contours.append(scaled.tobytes())
+
+    if not scaled_contours:
+        return 0.0
+
+    motion_mask = _get_motion_mask(tuple(scaled_contours))
+    motion_area = np.count_nonzero(motion_mask[y1_px:y2_px, x1_px:x2_px])
+    overlap = motion_area / bbox_area
+    return float(max(0.0, min(1.0, overlap)))
 
 
 def calculate_relative_coords(

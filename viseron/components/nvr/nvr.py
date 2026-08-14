@@ -40,7 +40,7 @@ from viseron.domains.object_detector.const import (
 )
 from viseron.events import EventData
 from viseron.exceptions import DomainNotRegisteredError
-from viseron.helpers import utcnow
+from viseron.helpers import object_motion_overlap, utcnow
 from viseron.helpers.validators import UNDEFINED
 from viseron.viseron_types import Domain
 from viseron.watchdog.thread_watchdog import RestartableThread
@@ -351,9 +351,14 @@ class NVR(AbstractNVR):
             case _ if self._object_detector and self._motion_detector:
                 self._frame_scanners[OBJECT_DETECTOR].scan = True
                 if self._motion_is_scanner:
-                    self._frame_scanners[
-                        MOTION_DETECTOR
-                    ].scan = self._motion_detector.trigger_event_recording
+                    # Motion has to be scanned when it triggers recordings, or
+                    # when a label needs motion to overlap the object, otherwise
+                    # no motion contours would ever be produced for the overlap
+                    # check.
+                    self._frame_scanners[MOTION_DETECTOR].scan = (
+                        self._motion_detector.trigger_event_recording
+                        or self._any_filter_requires_motion_overlap()
+                    )
 
             case _ if self._object_detector:
                 self._frame_scanners[OBJECT_DETECTOR].scan = True
@@ -372,6 +377,7 @@ class NVR(AbstractNVR):
                         "'require_motion' or configure a motion detector."
                     )
                     filter_obj.require_motion = False
+                filter_obj.require_motion_overlap = False
 
         self._post_processors: dict[Domain, AbstractPostProcessor] = {}
         self.set_post_processors()
@@ -558,12 +564,46 @@ class NVR(AbstractNVR):
             utcnow() - self.camera.recorder.active_recording.start_time
         ).total_seconds() > self._manual_recording.duration
 
+    def _any_filter_requires_motion_overlap(self) -> bool:
+        """Return True if any configured label requires motion to overlap objects."""
+        if not self._object_detector:
+            return False
+        return any(
+            filter_obj.require_motion_overlap
+            for filter_obj in self._object_detector.concat_labels()
+        )
+
+    def _object_has_motion_overlap(
+        self, obj: DetectedObject, filter_obj: Filter
+    ) -> bool:
+        """Return True if obj's bbox overlaps motion contours above threshold."""
+        if not filter_obj.require_motion_overlap:
+            return bool(self._motion_detector and self._motion_detector.motion_detected)
+
+        if not self._motion_detector or not self._motion_detector.motion_detected:
+            return False
+
+        motion_contours = self._motion_detector.motion_contours
+        if not motion_contours or not motion_contours.rel_contours:
+            return True
+
+        overlap = object_motion_overlap(
+            (obj.rel_x1, obj.rel_y1, obj.rel_x2, obj.rel_y2),
+            motion_contours.rel_contours,
+        )
+        return overlap >= filter_obj.motion_overlap_threshold
+
     def event_over_check_motion(
         self, obj: DetectedObject, object_filters: dict[str, Filter]
     ) -> bool:
         """Check if motion should stop the recorder."""
-        if object_filters.get(obj.label) and object_filters[obj.label].require_motion:
-            if self._motion_detector and self._motion_detector.motion_detected:
+        filter_obj = object_filters.get(obj.label)
+        if filter_obj and (
+            filter_obj.require_motion or filter_obj.require_motion_overlap
+        ):
+            if self._motion_detector and self._object_has_motion_overlap(
+                obj, filter_obj
+            ):
                 self._motion_recorder_keepalive_reached = False
                 self._motion_only_frames = 0
                 return False
@@ -642,12 +682,13 @@ class NVR(AbstractNVR):
     ) -> bool:
         """Check if object should start the recorder."""
         # Discard object if it requires motion but motion is not detected
+        filter_obj = object_filters.get(obj.label)
         if (
             obj.trigger_event_recording
-            and object_filters.get(obj.label)
-            and object_filters.get(obj.label).require_motion  # type: ignore[union-attr]
+            and filter_obj
+            and (filter_obj.require_motion or filter_obj.require_motion_overlap)
             and self._motion_detector
-            and not self._motion_detector.motion_detected
+            and not self._object_has_motion_overlap(obj, filter_obj)
         ):
             return False
 
@@ -795,6 +836,7 @@ class NVR(AbstractNVR):
                 and self._object_detector
                 and not self._object_detector.scan_on_motion_only
                 and not self._motion_detector.trigger_event_recording
+                and not self._any_filter_requires_motion_overlap()
             ):
                 self._frame_scanners[MOTION_DETECTOR].scan = False
                 self._logger.info("Pausing motion detector")
