@@ -19,7 +19,11 @@ from viseron.components.nvr.nvr import EventScanFrames
 from viseron.domain_registry import DomainState
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.motion_detector.const import DOMAIN as MOTION_DETECTOR_DOMAIN
-from viseron.domains.object_detector import AbstractObjectDetector, ensure_min_max
+from viseron.domains.object_detector import (
+    LABEL_SCHEMA,
+    AbstractObjectDetector,
+    ensure_min_max,
+)
 from viseron.domains.object_detector.const import (
     CONFIG_CAMERAS,
     CONFIG_COORDINATES,
@@ -28,7 +32,9 @@ from viseron.domains.object_detector.const import (
     CONFIG_LABEL_HEIGHT_MAX,
     CONFIG_LABEL_HEIGHT_MIN,
     CONFIG_LABEL_LABEL,
+    CONFIG_LABEL_MOTION_OVERLAP_THRESHOLD,
     CONFIG_LABEL_REQUIRE_MOTION,
+    CONFIG_LABEL_REQUIRE_MOTION_OVERLAP,
     CONFIG_LABEL_STORE,
     CONFIG_LABEL_STORE_INTERVAL,
     CONFIG_LABEL_TRIGGER_EVENT_RECORDING,
@@ -45,7 +51,9 @@ from viseron.domains.object_detector.const import (
     DEFAULT_LABEL_CONFIDENCE,
     DEFAULT_LABEL_HEIGHT_MAX,
     DEFAULT_LABEL_HEIGHT_MIN,
+    DEFAULT_LABEL_MOTION_OVERLAP_THRESHOLD,
     DEFAULT_LABEL_REQUIRE_MOTION,
+    DEFAULT_LABEL_REQUIRE_MOTION_OVERLAP,
     DEFAULT_LABEL_STORE,
     DEFAULT_LABEL_STORE_INTERVAL,
     DEFAULT_LABEL_TRIGGER_EVENT_RECORDING,
@@ -263,6 +271,8 @@ def add_label_config(
     store: bool = DEFAULT_LABEL_STORE,
     store_interval: int = DEFAULT_LABEL_STORE_INTERVAL,
     require_motion: bool = DEFAULT_LABEL_REQUIRE_MOTION,
+    require_motion_overlap: bool = DEFAULT_LABEL_REQUIRE_MOTION_OVERLAP,
+    motion_overlap_threshold: float = DEFAULT_LABEL_MOTION_OVERLAP_THRESHOLD,
 ) -> None:
     """Append a label config entry to the config dict in-place.
 
@@ -281,6 +291,8 @@ def add_label_config(
         store: Whether to store detections in the database.
         store_interval: Seconds between database stores (0 = every detection).
         require_motion: Whether motion is required for this label.
+        require_motion_overlap: Whether motion has to overlap the object.
+        motion_overlap_threshold: Minimum object bbox fraction motion must cover.
     """
     config[CONFIG_CAMERAS][CAMERA_IDENTIFIER][CONFIG_LABELS].append(
         {
@@ -294,6 +306,8 @@ def add_label_config(
             CONFIG_LABEL_STORE: store,
             CONFIG_LABEL_STORE_INTERVAL: store_interval,
             CONFIG_LABEL_REQUIRE_MOTION: require_motion,
+            CONFIG_LABEL_REQUIRE_MOTION_OVERLAP: require_motion_overlap,
+            CONFIG_LABEL_MOTION_OVERLAP_THRESHOLD: motion_overlap_threshold,
         }
     )
 
@@ -360,6 +374,31 @@ def test_ensure_min_max_width_inverted_raises() -> None:
         ensure_min_max(
             {"height_min": 0, "height_max": 1, "width_min": 0.9, "width_max": 0.1}
         )
+
+
+def test_label_schema_motion_overlap_defaults_and_explicit_values() -> None:
+    """LABEL_SCHEMA sets defaults and accepts explicit motion overlap values."""
+    default_label = LABEL_SCHEMA({CONFIG_LABEL_LABEL: "car"})
+
+    assert (
+        default_label[CONFIG_LABEL_REQUIRE_MOTION_OVERLAP]
+        is DEFAULT_LABEL_REQUIRE_MOTION_OVERLAP
+    )
+    assert (
+        default_label[CONFIG_LABEL_MOTION_OVERLAP_THRESHOLD]
+        == DEFAULT_LABEL_MOTION_OVERLAP_THRESHOLD
+    )
+
+    explicit_label = LABEL_SCHEMA(
+        {
+            CONFIG_LABEL_LABEL: "person",
+            CONFIG_LABEL_REQUIRE_MOTION_OVERLAP: True,
+            CONFIG_LABEL_MOTION_OVERLAP_THRESHOLD: 0.25,
+        }
+    )
+
+    assert explicit_label[CONFIG_LABEL_REQUIRE_MOTION_OVERLAP] is True
+    assert explicit_label[CONFIG_LABEL_MOTION_OVERLAP_THRESHOLD] == 0.25
 
 
 # ============================================================================
@@ -1175,6 +1214,8 @@ def test_filter_zones_object_inside_zone_is_marked_relevant(
                     CONFIG_LABEL_STORE: False,
                     CONFIG_LABEL_STORE_INTERVAL: 60,
                     CONFIG_LABEL_REQUIRE_MOTION: False,
+                    CONFIG_LABEL_REQUIRE_MOTION_OVERLAP: False,
+                    CONFIG_LABEL_MOTION_OVERLAP_THRESHOLD: 0.1,
                 }
             ],
         }
@@ -1220,6 +1261,8 @@ def test_filter_zones_object_outside_zone_is_excluded(
                     CONFIG_LABEL_STORE: False,
                     CONFIG_LABEL_STORE_INTERVAL: 60,
                     CONFIG_LABEL_REQUIRE_MOTION: False,
+                    CONFIG_LABEL_REQUIRE_MOTION_OVERLAP: False,
+                    CONFIG_LABEL_MOTION_OVERLAP_THRESHOLD: 0.1,
                 }
             ],
         }
@@ -1390,6 +1433,8 @@ def test_concat_labels_zone_labels_only(
                     CONFIG_LABEL_STORE: False,
                     CONFIG_LABEL_STORE_INTERVAL: 60,
                     CONFIG_LABEL_REQUIRE_MOTION: False,
+                    CONFIG_LABEL_REQUIRE_MOTION_OVERLAP: False,
+                    CONFIG_LABEL_MOTION_OVERLAP_THRESHOLD: 0.1,
                 }
             ],
         }
@@ -1438,6 +1483,8 @@ def test_concat_labels_fov_and_zone_labels_combined(
                     CONFIG_LABEL_STORE: False,
                     CONFIG_LABEL_STORE_INTERVAL: 60,
                     CONFIG_LABEL_REQUIRE_MOTION: False,
+                    CONFIG_LABEL_REQUIRE_MOTION_OVERLAP: False,
+                    CONFIG_LABEL_MOTION_OVERLAP_THRESHOLD: 0.1,
                 },
                 {
                     CONFIG_LABEL_LABEL: "cat",
@@ -1450,6 +1497,8 @@ def test_concat_labels_fov_and_zone_labels_combined(
                     CONFIG_LABEL_STORE: False,
                     CONFIG_LABEL_STORE_INTERVAL: 60,
                     CONFIG_LABEL_REQUIRE_MOTION: False,
+                    CONFIG_LABEL_REQUIRE_MOTION_OVERLAP: False,
+                    CONFIG_LABEL_MOTION_OVERLAP_THRESHOLD: 0.1,
                 },
             ],
         }
@@ -1502,6 +1551,8 @@ def test_concat_labels_multiple_zones_appended_in_order(
                     CONFIG_LABEL_STORE: False,
                     CONFIG_LABEL_STORE_INTERVAL: 60,
                     CONFIG_LABEL_REQUIRE_MOTION: False,
+                    CONFIG_LABEL_REQUIRE_MOTION_OVERLAP: False,
+                    CONFIG_LABEL_MOTION_OVERLAP_THRESHOLD: 0.1,
                 }
             ],
         },
@@ -1525,6 +1576,8 @@ def test_concat_labels_multiple_zones_appended_in_order(
                     CONFIG_LABEL_STORE: False,
                     CONFIG_LABEL_STORE_INTERVAL: 60,
                     CONFIG_LABEL_REQUIRE_MOTION: False,
+                    CONFIG_LABEL_REQUIRE_MOTION_OVERLAP: False,
+                    CONFIG_LABEL_MOTION_OVERLAP_THRESHOLD: 0.1,
                 }
             ],
         },
@@ -1571,6 +1624,8 @@ def test_concat_labels_same_label_in_fov_and_zone_produces_two_entries(
                     CONFIG_LABEL_STORE: False,
                     CONFIG_LABEL_STORE_INTERVAL: 60,
                     CONFIG_LABEL_REQUIRE_MOTION: False,
+                    CONFIG_LABEL_REQUIRE_MOTION_OVERLAP: False,
+                    CONFIG_LABEL_MOTION_OVERLAP_THRESHOLD: 0.1,
                 }
             ],
         }

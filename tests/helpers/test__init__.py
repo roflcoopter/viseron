@@ -2,12 +2,112 @@
 
 from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+import numpy as np
 import pytest
 
 from viseron import helpers
+
+
+@pytest.mark.parametrize(
+    "rel_bbox, rel_contours, expected",
+    [
+        (
+            (0.1, 0.1, 0.4, 0.4),
+            [
+                np.array(
+                    [
+                        [[0.1, 0.1]],
+                        [[0.4, 0.1]],
+                        [[0.4, 0.4]],
+                        [[0.1, 0.4]],
+                    ],
+                    dtype=np.float32,
+                )
+            ],
+            1.0,
+        ),
+        (
+            (0.1, 0.1, 0.3, 0.3),
+            [
+                np.array(
+                    [
+                        [0.4, 0.4],
+                        [0.5, 0.4],
+                        [0.5, 0.5],
+                        [0.4, 0.5],
+                    ],
+                    dtype=np.float32,
+                )
+            ],
+            0.0,
+        ),
+        (
+            (0.1, 0.1, 0.3, 0.3),
+            [
+                np.array(
+                    [
+                        [[0.1, 0.1]],
+                        [[0.2, 0.1]],
+                        [[0.2, 0.3]],
+                        [[0.1, 0.3]],
+                    ],
+                    dtype=np.float32,
+                )
+            ],
+            0.5,
+        ),
+        ((0.1, 0.1, 0.3, 0.3), [], 0.0),
+        (
+            (0.1, 0.1, 0.1, 0.3),
+            [
+                np.array(
+                    [
+                        [[0.1, 0.1]],
+                        [[0.3, 0.1]],
+                        [[0.3, 0.3]],
+                        [[0.1, 0.3]],
+                    ],
+                    dtype=np.float32,
+                )
+            ],
+            0.0,
+        ),
+    ],
+)
+def test_object_motion_overlap(rel_bbox, rel_contours, expected):
+    """Test object_motion_overlap returns covered bbox fraction."""
+    assert helpers.object_motion_overlap(rel_bbox, rel_contours) == pytest.approx(
+        expected, abs=0.05
+    )
+
+
+def test_object_motion_overlap_reuses_motion_mask(monkeypatch):
+    """Test motion mask is reused for multiple objects in the same frame."""
+    helpers._get_motion_mask.cache_clear()
+    fill_poly = MagicMock(wraps=helpers.cv2.fillPoly)
+    monkeypatch.setattr(helpers.cv2, "fillPoly", fill_poly)
+    rel_contours = [
+        np.array(
+            [
+                [[0.1, 0.1]],
+                [[0.4, 0.1]],
+                [[0.4, 0.4]],
+                [[0.1, 0.4]],
+            ],
+            dtype=np.float32,
+        )
+    ]
+
+    assert helpers.object_motion_overlap(
+        (0.1, 0.1, 0.4, 0.4), rel_contours
+    ) == pytest.approx(1.0, abs=0.05)
+    assert helpers.object_motion_overlap(
+        (0.3, 0.3, 0.5, 0.5), rel_contours
+    ) == pytest.approx(0.25, abs=0.05)
+    assert fill_poly.call_count == 1
 
 
 @pytest.mark.parametrize(
