@@ -1,4 +1,4 @@
 [codespell]
 
-ignore-regex = .*codespell-ignore$|afterAll|afterEach|beforeAll
+ignore-regex = .\*codespell-ignore$|afterAll|afterEach|beforeAll|astroid
 skip = frontend/src/components/player/liveplayer/video-rtc.js
