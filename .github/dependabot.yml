@@ -26,15 +26,24 @@ updates:
         versions: [">3.42.2"]
 
   - package-ecosystem: "npm"
-    directories:
-      - "/frontend"
-      - "/docs"
+    directory: "/frontend"
     schedule:
       interval: "weekly"
     cooldown:
       default-days: 7
     groups:
-      npm:
+      frontend:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "npm"
+    directory: "/docs"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      docs:
         patterns:
           - "*"
 
