@@ -40,7 +40,9 @@ DESC_OCR_MODEL: Final = (
 DESC_DEVICE: Final = (
     "Device used to run inference on.<br>"
     "<code>auto</code> lets ONNX Runtime pick the best available provider. "
-    "<code>cuda</code> requires an NVIDIA GPU with CUDA/cuDNN available."
+    "<code>cuda</code> requires an NVIDIA GPU with CUDA/cuDNN available, and is "
+    "only bundled in the <code>amd64-cuda</code> image. On all other images the "
+    "CUDA provider is unavailable and inference falls back to the CPU."
 )
 DESC_DISCARD_UNRECOGNIZED_PLATES: Final = (
     "The OCR model can detect a license plate-shaped region but fail to read any "

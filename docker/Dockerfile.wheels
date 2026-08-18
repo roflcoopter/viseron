@@ -64,6 +64,12 @@ COPY requirements.txt requirements.txt
 RUN sed -i "s/OPENCV_VERSION = \"TBD\"/OPENCV_VERSION = \"$OPENCV_VERSION\"/" /opencv-python-headless/setup.py
 RUN echo "opencv-python-headless==$OPENCV_VERSION" >> /requirements.txt
 
+# onnxruntime-gpu only ships x86_64 wheels built against CUDA, so every image
+# except amd64-cuda uses the CPU extra.
+ARG FAST_ALPR_EXTRA="onnx"
+RUN grep -q '^fast-alpr\[' /requirements.txt \
+  && sed -i -E "s/^fast-alpr\[[^]]+\]/fast-alpr[${FAST_ALPR_EXTRA}]/" /requirements.txt
+
 # We need to setup Rust compiler for bcrypt
 # A tmpfs is needed: https://github.com/rust-lang/cargo/issues/8719
 COPY requirements_conflicts.txt requirements_conflicts.txt
