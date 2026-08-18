@@ -29,7 +29,7 @@ ruamel.yaml==0.19.1
 requests==2.34.2
 requests-toolbelt==1.0.0
 scikit-learn==1.9.0
-scipy==1.18.0
+scipy==1.17.1
 supervision==0.30.0
 tornado==6.5.8
 tzlocal==5.4.4

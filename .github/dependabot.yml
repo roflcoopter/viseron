@@ -6,8 +6,7 @@ updates:
       # requirements-3.9.txt pins numpy/pillow/pycoral for Python 3.9, which is
       # required by the pycoral/EdgeTPU wheels built in docker/Dockerfile.wheels
       # and docker/jetson-nano/Dockerfile.wheels. Newer releases drop 3.9, so the
-      # file is maintained by hand. exclude-paths does not suppress security PRs
-      # (dependabot/dependabot-core#14408), so those still need manual review.
+      # file is maintained by hand.
       - "requirements-3.9.txt"
     schedule:
       interval: "weekly"
@@ -18,12 +17,21 @@ updates:
         patterns:
           - "*"
     ignore:
-      # Newer PyPI OpenCV wheels require numpy>=2, see requirements_ci.txt.
+      # Numpy needs to be kept <2 at the moment, along with some deps
+      # where newer versions require >2
       - dependency-name: "numpy"
         versions: [">=2"]
+      - dependency-name: "scipy"
+        versions: [">1.17.1"]
+      - dependency-name: "opencv-python"
+        versions: [">4.11.0.86"]
+      - dependency-name: "opencv-contrib-python"
+        versions: [">4.11.0.86"]
       # Newer versions does not compile for the Jetson Nano.
       - dependency-name: "pygobject"
         versions: [">3.42.2"]
+      - dependency-name: "pygobject-stubs"
+        versions: [">2.16.0"]
 
   - package-ecosystem: "npm"
     directory: "/frontend"
