@@ -1,0 +1,65 @@
+import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
+import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting/index.mdx";
+
+import ComponentMetadata from "./_meta";
+import config from "./config.json";
+import LicensePlateRecognition from "@site/src/pages/components-explorer/_domains/license_plate_recognition/index.mdx";
+
+<ComponentHeader meta={ComponentMetadata} />
+
+fastALPR runs Automatic License Plate Recognition (ALPR) locally, in-process, using the
+[fast-alpr](https://github.com/ankandrew/fast-alpr) Python package. Detection and OCR both run
+as ONNX models on your own hardware (CPU or GPU) - no external server, API key, or internet
+access is required at inference time, unlike components such as CodeProject.AI or Deepstack.
+
+fastALPR is a post processor and works together with an object detector component (e.g.
+`darknet`, `yolo`, `edgetpu`). It runs on the bounding boxes of detected vehicles (e.g. `car`,
+`truck`) and looks for a license plate within them.
+
+## Configuration
+
+<details>
+  <summary>Configuration example</summary>
+
+```yaml title="/config/config.yaml"
+fastalpr:
+  license_plate_recognition:
+    cameras:
+      viseron_CHANGEME_camera:
+    labels:
+      - car
+      - truck
+    known_plates:
+      - ABC123
+    save_plates: true
+    min_confidence: 0.6
+    detector_model: yolo-v9-t-384-license-plate-end2end
+    ocr_model: cct-xs-v2-global-model
+    device: auto
+```
+
+</details>
+
+<ComponentConfiguration meta={ComponentMetadata} config={config} />
+
+<LicensePlateRecognition />
+
+### Models
+
+fastALPR uses two separate ONNX models: a **detector** model that locates license plates in the
+image, and an **OCR** model that reads the characters of a detected plate.
+
+`detector_model` is a `yolo-v9-*-license-plate-end2end` model. The number in the name is the
+input resolution the model runs at, e.g. `yolo-v9-t-384` resizes its input to 384x384. Higher
+resolutions (e.g. `yolo-v9-s-608`) are more accurate at finding small/distant plates but slower,
+while lower resolutions (e.g. `yolo-v9-t-256`) are faster but may miss smaller plates.
+
+`ocr_model` reads the characters from the plate crop found by the detector. `cct-*-global-model`
+and `global-plates-mobile-vit-v2-model` are trained on plates from many regions/formats.
+`european-plates-mobile-vit-v2-model` and `argentinian-plates-*` are trained on region-specific
+plate formats and can be more accurate if your plates match one of those regions. `xs` and `relu`
+variants trade some accuracy for faster inference.
+
+<ComponentTroubleshooting meta={ComponentMetadata} />
+

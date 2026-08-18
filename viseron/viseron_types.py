@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from viseron.components.data_stream import DataStream
     from viseron.components.discord import DiscordNotifier
     from viseron.components.edgetpu.edgetpu_types import EdgeTPUViseronData
+    from viseron.components.fastalpr.fastalpr_types import FastAlprViseronData
     from viseron.components.go2rtc import Go2RTC
     from viseron.components.gotify import GotifyEventNotifier
     from viseron.components.hailo import Hailo8Detector
@@ -64,6 +65,7 @@ class ViseronData(TypedDict, total=False):
     dlib: dict[Literal["classifier"], KNeighborsClassifier | None]
     discord: DiscordNotifier
     edgetpu: EdgeTPUViseronData
+    fastalpr: FastAlprViseronData
     go2rtc: Go2RTC
     gotify: GotifyEventNotifier
     hailo: dict[Literal["object_detector"], Hailo8Detector]
