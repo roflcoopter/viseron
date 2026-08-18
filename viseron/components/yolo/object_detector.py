@@ -12,7 +12,7 @@ from viseron import Viseron
 from viseron.domains.object_detector import AbstractObjectDetector
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.exceptions import DomainNotReady
-from viseron.helpers.ultralytics_telemetry import disable_ultralytics_telemetry
+from viseron.helpers.ultralytics_settings import set_ultralytics_settings
 
 from .const import (
     COMPONENT,
@@ -28,7 +28,7 @@ LOGGER = logging.getLogger(__name__)
 
 # Opt out of ultralytics' built-in analytics/crash reporting at import time,
 # before any model is loaded.
-disable_ultralytics_telemetry()
+set_ultralytics_settings()
 
 
 def setup(vis: Viseron, config: dict[str, Any], identifier: str) -> bool:
