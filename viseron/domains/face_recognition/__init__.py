@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from threading import Timer
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
 import voluptuous as vol
 
 from viseron.domains.post_processor import (
@@ -16,7 +17,7 @@ from viseron.domains.post_processor import (
     PostProcessorFrame,
 )
 from viseron.events import EventData
-from viseron.helpers import calculate_relative_coords
+from viseron.helpers import calculate_relative_coords, zoom_boundingbox
 from viseron.helpers.schemas import FLOAT_MIN_ZERO
 from viseron.helpers.validators import Deprecated
 from viseron.viseron_types import SnapshotDomain
@@ -42,6 +43,7 @@ from .const import (
     EVENT_FACE_EXPIRED,
     UNKNOWN_FACE,
 )
+from .image import LatestFaceImage
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -104,6 +106,9 @@ class EventFaceDetected(EventData):
 
     camera_identifier: str
     face: FaceDict
+    # Only populated when this event represents a fresh appearance of the face,
+    # not on every re-detection of a face that is already tracked.
+    image: np.ndarray | None = None
 
     def as_dict(self) -> dict[str, Any]:
         """Return as dict."""
@@ -143,6 +148,12 @@ class AbstractFaceRecognition(AbstractPostProcessor):
                 DOMAIN,
                 camera_identifier,
             )
+        vis.add_entity(
+            component,
+            LatestFaceImage(vis, self._camera),
+            DOMAIN,
+            camera_identifier,
+        )
 
     def __post_init__(self, *args, **kwargs) -> None:
         """Post init hook."""
@@ -178,6 +189,15 @@ class AbstractFaceRecognition(AbstractPostProcessor):
             )
         self._insert_result(DOMAIN, snapshot_path, face_dict.as_dict())
 
+    def _get_face_image(
+        self, shared_frame: SharedFrame, coordinates: tuple[int, int, int, int]
+    ) -> np.ndarray | None:
+        """Return a cropped image of the detected face, for the latest-face entity."""
+        if not shared_frame:
+            return None
+        decoded_frame = self._camera.shared_frames.get_decoded_frame_rgb(shared_frame)
+        return zoom_boundingbox(decoded_frame, coordinates, crop_correction_factor=1.2)
+
     def known_face_found(
         self,
         face: str,
@@ -187,6 +207,8 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         extra_attributes: dict[str, Any] | None = None,
     ) -> None:
         """Adds/expires known faces."""
+        is_new_appearance = self._faces.get(face, None) is None
+
         # Cancel the expiry timer if face has already been detected
         if self._faces.get(face, None):
             self._faces[face].timer.cancel()
@@ -201,9 +223,12 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         )
         face_dict.timer.start()
 
-        # Only store face once until it is expired
-        if self._faces.get(face, None) is None and self._config[CONFIG_SAVE_FACES]:
-            self._save_face(face_dict, coordinates, shared_frame)
+        # Only grab an image, and store the face, once per appearance until expired
+        image = None
+        if is_new_appearance:
+            image = self._get_face_image(shared_frame, coordinates)
+            if self._config[CONFIG_SAVE_FACES]:
+                self._save_face(face_dict, coordinates, shared_frame)
 
         self._vis.dispatch_event(
             EVENT_FACE_DETECTED.format(
@@ -212,6 +237,7 @@ class AbstractFaceRecognition(AbstractPostProcessor):
             EventFaceDetected(
                 camera_identifier=self._camera.identifier,
                 face=face_dict,
+                image=image,
             ),
         )
         self._faces[face] = face_dict
@@ -224,6 +250,8 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         extra_attributes: dict[str, Any] | None = None,
     ) -> None:
         """Save unknown faces."""
+        is_new_appearance = self._faces.get(UNKNOWN_FACE, None) is None
+
         # Cancel the expiry timer if face has already been detected
         if self._faces.get(UNKNOWN_FACE, None):
             self._faces[UNKNOWN_FACE].timer.cancel()
@@ -238,6 +266,9 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         )
         face_dict.timer.start()
 
+        image = None
+        if is_new_appearance:
+            image = self._get_face_image(shared_frame, coordinates)
         if self._config[CONFIG_SAVE_UNKNOWN_FACES]:
             self._save_face(face_dict, coordinates, shared_frame)
 
@@ -248,6 +279,7 @@ class AbstractFaceRecognition(AbstractPostProcessor):
             EventFaceDetected(
                 camera_identifier=self._camera.identifier,
                 face=face_dict,
+                image=image,
             ),
         )
         self._faces[UNKNOWN_FACE] = face_dict
