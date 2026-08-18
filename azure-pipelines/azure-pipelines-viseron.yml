@@ -56,6 +56,7 @@ stages:
         parameters:
           image: viseron
           release: true
+          pushToGhcr: true
           noCache: ${{ parameters.noCache }}
       - template: templates/build.yaml
         parameters:
@@ -91,6 +92,11 @@ stages:
             inputs:
               command: login
               containerRegistry: "Docker Hub"
+          - task: Docker@2
+            displayName: Login to GHCR
+            inputs:
+              command: login
+              containerRegistry: "GHCR"
 
           - template: templates/cleanup.yaml
 
@@ -109,6 +115,15 @@ stages:
                   roflcoopter/viseron:${release_version}-aarch64
 
                 docker buildx imagetools inspect roflcoopter/viseron:${release_version}
+
+                docker buildx imagetools create \
+                  --debug \
+                  --tag ghcr.io/roflcoopter/viseron:${release_version} \
+                  ghcr.io/roflcoopter/viseron:${release_version}-amd64 \
+                  ghcr.io/roflcoopter/viseron:${release_version}-rpi3 \
+                  ghcr.io/roflcoopter/viseron:${release_version}-aarch64
+
+                docker buildx imagetools inspect ghcr.io/roflcoopter/viseron:${release_version}
               }
 
               # Create version tag
@@ -125,3 +140,9 @@ stages:
             inputs:
               command: logout
               containerRegistry: "Docker Hub"
+          - task: Docker@2
+            displayName: Logoff GHCR
+            condition: always()
+            inputs:
+              command: logout
+              containerRegistry: "GHCR"
