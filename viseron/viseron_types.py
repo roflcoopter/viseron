@@ -116,6 +116,7 @@ class SnapshotDomain(enum.Enum):
     """Snapshot domains."""
 
     FACE_RECOGNITION = "face_recognition"
+    IMAGE_CLASSIFICATION = "image_classification"
     LICENSE_PLATE_RECOGNITION = "license_plate_recognition"
     MOTION_DETECTOR = "motion_detector"
     OBJECT_DETECTOR = "object_detector"

@@ -1,13 +1,14 @@
 """Test the Events API handler."""
+
 from __future__ import annotations
 
 import datetime
 import json
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
 from sqlalchemy import insert
-from sqlalchemy.orm.session import Session, sessionmaker
 
 from viseron.components.storage.models import Motion, PostProcessorResults
 from viseron.domains.camera.const import CONFIG_LOOKBACK, CONFIG_RECORDER
@@ -15,11 +16,14 @@ from viseron.domains.camera.const import CONFIG_LOOKBACK, CONFIG_RECORDER
 from tests.common import BaseTestWithRecordings, MockCamera
 from tests.components.webserver.common import TestAppBaseNoAuth
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm.session import Session, sessionmaker
+
 
 class TestEventsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
     """Test the Events API handler."""
 
-    @pytest.fixture(scope="function", autouse=True)
+    @pytest.fixture(autouse=True)
     def prepare_and_mock(self, get_db_session: sessionmaker[Session]):
         """Prepare the database with events and setup mocks."""
         with get_db_session() as session:
@@ -67,23 +71,43 @@ class TestEventsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
                     ),
                 )
             )
+            # Stored on a date of its own so the assertions on 2024-06-21/22
+            # are unaffected
+            session.execute(
+                insert(PostProcessorResults).values(
+                    camera_identifier="test",
+                    domain="image_classification",
+                    snapshot_path="/classification.jpg",
+                    data={
+                        "camera_identifier": "test",
+                        "label": "package",
+                        "confidence": 0.87,
+                    },
+                    created_at=datetime.datetime(
+                        2024, 6, 25, 12, 0, 0, tzinfo=datetime.timezone.utc
+                    ),
+                )
+            )
             session.commit()
 
         mocked_camera = MockCamera(
             identifier="test", config={CONFIG_RECORDER: {CONFIG_LOOKBACK: 5}}
         )
-        with patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_camera"
+        with (
+            patch(
+                (
+                    "viseron.components.webserver.request_handler."
+                    "ViseronRequestHandler._get_camera"
+                ),
+                return_value=mocked_camera,
             ),
-            return_value=mocked_camera,
-        ), patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler"
-                "._get_session"
+            patch(
+                (
+                    "viseron.components.webserver.request_handler."
+                    "ViseronRequestHandler._get_session"
+                ),
+                return_value=get_db_session(),
             ),
-            return_value=get_db_session(),
         ):
             yield
 
@@ -91,6 +115,24 @@ class TestEventsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
         """Test getting events."""
         response = self.fetch("/api/v1/events/test?time_from=0&time_to=100000000000")
         assert response.code == 200
+
+    def test_get_events_image_classification(self):
+        """Test that image classification results are returned as events."""
+        response = self.fetch("/api/v1/events/test?time_from=0&time_to=100000000000")
+        assert response.code == 200
+
+        body = json.loads(response.body)
+        events = [
+            event for event in body["events"] if event["type"] == "image_classification"
+        ]
+        assert len(events) == 1
+        assert events[0]["data"] == {
+            "camera_identifier": "test",
+            "label": "package",
+            "confidence": 0.87,
+        }
+        assert events[0]["snapshot_path"] == "/files/classification.jpg"
+        assert events[0]["created_at"] == "2024-06-25T12:00:00+00:00"
 
     def test_get_events_utc_offset_negative(self):
         """Test getting events with utc offset."""

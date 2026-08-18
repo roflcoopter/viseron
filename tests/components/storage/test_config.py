@@ -121,6 +121,7 @@ DEFAULT_CONFIG = {
                 }
             ],
             "face_recognition": None,
+            "image_classification": None,
             "license_plate_recognition": None,
             "motion_detector": None,
             "object_detector": None,

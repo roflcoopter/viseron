@@ -74,6 +74,20 @@ const getText = (event: types.CameraEvent) => {
         </Box>
       );
 
+    case "image_classification":
+      return (
+        <Box>
+          <Typography variant="h5" fontSize="1rem">
+            Image Classification
+          </Typography>
+          <Box>{`Label: ${event.data.label}`}</Box>
+          <Box>{`Confidence: ${convertToPercentage(
+            event.data.confidence,
+          )}%`}</Box>
+          <Box>{`Time: ${getTimeStringFromDayjs(date)}`}</Box>
+        </Box>
+      );
+
     case "license_plate_recognition":
       return (
         <Box>
@@ -127,6 +141,7 @@ const getTooltipTitle = (event: types.CameraEvent) => {
   switch (event.type) {
     case "object":
     case "face_recognition":
+    case "image_classification":
     case "license_plate_recognition":
     case "motion":
       return "Download Snapshot";

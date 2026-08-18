@@ -13,9 +13,13 @@ from sqlalchemy import insert
 
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import PostProcessorResults
-from viseron.const import VISERON_SIGNAL_SHUTDOWN
+from viseron.const import INSERT, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains import AbstractDomain
-from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.domains.camera.const import (
+    DOMAIN as CAMERA_DOMAIN,
+    EVENT_CAMERA_EVENT_DB_OPERATION,
+)
+from viseron.domains.camera.events import EventCameraEventData
 from viseron.domains.object_detector.const import (
     EVENT_OBJECTS_IN_FOV,
     EVENT_OBJECTS_IN_ZONE,
@@ -223,7 +227,7 @@ class AbstractPostProcessor(AbstractDomain):
     def _insert_result(
         self, domain: SupportedDomains, snapshot_path: str | None, data: dict[str, Any]
     ) -> None:
-        """Insert face recognition result into database."""
+        """Insert post processor result into database."""
         with self._storage.get_session() as session:
             stmt = insert(PostProcessorResults).values(
                 camera_identifier=self._camera.identifier,
@@ -233,6 +237,20 @@ class AbstractPostProcessor(AbstractDomain):
             )
             session.execute(stmt)
             session.commit()
+
+        self._vis.dispatch_event(
+            EVENT_CAMERA_EVENT_DB_OPERATION.format(
+                camera_identifier=self._camera.identifier,
+                domain=domain,
+                operation=INSERT,
+            ),
+            EventCameraEventData(
+                camera_identifier=self._camera.identifier,
+                domain=domain,
+                operation=INSERT,
+                data=data,
+            ),
+        )
 
     def unload(self) -> None:
         """Unload post processor."""

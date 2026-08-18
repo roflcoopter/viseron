@@ -1,5 +1,6 @@
 import {
   Car,
+  Classification,
   DocumentVideo,
   DogWalker,
   FaceActivated,
@@ -61,6 +62,7 @@ const initialFilters: Filters = {
     object: { label: "Object", checked: true },
     recording: { label: "Recording", checked: true },
     face_recognition: { label: "Face Recognition", checked: true },
+    image_classification: { label: "Image Classification", checked: true },
     license_plate_recognition: {
       label: "License Plate Recognition",
       checked: true,
@@ -97,6 +99,7 @@ export const useFilterStore = create<FilterState>()(
             case "object":
             case "recording":
             case "face_recognition":
+            case "image_classification":
             case "license_plate_recognition":
               newFilters.eventTypes[filterKey] = {
                 ...newFilters.eventTypes[filterKey],
@@ -113,7 +116,7 @@ export const useFilterStore = create<FilterState>()(
         });
       },
     }),
-    { name: "filter-store", version: 2 },
+    { name: "filter-store", version: 3 },
   ),
 );
 
@@ -507,9 +510,11 @@ export const getTimelineItems = (
       ): cameraEvent is
         | types.CameraObjectEvent
         | types.CameraFaceRecognitionEvent
+        | types.CameraImageClassificationEvent
         | types.CameraLicensePlateRecognitionEvent =>
         cameraEvent.type === "object" ||
         cameraEvent.type === "face_recognition" ||
+        cameraEvent.type === "image_classification" ||
         cameraEvent.type === "license_plate_recognition",
     )
     .forEach((cameraEvent) => {
@@ -602,6 +607,7 @@ export const getSrc = (event: types.CameraEvent) => {
       return event.thumbnail_path;
     case "object":
     case "face_recognition":
+    case "image_classification":
     case "license_plate_recognition":
     case "motion":
       return event.snapshot_path || BLANK_IMAGE;
@@ -672,6 +678,7 @@ export const getEventTime = (event: types.CameraEvent): string => {
   switch (event.type) {
     case "license_plate_recognition":
     case "face_recognition":
+    case "image_classification":
     case "object":
       return event.time;
     case "motion":
@@ -686,6 +693,7 @@ export const getEventTimestamp = (event: types.CameraEvent): number => {
   switch (event.type) {
     case "license_plate_recognition":
     case "face_recognition":
+    case "image_classification":
     case "object":
       return event.timestamp;
     case "motion":
@@ -777,6 +785,7 @@ const labelToIcon = (label: string) => {
 const iconMap = {
   object: UserActivity,
   face_recognition: FaceActivated,
+  image_classification: Classification,
   license_plate_recognition: LicensePlateRecognitionIcon,
   motion: Movement,
   recording: DocumentVideo,
@@ -787,6 +796,7 @@ export const getIcon = (event: types.CameraEvent) => {
     case "object":
       return labelToIcon(event.label);
     case "face_recognition":
+    case "image_classification":
     case "license_plate_recognition":
     case "motion":
     case "recording":

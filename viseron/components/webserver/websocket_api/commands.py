@@ -567,6 +567,7 @@ class EventTypeModelEnum(enum.Enum):
     MOTION = Motion
     OBJECT = Objects
     FACE_RECOGNITION = PostProcessorResults
+    IMAGE_CLASSIFICATION = PostProcessorResults
     LICENSE_PLATE_RECOGNITION = PostProcessorResults
 
 

@@ -47,6 +47,7 @@ from viseron.components.storage.const import (
     TIER_CATEGORY_RECORDER,
     TIER_SUBCATEGORY_EVENT_CLIPS,
     TIER_SUBCATEGORY_FACE_RECOGNITION,
+    TIER_SUBCATEGORY_IMAGE_CLASSIFICATION,
     TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION,
     TIER_SUBCATEGORY_MOTION_DETECTOR,
     TIER_SUBCATEGORY_OBJECT_DETECTOR,
@@ -898,6 +899,7 @@ class SnapshotTierHandler(TierHandler):
 
         elif self._subcategory in [
             TIER_SUBCATEGORY_FACE_RECOGNITION,
+            TIER_SUBCATEGORY_IMAGE_CLASSIFICATION,
             TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION,
         ]:
             with self._storage.get_session() as session:

@@ -51,6 +51,7 @@ TIER_SUBCATEGORY_SEGMENTS: Final = "segments"
 TIER_SUBCATEGORY_EVENT_CLIPS: Final = "event_clips"
 TIER_SUBCATEGORY_THUMBNAILS: Final = "thumbnails"
 TIER_SUBCATEGORY_FACE_RECOGNITION: Final = "face_recognition"
+TIER_SUBCATEGORY_IMAGE_CLASSIFICATION: Final = "image_classification"
 TIER_SUBCATEGORY_OBJECT_DETECTOR: Final = "object_detector"
 TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION: Final = "license_plate_recognition"
 TIER_SUBCATEGORY_MOTION_DETECTOR: Final = "motion_detector"
@@ -84,6 +85,7 @@ CONFIG_CONTINUOUS: Final = "continuous"
 CONFIG_EVENTS: Final = "events"
 CONFIG_SNAPSHOTS: Final = "snapshots"
 CONFIG_FACE_RECOGNITION: Final = "face_recognition"
+CONFIG_IMAGE_CLASSIFICATION: Final = "image_classification"
 CONFIG_OBJECT_DETECTOR: Final = "object_detector"
 CONFIG_LICENSE_PLATE_RECOGNITION: Final = "license_plate_recognition"
 CONFIG_MOTION_DETECTOR: Final = "motion_detector"
@@ -118,6 +120,7 @@ DEFAULT_SNAPSHOTS_TIERS = [
 ]
 DEFAULT_TIMELAPSE: Final = None
 DEFAULT_FACE_RECOGNITION: Final = None
+DEFAULT_IMAGE_CLASSIFICATION: Final = None
 DEFAULT_OBJECT_DETECTOR: Final = None
 DEFAULT_LICENSE_PLATE_RECOGNITION: Final = None
 DEFAULT_MOTION_DETECTOR: Final = None
@@ -199,6 +202,10 @@ DESC_TIMELAPSE_TIERS = f"Tiers for timelapse videos. {DESC_RECORDER_TIERS} "
 DESC_DOMAIN_TIERS = DESC_RECORDER_TIERS
 DESC_FACE_RECOGNITION = (
     "Override the default snapshot tiers for face recognition. "
+    "If not set, the default tiers will be used."
+)
+DESC_IMAGE_CLASSIFICATION = (
+    "Override the default snapshot tiers for image classification. "
     "If not set, the default tiers will be used."
 )
 DESC_OBJECT_DETECTOR = (
