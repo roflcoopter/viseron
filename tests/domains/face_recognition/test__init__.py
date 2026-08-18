@@ -41,6 +41,10 @@ COORDINATES = (0, 0, 10, 10)
 class ConcreteFaceRecognition(AbstractFaceRecognition):
     """Concrete implementation for testing AbstractFaceRecognition."""
 
+    def preprocess(self, frame: np.ndarray) -> np.ndarray:
+        """Return the frame unchanged."""
+        return frame
+
     def face_recognition(
         self, post_processor_frame: PostProcessorFrame, detected_object
     ) -> None:
