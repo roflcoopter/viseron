@@ -70,6 +70,17 @@ ARG FAST_ALPR_EXTRA="onnx"
 RUN grep -q '^fast-alpr\[' /requirements.txt \
   && sed -i -E "s/^fast-alpr\[[^]]+\]/fast-alpr[${FAST_ALPR_EXTRA}]/" /requirements.txt
 
+# fast-alpr's onnx-gpu extra pulls in an unpinned onnxruntime-gpu>=1.19.2.
+# onnxruntime-gpu dropped CUDA 12 support as of 1.27.0 (it links against
+# libcublas.so.13/cuDNN-cu13 instead), but the amd64-cuda image ships CUDA
+# 12.x. Without this pin, pip resolves the newest onnxruntime-gpu at build
+# time, its CUDA/TensorRT execution providers fail to load at runtime, and
+# fast-alpr silently falls back to CPU inference. 1.26.0 is the last release
+# still built for CUDA 12.
+RUN if [ "$FAST_ALPR_EXTRA" = "onnx-gpu" ]; then \
+      echo "onnxruntime-gpu==1.26.0" >> /requirements.txt; \
+    fi
+
 # We need to setup Rust compiler for bcrypt
 # A tmpfs is needed: https://github.com/rust-lang/cargo/issues/8719
 COPY requirements_conflicts.txt requirements_conflicts.txt
