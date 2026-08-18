@@ -5,7 +5,7 @@ pre-commit==2.20.0
 pylint==4.0.5
 pylint-strict-informational==0.1
 pylint-per-file-ignores==3.2.0
-pytest==9.0.2
+pytest==9.0.3
 pytest-alembic==0.12.1
 pytest-cov==7.0.0
 pytest-mock==3.15.1
