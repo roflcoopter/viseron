@@ -10,7 +10,9 @@ steps:
       echo Source branch is $branch
 
       latestRelease=false
-      if [ "${{ parameters.release }}" != "true" ] ; then
+      release="${{ parameters.release }}"
+      # `,,` transforms value to lower case
+      if [ "${release,,}" != "true" ] ; then
         version="dev"
       elif [ "$branch" == "dev" ] ; then
         version="dev"
