@@ -196,6 +196,7 @@ jobs:
 
           # Mirrors images to GHCR
           - script: |
+              set -e
               echo tagging ghcr.io/roflcoopter/${{ architecture }}-${{ parameters.image }}:$(viseronVersion)
               docker image tag roflcoopter/${{ architecture }}-${{ parameters.image }}:dev ghcr.io/roflcoopter/${{ architecture }}-${{ parameters.image }}:$(viseronVersion)
               docker image push ghcr.io/roflcoopter/${{ architecture }}-${{ parameters.image }}:$(viseronVersion)
