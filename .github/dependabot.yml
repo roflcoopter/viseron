@@ -32,6 +32,8 @@ updates:
         versions: [">3.42.2"]
       - dependency-name: "pygobject-stubs"
         versions: [">2.16.0"]
+      - dependency-name: "av"
+        versions: [">14.2.0"]
 
   - package-ecosystem: "npm"
     directory: "/frontend"

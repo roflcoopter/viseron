@@ -1,6 +1,7 @@
 aiofiles==25.1.0
 alembic==1.19.1
 apscheduler==3.11.3
+av==14.2.0; platform_machine == "aarch64" # Newer versions are incompatible with the Jetson Nano (Ubuntu bionic, glibc 2.27)
 bcrypt==5.0.0
 deepstack-python==0.9
 dlib==20.0.1
