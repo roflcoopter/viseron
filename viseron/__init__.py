@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import concurrent.futures
+import datetime
 import json
 import logging
 import multiprocessing.process
@@ -21,7 +22,6 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.base import Job, SchedulerNotRunningError
 from jinja2 import BaseLoader, StrictUndefined
 from jinja2.sandbox import SandboxedEnvironment
-from sqlalchemy import insert
 
 from viseron.components import (
     Component,
@@ -40,7 +40,6 @@ from viseron.components.nvr.const import (
     DOMAIN as NVR_DOMAIN,
 )
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
-from viseron.components.storage.models import Events
 from viseron.config import load_config
 from viseron.const import (
     ENV_LOG_BACKUP_COUNT,
@@ -58,6 +57,7 @@ from viseron.const import (
 from viseron.domain_registry import DomainRegistry
 from viseron.domains import setup_domains
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.event_writer import EventWriter
 from viseron.events import Event, EventData
 from viseron.exceptions import DataStreamNotLoaded
 from viseron.helpers import (
@@ -219,6 +219,7 @@ def setup_viseron(vis: Viseron) -> None:
         setup_components(vis, config)
 
     vis.storage = vis.data[STORAGE_COMPONENT]
+    vis.start_event_writer()
 
     registry = vis.domain_registry
     camera_ids = registry.get_identifiers(CAMERA_DOMAIN)
@@ -276,7 +277,7 @@ class Viseron:
         self._subprocess_watchdog: SubprocessWatchDog | None = None
         self._process_watchdog: ProcessWatchDog | None = None
 
-        self._dispatched_events: list[str] = []
+        self._dispatched_events: set[str] = set()
 
         self.background_scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
         if start_background_scheduler:
@@ -286,6 +287,7 @@ class Viseron:
             self._process_watchdog = ProcessWatchDog(self.background_scheduler)
 
         self.storage: Storage | None = None
+        self._event_writer: EventWriter | None = None
         self.jinja_env = SandboxedEnvironment(
             loader=BaseLoader(), undefined=StrictUndefined, autoescape=True
         )
@@ -326,7 +328,7 @@ class Viseron:
     @property
     def dispatched_events(self) -> list[str]:
         """Return the list of dispatched events."""
-        return self._dispatched_events
+        return list(self._dispatched_events)
 
     @property
     def domain_registry(self) -> DomainRegistry:
@@ -388,28 +390,39 @@ class Viseron:
 
         return unsubscribe
 
-    def _insert_event(self, event: Event[EventData]) -> None:
-        """Insert event into database."""
-        if self.storage:
-            event_data_json = "{}"
-            if event.data and event.data.json_serializable:
-                try:
-                    event_data_json = partial(
-                        json.dumps, cls=JSONEncoder, allow_nan=False
-                    )(event.data)
-                except (TypeError, ValueError, json.JSONDecodeError) as error:
-                    LOGGER.warning(
-                        f"Failed to decode event {event.name} to JSON: {error}"
-                    )
-                    return
+    def start_event_writer(self) -> None:
+        """Start persisting dispatched events once storage is available."""
+        if self._event_writer is not None or self.storage is None:
+            return
 
-            with self.storage.get_session() as session:
-                stmt = insert(Events).values(
-                    name=event.name,
-                    data=event_data_json,
+        self._event_writer = EventWriter(self.storage)
+        self.register_signal_handler(VISERON_SIGNAL_LAST_WRITE, self._event_writer.stop)
+
+    def _insert_event(self, event: Event[EventData]) -> None:
+        """Queue an event for persistence.
+
+        Serialize on the dispatching thread so the stored payload
+        reflects the event as it was dispatched, but the database round trip is
+        handed to the event writer.
+        """
+        if self._event_writer is None:
+            return
+
+        event_data_json = "{}"
+        if event.data and event.data.json_serializable:
+            try:
+                event_data_json = partial(json.dumps, cls=JSONEncoder, allow_nan=False)(
+                    event.data
                 )
-                session.execute(stmt)
-                session.commit()
+            except (TypeError, ValueError, json.JSONDecodeError) as error:
+                LOGGER.warning(f"Failed to decode event {event.name} to JSON: {error}")
+                return
+
+        self._event_writer.enqueue(
+            event.name,
+            event_data_json,
+            datetime.datetime.fromtimestamp(event.timestamp, tz=datetime.timezone.utc),
+        )
 
     def dispatch_event(
         self, event: str, data: EventData, *, store: bool = True
@@ -420,8 +433,7 @@ class Viseron:
             self._insert_event(_event)
         self.data[DATA_STREAM_COMPONENT].publish_data(f"event/{event}", data=_event)
 
-        if event not in self._dispatched_events:
-            self._dispatched_events.append(event)
+        self._dispatched_events.add(event)
 
     @overload
     def register_domain(
