@@ -107,7 +107,9 @@ class ObjectDetector(AbstractObjectDetector):
             LOGGER.error(f"Error calling yolo prediction check yolo config: {error}")
             return []
 
-        return self.postprocess(results)
+        # predict() is typed as returning an iterator/list of Results or Tensor, but
+        # with stream=False (default) and a non-embedding model it is a list[Results].
+        return self.postprocess(cast("list[Results]", results))
 
     def unload(self) -> None:
         """Unload the object detector."""
