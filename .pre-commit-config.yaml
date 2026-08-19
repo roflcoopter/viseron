@@ -79,6 +79,7 @@ repos:
         language: system
         types: [python]
         files: ^(viseron)/.+\.py$
+        require_serial: true
       - id: generate_docs
         description: Check if docs needs to be regenerated
         name: generate_docs
