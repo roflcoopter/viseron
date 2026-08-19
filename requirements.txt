@@ -23,6 +23,7 @@ psycopg2-binary==2.9.12
 pyjwt==2.13.0
 python-debouncer==0.1.5
 python-slugify==8.0.4
+pytz==2026.3.post1
 PyGObject==3.42.2 # Newer versions does not compile for the Jetson Nano
 PyYAML==6.0.3
 ruamel.yaml==0.19.1
