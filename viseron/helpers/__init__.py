@@ -534,27 +534,29 @@ def apply_mask(frame: np.ndarray, mask_image) -> None:
 def pop_if_full(
     queue: Queue | mp.Queue | tq.Queue,
     item: Any,
+    *,
     logger: logging.Logger = LOGGER,
     name: str = "unknown",
     warn: bool = False,
     max_attempts: int = 10,
-    _attempt: int = 0,
 ) -> None:
     """If queue is full, pop item and put the new item, up to max_attempts times."""
-    try:
-        queue.put_nowait(item)
-        return
-    except (Full, tq.QueueFull):
-        if warn:
-            logger.warning(f"{name} queue is full. Removing oldest entry")
-    try:
-        queue.get_nowait()
-    except (Empty, tq.QueueEmpty):
-        pass
-    if _attempt + 1 >= max_attempts:
-        raise Full(f"{name} queue is full after {max_attempts} attempts. Giving up.")
-    time.sleep(0.001 * (_attempt + 1))
-    pop_if_full(queue, item, logger, name, warn, max_attempts, _attempt + 1)
+    for attempt in range(max(1, max_attempts)):  # Ensure at least one iteration
+        try:
+            queue.put_nowait(item)
+            return
+        except (Full, tq.QueueFull):
+            if warn:
+                logger.warning(f"{name} queue is full. Removing oldest entry")
+
+        try:
+            queue.get_nowait()
+        except (Empty, tq.QueueEmpty):
+            # Another consumer emptied the queue first, so the slot we freed is
+            # already gone. Back off before racing for it again.
+            time.sleep(0.001 * (attempt + 1))
+
+    raise Full(f"{name} queue is full after {max_attempts} attempts. Giving up.")
 
 
 def slugify(text: str) -> str:
@@ -645,6 +647,7 @@ def convert_letterboxed_bbox(
     model_width: int,
     model_height: int,
     bbox: tuple[int, int, int, int],
+    *,
     return_absolute: Literal[False] = ...,
 ) -> tuple[float, float, float, float]: ...
 
@@ -656,6 +659,7 @@ def convert_letterboxed_bbox(
     model_width: int,
     model_height: int,
     bbox: tuple[int, int, int, int],
+    *,
     return_absolute: Literal[True],
 ) -> tuple[int, int, int, int]: ...
 
@@ -666,6 +670,7 @@ def convert_letterboxed_bbox(
     model_width: int,
     model_height: int,
     bbox: tuple[int, int, int, int],
+    *,
     return_absolute: bool = False,
 ) -> tuple[float, float, float, float] | tuple[int, int, int, int]:
     """Convert boundingbox from a letterboxed image to the original image.
