@@ -1,6 +1,5 @@
 /* eslint-disable no-nested-ternary */
 // Have to disable no-explicit-any, since i have no idea how to type the complex JSON in the config.json files
-
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
 
@@ -8,7 +7,7 @@ import Link from "@docusaurus/Link";
 import CodeBlock from "@theme/CodeBlock";
 import Tippy from "@tippyjs/react";
 import clsx from "clsx";
-import yaml from "js-yaml";
+import { CORE_SCHEMA, dump } from "js-yaml";
 import "tippy.js/dist/tippy.css";
 
 import Button from "@site/src/components/Button";
@@ -161,8 +160,8 @@ function getDefault(item: any, optional: boolean) {
             <span>
               <CodeBlock language="yaml">
                 {styles.configVariablesDefault}
-                {yaml.dump(item.default, {
-                  noCompatMode: true,
+                {dump(item.default, {
+                  schema: CORE_SCHEMA,
                   lineWidth: -1,
                 })}
               </CodeBlock>
@@ -381,7 +380,6 @@ function configOption(
 }
 
 type ComponentConfigurationType = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 };
 

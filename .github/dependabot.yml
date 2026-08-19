@@ -56,6 +56,18 @@ updates:
       docs:
         patterns:
           - "*"
+    ignore:
+      # ESLint 10 is not supported by the plugin ecosystem yet:
+      # eslint-config-airbnb-extended peers eslint ^9, and eslint-plugin-import
+      # and eslint-plugin-react cap out at 9. See docs/eslint.config.cjs.
+      - dependency-name: "eslint"
+        versions: [">=10"]
+      # typescript-eslint peers typescript <6.1.0.
+      - dependency-name: "typescript"
+        versions: [">=6"]
+      # @docusaurus/theme-mermaid peers @mermaid-js/layout-elk ^0.1.9.
+      - dependency-name: "@mermaid-js/layout-elk"
+        versions: [">=0.2.0"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
