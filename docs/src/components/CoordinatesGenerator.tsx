@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 
 import CodeBlock from "@theme/CodeBlock";
-import yaml from "js-yaml";
+import { CORE_SCHEMA, dump } from "js-yaml";
 
 import { Component } from "@site/src/types";
 
@@ -55,9 +55,7 @@ const CoordinatesGenerator = (props: {
         camera_one: coordinates,
       },
     };
-    const yamlString = yaml.dump(configObject, {
-      noCompatMode: true,
-    });
+    const yamlString = dump(configObject, { schema: CORE_SCHEMA });
     setGeneratedYaml(yamlString);
   };
 
