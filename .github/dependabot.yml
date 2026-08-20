@@ -45,6 +45,18 @@ updates:
       frontend:
         patterns:
           - "*"
+    ignore:
+      # ESLint 10 is not supported by the plugin ecosystem yet:
+      # eslint-config-airbnb-extended peers eslint ^9, and eslint-plugin-import
+      # and eslint-plugin-react cap out at 9. See frontend/eslint.config.cjs.
+      - dependency-name: "eslint"
+        versions: [">=10"]
+      - dependency-name: "@eslint/js"
+        versions: [">=10"]
+      # @mui/icons-material v9 peers @mui/material ^9, but @mui/lab has no
+      # stable v9 release yet, which keeps @mui/material on v7.
+      - dependency-name: "@mui/icons-material"
+        versions: [">=8"]
 
   - package-ecosystem: "npm"
     directory: "/docs"

@@ -1,5 +1,4 @@
-import { WebSocketClientConnectionProtocol } from "@mswjs/interceptors/WebSocket";
-import { WebSocketData, ws } from "msw";
+import { WebSocketData, WebSocketHandlerConnection, ws } from "msw";
 import { DEFAULT_YAML_CONFIG } from "tests/utils/const";
 
 // Catch all ws connections
@@ -17,7 +16,7 @@ export const resetSetupStatusMock = () => {
 };
 
 const messageHandler = (
-  client: WebSocketClientConnectionProtocol,
+  client: WebSocketHandlerConnection["client"],
   event: MessageEvent<WebSocketData>,
 ) => {
   console.debug("Intercepted message from the client", event.data);

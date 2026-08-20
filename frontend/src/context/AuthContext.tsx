@@ -231,6 +231,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     dayjsSetDefaultTimezone(userTimezone);
   }
   // Update api client UTC offset header
+  // eslint-disable-next-line react-hooks/immutability
   viseronAPI.defaults.headers.common["X-Client-UTC-Offset"] = getDayjs()
     .utcOffset()
     .toString();

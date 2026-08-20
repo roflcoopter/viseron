@@ -36,6 +36,7 @@ export function useDebouncedTemplateRender(template: string, delay = 500) {
 
   useEffect(() => {
     if (!template) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setResult("");
       setError(null);
       setLoading(false);

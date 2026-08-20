@@ -37,7 +37,6 @@ module.exports = defineConfig([
       sourceType: "module",
       parserOptions: {
         ecmaFeatures: { modules: true },
-        project: "tsconfig.json",
         tsconfigRootDir: __dirname,
       },
       globals: {
