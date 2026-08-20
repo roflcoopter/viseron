@@ -10,6 +10,12 @@ DESC_COMPONENT = "FFmpeg Configuration."
 ENV_FFMPEG_PATH = "VISERON_FFMPEG_PATH"
 MAX_EMPTY_FRAMES = 10
 
+# A dead or unreachable camera would otherwise spawn a new decode process
+# every few seconds indefinitely. Consecutive decode failures back off
+# exponentially between these bounds before retrying.
+DEFAULT_RESTART_DELAY = 5
+MAX_RESTART_DELAY = 60
+
 STREAM_FORMAT_MAP = {
     "rtsp": {"protocol": "rtsp", "timeout_option": ["-timeout", "5000000"]},
     "rtmp": {"protocol": "rtmp", "timeout_option": ["-rw_timeout", "5000000"]},
