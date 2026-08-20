@@ -2,7 +2,7 @@ import Box from "@mui/material/Box";
 import List from "@mui/material/List";
 import ListItem, { listItemClasses } from "@mui/material/ListItem";
 import ListItemText from "@mui/material/ListItemText";
-import * as monaco from "monaco-editor/esm/vs/editor/editor.api.js";
+import type * as monaco from "monaco-editor";
 
 interface MarkersProps {
   editor: monaco.editor.IStandaloneCodeEditor | undefined;
