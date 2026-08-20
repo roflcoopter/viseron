@@ -89,6 +89,7 @@ ignore = [
     "ANN401",  ##  https://docs.astral.sh/ruff/rules/any-type/ Disabled since Any is useful in some cases
     "EXE002",  ##   https://docs.astral.sh/ruff/rules/shebang-missing-executable-file/ False positives
     "ASYNC110", ##  https://docs.astral.sh/ruff/rules/async-busy-wait/ Disabled because we dont use it to wait for events
+    "CPY001",  ##   https://docs.astral.sh/ruff/rules/copyright-missing/ Disabled since we dont use copyright headers
     # To be attended to
     "ANN001",  ##   795   https://docs.astral.sh/ruff/rules/missing-type-function-argument/
     "ANN201",  ##   617   https://docs.astral.sh/ruff/rules/missing-return-type-undocumented-public-function/
