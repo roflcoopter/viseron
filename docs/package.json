@@ -21,7 +21,7 @@
     "lint": "npm run lint:prettier && npm run lint:eslint && npm run typecheck"
   },
   "dependencies": {
-    "@carbon/icons-react": "^11.85.0",
+    "@carbon/icons-react": "^11.86.0",
     "@docusaurus/core": "^3.10.2",
     "@docusaurus/plugin-ideal-image": "^3.10.2",
     "@docusaurus/preset-classic": "^3.10.2",
