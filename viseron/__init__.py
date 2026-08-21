@@ -647,6 +647,10 @@ class Viseron:
         """Return all registered entities."""
         return self.states.get_entities()
 
+    def get_entity(self, entity_id: str) -> Entity | None:
+        """Return a single registered entity, if it exists."""
+        return self.states.get_entity(entity_id)
+
     def get_setup_status(self) -> dict[str, Any]:
         """Return combined setup status for all components and domains."""
         components: list[dict[str, Any]] = []

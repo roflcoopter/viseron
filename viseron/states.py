@@ -246,6 +246,15 @@ class States:
         with self._registry_lock:
             return dict(sorted(self._registry.items()))
 
+    def get_entity(self, entity_id: str) -> Entity | None:
+        """Return a single registered entity, if it exists.
+
+        Deliberately does not take _registry_lock: a single dict lookup needs no
+        locking, and add_entity dispatches state_changed while holding the lock,
+        so a listener resolving an entity must not contend for it.
+        """
+        return self._registry.get(entity_id, None)
+
     def unload_entity(self, entity_id: str) -> None:
         """Unload entity from states registry."""
         with self._registry_lock:

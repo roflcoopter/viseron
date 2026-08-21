@@ -48,12 +48,13 @@ from viseron.components.webserver.const import (
 )
 from viseron.components.webserver.download_token import DownloadToken
 from viseron.const import CONFIG_PATH, EVENT_STATE_CHANGED, RESTART_EXIT_CODE
+from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.camera.fragmenter import (
     Fragment,
     Timespan,
     get_available_timespans,
 )
-from viseron.exceptions import Unauthorized
+from viseron.exceptions import DomainNotRegisteredError, Unauthorized
 from viseron.helpers import create_directory, daterange_to_utc, get_utc_offset
 from viseron.helpers.template import render_template
 from viseron.helpers.validators import jinja2_template
@@ -70,7 +71,7 @@ from .messages import (
 )
 
 if TYPE_CHECKING:
-    from viseron import Event
+    from viseron import Event, Viseron
     from viseron.states import EventStateChangedData
 
     from . import WebSocketHandler
@@ -139,6 +140,81 @@ def require_admin(func):
     return with_admin
 
 
+def _camera_identifier_from_event(vis: Viseron, event: Event) -> str | None:
+    """Return the identifier of the camera an event belongs to, if any.
+
+    A camera-scoped event either carries the identifier in its data or embeds it
+    in the topic. The position within the topic differs between event types
+    ("{camera_identifier}/objects", "object_detector/{camera_identifier}/result",
+    "domain/setup/{status}/{domain}/{identifier}"), so every segment is resolved
+    against the registered cameras instead of assuming a fixed one.
+    """
+    camera_identifier = getattr(event.data, "camera_identifier", None)
+    if isinstance(camera_identifier, str):
+        return camera_identifier
+
+    try:
+        cameras = vis.get_registered_identifiers(CAMERA_DOMAIN)
+    except DomainNotRegisteredError:
+        return None
+
+    for segment in event.name.split("/"):
+        if segment in cameras:
+            return segment
+    return None
+
+
+def _assigned_cameras(connection: WebSocketHandler) -> list[str] | None:
+    """Return the cameras the connection is limited to.
+
+    None means unrestricted: no authenticated user, an admin, or a user with an
+    empty assignment, which the admin UI documents as access to all cameras.
+    """
+    user = connection.current_user
+    if user is None or user.role == Role.ADMIN:
+        return None
+    return user.assigned_cameras
+
+
+def _event_allowed(connection: WebSocketHandler, event: Event) -> bool:
+    """Return whether the connection may receive an event."""
+    assigned_cameras = _assigned_cameras(connection)
+    if assigned_cameras is None:
+        return True
+
+    camera_identifier = _camera_identifier_from_event(connection.vis, event)
+    if camera_identifier is None:
+        return True
+
+    return camera_identifier in assigned_cameras
+
+
+def _state_changed_allowed(
+    connection: WebSocketHandler, event: Event[EventStateChangedData]
+) -> bool:
+    """Return whether the connection may receive a state change.
+
+    Entities tied to a camera declare it in device_identifiers.
+    """
+    assigned_cameras = _assigned_cameras(connection)
+    if assigned_cameras is None:
+        return True
+
+    entity = connection.vis.get_entity(event.data.entity_id)
+    if entity is None or not entity.device_identifiers:
+        return True
+
+    try:
+        cameras = connection.vis.get_registered_identifiers(CAMERA_DOMAIN)
+    except DomainNotRegisteredError:
+        return True
+
+    for device_identifier in entity.device_identifiers:
+        if device_identifier in cameras:
+            return device_identifier in assigned_cameras
+    return True
+
+
 @websocket_command({vol.Required("type"): "ping"})
 async def ping(connection: WebSocketHandler, message) -> None:
     """Respond to ping."""
@@ -158,6 +234,9 @@ async def subscribe_event(connection: WebSocketHandler, message) -> None:
 
     async def forward_event(event: Event) -> None:
         """Forward event to WebSocket connection."""
+        if not _event_allowed(connection, event):
+            return
+
         await connection.async_send_message(
             subscription_result_message(message["command_id"], event)
         )
@@ -218,6 +297,9 @@ async def subscribe_states(connection: WebSocketHandler, message) -> None:
 
     async def forward_state_change(event: Event[EventStateChangedData]) -> None:
         """Forward state_changed event to WebSocket connection."""
+        if not _state_changed_allowed(connection, event):
+            return
+
         if "entity_id" in message:
             if event.data.entity_id == message["entity_id"]:
                 await connection.async_send_message(
