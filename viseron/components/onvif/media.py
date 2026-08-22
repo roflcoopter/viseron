@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from onvif import ONVIFClient
+from onvif import ONVIFClient  # type: ignore[attr-defined]
 
 from .const import (
     CONFIG_AUDIO_BITRATE,

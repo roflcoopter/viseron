@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 import zeep.helpers
-from onvif import ONVIFOperationException
+from onvif import ONVIFOperationException  # type: ignore[attr-defined]
 
 from viseron.components.go2rtc.const import COMPONENT as GO2RTC_COMPONENT
 

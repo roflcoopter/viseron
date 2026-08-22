@@ -6,7 +6,7 @@ import logging
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any
 
-from onvif import ONVIFClient
+from onvif import ONVIFClient  # type: ignore[attr-defined]
 
 from .const import (
     CONFIG_IMAGING_BACKLIGHT_COMPENSATION,

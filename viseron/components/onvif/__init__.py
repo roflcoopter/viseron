@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 import voluptuous as vol
-from onvif import ONVIFClient
+from onvif import ONVIFClient  # type: ignore[attr-defined]
 
 from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_STOPPING
 from viseron.domains.camera import AbstractCamera
@@ -525,7 +525,7 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config) -> bool:
+def setup(vis: Viseron, config: dict) -> bool:
     """Set up the ONVIF component."""
     onvif = ONVIF(vis, config[COMPONENT])
     RestartableThread(

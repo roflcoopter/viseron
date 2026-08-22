@@ -7,7 +7,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from onvif import ONVIFClient
+from onvif import ONVIFClient  # type: ignore[attr-defined]
 
 from .const import (
     CONFIG_PTZ_HOME_POSITION,
@@ -493,9 +493,7 @@ class PTZ:
                 return await self.absolute_move(
                     x_position=preset[CONFIG_PTZ_PRESET_PAN],
                     y_position=preset[CONFIG_PTZ_PRESET_TILT],
-                    zoom_position=preset[CONFIG_PTZ_PRESET_ZOOM]
-                    if CONFIG_PTZ_PRESET_ZOOM in preset
-                    else 0.0,
+                    zoom_position=preset.get(CONFIG_PTZ_PRESET_ZOOM, 0.0),
                     is_adjusted=False,
                 )
         return False
