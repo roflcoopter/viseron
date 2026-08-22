@@ -633,7 +633,7 @@ def _validate_recorder_tiers(
                 )
 
     # Check events config
-    previous_tier: None | Tier = None
+    previous_tier: Tier | None = None
     paths: list[str] = []
     for tier in component_config.get(CONFIG_RECORDER, {}).get(CONFIG_TIERS, []):
         if tier.get(CONFIG_EVENTS, None):

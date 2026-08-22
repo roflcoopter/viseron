@@ -1,4 +1,5 @@
 """CodeProject.AI face recognition."""
+
 from __future__ import annotations
 
 import logging

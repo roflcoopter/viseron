@@ -1,4 +1,5 @@
 """Deepstack object detector."""
+
 import logging
 
 import cv2

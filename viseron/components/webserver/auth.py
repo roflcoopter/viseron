@@ -745,7 +745,7 @@ class Auth:
             algorithm="HS256",
         )
 
-    def validate_access_token(self, access_token: str) -> None | RefreshToken:
+    def validate_access_token(self, access_token: str) -> RefreshToken | None:
         """Validate access token."""
         try:
             unverif_claims = jwt.decode(

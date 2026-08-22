@@ -432,7 +432,7 @@ class TelegramEventNotifier:
         except DomainNotRegisteredError:
             return None
 
-    def get_cameras(self) -> None | dict[str, AbstractCamera]:
+    def get_cameras(self) -> dict[str, AbstractCamera] | None:
         """Get all registered camera instances."""
         try:
             return self._vis.get_registered_identifiers(CAMERA_DOMAIN)

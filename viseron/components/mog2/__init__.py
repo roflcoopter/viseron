@@ -1,4 +1,5 @@
 """MOG2 motion detection."""
+
 import voluptuous as vol
 
 from viseron import Viseron

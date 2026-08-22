@@ -1,4 +1,5 @@
 """API request handler."""
+
 from __future__ import annotations
 
 import importlib
