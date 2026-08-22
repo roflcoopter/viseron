@@ -18,7 +18,7 @@ from viseron.components.webserver.auth import Auth
 from viseron.components.webserver.rate_limit import RateLimiter
 from viseron.const import DEFAULT_PORT, VISERON_SIGNAL_SHUTDOWN
 from viseron.exceptions import ComponentNotReady
-from viseron.helpers import current_system_datetime, normalize_subpath
+from viseron.helpers import normalize_subpath, utcnow
 from viseron.helpers.storage import Storage
 from viseron.helpers.validators import CoerceNoneToDict, Deprecated
 
@@ -374,7 +374,7 @@ class Webserver(threading.Thread):
     def _cleanup_expired_public_images(self) -> None:
         """Clean up expired public images (files older than max expiry)."""
         try:
-            timestamp_limit = current_system_datetime().timestamp() - (
+            timestamp_limit = utcnow().timestamp() - (
                 self.public_url_expiry_hours * 3600
             )
             cleaned_count = 0

@@ -1,0 +1,115 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    exclude-paths:
+      # requirements-3.9.txt pins numpy/pillow/pycoral for Python 3.9, which is
+      # required by the pycoral/EdgeTPU wheels built in docker/Dockerfile.wheels
+      # and docker/jetson-nano/Dockerfile.wheels. Newer releases drop 3.9, so the
+      # file is maintained by hand.
+      - "requirements-3.9.txt"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      python:
+        patterns:
+          - "*"
+    ignore:
+      # Numpy needs to be kept <2 at the moment, along with some deps
+      # where newer versions require >2
+      - dependency-name: "numpy"
+        versions: [">=2"]
+      - dependency-name: "scipy"
+        versions: [">1.17.1"]
+      - dependency-name: "opencv-python"
+        versions: [">4.11.0.86"]
+      - dependency-name: "opencv-contrib-python"
+        versions: [">4.11.0.86"]
+      # Newer versions does not compile for the Jetson Nano.
+      - dependency-name: "pygobject"
+        versions: [">3.42.2"]
+      - dependency-name: "pygobject-stubs"
+        versions: [">2.16.0"]
+      - dependency-name: "av"
+        versions: [">14.2.0"]
+
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      frontend:
+        patterns:
+          - "*"
+    ignore:
+      # ESLint 10 is not supported by the plugin ecosystem yet:
+      # eslint-config-airbnb-extended peers eslint ^9, and eslint-plugin-import
+      # and eslint-plugin-react cap out at 9. See frontend/eslint.config.cjs.
+      - dependency-name: "eslint"
+        versions: [">=10"]
+      - dependency-name: "@eslint/js"
+        versions: [">=10"]
+      # @mui/icons-material v9 peers @mui/material ^9, but @mui/lab has no
+      # stable v9 release yet, which keeps @mui/material on v7.
+      - dependency-name: "@mui/icons-material"
+        versions: [">=8"]
+
+  - package-ecosystem: "npm"
+    directory: "/docs"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      docs:
+        patterns:
+          - "*"
+    ignore:
+      # ESLint 10 is not supported by the plugin ecosystem yet:
+      # eslint-config-airbnb-extended peers eslint ^9, and eslint-plugin-import
+      # and eslint-plugin-react cap out at 9. See docs/eslint.config.cjs.
+      - dependency-name: "eslint"
+        versions: [">=10"]
+      # typescript-eslint peers typescript <6.1.0.
+      - dependency-name: "typescript"
+        versions: [">=6"]
+      # @docusaurus/theme-mermaid peers @mermaid-js/layout-elk ^0.1.9.
+      - dependency-name: "@mermaid-js/layout-elk"
+        versions: [">=0.2.0"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "devcontainers"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      devcontainers:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "pre-commit"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      pre-commit:
+        patterns:
+          - "*"

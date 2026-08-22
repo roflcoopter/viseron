@@ -164,7 +164,7 @@ async def subscribe_event(connection: WebSocketHandler, message) -> None:
 
     @debounce(
         wait=message["debounce"],
-        options=DebounceOptions(
+        options=DebounceOptions(  # pylint: disable=unexpected-keyword-arg
             time_window=message["debounce"],
         ),
     )
@@ -567,6 +567,7 @@ class EventTypeModelEnum(enum.Enum):
     MOTION = Motion
     OBJECT = Objects
     FACE_RECOGNITION = PostProcessorResults
+    IMAGE_CLASSIFICATION = PostProcessorResults
     LICENSE_PLATE_RECOGNITION = PostProcessorResults
 
 

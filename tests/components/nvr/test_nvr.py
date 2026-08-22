@@ -17,6 +17,12 @@ from viseron.components.nvr.nvr import EVENT_MOTION_DETECTOR_RESULT, NVR
 from viseron.components.storage.models import TriggerTypes
 from viseron.domain_registry import DomainState
 from viseron.domains.camera import EventFrameBytesData
+from viseron.domains.camera.const import (
+    CONFIG_RECORDER,
+    CONFIG_SCHEDULE_CONTINUOUS,
+    CONFIG_SCHEDULE_EVENTS,
+    CONFIG_SCHEDULE_TIMEZONE,
+)
 from viseron.domains.camera.recorder import ManualRecording
 from viseron.events import Event
 from viseron.helpers import utcnow
@@ -48,6 +54,14 @@ class FakeTime:
 def patch_nvr_utcnow(monkeypatch, fake_time: FakeTime) -> None:
     """Patch utcnow used by the NVR module."""
     monkeypatch.setattr("viseron.components.nvr.nvr.utcnow", lambda: fake_time.now)
+
+
+def patch_schedule_now(monkeypatch, fake_time: FakeTime) -> None:
+    """Patch the clock used by the recording schedule evaluator."""
+    monkeypatch.setattr(
+        "viseron.domains.camera.schedule.utcnow",
+        lambda: fake_time.now,
+    )
 
 
 def configure_camera_for_recording_tests(
@@ -95,7 +109,7 @@ def safe_put(queue, item) -> None:
 
 def feed_frame_to_nvr(nvr) -> None:
     """Queue frame + scanner tokens."""
-    for scanner in nvr._frame_scanners.values():  # pylint: disable=protected-access
+    for scanner in nvr._frame_scanners.values():
         safe_put(scanner.result_queue, object())
     frame = Event(
         "dummy",
@@ -282,7 +296,7 @@ class TestNVRInit:
         caplog.set_level(logging.WARNING, logger="viseron.components.nvr.nvr")
         object_detector = MockObjectDetector(fps=5, scan_on_motion_only=False)
         object_detector.object_filters = {
-            "person": SimpleNamespace(require_motion=True)
+            "person": SimpleNamespace(require_motion=True, require_motion_overlap=False)
         }
         make_nvr(vis, object_detector=object_detector)
         assert object_detector.object_filters["person"].require_motion is False
@@ -799,7 +813,7 @@ class TestNVRRunBoth:
             fps=5, trigger_event_recording=False, recorder_keepalive=True
         )
         object_detector.object_filters = {
-            "person": SimpleNamespace(require_motion=True)
+            "person": SimpleNamespace(require_motion=True, require_motion_overlap=False)
         }
         nvr, camera = make_nvr(
             vis,
@@ -826,6 +840,95 @@ class TestNVRRunBoth:
         assert camera.is_recording
         assert nvr._frame_scanners[MOTION_DETECTOR].scan is True
 
+    def test_require_motion_overlap_gates_start_and_stop(self, vis, monkeypatch):
+        """require_motion_overlap gates recording start and stop."""
+        object_detector = MockObjectDetector(fps=5, scan_on_motion_only=False)
+        motion_detector = MockMotionDetector(
+            fps=5, trigger_event_recording=False, recorder_keepalive=False
+        )
+        object_detector.object_filters = {
+            "person": SimpleNamespace(
+                require_motion=False,
+                require_motion_overlap=True,
+                motion_overlap_threshold=0.1,
+            )
+        }
+        nvr, camera = make_nvr(
+            vis,
+            camera_output_fps=5,
+            object_detector=object_detector,
+            motion_detector=motion_detector,
+        )
+
+        fake_time = FakeTime()
+        patch_nvr_utcnow(monkeypatch, fake_time)
+        configure_camera_for_recording_tests(camera, fake_time, idle_timeout=2)
+
+        # Object sits in the top-left corner of the frame.
+        object_detector.objects_in_fov = [
+            SimpleNamespace(
+                trigger_event_recording=True,
+                label="person",
+                rel_x1=0.0,
+                rel_y1=0.0,
+                rel_x2=0.2,
+                rel_y2=0.2,
+            )
+        ]
+
+        # Motion is present, but its contour is in the bottom-right corner and
+        # does not overlap the object -> recording must not start.
+        non_overlapping_contour = np.array(
+            [[[0.7, 0.7]], [[0.9, 0.7]], [[0.9, 0.9]], [[0.7, 0.9]]],
+            dtype=np.float32,
+        )
+        motion_detector.motion_detected = True
+        motion_detector.motion_contours = SimpleNamespace(
+            rel_contours=[non_overlapping_contour]
+        )
+        feed_frame_to_nvr(nvr)
+        nvr._run()
+        assert not camera.is_recording
+
+        # Motion contour now overlaps the object -> recording starts.
+        overlapping_contour = np.array(
+            [[[0.0, 0.0]], [[0.2, 0.0]], [[0.2, 0.2]], [[0.0, 0.2]]],
+            dtype=np.float32,
+        )
+        motion_detector.motion_contours = SimpleNamespace(
+            rel_contours=[overlapping_contour]
+        )
+        feed_frame_to_nvr(nvr)
+        nvr._run()
+        assert camera.is_recording
+
+        # Motion no longer overlaps the object -> recording stops.
+        motion_detector.motion_contours = SimpleNamespace(
+            rel_contours=[non_overlapping_contour]
+        )
+        feed_frame_to_nvr(nvr)
+        nvr._run()
+        assert nvr._stop_recorder_at is not None
+
+        fake_time.advance(1)
+        feed_frame_to_nvr(nvr)
+        nvr._run()
+        fake_time.advance(1)
+        feed_frame_to_nvr(nvr)
+        nvr._run()
+        assert not camera.is_recording
+
+    def test_require_motion_overlap_allows_external_motion_without_contours(self, vis):
+        """External motion without contours satisfies overlap."""
+        motion_detector = MockMotionDetectorExternal(
+            motion_detected=True,
+            motion_contours=None,
+        )
+        nvr, _ = make_nvr(vis, motion_detector=motion_detector)
+        filter_obj = SimpleNamespace(require_motion_overlap=True)
+
+        assert nvr._object_has_motion_overlap(SimpleNamespace(), filter_obj)
+
     def test_require_motion_stops_when_motion_lost(self, vis, monkeypatch):
         """Stops via countdown when motion lost."""
         object_detector = MockObjectDetector(fps=5, scan_on_motion_only=False)
@@ -833,7 +936,7 @@ class TestNVRRunBoth:
             fps=5, trigger_event_recording=False, recorder_keepalive=True
         )
         object_detector.object_filters = {
-            "person": SimpleNamespace(require_motion=True)
+            "person": SimpleNamespace(require_motion=True, require_motion_overlap=False)
         }
         nvr, camera = make_nvr(
             vis,
@@ -876,7 +979,7 @@ class TestNVRRunBoth:
             fps=5, trigger_event_recording=False, recorder_keepalive=True
         )
         object_detector.object_filters = {
-            "person": SimpleNamespace(require_motion=True)
+            "person": SimpleNamespace(require_motion=True, require_motion_overlap=False)
         }
         nvr, camera = make_nvr(
             vis,
@@ -1096,3 +1199,144 @@ class TestNVRRunManualRecording:
         assert "Max recording time exceeded, stopping recorder" in caplog.text
         nvr.stop_recorder.assert_called_once_with(force=True)
         assert not camera.is_recording
+
+
+class TestNVRRecordingSchedule:
+    """Tests for event recording schedule gating."""
+
+    def test_object_event_blocked_outside_schedule(self, vis, monkeypatch):
+        """Object detected outside the configured schedule does not record."""
+        object_detector = MockObjectDetector(fps=5, scan_on_motion_only=False)
+        nvr, camera = make_nvr(
+            vis, camera_output_fps=5, object_detector=object_detector
+        )
+        fake_time = FakeTime()  # 2025-01-01 00:00 UTC
+        patch_nvr_utcnow(monkeypatch, fake_time)
+        patch_schedule_now(monkeypatch, fake_time)
+        configure_camera_for_recording_tests(camera, fake_time, idle_timeout=2)
+        camera.config[CONFIG_RECORDER]["schedule"] = {
+            CONFIG_SCHEDULE_EVENTS: [{"start": "0 8 * * *", "end": "0 18 * * *"}],
+            CONFIG_SCHEDULE_CONTINUOUS: None,
+            CONFIG_SCHEDULE_TIMEZONE: "UTC",
+        }
+
+        object_detector.objects_in_fov = [
+            SimpleNamespace(trigger_event_recording=True, label="person")
+        ]
+        feed_frame_to_nvr(nvr)
+        nvr._run()
+        assert camera.is_recording is False
+        camera.start_recorder.assert_not_called()
+
+    def test_object_event_allowed_inside_schedule(self, vis, monkeypatch):
+        """Object detected inside the configured schedule starts recording."""
+        object_detector = MockObjectDetector(fps=5, scan_on_motion_only=False)
+        nvr, camera = make_nvr(
+            vis, camera_output_fps=5, object_detector=object_detector
+        )
+        fake_time = FakeTime()  # 2025-01-01 00:00 UTC
+        patch_nvr_utcnow(monkeypatch, fake_time)
+        patch_schedule_now(monkeypatch, fake_time)
+        configure_camera_for_recording_tests(camera, fake_time, idle_timeout=2)
+        camera.config[CONFIG_RECORDER]["schedule"] = {
+            CONFIG_SCHEDULE_EVENTS: [{"start": "0 0 * * *", "end": "0 12 * * *"}],
+            CONFIG_SCHEDULE_CONTINUOUS: None,
+            CONFIG_SCHEDULE_TIMEZONE: "UTC",
+        }
+
+        object_detector.objects_in_fov = [
+            SimpleNamespace(trigger_event_recording=True, label="person")
+        ]
+        feed_frame_to_nvr(nvr)
+        nvr._run()
+        assert camera.is_recording is True
+        camera.start_recorder.assert_called_once()
+
+    def test_motion_event_blocked_outside_schedule(self, vis, monkeypatch):
+        """Motion detected outside the configured schedule does not record."""
+        motion_detector = MockMotionDetector(fps=5, trigger_event_recording=True)
+        nvr, camera = make_nvr(
+            vis, camera_output_fps=5, motion_detector=motion_detector
+        )
+        fake_time = FakeTime()  # 2025-01-01 00:00 UTC
+        patch_nvr_utcnow(monkeypatch, fake_time)
+        patch_schedule_now(monkeypatch, fake_time)
+        configure_camera_for_recording_tests(camera, fake_time, idle_timeout=2)
+        camera.config[CONFIG_RECORDER]["schedule"] = {
+            CONFIG_SCHEDULE_EVENTS: [{"start": "0 8 * * *", "end": "0 18 * * *"}],
+            CONFIG_SCHEDULE_CONTINUOUS: None,
+            CONFIG_SCHEDULE_TIMEZONE: "UTC",
+        }
+
+        motion_detector.motion_detected = True
+        feed_frame_to_nvr(nvr)
+        nvr._run()
+        assert camera.is_recording is False
+        camera.start_recorder.assert_not_called()
+
+    def test_manual_recording_bypasses_schedule(self, vis, monkeypatch):
+        """Manual recording starts even when outside the event schedule."""
+        nvr, camera = make_nvr(vis, camera_output_fps=5)
+        fake_time = FakeTime()  # 2025-01-01 00:00 UTC
+        patch_nvr_utcnow(monkeypatch, fake_time)
+        patch_schedule_now(monkeypatch, fake_time)
+        configure_camera_for_recording_tests(camera, fake_time, idle_timeout=2)
+        camera.config[CONFIG_RECORDER]["schedule"] = {
+            CONFIG_SCHEDULE_EVENTS: [{"start": "0 8 * * *", "end": "0 18 * * *"}],
+            CONFIG_SCHEDULE_CONTINUOUS: None,
+            CONFIG_SCHEDULE_TIMEZONE: "UTC",
+        }
+
+        nvr.start_manual_recording(ManualRecording(duration=None))
+        feed_frame_to_nvr(nvr)
+        nvr._run()
+        assert camera.is_recording is True
+
+    def test_event_schedule_uses_configured_timezone(self, vis, monkeypatch):
+        """The configured schedule timezone (not UTC) is used to gate recording.
+
+        07:30 UTC is 08:30 in Europe/Stockholm (UTC+1 in January), so an
+        08:00-18:00 Stockholm-time schedule is already active, even though
+        the same schedule interpreted as plain UTC would not have started yet.
+        """
+        object_detector = MockObjectDetector(fps=5, scan_on_motion_only=False)
+        nvr, camera = make_nvr(
+            vis, camera_output_fps=5, object_detector=object_detector
+        )
+        fake_time = FakeTime(
+            start=datetime.datetime(2025, 1, 1, 7, 30, tzinfo=datetime.timezone.utc)
+        )
+        patch_nvr_utcnow(monkeypatch, fake_time)
+        patch_schedule_now(monkeypatch, fake_time)
+        configure_camera_for_recording_tests(camera, fake_time, idle_timeout=2)
+        camera.config[CONFIG_RECORDER]["schedule"] = {
+            CONFIG_SCHEDULE_EVENTS: [{"start": "0 8 * * *", "end": "0 18 * * *"}],
+            CONFIG_SCHEDULE_CONTINUOUS: None,
+            CONFIG_SCHEDULE_TIMEZONE: "Europe/Stockholm",
+        }
+
+        object_detector.objects_in_fov = [
+            SimpleNamespace(trigger_event_recording=True, label="person")
+        ]
+        feed_frame_to_nvr(nvr)
+        nvr._run()
+        assert camera.is_recording is True
+        camera.start_recorder.assert_called_once()
+
+    def test_no_schedule_configured_allows_recording(self, vis, monkeypatch):
+        """Absent schedule (default) does not restrict event recording."""
+        object_detector = MockObjectDetector(fps=5, scan_on_motion_only=False)
+        nvr, camera = make_nvr(
+            vis, camera_output_fps=5, object_detector=object_detector
+        )
+        fake_time = FakeTime()
+        patch_nvr_utcnow(monkeypatch, fake_time)
+        patch_schedule_now(monkeypatch, fake_time)
+        configure_camera_for_recording_tests(camera, fake_time, idle_timeout=2)
+
+        object_detector.objects_in_fov = [
+            SimpleNamespace(trigger_event_recording=True, label="person")
+        ]
+        feed_frame_to_nvr(nvr)
+        nvr._run()
+        assert camera.is_recording is True

@@ -554,6 +554,21 @@ services:
 Ensure the volumes are owned on the host by the user you specify.
 In this example `PUID=1000` and `PGID=1000`.
 
+If you want to skip recursive `chown` operations on volume paths during startup,
+set `VISERON_DISABLE_CHOWN=true`.
+This can make startup faster on large mounts, but then ownership of your mounted
+paths must already be correct on the host.
+
+When enabled, Viseron skips recursive ownership changes for:
+
+- `/config`
+- `/recordings`
+- `/event_clips`
+- `/segments`
+- `/snapshots`
+- `/thumbnails`
+- `/data/*` (Home Assistant add-on data mount mode)
+
 :::tip
 
 To find the UID and GID of your current user you can run this command on the host:
@@ -580,3 +595,16 @@ By default, the database runs within the container and is not exposed to the hos
 
 You can however point Viseron to an external database by setting the `POSTGRES_DATABASE_URL` environment variable.
 See the [storage component documentation](/components-explorer/components/storage#external-database) for more information.
+
+## Home Assistant App (Add-on)
+
+Viseron can be installed as an app for users running Home Assistant OS.
+
+In Home Assistant, perform the following actions:
+
+- Navigate to `Settings` > `Apps` > `App Store` > `Repositories`
+- Add `https://github.com/roflcoopter/viseron-hass-app`
+- Install the latest version of the Viseron app from the `App Store` and wait for it to finish
+- Start the App
+- Click `Open Web UI` button to access the frontend
+- Click `Settings` in the sidebar, then `Configuration` to access the configuration editor

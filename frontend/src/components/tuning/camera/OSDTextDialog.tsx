@@ -101,6 +101,7 @@ export function TuneOSDTextDialog({
   const theme = useTheme();
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLocalCustomText(customText);
   }, [customText]);
 

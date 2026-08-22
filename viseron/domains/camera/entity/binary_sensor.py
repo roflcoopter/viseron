@@ -66,6 +66,7 @@ class RecorderBinarySensor(CameraBinarySensor):
         self.name = f"{camera.name} Recorder"
 
         self._recording: Recording | None = None
+        self._recording_active = False
 
     def setup(self) -> None:
         """Set up event listener."""
@@ -83,6 +84,10 @@ class RecorderBinarySensor(CameraBinarySensor):
         )
 
     @property
+    def _is_on(self) -> bool:
+        return self._recording_active
+
+    @property
     def extra_attributes(self) -> dict:
         """Return extra attributes."""
         if self._recording:
@@ -92,13 +97,13 @@ class RecorderBinarySensor(CameraBinarySensor):
     def handle_start_event(self, event_data: Event[EventRecorderData]) -> None:
         """Handle recorder start event."""
         self._recording = event_data.data.recording
-        self._is_on = True
+        self._recording_active = True
         self.set_state()
 
     def handle_stop_event(self, event_data: Event[EventRecorderData]) -> None:
         """Handle recorder stop event."""
         self._recording = event_data.data.recording
-        self._is_on = False
+        self._recording_active = False
         self.set_state()
 
 

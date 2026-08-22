@@ -288,7 +288,7 @@ class Camera(AbstractCamera):
         self, vis: Viseron, config: dict[str, Any], identifier: str, attempt: int
     ) -> None:
         self._poll_timer = utcnow().timestamp()
-        self._frame_reader = None
+        self._frame_reader: RestartableThread | None = None
         # Stream must be initialized before super().__init__ is called as it raises
         # FFprobeError/FFprobeTimeout which is caught in setup() and re-raised as
         # DomainNotReady

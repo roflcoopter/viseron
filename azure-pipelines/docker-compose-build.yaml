@@ -278,6 +278,7 @@ services:
         ARCH: amd64-cuda
         BUILD_FROM: ubuntu:$UBUNTU_VERSION
         DLIB_VERSION: "$DLIB_VERSION"
+        FAST_ALPR_EXTRA: onnx-gpu
         OPENCV_VERSION: "$OPENCV_VERSION"
         UBUNTU_VERSION: "$UBUNTU_VERSION"
       cache_from:

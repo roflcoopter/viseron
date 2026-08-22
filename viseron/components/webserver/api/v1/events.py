@@ -1,9 +1,9 @@
 """API handler for Events."""
+
 from __future__ import annotations
 
 import datetime
 import logging
-from collections.abc import Callable
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
@@ -19,17 +19,21 @@ from viseron.components.storage.models import (
 )
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.components.webserver.auth import Role
-from viseron.domains.camera import FailedCamera
 from viseron.domains.face_recognition.const import DOMAIN as FACE_RECOGNITION_DOMAIN
+from viseron.domains.image_classification.const import (
+    DOMAIN as IMAGE_CLASSIFICATION_DOMAIN,
+)
 from viseron.domains.license_plate_recognition.const import (
     DOMAIN as LICENSE_PLATE_RECOGNITION_DOMAIN,
 )
 from viseron.helpers import daterange_to_utc
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from sqlalchemy.orm import Session
 
-    from viseron.domains.camera import AbstractCamera
+    from viseron.domains.camera import AbstractCamera, FailedCamera
 
 LOGGER = logging.getLogger(__name__)
 
@@ -249,7 +253,11 @@ class EventsAPIHandler(BaseAPIHandler):
                 .where(PostProcessorResults.camera_identifier == camera.identifier)
                 .where(
                     PostProcessorResults.domain.in_(
-                        [FACE_RECOGNITION_DOMAIN, LICENSE_PLATE_RECOGNITION_DOMAIN]
+                        [
+                            FACE_RECOGNITION_DOMAIN,
+                            IMAGE_CLASSIFICATION_DOMAIN,
+                            LICENSE_PLATE_RECOGNITION_DOMAIN,
+                        ]
                     )
                 )
                 .where(
@@ -337,7 +345,7 @@ class EventsAPIHandler(BaseAPIHandler):
             subpath,
         )
 
-        def sort_events():
+        def sort_events() -> list:
             return sorted(
                 motion_events
                 + recording_events
@@ -441,7 +449,7 @@ class EventsAPIHandler(BaseAPIHandler):
         )
         await self.response_success(response={"events_amount": events_amount})
 
-    async def post_events_amount_multiple(self):
+    async def post_events_amount_multiple(self) -> None:
         """Get amount of events per day for multiple cameras.
 
         The time is adjusted to the client's timezone.
@@ -453,7 +461,7 @@ class EventsAPIHandler(BaseAPIHandler):
         )
         await self.response_success(response={"events_amount": events_amount})
 
-    async def post_events_dates_of_interest(self):
+    async def post_events_dates_of_interest(self) -> None:
         """Get dates of interest for multiple cameras.
 
         This returns a list of dates with the amount of events and whether
@@ -515,5 +523,4 @@ def _get_timespans_per_day(
             .order_by(func.date(Files.created_at + utc_offset))
         )
         dates = session.execute(stmt).all()
-    date_list = [str(d[0]) for d in dates]
-    return date_list
+    return [str(d[0]) for d in dates]

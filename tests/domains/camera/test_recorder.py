@@ -1,4 +1,5 @@
 """Tests for recorder."""
+
 from __future__ import annotations
 
 import datetime
@@ -95,7 +96,7 @@ def test_get_recordings_utc(get_db_session_recordings: Callable[[], Session]) ->
 
 
 def test_get_recordings_positive_offset(
-    get_db_session_recordings: Callable[[], Session]
+    get_db_session_recordings: Callable[[], Session],
 ) -> None:
     """Test get_recordings in UTC+5:30 (India)."""
     recordings = get_recordings(
@@ -111,7 +112,7 @@ def test_get_recordings_positive_offset(
 
 
 def test_get_recordings_negative_offset(
-    get_db_session_recordings: Callable[[], Session]
+    get_db_session_recordings: Callable[[], Session],
 ) -> None:
     """Test get_recordings in UTC-5 (Eastern)."""
     recordings = get_recordings(
@@ -123,7 +124,7 @@ def test_get_recordings_negative_offset(
 
 
 def test_get_recordings_date_specific_timezone(
-    get_db_session_recordings: Callable[[], Session]
+    get_db_session_recordings: Callable[[], Session],
 ) -> None:
     """Test get_recordings with specific date in different timezone."""
     # Test in UTC+1
@@ -146,7 +147,7 @@ def test_get_recordings_date_specific_timezone(
 
 
 def test_get_recordings_latest_with_timezone(
-    get_db_session_recordings: Callable[[], Session]
+    get_db_session_recordings: Callable[[], Session],
 ) -> None:
     """Test get_recordings latest flag with timezone consideration."""
     # Test in UTC-7 (PDT)
@@ -166,7 +167,7 @@ def test_get_recordings_latest_with_timezone(
 
 
 def test_get_recordings_latest_daily_with_timezone(
-    get_db_session_recordings: Callable[[], Session]
+    get_db_session_recordings: Callable[[], Session],
 ) -> None:
     """Test get_recordings latest daily flag with timezone consideration."""
     # Test in UTC+9 (Japan)
@@ -184,7 +185,7 @@ def test_get_recordings_latest_daily_with_timezone(
 
 
 def test_delete_recordings_with_timezone(
-    get_db_session_recordings: Callable[[], Session]
+    get_db_session_recordings: Callable[[], Session],
 ) -> None:
     """Test delete_recordings with timezone consideration."""
     # Test deleting recordings for a specific date in UTC+1
@@ -276,7 +277,7 @@ class ConcreteTestRecorder(AbstractRecorder):
 
 @pytest.fixture(name="add_recording_to_session")
 def fixture_add_recording_to_session(
-    get_db_session: Callable[[], Session]
+    get_db_session: Callable[[], Session],
 ) -> Callable[
     [int, datetime.datetime, datetime.datetime, datetime.datetime, str, str], None
 ]:
@@ -309,7 +310,7 @@ def fixture_add_recording_to_session(
 
 @pytest.fixture(name="add_segment_to_session")
 def fixture_add_segment_to_session(
-    get_db_session: Callable[[], Session]
+    get_db_session: Callable[[], Session],
 ) -> Callable[[datetime.datetime, float], None]:
     """Fixture to add a segment to the session with an incrementing variable."""
 
@@ -464,10 +465,11 @@ class TestAbstractRecorder:
             segment_start = recording.start_time + datetime.timedelta(seconds=offset)
             add_segment_to_session(segment_start, segment_duration)
 
-        # pylint: disable=protected-access
-        with patch.object(recorder._storage, "get_session") as mock_get_session, patch(
-            "shutil.move"
-        ) as _, patch("viseron.domains.camera.recorder.sleep"):
+        with (
+            patch.object(recorder._storage, "get_session") as mock_get_session,
+            patch("shutil.move") as _,
+            patch("viseron.domains.camera.recorder.sleep"),
+        ):
             mock_get_session.return_value = get_db_session()
 
             result = recorder._concatenate_fragments(recording)

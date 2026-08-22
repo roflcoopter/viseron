@@ -7,24 +7,22 @@ import logging
 import os
 import shutil
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from time import sleep
 from typing import TYPE_CHECKING, Any, TypedDict
 
 import cv2
-import numpy as np
 from sqlalchemy import delete, func, insert, select, update
-from sqlalchemy.orm import Session
 
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import Recordings
 from viseron.components.storage.queries import get_recording_fragments
 from viseron.const import CAMERA_SEGMENT_DURATION
 from viseron.domains.camera.fragmenter import Fragment
-from viseron.domains.object_detector.detected_object import DetectedObject
+from viseron.domains.camera.schedule import resolve_timezone
 from viseron.events import EventData
 from viseron.helpers import create_directory, draw_objects, get_utc_offset, utcnow
+from viseron.helpers.validators import UNDEFINED
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
@@ -35,6 +33,7 @@ from .const import (
     CONFIG_MAX_RECORDING_TIME,
     CONFIG_RECORDER,
     CONFIG_SAVE_TO_DISK,
+    CONFIG_SCHEDULE,
     CONFIG_THUMBNAIL,
     DEFAULT_LOOKBACK,
     DOMAIN,
@@ -44,12 +43,19 @@ from .const import (
 )
 from .entity.binary_sensor import RecorderBinarySensor
 from .entity.image import ThumbnailImage
-from .shared_frames import SharedFrame
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
+    import numpy as np
+    from sqlalchemy.orm import Session
+
     from viseron import Viseron
     from viseron.components.storage.models import TriggerTypes
     from viseron.domains.camera import AbstractCamera, FailedCamera
+    from viseron.domains.object_detector.detected_object import DetectedObject
+
+    from .shared_frames import SharedFrame
 
 
 class RecordingDict(TypedDict):
@@ -141,6 +147,14 @@ class RecorderBase:
         self._camera = camera
 
         self._storage = vis.data[STORAGE_COMPONENT]
+
+        schedule = config.get(CONFIG_RECORDER, {}).get(CONFIG_SCHEDULE)
+        if schedule and schedule != UNDEFINED:
+            self._logger.info(
+                "Recording schedule is configured, evaluating cron "
+                "expressions using timezone: %s",
+                resolve_timezone(schedule),
+            )
 
     def get_recordings(
         self, utc_offset: datetime.timedelta, date=None, subpath: str = ""

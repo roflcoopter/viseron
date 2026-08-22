@@ -9,7 +9,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { deepmerge } from "@mui/utils";
 import { createContext, useCallback, useMemo, useState } from "react";
 
-declare module "@mui/material/styles/createPalette" {
+declare module "@mui/material/styles" {
   interface ColorRange {
     50: string;
     100: string;
@@ -30,9 +30,7 @@ declare module "@mui/material/styles/createPalette" {
     motion: string;
     recording: string;
   }
-}
 
-declare module "@mui/material/styles" {
   interface Theme {
     headerHeight: number;
     headerMargin: string;

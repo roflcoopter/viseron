@@ -333,6 +333,14 @@ export type CameraFaceRecognitionEvent = CameraBaseSnapshotEvent & {
     [key: string]: any;
   };
 };
+export type CameraImageClassificationEvent = CameraBaseSnapshotEvent & {
+  type: "image_classification";
+  data: {
+    camera_identifier: string;
+    label: string;
+    confidence: number;
+  };
+};
 export type CameraLicensePlateRecognitionEvent = CameraBaseSnapshotEvent & {
   type: "license_plate_recognition";
   data: {
@@ -348,6 +356,7 @@ export type CameraEvent =
   | CameraObjectEvent
   | CameraRecordingEvent
   | CameraFaceRecognitionEvent
+  | CameraImageClassificationEvent
   | CameraLicensePlateRecognitionEvent;
 
 export type CameraEvents = {
@@ -357,6 +366,7 @@ export type CameraEvents = {
 export type CameraSnapshotEvent =
   | CameraObjectEvent
   | CameraFaceRecognitionEvent
+  | CameraImageClassificationEvent
   | CameraLicensePlateRecognitionEvent;
 export type CameraSnapshotEvents = Array<CameraSnapshotEvent>;
 
@@ -369,6 +379,7 @@ export type EventsAmount = {
       object?: number;
       recording?: number;
       face_recognition?: number;
+      image_classification?: number;
       license_plate_recognition?: number;
     };
   };

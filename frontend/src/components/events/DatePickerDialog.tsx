@@ -1,6 +1,6 @@
 import Badge from "@mui/material/Badge";
 import Dialog from "@mui/material/Dialog";
-import { PickersDay, PickersDayProps } from "@mui/x-date-pickers/PickersDay";
+import { PickerDay, PickerDayProps } from "@mui/x-date-pickers/PickerDay";
 import { StaticDatePicker } from "@mui/x-date-pickers/StaticDatePicker";
 import {
   DateValidationError,
@@ -14,7 +14,7 @@ import { DATE_FORMAT } from "lib/helpers/dates";
 import * as types from "lib/types";
 
 function HasEvent(
-  props: PickersDayProps & {
+  props: PickerDayProps & {
     highlightedDays?: types.EventsDatesOfInterest["dates_of_interest"];
   },
 ) {
@@ -43,7 +43,7 @@ function HasEvent(
         },
       }}
     >
-      <PickersDay
+      <PickerDay
         // eslint-disable-next-line react/jsx-props-no-spreading
         {...other}
         outsideCurrentMonth={outsideCurrentMonth}

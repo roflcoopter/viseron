@@ -1122,6 +1122,204 @@
                             "default": null
                           }
                         ],
+                        "name": "image_classification",
+                        "description": "Override the default snapshot tiers for image classification. If not set, the default tiers will be used.",
+                        "optional": true,
+                        "default": null
+                      },
+                      {
+                        "type": "map",
+                        "value": [
+                          {
+                            "type": "list",
+                            "values": [
+                              [
+                                {
+                                  "type": "map",
+                                  "value": [
+                                    {
+                                      "type": "float",
+                                      "name": "gb",
+                                      "description": "Min size in GB. Added together with <code>min_mb</code>.",
+                                      "optional": true,
+                                      "default": null
+                                    },
+                                    {
+                                      "type": "float",
+                                      "name": "mb",
+                                      "description": "Min size in MB. Added together with <code>min_gb</code>.",
+                                      "optional": true,
+                                      "default": null
+                                    }
+                                  ],
+                                  "name": "min_size",
+                                  "description": "Minimum size of files to keep in this tier.",
+                                  "optional": true,
+                                  "default": {}
+                                },
+                                {
+                                  "type": "map",
+                                  "value": [
+                                    {
+                                      "type": "float",
+                                      "name": "gb",
+                                      "description": "Max size in GB. Added together with <code>max_mb</code>.",
+                                      "optional": true,
+                                      "default": null
+                                    },
+                                    {
+                                      "type": "float",
+                                      "name": "mb",
+                                      "description": "Max size in MB. Added together with <code>max_gb</code>.",
+                                      "optional": true,
+                                      "default": null
+                                    }
+                                  ],
+                                  "name": "max_size",
+                                  "description": "Maximum size of files to keep in this tier.",
+                                  "optional": true,
+                                  "default": {}
+                                },
+                                {
+                                  "type": "map",
+                                  "value": [
+                                    {
+                                      "type": "integer",
+                                      "name": "days",
+                                      "description": "Max age in days.",
+                                      "optional": true,
+                                      "default": null
+                                    },
+                                    {
+                                      "type": "integer",
+                                      "name": "hours",
+                                      "description": "Max age in hours.",
+                                      "optional": true,
+                                      "default": null
+                                    },
+                                    {
+                                      "type": "integer",
+                                      "name": "minutes",
+                                      "description": "Max age in minutes.",
+                                      "optional": true,
+                                      "default": null
+                                    }
+                                  ],
+                                  "name": "max_age",
+                                  "description": "Maximum age of files to keep in this tier.",
+                                  "optional": true,
+                                  "default": {}
+                                },
+                                {
+                                  "type": "map",
+                                  "value": [
+                                    {
+                                      "type": "integer",
+                                      "name": "days",
+                                      "description": "Min age in days.",
+                                      "optional": true,
+                                      "default": null
+                                    },
+                                    {
+                                      "type": "integer",
+                                      "name": "hours",
+                                      "description": "Min age in hours.",
+                                      "optional": true,
+                                      "default": null
+                                    },
+                                    {
+                                      "type": "integer",
+                                      "name": "minutes",
+                                      "description": "Min age in minutes.",
+                                      "optional": true,
+                                      "default": null
+                                    }
+                                  ],
+                                  "name": "min_age",
+                                  "description": "Minimum age of files to keep in this tier.",
+                                  "optional": true,
+                                  "default": {}
+                                },
+                                {
+                                  "type": "string",
+                                  "name": "path",
+                                  "description": "Path to store files in. Cannot be <code>/tmp</code> or <code>/tmp/viseron</code>.",
+                                  "required": true,
+                                  "default": null
+                                },
+                                {
+                                  "type": "boolean",
+                                  "name": "poll",
+                                  "description": "Poll the file system for new files. Much slower than non-polling but required for some file systems like NTFS mounts.",
+                                  "optional": true,
+                                  "default": false
+                                },
+                                {
+                                  "type": "boolean",
+                                  "name": "move_on_shutdown",
+                                  "description": "Move/delete files to the next tier when Viseron shuts down. Useful to not lose files when shutting down Viseron if using a RAM disk.",
+                                  "optional": true,
+                                  "default": false
+                                },
+                                {
+                                  "type": "boolean",
+                                  "name": "drain",
+                                  "description": "When a tier limit is reached, move all files to the next tier. If disabled, only move the files that exceed the limit. By using drain together with a smaller RAM disk as the first tier, you reduce the stress on storage devices by moving files in larger batches. Note that when using drain together with event recordings, partial moves of files will still occur.",
+                                  "optional": true,
+                                  "default": false
+                                },
+                                {
+                                  "type": "map",
+                                  "value": [
+                                    {
+                                      "type": "integer",
+                                      "valueMin": 0,
+                                      "name": "days",
+                                      "description": "Days between checks for files to move/delete.",
+                                      "optional": true,
+                                      "default": 0
+                                    },
+                                    {
+                                      "type": "integer",
+                                      "valueMin": 0,
+                                      "name": "hours",
+                                      "description": "Hours between checks for files to move/delete.",
+                                      "optional": true,
+                                      "default": 0
+                                    },
+                                    {
+                                      "type": "integer",
+                                      "valueMin": 0,
+                                      "name": "minutes",
+                                      "description": "Minutes between checks for files to move/delete.",
+                                      "optional": true,
+                                      "default": 0
+                                    },
+                                    {
+                                      "type": "integer",
+                                      "valueMin": 0,
+                                      "name": "seconds",
+                                      "description": "Seconds between checks for files to move/delete.",
+                                      "optional": true,
+                                      "default": 0
+                                    }
+                                  ],
+                                  "name": "check_interval",
+                                  "description": "How often to check for files to move to the next tier.",
+                                  "optional": true,
+                                  "default": {
+                                    "minutes": 1
+                                  }
+                                }
+                              ]
+                            ],
+                            "lengthMin": 1,
+                            "name": "tiers",
+                            "description": "Tiers are used to move files between different storage locations. When a file reaches the max age or max size of a tier, it will be moved to the next tier. If the file is already in the last tier, it will be deleted. ",
+                            "required": true,
+                            "default": null
+                          }
+                        ],
                         "name": "object_detector",
                         "description": "Override the default snapshot tiers for object detection. If not set, the default tiers will be used.",
                         "optional": true,
@@ -2364,6 +2562,72 @@
                     "description": "Enable continuous (24/7) recording. Has to be used in combination with <code>continuous</code>, <code>storage > tiers > continuous</code> or the <a href=/components-explorer/components/storage>storage component</a>.",
                     "optional": true,
                     "default": true
+                  },
+                  {
+                    "type": "map",
+                    "value": [
+                      {
+                        "type": "list",
+                        "values": [
+                          [
+                            {
+                              "type": "string",
+                              "name": "start",
+                              "description": "A <a href=https://en.wikipedia.org/wiki/Cron>cron expression</a> for when this schedule entry starts, e.g. <code>0 8 * * mon-fri</code> for 08:00 on weekdays.",
+                              "required": true,
+                              "default": null
+                            },
+                            {
+                              "type": "string",
+                              "name": "end",
+                              "description": "A <a href=https://en.wikipedia.org/wiki/Cron>cron expression</a> for when this schedule entry ends. Can occur 'before' <code>start</code> in the day to span midnight, e.g. <code>start: 0 22 * * *</code>, <code>end: 0 6 * * *</code>.",
+                              "required": true,
+                              "default": null
+                            }
+                          ]
+                        ],
+                        "name": "events",
+                        "description": "Schedule for event recordings. If omitted, event recording is allowed at any time.",
+                        "optional": true,
+                        "default": null
+                      },
+                      {
+                        "type": "list",
+                        "values": [
+                          [
+                            {
+                              "type": "string",
+                              "name": "start",
+                              "description": "A <a href=https://en.wikipedia.org/wiki/Cron>cron expression</a> for when this schedule entry starts, e.g. <code>0 8 * * mon-fri</code> for 08:00 on weekdays.",
+                              "required": true,
+                              "default": null
+                            },
+                            {
+                              "type": "string",
+                              "name": "end",
+                              "description": "A <a href=https://en.wikipedia.org/wiki/Cron>cron expression</a> for when this schedule entry ends. Can occur 'before' <code>start</code> in the day to span midnight, e.g. <code>start: 0 22 * * *</code>, <code>end: 0 6 * * *</code>.",
+                              "required": true,
+                              "default": null
+                            }
+                          ]
+                        ],
+                        "name": "continuous",
+                        "description": "Schedule for continuous recording. If omitted, continuous recording (when <code>continuous_recording</code> is enabled) is allowed at any time.",
+                        "optional": true,
+                        "default": null
+                      },
+                      {
+                        "type": "string",
+                        "name": "timezone",
+                        "description": "An <a href=https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>IANA timezone</a> (e.g. <code>Europe/Stockholm</code>) used to evaluate the schedule's cron expressions. Defaults to the server's own timezone.",
+                        "optional": true,
+                        "default": null
+                      }
+                    ],
+                    "name": "schedule",
+                    "description": "Restrict event and/or continuous recording to specific times of day. If omitted, recording is not restricted by a schedule.",
+                    "optional": true,
+                    "default": null
                   },
                   {
                     "type": "list",

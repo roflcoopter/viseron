@@ -6,17 +6,13 @@ import logging
 import os
 import threading
 import time
-from collections.abc import Callable
 from datetime import timedelta
 from queue import Queue
 from threading import Timer
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
-import numpy as np
 from sqlalchemy import Delete, delete, insert, select, update
 from sqlalchemy.exc import IntegrityError, NoResultFound
-from sqlalchemy.orm import Session
-from sqlalchemy.sql.dml import ReturningDelete
 from watchdog.events import (
     FileCreatedEvent,
     FileDeletedEvent,
@@ -51,6 +47,7 @@ from viseron.components.storage.const import (
     TIER_CATEGORY_RECORDER,
     TIER_SUBCATEGORY_EVENT_CLIPS,
     TIER_SUBCATEGORY_FACE_RECOGNITION,
+    TIER_SUBCATEGORY_IMAGE_CLASSIFICATION,
     TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION,
     TIER_SUBCATEGORY_MOTION_DETECTOR,
     TIER_SUBCATEGORY_OBJECT_DETECTOR,
@@ -89,17 +86,36 @@ from viseron.domains.camera.const import (
     CONFIG_CONTINUOUS_RECORDING,
     CONFIG_RECORDER,
     CONFIG_RETAIN,
+    CONFIG_SCHEDULE,
+    CONFIG_SCHEDULE_CONTINUOUS,
 )
+from viseron.domains.camera.schedule import resolve_timezone
 from viseron.events import Event, EventEmptyData
 from viseron.helpers import utcnow
 from viseron.helpers.named_timer import NamedTimer
+from viseron.helpers.validators import UNDEFINED
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    import numpy as np
+    from sqlalchemy.orm import Session
+    from sqlalchemy.sql.dml import ReturningDelete
+
     from viseron import Viseron
     from viseron.components.storage import Storage
     from viseron.components.webserver import Webserver
     from viseron.domains.camera import AbstractCamera
+
+
+def _src_path(event: FileSystemEvent) -> str:
+    """Return the source path of a watchdog event as a str.
+
+    watchdog types ``src_path`` as ``bytes | str`` because a watched path may be
+    given as bytes. Viseron always schedules str paths, so it is always a str.
+    """
+    return cast("str", event.src_path)
 
 
 class TierHandler(FileSystemEventHandler):
@@ -197,7 +213,7 @@ class TierHandler(FileSystemEventHandler):
         """Return tier base path."""
         return self._tier[CONFIG_PATH]
 
-    def add_file_handler(self, path: str, pattern: str):
+    def add_file_handler(self, path: str, pattern: str) -> None:
         """Add file handler to webserver."""
         self._logger.debug(f"Adding handler for /files{pattern}")
         add_file_handler(
@@ -210,7 +226,7 @@ class TierHandler(FileSystemEventHandler):
             self._subcategory,
         )
 
-    def initialize(self):
+    def initialize(self) -> None:
         """Tier handler specific initialization."""
         self._path = os.path.join(
             self._tier[CONFIG_PATH],
@@ -224,11 +240,7 @@ class TierHandler(FileSystemEventHandler):
         self._max_age = calculate_age(self._tier[CONFIG_MAX_AGE])
         self._min_age = calculate_age(self._tier[CONFIG_MIN_AGE])
 
-        if (
-            self._next_tier is None
-            and not self._max_age
-            and not self._max_bytes
-        ):
+        if self._next_tier is None and not self._max_age and not self._max_bytes:
             self._logger.warning(
                 "Last tier '%s' has no max_age or max_size configured; "
                 "files on this tier will accumulate indefinitely.",
@@ -269,11 +281,26 @@ class TierHandler(FileSystemEventHandler):
             time_since_last_call = now - self._time_of_last_call
             if time_since_last_call < self._throttle_period:
                 return
+            # Claim the in-flight slot before sending. The reply can take tens of
+            # seconds, and every file event in that window would otherwise pass
+            # the guard above and send a duplicate request, each one registering
+            # a callback in the subprocess worker. The subprocess dedupes those
+            # duplicates, so only one reply comes back and the rest of the
+            # callbacks would leak. Marking in-flight here collapses the flood at
+            # the source. Cleared in on_check_tier_result.
+            self._tier_check_in_progress = True
 
-        self._storage.tier_check_worker_send_command(
-            self._create_dataitem(),
-            self.on_check_tier_result,
-        )
+        try:
+            self._storage.tier_check_worker_send_command(
+                self._create_dataitem(),
+                self.on_check_tier_result,
+            )
+        except Exception:
+            # Release the slot if the command never made it out, otherwise this
+            # tier would never be checked again.
+            with self._check_tier_lock:
+                self._tier_check_in_progress = False
+            raise
 
     def _check_tier(self, get_session: Callable[[], Session], data: np.ndarray) -> None:
         files_processed = 0
@@ -298,40 +325,59 @@ class TierHandler(FileSystemEventHandler):
             )
             files_processed += 1
 
+    def _release_check_tier(self) -> None:
+        """Advance the throttle and release the in-flight slot.
+
+        The throttle is advanced on every reply, including no-op replies where
+        data is None (subprocess-side throttling, a check already in progress for
+        the camera, or a job superseded in the dedup queue). Advancing only on
+        replies that carried data would leave _time_of_last_call permanently
+        stale, so a stream of no-op replies would keep the throttle open and let
+        every file event send a fresh request.
+        """
+        with self._check_tier_lock:
+            self._time_of_last_call = utcnow()
+            self._tier_check_in_progress = False
+
     def on_check_tier_result(self, item: DataItem) -> None:
         """Handle the result of the check tier command."""
         if item.error:
             self._logger.error("Error in tier check process: %s", item.error)
 
-        if item.data is None:
+        # No payload to process: the subprocess throttled the job, a check was
+        # already running for this camera, or the job was superseded in the dedup
+        # queue. Release the slot immediately so the next event can send again.
+        if item.data is None or len(item.data) == 0:
+            self._release_check_tier()
             return
 
-        def run():
-            """Run in a thread to not block the output queue handler that calls this."""
-            if item.data is None:
-                return
+        # Bind to a local so the closure below keeps the non-None narrowing.
+        data = item.data
 
-            with self._check_tier_lock:
-                self._tier_check_in_progress = True
+        def run() -> None:
+            """Run in a thread to not block the output queue handler that calls this."""
             try:
                 self._check_tier(
                     self._storage.get_session,
-                    item.data,
+                    data,
                 )
             finally:
-                with self._check_tier_lock:
-                    self._time_of_last_call = utcnow()
-                    self._tier_check_in_progress = False
+                self._release_check_tier()
 
-        RestartableThread(
-            target=run,
-            name=(
-                "storage.tier_handler.check_tier."
-                f"{item.camera_identifier}.{item.tier_id}"
-            ),
-            register=False,
-            daemon=True,
-        ).start()
+        try:
+            RestartableThread(
+                target=run,
+                name=(
+                    "storage.tier_handler.check_tier."
+                    f"{item.camera_identifier}.{item.tier_id}"
+                ),
+                register=False,
+                daemon=True,
+            ).start()
+        except Exception:
+            # The thread never started, so run()'s finally will not fire.
+            self._release_check_tier()
+            raise
 
     def _process_events(self) -> None:
         while True:
@@ -348,14 +394,18 @@ class TierHandler(FileSystemEventHandler):
 
     def on_any_event(self, event: FileSystemEvent) -> None:
         """Handle file system events."""
-        if os.path.basename(event.src_path) in self._storage.ignored_files:
+        src_path = _src_path(event)
+
+        if os.path.basename(src_path) in self._storage.ignored_files:
             return
         self._event_queue.put(event)
 
     def _on_created(self, event: FileCreatedEvent) -> None:
         """Insert into database when file is created."""
-        self._logger.debug("File created: %s", event.src_path)
-        file_meta = self._storage.temporary_files_meta.pop(event.src_path, None)
+        src_path = _src_path(event)
+
+        self._logger.debug("File created: %s", src_path)
+        file_meta = self._storage.temporary_files_meta.pop(src_path, None)
         try:
             with self._storage.get_session() as session:
                 stmt = insert(Files).values(
@@ -364,10 +414,10 @@ class TierHandler(FileSystemEventHandler):
                     camera_identifier=self._camera.identifier,
                     category=self._category,
                     subcategory=self._subcategory,
-                    path=event.src_path,
-                    directory=os.path.dirname(event.src_path),
-                    filename=os.path.basename(event.src_path),
-                    size=os.path.getsize(event.src_path),
+                    path=src_path,
+                    directory=os.path.dirname(src_path),
+                    filename=os.path.basename(src_path),
+                    size=os.path.getsize(src_path),
                     orig_ctime=file_meta.orig_ctime if file_meta else utcnow(),
                     duration=file_meta.duration if file_meta else None,
                 )
@@ -375,7 +425,7 @@ class TierHandler(FileSystemEventHandler):
                 session.commit()
         except IntegrityError:
             self._logger.error(
-                "Failed to insert file %s into database, already exists", event.src_path
+                "Failed to insert file %s into database, already exists", src_path
             )
         else:
             self._vis.dispatch_event(
@@ -388,8 +438,8 @@ class TierHandler(FileSystemEventHandler):
                     camera_identifier=self._camera.identifier,
                     category=self._category,
                     subcategory=self._subcategory,
-                    file_name=os.path.basename(event.src_path),
-                    path=event.src_path,
+                    file_name=os.path.basename(src_path),
+                    path=src_path,
                 ),
                 store=False,
             )
@@ -398,44 +448,45 @@ class TierHandler(FileSystemEventHandler):
 
     def _on_modified(self, event: FileModifiedEvent) -> None:
         """Update database when file is moved."""
+        src_path = _src_path(event)
 
         def _update_size() -> None:
             """Update the size of a file in the database.
 
             Runs in a Timer to avoid spamming updates on duplicate events.
             """
-            self._logger.debug("File modified (delayed event): %s", event.src_path)
-            self._pending_updates.pop(event.src_path, None)
+            self._logger.debug("File modified (delayed event): %s", src_path)
+            self._pending_updates.pop(src_path, None)
             try:
-                size = os.path.getsize(event.src_path)
+                size = os.path.getsize(src_path)
             except FileNotFoundError:
-                self._logger.debug("File not found: %s", event.src_path)
+                self._logger.debug("File not found: %s", src_path)
                 return
 
             with self._storage.get_session() as session:
-                stmt = (
-                    update(Files).where(Files.path == event.src_path).values(size=size)
-                )
+                stmt = update(Files).where(Files.path == src_path).values(size=size)
                 session.execute(stmt)
                 session.commit()
 
             self.check_tier()
 
-        if event.src_path in self._pending_updates:
-            self._pending_updates[event.src_path].cancel()
-        self._pending_updates[event.src_path] = NamedTimer(
+        if src_path in self._pending_updates:
+            self._pending_updates[src_path].cancel()
+        self._pending_updates[src_path] = NamedTimer(
             1,
             _update_size,
-            name=f"update_size for {event.src_path}",
+            name=f"update_size for {src_path}",
             daemon=False,  # We want to wait for the update to finish on shutdown
         )
-        self._pending_updates[event.src_path].start()
+        self._pending_updates[src_path].start()
 
     def _on_deleted(self, event: FileDeletedEvent) -> None:
         """Remove file from database when it is deleted."""
-        self._logger.debug("File deleted: %s", event.src_path)
+        src_path = _src_path(event)
+
+        self._logger.debug("File deleted: %s", src_path)
         with self._storage.get_session() as session:
-            stmt = delete(Files).where(Files.path == event.src_path)
+            stmt = delete(Files).where(Files.path == src_path)
             session.execute(stmt)
             session.commit()
 
@@ -449,8 +500,8 @@ class TierHandler(FileSystemEventHandler):
                 camera_identifier=self._camera.identifier,
                 category=self._category,
                 subcategory=self._subcategory,
-                file_name=os.path.basename(event.src_path),
-                path=event.src_path,
+                file_name=os.path.basename(src_path),
+                path=src_path,
             ),
             store=False,
         )
@@ -544,7 +595,7 @@ class SegmentsTierHandler(TierHandler):
         ]
 
         self._events_enabled = any(self._events_params)
-        self._continuous_enabled = (
+        self._continuous_configured = (
             any(self._continuous_params)
             and self._camera.config[CONFIG_RECORDER][CONFIG_CONTINUOUS_RECORDING]
         )
@@ -564,6 +615,31 @@ class SegmentsTierHandler(TierHandler):
         self.add_file_handler(self._path, rf"{self._path}/(.*.m4s$)")
         self.add_file_handler(self._path, rf"{self._path}/(.*.mp4$)")
 
+    def _continuous_schedule_entries(self) -> list[dict[str, str]] | None:
+        """Return the configured continuous-recording schedule entries, if any.
+
+        None means continuous recording is unrestricted by a schedule (either
+        no schedule is configured, or the schedule doesn't restrict
+        continuous).
+        """
+        schedule = self._camera.config[CONFIG_RECORDER][CONFIG_SCHEDULE]
+        if not schedule or schedule == UNDEFINED:
+            return None
+        entries = schedule[CONFIG_SCHEDULE_CONTINUOUS]
+        if not entries or entries == UNDEFINED:
+            return None
+        return entries
+
+    def _continuous_schedule_timezone(self) -> str | None:
+        """Return the timezone the continuous-recording schedule is evaluated in.
+
+        None when there is no continuous schedule to evaluate.
+        """
+        if self._continuous_schedule_entries() is None:
+            return None
+        schedule = self._camera.config[CONFIG_RECORDER][CONFIG_SCHEDULE]
+        return resolve_timezone(schedule)
+
     def _create_dataitem(self) -> DataItem:
         """Create a DataItem for the check tier command."""
         return DataItem(
@@ -577,7 +653,7 @@ class SegmentsTierHandler(TierHandler):
                 TIER_SUBCATEGORY_EVENT_CLIPS,
             ],
             throttle_period=self._throttle_period,
-            files_enabled=self._continuous_enabled,
+            files_enabled=self._continuous_configured,
             max_bytes=self._continuous_max_bytes,
             min_age=max(
                 self._continuous_min_age,
@@ -591,6 +667,9 @@ class SegmentsTierHandler(TierHandler):
             events_min_age=self._events_min_age,
             events_max_age=self._events_max_age,
             events_min_bytes=self._events_min_bytes,
+            continuous_schedule=self._continuous_schedule_entries(),
+            continuous_schedule_timezone=self._continuous_schedule_timezone(),
+            continuous_lookback_seconds=self._camera.recorder.lookback,
         )
 
     @property
@@ -601,7 +680,7 @@ class SegmentsTierHandler(TierHandler):
     @property
     def continuous_enabled(self) -> bool:
         """Return if continuous is enabled."""
-        return self._continuous_enabled
+        return self._continuous_configured
 
     def _handle_events(
         self,
@@ -639,7 +718,7 @@ class SegmentsTierHandler(TierHandler):
                 file["path"],
                 file["tier_path"],
                 self._logger,
-                force_delete,
+                force_delete=force_delete,
             )
             processed_paths.append(file["path"])
             files_processed += 1
@@ -740,12 +819,12 @@ class SegmentsTierHandler(TierHandler):
     def _check_tier(self, get_session: Callable[[], Session], data: np.ndarray) -> None:
         events_next_tier = None
         recording_ids: list[int] = []
-        if self._events_enabled and not self._continuous_enabled:
+        if self._events_enabled and not self.continuous_enabled:
             events_next_tier = find_next_tier_segments(
                 self._storage, self._tier_id, self._camera, "events"
             )
             recording_ids = self._handle_events(get_session, data, events_next_tier)
-        elif self._continuous_enabled and not self._events_enabled:
+        elif self.continuous_enabled and not self._events_enabled:
             continuous_next_tier = find_next_tier_segments(
                 self._storage, self._tier_id, self._camera, "continuous"
             )
@@ -801,18 +880,20 @@ class SegmentsTierHandler(TierHandler):
 class SnapshotTierHandler(TierHandler):
     """Handle the snapshot tiers."""
 
-    def initialize(self):
+    def initialize(self) -> None:
         """Initialize snapshot tier."""
         super().initialize()
         self.add_file_handler(self._path, rf"{self._path}/(.*.jpg$)")
 
     def _on_deleted(self, event: FileDeletedEvent) -> None:
+        src_path = _src_path(event)
+
         stmt: Delete | ReturningDelete[tuple[int]]
         if self._subcategory == TIER_SUBCATEGORY_MOTION_DETECTOR:
             with self._storage.get_session() as session:
                 stmt = (
                     delete(Motion)
-                    .where(Motion.snapshot_path == event.src_path)
+                    .where(Motion.snapshot_path == src_path)
                     .returning(Motion.id)
                 )
                 result = session.execute(stmt)
@@ -828,17 +909,18 @@ class SnapshotTierHandler(TierHandler):
 
         elif self._subcategory == TIER_SUBCATEGORY_OBJECT_DETECTOR:
             with self._storage.get_session() as session:
-                stmt = delete(Objects).where(Objects.snapshot_path == event.src_path)
+                stmt = delete(Objects).where(Objects.snapshot_path == src_path)
                 session.execute(stmt)
                 session.commit()
 
         elif self._subcategory in [
             TIER_SUBCATEGORY_FACE_RECOGNITION,
+            TIER_SUBCATEGORY_IMAGE_CLASSIFICATION,
             TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION,
         ]:
             with self._storage.get_session() as session:
                 stmt = delete(PostProcessorResults).where(
-                    PostProcessorResults.snapshot_path == event.src_path
+                    PostProcessorResults.snapshot_path == src_path
                 )
                 session.execute(stmt)
                 session.commit()
@@ -849,7 +931,7 @@ class SnapshotTierHandler(TierHandler):
 class ThumbnailTierHandler(TierHandler):
     """Handle thumbnails."""
 
-    def initialize(self):
+    def initialize(self) -> None:
         """Initialize thumbnail tier."""
         self._path = get_thumbnails_path(self._tier, self._camera)
         self.add_file_handler(self._path, rf"{self._path}/(.*.jpg$)")
@@ -859,21 +941,21 @@ class ThumbnailTierHandler(TierHandler):
         """Do nothing, as we don't want to move thumbnails."""
 
     def _on_created(self, event: FileCreatedEvent) -> None:
+        src_path = _src_path(event)
+
         try:
             with self._storage.get_session() as session:
                 stmt = (
                     update(Recordings)
-                    .where(
-                        Recordings.id == os.path.basename(event.src_path).split(".")[0]
-                    )
-                    .values(thumbnail_path=event.src_path)
+                    .where(Recordings.id == os.path.basename(src_path).split(".")[0])
+                    .values(thumbnail_path=src_path)
                 )
                 session.execute(stmt)
                 session.commit()
-        except Exception as error:  # pylint: disable=broad-except
+        except Exception as error:  # pylint: disable=broad-except # noqa: BLE001
             self._logger.error(
                 "Failed to update thumbnail path for recording with path: "
-                f"{event.src_path}: {error}"
+                f"{src_path}: {error}"
             )
         super()._on_created(event)
 
@@ -913,7 +995,7 @@ class ThumbnailTierHandler(TierHandler):
 class EventClipTierHandler(TierHandler):
     """Handle event clips created by create_event_clip."""
 
-    def initialize(self):
+    def initialize(self) -> None:
         """Initialize event clips tier."""
         self._path = get_event_clips_path(self._tier, self._camera)
         self.add_file_handler(
@@ -924,6 +1006,8 @@ class EventClipTierHandler(TierHandler):
         """Do nothing, as we move event clips manually."""
 
     def _update_clip_path(self, event: FileCreatedEvent) -> None:
+        src_path = _src_path(event)
+
         try:
             with self._storage.get_session() as session:
                 stmt = (
@@ -931,18 +1015,17 @@ class EventClipTierHandler(TierHandler):
                     .where(Recordings.camera_identifier == self._camera.identifier)
                     .where(
                         Recordings.clip_path.like(
-                            f"%{event.src_path.split('/')[-2]}/"
-                            f"{os.path.basename(event.src_path)}"
+                            f"%{src_path.split('/')[-2]}/{os.path.basename(src_path)}"
                         )
                     )
-                    .values(clip_path=event.src_path)
+                    .values(clip_path=src_path)
                 )
                 session.execute(stmt)
                 session.commit()
-        except Exception as error:  # pylint: disable=broad-except
+        except Exception as error:  # pylint: disable=broad-except # noqa: BLE001
             self._logger.error(
                 "Failed to update clip path for recording with path: "
-                f"{event.src_path}: {error}"
+                f"{src_path}: {error}"
             )
 
     def _on_created(self, event: FileCreatedEvent) -> None:
@@ -1015,6 +1098,7 @@ def handle_file(
     path: str,
     tier_path: str,
     logger: logging.Logger,
+    *,
     force_delete: bool = False,
 ) -> None:
     """Move file if there is a succeeding tier, else delete the file."""
@@ -1080,7 +1164,7 @@ def handle_file(
 def delete_file(
     storage: Storage,
     path: str,
-):
+) -> None:
     """Delete file from storage."""
     storage.tier_check_worker_send_command(
         DataItemDeleteFile(
@@ -1234,7 +1318,7 @@ def add_file_handler(
 class TimelapseTierHandler(TierHandler):
     """Handle timelapse files."""
 
-    def initialize(self):
+    def initialize(self) -> None:
         """Initialize timelapse tier."""
         super().initialize()
 
@@ -1244,6 +1328,8 @@ class TimelapseTierHandler(TierHandler):
 
     def _on_created(self, event: FileCreatedEvent) -> None:
         """Handle file creation with interval-based cleanup."""
+        src_path = _src_path(event)
+
         super()._on_created(event)
 
         # If no interval is set, keep all files
@@ -1254,7 +1340,7 @@ class TimelapseTierHandler(TierHandler):
         try:
             with self._storage.get_session() as session:
                 current_file_stmt = select(Files.orig_ctime).where(
-                    Files.path == event.src_path
+                    Files.path == src_path
                 )
                 current_file_result = session.execute(current_file_stmt).scalar_one()
                 current_file_datetime = current_file_result
@@ -1267,7 +1353,7 @@ class TimelapseTierHandler(TierHandler):
                     Files.camera_identifier == self._camera.identifier,
                     Files.category == self._category,
                     Files.subcategory == self._subcategory,
-                    Files.path != event.src_path,
+                    Files.path != src_path,
                     Files.orig_ctime >= interval_start,
                     Files.orig_ctime <= interval_end,
                 )
@@ -1277,13 +1363,13 @@ class TimelapseTierHandler(TierHandler):
                 if result:
                     self._logger.debug(
                         f"File within interval already exists, removing current file: "
-                        f"{event.src_path}"
+                        f"{src_path}"
                     )
-                    delete_file(self._storage, event.src_path)
+                    delete_file(self._storage, src_path)
 
-                    delete_stmt = delete(Files).where(Files.path == event.src_path)
+                    delete_stmt = delete(Files).where(Files.path == src_path)
                     session.execute(delete_stmt)
                     session.commit()
 
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:  # pylint: disable=broad-except # noqa: BLE001
             self._logger.error(f"Error during timelapse interval cleanup: {e}")

@@ -52,6 +52,26 @@ const sidebars: SidebarsConfig = {
           label: "User and Group Identifiers",
           href: "/docs/documentation/installation#user-and-group-identifiers",
         },
+        {
+          type: "link",
+          label: "Database",
+          href: "/docs/documentation/installation#database",
+        },
+        {
+          type: "link",
+          label: "Home Assistant App",
+          href: "/docs/documentation/installation#home-assistant-app",
+        },
+        {
+          type: "link",
+          label: "Kubernetes Helm Chart",
+          href: "/docs/documentation/installation#kubernetes-helm-chart",
+        },
+        {
+          type: "link",
+          label: "Unraid",
+          href: "/docs/documentation/installation#unraid",
+        },
       ],
     },
     {

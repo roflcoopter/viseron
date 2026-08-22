@@ -190,6 +190,9 @@ class AbstractCamera(AbstractDomain):
         self.snapshots_face_folder: str = self._storage.get_snapshots_path(
             self, SnapshotDomain.FACE_RECOGNITION
         )
+        self.snapshots_image_classification_folder: str = (
+            self._storage.get_snapshots_path(self, SnapshotDomain.IMAGE_CLASSIFICATION)
+        )
         self.snapshots_license_plate_folder: str = self._storage.get_snapshots_path(
             self, SnapshotDomain.LICENSE_PLATE_RECOGNITION
         )
@@ -524,6 +527,8 @@ class AbstractCamera(AbstractDomain):
             return self.snapshots_object_folder
         if domain is SnapshotDomain.FACE_RECOGNITION:
             return self.snapshots_face_folder
+        if domain is SnapshotDomain.IMAGE_CLASSIFICATION:
+            return self.snapshots_image_classification_folder
         if domain is SnapshotDomain.LICENSE_PLATE_RECOGNITION:
             return self.snapshots_license_plate_folder
         if domain == SnapshotDomain.MOTION_DETECTOR:
@@ -539,6 +544,7 @@ class AbstractCamera(AbstractDomain):
         bbox: tuple[float, float, float, float] | None = None,
         text: str | None = None,
         subfolder: str | None = None,
+        filename: str | None = None,
     ) -> str:
         """Save snapshot to disk."""
         decoded_frame = self.shared_frames.get_decoded_frame_rgb(shared_frame)
@@ -565,7 +571,8 @@ class AbstractCamera(AbstractDomain):
         if subfolder:
             folder = os.path.join(folder, subfolder)
 
-        filename = f"{utcnow().strftime('%Y-%m-%d-%H-%M-%S-')}{uuid4()!s}.jpg"
+        if filename is None:
+            filename = f"{utcnow().strftime('%Y-%m-%d-%H-%M-%S-')}{uuid4()!s}.jpg"
 
         path = os.path.join(folder, filename)
         self._logger.debug(f"Saving snapshot to {path}")

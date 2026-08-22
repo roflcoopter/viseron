@@ -63,6 +63,9 @@ class DataItem:
     events_min_age: datetime.timedelta | None = None
     events_max_age: datetime.timedelta | None = None
     events_min_bytes: int | None = None
+    continuous_schedule: list[dict[str, str]] | None = None
+    continuous_schedule_timezone: str | None = None
+    continuous_lookback_seconds: int = 0
     callback_id: str | None = None
     data: np.ndarray | None = None
     error: str | None = None
@@ -115,22 +118,40 @@ class DedupCheckQueue:
     Deduping on insert bounds the queue to ``N_cameras * N_throttle_keys``
     regardless of how fast jobs are enqueued.
 
+    A superseded job still has a ``callback_id`` registered in the parent's
+    ``_callbacks`` dict, so it is returned on ``output_queue`` with ``data``
+    cleared instead of being silently discarded. Without that acknowledgement
+    the parent would never pop the entry and ``_callbacks`` would grow until it
+    hit MAX_PENDING_CALLBACKS. ``data=None`` makes the reply a no-op for
+    ``on_check_tier_result``, which returns early on a ``None`` payload.
+
     ``file_queue`` is intentionally left as a plain ``Queue``: move_file and
     delete_file are per-file destructive operations and must not be dropped.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        output_queue: Queue[DataItem | DataItemDeleteFile | DataItemMoveFile],
+    ) -> None:
         self._items: OrderedDict[str, DataItem] = OrderedDict()
         self._cond = threading.Condition()
+        self._output_queue = output_queue
 
     def put(self, item: DataItem) -> None:
         """Insert a job, replacing any queued job with the same throttle_key."""
         with self._cond:
             # Drop the stale entry first so the replacement is appended at the
             # tail and processed in arrival order relative to other keys.
-            self._items.pop(item.throttle_key, None)
+            superseded = self._items.pop(item.throttle_key, None)
             self._items[item.throttle_key] = item
             self._cond.notify()
+
+        # Acknowledge the superseded job outside the lock so a full output queue
+        # cannot block new insertions. Only jobs that actually registered a
+        # callback need a reply.
+        if superseded is not None and superseded.callback_id is not None:
+            superseded.data = None
+            self._output_queue.put(superseded)
 
     def get(self, timeout: float | None = None) -> DataItem:
         """Pop the oldest job, blocking up to ``timeout`` seconds.
@@ -401,7 +422,7 @@ def main() -> None:
 
     LOGGER.debug(f"Starting {args.workers} worker threads")
 
-    check_queue = DedupCheckQueue()
+    check_queue = DedupCheckQueue(output_queue)
     file_queue: Queue[DataItemDeleteFile | DataItemMoveFile] = Queue()
 
     dispatcher = RestartableThread(

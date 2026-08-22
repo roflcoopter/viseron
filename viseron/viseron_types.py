@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from viseron.components.data_stream import DataStream
     from viseron.components.discord import DiscordNotifier
     from viseron.components.edgetpu.edgetpu_types import EdgeTPUViseronData
+    from viseron.components.fastalpr.fastalpr_types import FastAlprViseronData
     from viseron.components.go2rtc import Go2RTC
     from viseron.components.gotify import GotifyEventNotifier
     from viseron.components.hailo import Hailo8Detector
@@ -66,6 +67,7 @@ class ViseronData(TypedDict, total=False):
     dlib: dict[Literal["classifier"], KNeighborsClassifier | None]
     discord: DiscordNotifier
     edgetpu: EdgeTPUViseronData
+    fastalpr: FastAlprViseronData
     go2rtc: Go2RTC
     gotify: GotifyEventNotifier
     hailo: dict[Literal["object_detector"], Hailo8Detector]
@@ -118,6 +120,7 @@ class SnapshotDomain(enum.Enum):
     """Snapshot domains."""
 
     FACE_RECOGNITION = "face_recognition"
+    IMAGE_CLASSIFICATION = "image_classification"
     LICENSE_PLATE_RECOGNITION = "license_plate_recognition"
     MOTION_DETECTOR = "motion_detector"
     OBJECT_DETECTOR = "object_detector"
