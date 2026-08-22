@@ -3,11 +3,12 @@
 import logging
 
 from viseron.components.onvif.const import CONFIG_DEVICE
-from viseron.components.webserver.api.v1.actions.onvif.base import (
+from viseron.components.webserver.auth import Role
+
+from .base import (
     ActionsOnvifAPIHandler,
     action_handler,
 )
-from viseron.components.webserver.auth import Role
 
 LOGGER = logging.getLogger(__name__)
 
