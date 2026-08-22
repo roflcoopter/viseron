@@ -26,14 +26,14 @@ from viseron.components.storage.models import TriggerTypes
 from viseron.components.telegram.ptz_control import TelegramPTZ
 from viseron.components.telegram.utils import limit_user_access
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
-from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
-from viseron.domains.camera.const import EVENT_RECORDER_COMPLETE
+from viseron.domains.camera.const import (
+    DOMAIN as CAMERA_DOMAIN,
+    EVENT_RECORDER_COMPLETE,
+)
 from viseron.domains.camera.recorder import EventRecorderData, ManualRecording
 from viseron.exceptions import ComponentNotReady, DomainNotRegisteredError
 from viseron.helpers import escape_string
-from viseron.helpers.logs import (
-    SensitiveInformationFilterTracker,
-)
+from viseron.helpers.logs import SensitiveInformationFilterTracker
 from viseron.helpers.validators import (
     UNDEFINED,
     CameraIdentifier,
@@ -48,7 +48,7 @@ from .const import (
     COMPONENT,
     CONFIG_CAMERAS,
     CONFIG_DETECTION_LABEL,
-    CONFIG_DETECTION_LABEL_DEFAULT,
+    CONFIG_DETECTION_LABELS,
     CONFIG_ONVIF_COMPONENT,
     CONFIG_SEND_MESSAGE,
     CONFIG_SEND_THUMBNAIL,
