@@ -1,4 +1,5 @@
 """Helper class used to store data in files."""
+
 from __future__ import annotations
 
 import json

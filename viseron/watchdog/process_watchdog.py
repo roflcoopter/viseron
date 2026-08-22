@@ -1,4 +1,5 @@
 """Watchdog for long-running processes."""
+
 from __future__ import annotations
 
 import logging

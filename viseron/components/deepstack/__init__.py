@@ -1,4 +1,5 @@
 """DeepStack object detection."""
+
 import logging
 
 import voluptuous as vol

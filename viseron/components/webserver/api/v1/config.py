@@ -1,4 +1,5 @@
 """Config API Handler."""
+
 import logging
 
 from viseron.components.webserver.api.handlers import BaseAPIHandler

@@ -1,4 +1,5 @@
 """Test the query functions."""
+
 import datetime
 
 from sqlalchemy import insert

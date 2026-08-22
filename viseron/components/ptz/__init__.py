@@ -238,7 +238,6 @@ class PTZ:
         @param sleep_after_swing: Time to pause after each swing
         """
         try:
-
             ptz_service = self._ptz_services.get(camera_identifier)
             if ptz_service is None:
                 LOGGER.error(f"No PTZ service for camera {camera_identifier}")

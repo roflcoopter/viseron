@@ -1,4 +1,5 @@
 """Base class for entities tied to a camera."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

@@ -1,4 +1,5 @@
 """Test the TieredFileHandler class."""
+
 # pylint: disable=protected-access
 import os
 import shutil

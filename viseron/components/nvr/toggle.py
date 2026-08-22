@@ -1,4 +1,5 @@
 """Toggle entity to control manual recording for NVR."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

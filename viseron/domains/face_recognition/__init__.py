@@ -86,7 +86,7 @@ class FaceDict:
     coordinates: tuple[int, int, int, int]
     confidence: float | None
     timer: Timer
-    extra_attributes: None | dict[str, Any] = None
+    extra_attributes: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         """Return as dict."""
