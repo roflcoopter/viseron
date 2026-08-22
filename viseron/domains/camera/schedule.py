@@ -72,7 +72,7 @@ def resolve_timezone(schedule: dict[str, Any]) -> str:
 
 
 def schedule_active(
-    entries: list[dict[str, Any]] | None | type[UNDEFINED],
+    entries: list[dict[str, Any]] | type[UNDEFINED] | None,
     timezone: str,
     now: datetime.datetime | None = None,
 ) -> bool:

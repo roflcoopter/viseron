@@ -154,7 +154,7 @@ class AbstractPostProcessor(AbstractDomain):
         )
 
     @property
-    def mask(self) -> None | list:
+    def mask(self) -> list | None:
         """Return post processor mask."""
         return self._mask
 

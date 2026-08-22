@@ -1,4 +1,5 @@
 """Config API Handler."""
+
 import logging
 from http import HTTPStatus
 

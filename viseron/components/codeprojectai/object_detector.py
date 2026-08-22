@@ -1,4 +1,5 @@
 """CodeProject.AI object detector."""
+
 import logging
 
 import codeprojectai.core as cpai

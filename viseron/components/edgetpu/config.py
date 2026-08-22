@@ -1,4 +1,5 @@
 """EdgeTPU configuration specials."""
+
 from __future__ import annotations
 
 import re

@@ -1,6 +1,5 @@
 """Utility functions for Hailo."""
 
-
 import logging
 import multiprocessing as mp
 import os
