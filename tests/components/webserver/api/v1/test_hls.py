@@ -1,4 +1,5 @@
 """Test the HLS API handler."""
+
 from __future__ import annotations
 
 import datetime
@@ -25,21 +26,25 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
         mocked_camera = MockCamera(
             identifier="test", config={CONFIG_RECORDER: {CONFIG_LOOKBACK: 5}}
         )
-        with patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_camera"
+        with (
+            patch(
+                (
+                    "viseron.components.webserver.request_handler.ViseronRequestHandler."
+                    "_get_camera"
+                ),
+                return_value=mocked_camera,
             ),
-            return_value=mocked_camera,
-        ), patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler"
-                "._get_session"
+            patch(
+                (
+                    "viseron.components.webserver.request_handler.ViseronRequestHandler"
+                    "._get_session"
+                ),
+                return_value=self._get_db_session(),
             ),
-            return_value=self._get_db_session(),
-        ), patch(
-            "viseron.components.webserver.api.v1.hls._get_init_file",
-            return_value="/test/init.mp4",
+            patch(
+                "viseron.components.webserver.api.v1.hls._get_init_file",
+                return_value="/test/init.mp4",
+            ),
         ):
             response = self.fetch("/api/v1/hls/test/1/index.m3u8")
         assert response.code == 200
@@ -56,24 +61,29 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
         mocked_camera = MockCamera(
             identifier="test", config={CONFIG_RECORDER: {CONFIG_LOOKBACK: 5}}
         )
-        with patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_camera"
+        with (
+            patch(
+                (
+                    "viseron.components.webserver.request_handler.ViseronRequestHandler."
+                    "_get_camera"
+                ),
+                return_value=mocked_camera,
             ),
-            return_value=mocked_camera,
-        ), patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler"
-                "._get_session"
+            patch(
+                (
+                    "viseron.components.webserver.request_handler.ViseronRequestHandler"
+                    "._get_session"
+                ),
+                return_value=self._get_db_session(),
             ),
-            return_value=self._get_db_session(),
-        ), patch(
-            "viseron.components.webserver.api.v1.hls._get_init_file",
-            return_value="/test/init.mp4",
-        ), patch(
-            "viseron.components.storage.queries.utcnow",
-            return_value=self._now + datetime.timedelta(seconds=3600),
+            patch(
+                "viseron.components.webserver.api.v1.hls._get_init_file",
+                return_value="/test/init.mp4",
+            ),
+            patch(
+                "viseron.components.storage.queries.utcnow",
+                return_value=self._now + datetime.timedelta(seconds=3600),
+            ),
         ):
             response = self.fetch(
                 "/api/v1/hls/test/index.m3u8?start_timestamp="
@@ -98,24 +108,29 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
         mocked_camera = MockCamera(
             identifier="test", config={CONFIG_RECORDER: {CONFIG_LOOKBACK: 5}}
         )
-        with patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_camera"
+        with (
+            patch(
+                (
+                    "viseron.components.webserver.request_handler.ViseronRequestHandler."
+                    "_get_camera"
+                ),
+                return_value=mocked_camera,
             ),
-            return_value=mocked_camera,
-        ), patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler"
-                "._get_session"
+            patch(
+                (
+                    "viseron.components.webserver.request_handler.ViseronRequestHandler"
+                    "._get_session"
+                ),
+                return_value=self._get_db_session(),
             ),
-            return_value=self._get_db_session(),
-        ), patch(
-            "viseron.components.webserver.api.v1.hls._get_init_file",
-            return_value="/test/init.mp4",
-        ), patch(
-            "viseron.components.webserver.api.v1.hls.utcnow",
-            return_value=self._now + datetime.timedelta(seconds=36),
+            patch(
+                "viseron.components.webserver.api.v1.hls._get_init_file",
+                return_value="/test/init.mp4",
+            ),
+            patch(
+                "viseron.components.webserver.api.v1.hls.utcnow",
+                return_value=self._now + datetime.timedelta(seconds=36),
+            ),
         ):
             response = self.fetch(f"/api/v1/hls/test/{recording_id}/index.m3u8")
 
@@ -157,18 +172,21 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
                 )
             session.commit()
 
-        with patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_camera"
+        with (
+            patch(
+                (
+                    "viseron.components.webserver.request_handler.ViseronRequestHandler."
+                    "_get_camera"
+                ),
+                return_value=mocked_camera,
             ),
-            return_value=mocked_camera,
-        ), patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler"
-                "._get_session"
+            patch(
+                (
+                    "viseron.components.webserver.request_handler.ViseronRequestHandler"
+                    "._get_session"
+                ),
+                return_value=self._get_db_session(),
             ),
-            return_value=self._get_db_session(),
         ):
             time_from = 0
             time_to = int((self._now + datetime.timedelta(days=365)).timestamp())
@@ -202,24 +220,29 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
         mocked_camera = MockCamera(
             identifier="test",
         )
-        with patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_camera"
+        with (
+            patch(
+                (
+                    "viseron.components.webserver.request_handler.ViseronRequestHandler."
+                    "_get_camera"
+                ),
+                return_value=mocked_camera,
             ),
-            return_value=mocked_camera,
-        ), patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler"
-                "._get_session"
+            patch(
+                (
+                    "viseron.components.webserver.request_handler.ViseronRequestHandler"
+                    "._get_session"
+                ),
+                return_value=self._get_db_session(),
             ),
-            return_value=self._get_db_session(),
-        ), patch(
-            "viseron.components.webserver.api.v1.hls._get_init_file",
-            return_value="/test/init.mp4",
-        ), patch(
-            "viseron.components.storage.queries.utcnow",
-            return_value=self._simulated_now,
+            patch(
+                "viseron.components.webserver.api.v1.hls._get_init_file",
+                return_value="/test/init.mp4",
+            ),
+            patch(
+                "viseron.components.storage.queries.utcnow",
+                return_value=self._simulated_now,
+            ),
         ):
             response = self.fetch(url)
 
