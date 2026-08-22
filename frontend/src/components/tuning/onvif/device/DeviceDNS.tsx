@@ -24,7 +24,7 @@ import {
   tableCellClasses,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { useToast } from "hooks/UseToast";
 import { useFormChanges } from "hooks/useFormChanges";
@@ -167,12 +167,6 @@ export function DeviceDNS({
       });
     }
   }
-
-  useEffect(() => {
-    if (dns?.FromDHCP !== undefined) {
-      setDNSFromDHCP(dns.FromDHCP);
-    }
-  }, [dns?.FromDHCP]);
 
   // Handlers
   const handleDialogClose = () => {

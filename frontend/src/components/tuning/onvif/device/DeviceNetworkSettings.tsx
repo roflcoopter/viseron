@@ -23,7 +23,7 @@ import {
   tableCellClasses,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { useToast } from "hooks/UseToast";
 import { useFormChanges } from "hooks/useFormChanges";
@@ -122,19 +122,6 @@ export function DeviceNetworkSettings({
     hostnameFromDHCP: false,
     discoveryMode: "",
   });
-
-  // Sync hostnameFromDHCP state with API data
-  useEffect(() => {
-    if (hostnameData?.hostname) {
-      const hostnameFromData = hostnameData.hostname;
-      if (typeof hostnameFromData === "object" && hostnameFromData !== null) {
-        const fromDHCP = (hostnameFromData as { FromDHCP?: boolean }).FromDHCP;
-        if (fromDHCP !== undefined) {
-          setHostnameFromDHCP(fromDHCP);
-        }
-      }
-    }
-  }, [hostnameData]);
 
   // Data extraction for display
   if (networkGatewayData && typeof networkGatewayData === "object") {

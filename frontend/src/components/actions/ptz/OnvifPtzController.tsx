@@ -153,21 +153,6 @@ export function OnvifPtzController({
       : false,
   );
 
-  useEffect(() => {
-    const pan = configData?.user_config?.reverse_pan;
-    if (typeof pan === "boolean" && pan !== reversePan) {
-      setReversePan(pan);
-    }
-    const tilt = configData?.user_config?.reverse_tilt;
-    if (typeof tilt === "boolean" && tilt !== reverseTilt) {
-      setReverseTilt(tilt);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    configData?.user_config?.reverse_pan,
-    configData?.user_config?.reverse_tilt,
-  ]);
-
   // Initialize position when card opens
   useEffect(() => {
     if (isOpen) {

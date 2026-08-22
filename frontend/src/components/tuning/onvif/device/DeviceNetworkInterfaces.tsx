@@ -26,7 +26,7 @@ import {
   tableCellClasses,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { useToast } from "hooks/UseToast";
 import { useFormChanges } from "hooks/useFormChanges";
@@ -71,7 +71,7 @@ export function DeviceNetworkInterfaces({
 
   const interfaces = data?.network_interfaces;
 
-  // Dialog state
+  // Section state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedInterfaceToken, setSelectedInterfaceToken] = useState("");
   const [interfaceEnabled, setInterfaceEnabled] = useState(true);
@@ -183,13 +183,6 @@ export function DeviceNetworkInterfaces({
     loadInterfaceData(firstInterface);
     setDialogOpen(true);
   };
-
-  // Handle interface selection change
-  useEffect(() => {
-    if (selectedInterfaceToken && selectedInterface) {
-      loadInterfaceData(selectedInterface);
-    }
-  }, [selectedInterfaceToken, selectedInterface, loadInterfaceData]);
 
   // IPv4 manual address handlers
   const handleAddIpv4Address = () => {
@@ -390,6 +383,7 @@ export function DeviceNetworkInterfaces({
           </Button>
         </Box>
         <Box rowGap={3} display="flex" flexDirection="column">
+          {/* Interfaces List */}
           {interfaces?.map(
             (iface: {
               token: string;
@@ -580,6 +574,7 @@ export function DeviceNetworkInterfaces({
 
               return (
                 <TableContainer key={iface.token}>
+                  {/* Information Table per Interface */}
                   <Table
                     size="small"
                     sx={{
@@ -602,7 +597,10 @@ export function DeviceNetworkInterfaces({
                               color: "text.secondary",
                             }}
                           >
-                            <Typography variant="body2">
+                            <Typography
+                              variant="body2"
+                              sx={{ whiteSpace: "nowrap" }}
+                            >
                               {item.label}
                             </Typography>
                           </TableCell>
@@ -904,10 +902,7 @@ export function DeviceNetworkInterfaces({
                           onChange={(e) =>
                             setIpv6DHCP(
                               e.target.value as
-                                | "Auto"
-                                | "Stateful"
-                                | "Stateless"
-                                | "Off",
+                                "Auto" | "Stateful" | "Stateless" | "Off",
                             )
                           }
                           label="DHCP Mode"
