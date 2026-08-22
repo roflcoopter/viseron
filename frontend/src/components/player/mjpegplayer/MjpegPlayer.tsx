@@ -93,8 +93,8 @@ export function MjpegPlayer({
   // Disable zoom/pan when loading, camera is disconnected and still loading or has error
   const isZoomPanDisabled: boolean = Boolean(
     isLoading ||
-      (!camera.failed && !(camera as types.Camera).connected) ||
-      !!error,
+    (!camera.failed && !(camera as types.Camera).connected) ||
+    !!error,
   );
 
   const {

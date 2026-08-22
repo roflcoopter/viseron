@@ -339,8 +339,8 @@ class Camera(AbstractCamera):
             )
 
         self._poll_timer = utcnow().timestamp()
-        self._frame_reader = None
-        self._frame_relay = None
+        self._frame_reader: RestartableProcess | None = None
+        self._frame_relay: RestartableThread | None = None
         # Stream must be initialized before super().__init__ is called as it raises
         # FFprobeError/FFprobeTimeout which is caught in setup() and re-raised as
         # DomainNotReady

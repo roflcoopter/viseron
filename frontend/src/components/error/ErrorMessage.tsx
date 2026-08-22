@@ -6,6 +6,7 @@ import Grow from "@mui/material/Grow";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { useState } from "react";
+import { FallbackProps, getErrorMessage } from "react-error-boundary";
 import { useNavigate } from "react-router-dom";
 import ViseronLogo from "svg/viseron-logo.svg?react";
 
@@ -148,15 +149,10 @@ export function ErrorNotFound() {
   );
 }
 
-interface ErrorBoundaryProps {
-  error: Error;
-  resetErrorBoundary: () => void;
-}
-
 export function ErrorBoundaryInner({
   error,
   resetErrorBoundary,
-}: ErrorBoundaryProps) {
+}: FallbackProps) {
   const [isNavigating, setIsNavigating] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
   const navigate = useNavigate();
@@ -216,7 +212,7 @@ export function ErrorBoundaryInner({
                   lineHeight: 1.6,
                 }}
               >
-                {error.message}
+                {getErrorMessage(error)}
               </Typography>
             </Stack>
           </Stack>
@@ -265,7 +261,7 @@ export function ErrorBoundaryInner({
 export function ErrorBoundaryOuter({
   error,
   resetErrorBoundary,
-}: ErrorBoundaryProps) {
+}: FallbackProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
   const navigate = useNavigate();
@@ -325,7 +321,7 @@ export function ErrorBoundaryOuter({
                   lineHeight: 1.6,
                 }}
               >
-                {error.message}
+                {getErrorMessage(error)}
               </Typography>
             </Stack>
           </Stack>

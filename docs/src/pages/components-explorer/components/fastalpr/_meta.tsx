@@ -13,4 +13,3 @@ const ComponentMetadata: Component = {
 };
 
 export default ComponentMetadata;
-

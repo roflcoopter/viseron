@@ -35,6 +35,7 @@ function MutationIconButtonInner<T>(
   React.useEffect(() => {
     let timer: NodeJS.Timeout | null = null;
     if (mutation.isError) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setColor("error");
       timer = setTimeout(() => {
         setColor(colorProp || "default");

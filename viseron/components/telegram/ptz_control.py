@@ -375,7 +375,7 @@ class TelegramPTZ:
             # Encode the image to a memory buffer
             is_success, buffer = cv2.imencode(".png", image)
             if is_success and buffer is not None:
-                io_buf = io.BytesIO(buffer)  # type: ignore[arg-type]
+                io_buf = io.BytesIO(buffer)
                 await update.message.reply_photo(photo=io_buf)
 
         await self._ptz.lissajous_curve_patrol(

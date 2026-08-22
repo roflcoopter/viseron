@@ -6,7 +6,7 @@ import Container from "@mui/material/Container";
 import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import yaml from "js-yaml";
+import { dump as yamlDump } from "js-yaml";
 import { useContext, useRef, useState } from "react";
 
 import { ViseronContext } from "context/ViseronContext";
@@ -140,7 +140,7 @@ function SystemEvents() {
                   overflowX: "auto",
                 }}
               >
-                {yaml.dump(ev)}
+                {yamlDump(ev)}
               </Box>
             </Box>
           ))}

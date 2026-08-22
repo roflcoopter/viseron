@@ -1,4 +1,4 @@
-import { type NetworkFixture, createNetworkFixture } from "@msw/playwright";
+import { type NetworkFixture, defineNetworkFixture } from "@msw/playwright";
 import { test as testBase } from "@playwright/test";
 import { API_BASE_URL, handlers } from "tests/mocks/handlers";
 import { wsHandlers } from "tests/mocks/wsHandlers";
@@ -8,9 +8,19 @@ interface Fixtures {
 }
 
 export const test = testBase.extend<Fixtures>({
-  network: createNetworkFixture({
-    initialHandlers: [...handlers, ...wsHandlers],
-  }),
+  network: [
+    async ({ context }, use) => {
+      const network = defineNetworkFixture({
+        context,
+        handlers: [...handlers, ...wsHandlers],
+      });
+
+      await network.enable();
+      await use(network);
+      await network.disable();
+    },
+    { auto: true },
+  ],
 });
 
 test.beforeEach(async ({ page, context }) => {

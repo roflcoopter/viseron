@@ -36,11 +36,29 @@ export default defineConfig(({ mode }) => {
         },
       }),
     ],
+    resolve: {
+      alias: {
+        // monaco-editor 0.56 remapped its `exports` so the legacy
+        // `monaco-editor/esm/vs/*` paths no longer resolve. monaco-worker-manager
+        // (a transitive dependency of monaco-yaml) is unmaintained and still
+        // imports the old path, so map it to the current one.
+        "monaco-editor/esm/vs/editor/editor.worker.js":
+          "monaco-editor/editor/editor.worker.js",
+      },
+    },
+    legacy: {
+      // Vite 8 switched to Node-style CJS interop, so a default import of a
+      // CommonJS package now yields `module.exports` instead of its `default`
+      // property. `@jy95/material-ui-image` and `react-lazyload` are CJS-only
+      // and export via `exports.default`, so they render as objects without
+      // the pre-Vite 8 interop.
+      inconsistentCjsInterop: true,
+    },
     build: {
       rollupOptions: {
         input: {
-          main: resolve(__dirname, "index.html"),
-          404: resolve(__dirname, "404.html"),
+          main: resolve(import.meta.dirname, "index.html"),
+          404: resolve(import.meta.dirname, "404.html"),
         },
       },
     },

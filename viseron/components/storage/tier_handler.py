@@ -9,7 +9,7 @@ import time
 from datetime import timedelta
 from queue import Queue
 from threading import Timer
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from sqlalchemy import Delete, delete, insert, select, update
 from sqlalchemy.exc import IntegrityError, NoResultFound
@@ -107,6 +107,15 @@ if TYPE_CHECKING:
     from viseron.components.storage import Storage
     from viseron.components.webserver import Webserver
     from viseron.domains.camera import AbstractCamera
+
+
+def _src_path(event: FileSystemEvent) -> str:
+    """Return the source path of a watchdog event as a str.
+
+    watchdog types ``src_path`` as ``bytes | str`` because a watched path may be
+    given as bytes. Viseron always schedules str paths, so it is always a str.
+    """
+    return cast("str", event.src_path)
 
 
 class TierHandler(FileSystemEventHandler):
@@ -385,14 +394,18 @@ class TierHandler(FileSystemEventHandler):
 
     def on_any_event(self, event: FileSystemEvent) -> None:
         """Handle file system events."""
-        if os.path.basename(event.src_path) in self._storage.ignored_files:
+        src_path = _src_path(event)
+
+        if os.path.basename(src_path) in self._storage.ignored_files:
             return
         self._event_queue.put(event)
 
     def _on_created(self, event: FileCreatedEvent) -> None:
         """Insert into database when file is created."""
-        self._logger.debug("File created: %s", event.src_path)
-        file_meta = self._storage.temporary_files_meta.pop(event.src_path, None)
+        src_path = _src_path(event)
+
+        self._logger.debug("File created: %s", src_path)
+        file_meta = self._storage.temporary_files_meta.pop(src_path, None)
         try:
             with self._storage.get_session() as session:
                 stmt = insert(Files).values(
@@ -401,10 +414,10 @@ class TierHandler(FileSystemEventHandler):
                     camera_identifier=self._camera.identifier,
                     category=self._category,
                     subcategory=self._subcategory,
-                    path=event.src_path,
-                    directory=os.path.dirname(event.src_path),
-                    filename=os.path.basename(event.src_path),
-                    size=os.path.getsize(event.src_path),
+                    path=src_path,
+                    directory=os.path.dirname(src_path),
+                    filename=os.path.basename(src_path),
+                    size=os.path.getsize(src_path),
                     orig_ctime=file_meta.orig_ctime if file_meta else utcnow(),
                     duration=file_meta.duration if file_meta else None,
                 )
@@ -412,7 +425,7 @@ class TierHandler(FileSystemEventHandler):
                 session.commit()
         except IntegrityError:
             self._logger.error(
-                "Failed to insert file %s into database, already exists", event.src_path
+                "Failed to insert file %s into database, already exists", src_path
             )
         else:
             self._vis.dispatch_event(
@@ -425,8 +438,8 @@ class TierHandler(FileSystemEventHandler):
                     camera_identifier=self._camera.identifier,
                     category=self._category,
                     subcategory=self._subcategory,
-                    file_name=os.path.basename(event.src_path),
-                    path=event.src_path,
+                    file_name=os.path.basename(src_path),
+                    path=src_path,
                 ),
                 store=False,
             )
@@ -435,44 +448,45 @@ class TierHandler(FileSystemEventHandler):
 
     def _on_modified(self, event: FileModifiedEvent) -> None:
         """Update database when file is moved."""
+        src_path = _src_path(event)
 
         def _update_size() -> None:
             """Update the size of a file in the database.
 
             Runs in a Timer to avoid spamming updates on duplicate events.
             """
-            self._logger.debug("File modified (delayed event): %s", event.src_path)
-            self._pending_updates.pop(event.src_path, None)
+            self._logger.debug("File modified (delayed event): %s", src_path)
+            self._pending_updates.pop(src_path, None)
             try:
-                size = os.path.getsize(event.src_path)
+                size = os.path.getsize(src_path)
             except FileNotFoundError:
-                self._logger.debug("File not found: %s", event.src_path)
+                self._logger.debug("File not found: %s", src_path)
                 return
 
             with self._storage.get_session() as session:
-                stmt = (
-                    update(Files).where(Files.path == event.src_path).values(size=size)
-                )
+                stmt = update(Files).where(Files.path == src_path).values(size=size)
                 session.execute(stmt)
                 session.commit()
 
             self.check_tier()
 
-        if event.src_path in self._pending_updates:
-            self._pending_updates[event.src_path].cancel()
-        self._pending_updates[event.src_path] = NamedTimer(
+        if src_path in self._pending_updates:
+            self._pending_updates[src_path].cancel()
+        self._pending_updates[src_path] = NamedTimer(
             1,
             _update_size,
-            name=f"update_size for {event.src_path}",
+            name=f"update_size for {src_path}",
             daemon=False,  # We want to wait for the update to finish on shutdown
         )
-        self._pending_updates[event.src_path].start()
+        self._pending_updates[src_path].start()
 
     def _on_deleted(self, event: FileDeletedEvent) -> None:
         """Remove file from database when it is deleted."""
-        self._logger.debug("File deleted: %s", event.src_path)
+        src_path = _src_path(event)
+
+        self._logger.debug("File deleted: %s", src_path)
         with self._storage.get_session() as session:
-            stmt = delete(Files).where(Files.path == event.src_path)
+            stmt = delete(Files).where(Files.path == src_path)
             session.execute(stmt)
             session.commit()
 
@@ -486,8 +500,8 @@ class TierHandler(FileSystemEventHandler):
                 camera_identifier=self._camera.identifier,
                 category=self._category,
                 subcategory=self._subcategory,
-                file_name=os.path.basename(event.src_path),
-                path=event.src_path,
+                file_name=os.path.basename(src_path),
+                path=src_path,
             ),
             store=False,
         )
@@ -872,12 +886,14 @@ class SnapshotTierHandler(TierHandler):
         self.add_file_handler(self._path, rf"{self._path}/(.*.jpg$)")
 
     def _on_deleted(self, event: FileDeletedEvent) -> None:
+        src_path = _src_path(event)
+
         stmt: Delete | ReturningDelete[tuple[int]]
         if self._subcategory == TIER_SUBCATEGORY_MOTION_DETECTOR:
             with self._storage.get_session() as session:
                 stmt = (
                     delete(Motion)
-                    .where(Motion.snapshot_path == event.src_path)
+                    .where(Motion.snapshot_path == src_path)
                     .returning(Motion.id)
                 )
                 result = session.execute(stmt)
@@ -893,7 +909,7 @@ class SnapshotTierHandler(TierHandler):
 
         elif self._subcategory == TIER_SUBCATEGORY_OBJECT_DETECTOR:
             with self._storage.get_session() as session:
-                stmt = delete(Objects).where(Objects.snapshot_path == event.src_path)
+                stmt = delete(Objects).where(Objects.snapshot_path == src_path)
                 session.execute(stmt)
                 session.commit()
 
@@ -904,7 +920,7 @@ class SnapshotTierHandler(TierHandler):
         ]:
             with self._storage.get_session() as session:
                 stmt = delete(PostProcessorResults).where(
-                    PostProcessorResults.snapshot_path == event.src_path
+                    PostProcessorResults.snapshot_path == src_path
                 )
                 session.execute(stmt)
                 session.commit()
@@ -925,21 +941,21 @@ class ThumbnailTierHandler(TierHandler):
         """Do nothing, as we don't want to move thumbnails."""
 
     def _on_created(self, event: FileCreatedEvent) -> None:
+        src_path = _src_path(event)
+
         try:
             with self._storage.get_session() as session:
                 stmt = (
                     update(Recordings)
-                    .where(
-                        Recordings.id == os.path.basename(event.src_path).split(".")[0]
-                    )
-                    .values(thumbnail_path=event.src_path)
+                    .where(Recordings.id == os.path.basename(src_path).split(".")[0])
+                    .values(thumbnail_path=src_path)
                 )
                 session.execute(stmt)
                 session.commit()
         except Exception as error:  # pylint: disable=broad-except # noqa: BLE001
             self._logger.error(
                 "Failed to update thumbnail path for recording with path: "
-                f"{event.src_path}: {error}"
+                f"{src_path}: {error}"
             )
         super()._on_created(event)
 
@@ -990,6 +1006,8 @@ class EventClipTierHandler(TierHandler):
         """Do nothing, as we move event clips manually."""
 
     def _update_clip_path(self, event: FileCreatedEvent) -> None:
+        src_path = _src_path(event)
+
         try:
             with self._storage.get_session() as session:
                 stmt = (
@@ -997,18 +1015,17 @@ class EventClipTierHandler(TierHandler):
                     .where(Recordings.camera_identifier == self._camera.identifier)
                     .where(
                         Recordings.clip_path.like(
-                            f"%{event.src_path.split('/')[-2]}/"
-                            f"{os.path.basename(event.src_path)}"
+                            f"%{src_path.split('/')[-2]}/{os.path.basename(src_path)}"
                         )
                     )
-                    .values(clip_path=event.src_path)
+                    .values(clip_path=src_path)
                 )
                 session.execute(stmt)
                 session.commit()
         except Exception as error:  # pylint: disable=broad-except # noqa: BLE001
             self._logger.error(
                 "Failed to update clip path for recording with path: "
-                f"{event.src_path}: {error}"
+                f"{src_path}: {error}"
             )
 
     def _on_created(self, event: FileCreatedEvent) -> None:
@@ -1311,6 +1328,8 @@ class TimelapseTierHandler(TierHandler):
 
     def _on_created(self, event: FileCreatedEvent) -> None:
         """Handle file creation with interval-based cleanup."""
+        src_path = _src_path(event)
+
         super()._on_created(event)
 
         # If no interval is set, keep all files
@@ -1321,7 +1340,7 @@ class TimelapseTierHandler(TierHandler):
         try:
             with self._storage.get_session() as session:
                 current_file_stmt = select(Files.orig_ctime).where(
-                    Files.path == event.src_path
+                    Files.path == src_path
                 )
                 current_file_result = session.execute(current_file_stmt).scalar_one()
                 current_file_datetime = current_file_result
@@ -1334,7 +1353,7 @@ class TimelapseTierHandler(TierHandler):
                     Files.camera_identifier == self._camera.identifier,
                     Files.category == self._category,
                     Files.subcategory == self._subcategory,
-                    Files.path != event.src_path,
+                    Files.path != src_path,
                     Files.orig_ctime >= interval_start,
                     Files.orig_ctime <= interval_end,
                 )
@@ -1344,11 +1363,11 @@ class TimelapseTierHandler(TierHandler):
                 if result:
                     self._logger.debug(
                         f"File within interval already exists, removing current file: "
-                        f"{event.src_path}"
+                        f"{src_path}"
                     )
-                    delete_file(self._storage, event.src_path)
+                    delete_file(self._storage, src_path)
 
-                    delete_stmt = delete(Files).where(Files.path == event.src_path)
+                    delete_stmt = delete(Files).where(Files.path == src_path)
                     session.execute(delete_stmt)
                     session.commit()
 
