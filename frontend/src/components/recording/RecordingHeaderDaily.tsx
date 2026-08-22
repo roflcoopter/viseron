@@ -1,5 +1,4 @@
 import {
-  CarFront,
   DocumentVideo,
   Movement,
   TrashCan,
