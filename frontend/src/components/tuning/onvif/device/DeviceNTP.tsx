@@ -24,7 +24,7 @@ import {
   tableCellClasses,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { useToast } from "hooks/UseToast";
 import { useFormChanges } from "hooks/useFormChanges";
@@ -135,12 +135,6 @@ export function DeviceNTP({
       });
     }
   }
-
-  useEffect(() => {
-    if (ntp?.FromDHCP !== undefined) {
-      setNTPFromDHCP(ntp.FromDHCP);
-    }
-  }, [ntp?.FromDHCP]);
 
   // Handlers
   const handleDialogClose = () => {
