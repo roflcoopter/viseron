@@ -79,6 +79,7 @@ ignore = [
     "PLR0912", ##  https://docs.astral.sh/ruff/rules/too-many-branches/ # Disabled for readability
     "PLR0913", ##  https://docs.astral.sh/ruff/rules/too-many-arguments/ # Disabled for readability
     "PLR0915", ##  https://docs.astral.sh/ruff/rules/too-many-statements/ # Disabled for readability
+    "PLR0917", ##  https://docs.astral.sh/ruff/rules/too-many-positional-arguments/ # Disabled because too much to refactor
     "D107",    ##  https://docs.astral.sh/ruff/rules/undocumented-public-init/ Disabled since we document the class instead of the __init__ method
     "PERF203", ##  https://docs.astral.sh/ruff/rules/try-except-in-loop/ Disabled since it is used extensively with queue operations
     "TRY003",  ##  https://docs.astral.sh/ruff/rules/raise-vanilla-args/ Disabled for simplicity

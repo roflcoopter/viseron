@@ -280,9 +280,11 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
             cmd = [
                 "bash",
                 "-c",
-                f"cat '{init_path}' '{segment_path}' | "
-                f"ffmpeg -skip_frame nokey -i pipe:0 -frames:v 1 "
-                f"-update true -f mjpeg '{tmp_frame_path}' -y",
+                (
+                    f"cat '{init_path}' '{segment_path}' | "
+                    f"ffmpeg -skip_frame nokey -i pipe:0 -frames:v 1 "
+                    f"-update true -f mjpeg '{tmp_frame_path}' -y"
+                ),
             ]
 
             result = sp.run(
