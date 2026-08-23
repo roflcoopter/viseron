@@ -98,7 +98,7 @@ if TYPE_CHECKING:
     from viseron.domains.motion_detector import AbstractMotionDetector
     from viseron.domains.nvr import AbstractNVR
     from viseron.domains.object_detector import AbstractObjectDetector
-    from viseron.helpers.entity import Entity
+    from viseron.helpers.entity import Entity, EntityT
 
 VISERON_SIGNALS = {
     VISERON_SIGNAL_SHUTDOWN: "viseron/signal/shutdown",
@@ -628,10 +628,10 @@ class Viseron:
     def add_entity(
         self,
         component: str,
-        entity: Entity,
+        entity: EntityT,
         domain: SupportedDomains | None = None,
         identifier: str | None = None,
-    ) -> Entity:
+    ) -> EntityT:
         """Add entity to states registry."""
         component_instance = self.data[LOADED].get(component, None)
         if not component_instance:

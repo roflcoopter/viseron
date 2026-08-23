@@ -82,6 +82,8 @@ from .shared_frames import SharedFrames
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    import numpy as np
+
     from viseron import Viseron
     from viseron.components.nvr.nvr import FrameIntervalCalculator
     from viseron.components.storage.models import TriggerTypes
@@ -529,18 +531,15 @@ class AbstractCamera(AbstractDomain):
             return self.snapshots_motion_folder
         assert_never(domain)
 
-    def save_snapshot(
+    def build_snapshot_frame(
         self,
         shared_frame: SharedFrame,
-        domain: SnapshotDomain,
         zoom_coordinates: tuple[float, float, float, float] | None = None,
         detected_object: DetectedObject | None = None,
         bbox: tuple[float, float, float, float] | None = None,
         text: str | None = None,
-        subfolder: str | None = None,
-        filename: str | None = None,
-    ) -> str:
-        """Save snapshot to disk."""
+    ) -> np.ndarray:
+        """Build an annotated snapshot frame without writing it to disk."""
         decoded_frame = self.shared_frames.get_decoded_frame_rgb(shared_frame)
         snapshot_frame = decoded_frame
 
@@ -560,6 +559,16 @@ class AbstractCamera(AbstractDomain):
                 crop_correction_factor=1.2,
             )
 
+        return snapshot_frame
+
+    def write_snapshot(
+        self,
+        frame: np.ndarray,
+        domain: SnapshotDomain,
+        subfolder: str | None = None,
+        filename: str | None = None,
+    ) -> str:
+        """Write a prepared snapshot frame to disk."""
         folder = self._get_folder(domain)
 
         if subfolder:
@@ -571,8 +580,31 @@ class AbstractCamera(AbstractDomain):
         path = os.path.join(folder, filename)
         self._logger.debug(f"Saving snapshot to {path}")
         create_directory(folder)
-        cv2.imwrite(path, snapshot_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
+        cv2.imwrite(path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
         return path
+
+    def save_snapshot(
+        self,
+        shared_frame: SharedFrame,
+        domain: SnapshotDomain,
+        zoom_coordinates: tuple[float, float, float, float] | None = None,
+        detected_object: DetectedObject | None = None,
+        bbox: tuple[float, float, float, float] | None = None,
+        text: str | None = None,
+        subfolder: str | None = None,
+        filename: str | None = None,
+    ) -> str:
+        """Save snapshot to disk."""
+        snapshot_frame = self.build_snapshot_frame(
+            shared_frame,
+            zoom_coordinates=zoom_coordinates,
+            detected_object=detected_object,
+            bbox=bbox,
+            text=text,
+        )
+        return self.write_snapshot(
+            snapshot_frame, domain, subfolder=subfolder, filename=filename
+        )
 
     def unload(self) -> None:
         """Unload camera."""

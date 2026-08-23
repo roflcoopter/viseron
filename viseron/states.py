@@ -16,7 +16,7 @@ from viseron.helpers.logs import development_warning
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.components import Component
-    from viseron.helpers.entity import Entity
+    from viseron.helpers.entity import Entity, EntityT
     from viseron.viseron_types import SupportedDomains
 
 LOGGER = logging.getLogger(__name__)
@@ -144,10 +144,10 @@ class States:
     def add_entity(
         self,
         component: Component,
-        entity: Entity,
+        entity: EntityT,
         domain: SupportedDomains | None = None,
         identifier: str | None = None,
-    ) -> Entity:
+    ) -> EntityT:
         """Add entity to states registry."""
         with self._registry_lock:
             if not entity.name:

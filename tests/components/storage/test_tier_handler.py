@@ -17,6 +17,7 @@ from viseron.components.storage.const import (
     COMPONENT as STORAGE_COMPONENT,
     CONFIG_DRAIN,
     CONFIG_RECORDER,
+    LATEST_SNAPSHOT_FILENAME,
     TIER_CATEGORY_RECORDER,
     TIER_SUBCATEGORY_SEGMENTS,
 )
@@ -24,7 +25,9 @@ from viseron.components.storage.models import Recordings
 from viseron.components.storage.tier_handler import (
     EventClipTierHandler,
     SegmentsTierHandler,
+    SnapshotTierHandler,
     ThumbnailTierHandler,
+    TierHandler,
     find_next_tier_segments,
     handle_file,
 )
@@ -109,6 +112,19 @@ def test_handle_file_move(mock_move_file: Mock, vis: MockViseron) -> None:
         tier_2_file,
         logger,
     )
+
+
+def test_snapshot_tier_handler_ignores_the_latest_snapshot() -> None:
+    """Test that latest_snapshot.jpg is exempt from the database and tier moves."""
+    tier_handler = SnapshotTierHandler.__new__(SnapshotTierHandler)
+    tier_handler._path = "/snapshots/face_recognition/test_camera"
+    tier_handler._storage = MagicMock(spec=Storage)
+    tier_handler.add_file_handler = MagicMock()  # type: ignore[method-assign]
+
+    with patch.object(TierHandler, "initialize"):
+        tier_handler.initialize()
+
+    tier_handler._storage.ignore_file.assert_called_once_with(LATEST_SNAPSHOT_FILENAME)
 
 
 @dataclass

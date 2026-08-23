@@ -44,6 +44,7 @@ from viseron.components.storage.const import (
     EVENT_CHECK_TIER,
     EVENT_FILE_CREATED,
     EVENT_FILE_DELETED,
+    LATEST_SNAPSHOT_FILENAME,
     TIER_CATEGORY_RECORDER,
     TIER_SUBCATEGORY_EVENT_CLIPS,
     TIER_SUBCATEGORY_FACE_RECOGNITION,
@@ -884,6 +885,7 @@ class SnapshotTierHandler(TierHandler):
         """Initialize snapshot tier."""
         super().initialize()
         self.add_file_handler(self._path, rf"{self._path}/(.*.jpg$)")
+        self._storage.ignore_file(LATEST_SNAPSHOT_FILENAME)
 
     def _on_deleted(self, event: FileDeletedEvent) -> None:
         src_path = _src_path(event)
