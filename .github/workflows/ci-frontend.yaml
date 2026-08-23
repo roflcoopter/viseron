@@ -8,7 +8,7 @@ on:
   pull_request: ~
 
 env:
-  NODE_VERSION: 22
+  NODE_VERSION: 24
 
 defaults:
   run:
