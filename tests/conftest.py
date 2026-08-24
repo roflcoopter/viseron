@@ -27,6 +27,9 @@ if TYPE_CHECKING:
 
     from pytest_postgresql.executor import PostgreSQLExecutor
 
+    from viseron.helpers.entity import EntityT
+    from viseron.viseron_types import SupportedDomains
+
 test_db = factories.postgresql_proc(port=None, dbname="test_db")
 
 
@@ -46,6 +49,7 @@ class MockViseron(Viseron):
         self.mocked_register_domain = self.register_domain
         self.add_entity: MagicMock = MagicMock(
             auto_spec=self.add_entity,
+            side_effect=self._mock_add_entity,
         )
         self.listen_event: MagicMock = MagicMock(
             auto_spec=self.listen_event,
@@ -58,6 +62,17 @@ class MockViseron(Viseron):
         self.register_signal_handler: MagicMock = MagicMock(
             side_effect=self._original_register_signal_handler
         )
+
+    def _mock_add_entity(
+        self,
+        component: str,
+        entity: EntityT,
+        domain: SupportedDomains | None = None,
+        identifier: str | None = None,
+    ) -> EntityT:
+        """Assign vis the way States.add_entity does, without registering."""
+        entity.vis = self
+        return entity
 
 
 @pytest.fixture
