@@ -22,7 +22,6 @@ class SystemAPIHandler(BaseAPIHandler):
 
     async def get_dispatched_events(self) -> None:
         """Return dispatched events."""
-        self._vis.dispatched_events.sort()
         await self.response_success(
-            response={"events": self._vis.dispatched_events},
+            response={"events": sorted(self._vis.dispatched_events)},
         )
