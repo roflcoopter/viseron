@@ -111,7 +111,6 @@ stages:
                   --debug \
                   --tag roflcoopter/viseron:${release_version} \
                   roflcoopter/viseron:${release_version}-amd64 \
-                  roflcoopter/viseron:${release_version}-rpi3 \
                   roflcoopter/viseron:${release_version}-aarch64
 
                 docker buildx imagetools inspect roflcoopter/viseron:${release_version}
@@ -120,7 +119,6 @@ stages:
                   --debug \
                   --tag ghcr.io/roflcoopter/viseron:${release_version} \
                   ghcr.io/roflcoopter/viseron:${release_version}-amd64 \
-                  ghcr.io/roflcoopter/viseron:${release_version}-rpi3 \
                   ghcr.io/roflcoopter/viseron:${release_version}-aarch64
 
                 docker buildx imagetools inspect ghcr.io/roflcoopter/viseron:${release_version}

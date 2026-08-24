@@ -4,7 +4,7 @@ parameters:
     # The base image name without arch prefix, e.g. "viseron".
   - name: architecture
     type: string
-    # One of: amd64, amd64-cuda, aarch64, rpi3
+    # One of: amd64, amd64-cuda, aarch64
   - name: namespace
     type: string
     default: roflcoopter
