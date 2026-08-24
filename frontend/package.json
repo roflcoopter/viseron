@@ -41,7 +41,7 @@
     "axios": "^1.19.0",
     "buffer": "^6.0.3",
     "dayjs": "^1.11.21",
-    "dompurify": "^3.4.13",
+    "dompurify": "^3.4.14",
     "hls.js": "^1.7.0",
     "http-proxy-middleware": "^4.2.0",
     "js-cookie": "^3.0.8",
