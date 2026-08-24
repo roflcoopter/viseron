@@ -12,7 +12,7 @@ import numpy as np
 from telegram import Update
 from telegram.ext import CallbackContext, CommandHandler
 
-from viseron.components.telegram.utils import limit_user_access
+from viseron.components.telegram.utils import limit_user_access, parse_command_args
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.watchdog.thread_watchdog import RestartableThread
 
@@ -239,18 +239,13 @@ class TelegramPTZ:
         When the patrol is stopped, the camera will return to its initial position.
         """
 
-        duration = 5
-        sleep_after_swing = 6
-        step_size = 0.1
-        step_sleep_time = 0.1
-        if context.args:
-            duration = int(context.args[0])
-        if context.args and len(context.args) > 1:
-            sleep_after_swing = int(context.args[1])
-        if context.args and len(context.args) > 2:
-            step_size = float(context.args[2])
-        if context.args and len(context.args) > 3:
-            step_sleep_time = float(context.args[3])
+        duration, sleep_after_swing, step_size, step_sleep_time = parse_command_args(
+            context.args,
+            duration=(int, 5),
+            sleep_after_swing=(int, 6),
+            step_size=(float, 0.1),
+            step_sleep_time=(float, 0.1),
+        )
         await self._ptz.patrol(
             camera_identifier=self._telegram.active_camera_identifier,
             duration=duration,
@@ -330,25 +325,22 @@ class TelegramPTZ:
 
         The resulting Lissajous curve will be displayed as a photo in the chat.
         """
-        pan_amp = 1.0
-        pan_freq = 0.1
-        tilt_amp = 1.0
-        tilt_freq = 0.1
-        phase_shift = np.pi / 2
-        step_sleep_time = 0.1
-
-        if context.args:
-            pan_amp = float(context.args[0])
-        if context.args and len(context.args) > 1:
-            pan_freq = float(context.args[1])
-        if context.args and len(context.args) > 2:
-            tilt_amp = float(context.args[2])
-        if context.args and len(context.args) > 3:
-            tilt_freq = float(context.args[3])
-        if context.args and len(context.args) > 4:
-            phase_shift = float(context.args[4])
-        if context.args and len(context.args) > 5:
-            step_sleep_time = float(context.args[5])
+        (
+            pan_amp,
+            pan_freq,
+            tilt_amp,
+            tilt_freq,
+            phase_shift,
+            step_sleep_time,
+        ) = parse_command_args(
+            context.args,
+            pan_amp=(float, 1.0),
+            pan_freq=(float, 0.1),
+            tilt_amp=(float, 1.0),
+            tilt_freq=(float, 0.1),
+            phase_shift=(float, np.pi / 2),
+            step_sleep_time=(float, 0.1),
+        )
 
         # Generate Lissajous curve for visualization
         t = np.linspace(0, 100, 1000)
