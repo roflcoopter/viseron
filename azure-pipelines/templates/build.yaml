@@ -6,7 +6,6 @@ parameters:
       - amd64
       - amd64-cuda
       - jetson-nano
-      - rpi3
   - name: namespace
     type: string
     default: roflcoopter
