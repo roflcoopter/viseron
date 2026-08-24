@@ -27,8 +27,8 @@ class CamerasAPIHandler(BaseAPIHandler):
 
     async def get_cameras_endpoint(self) -> None:
         """Return cameras."""
-        await self.response_success(response=self._get_cameras())
+        await self.response_success(response=self._get_cameras() or {})
 
     async def get_failed_cameras_endpoint(self) -> None:
         """Return failed cameras."""
-        await self.response_success(response=self._get_failed_cameras())
+        await self.response_success(response=self._get_failed_cameras() or {})
