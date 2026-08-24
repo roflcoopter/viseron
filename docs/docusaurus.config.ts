@@ -7,6 +7,7 @@ const darkCodeTheme = themes.dracula;
 
 const PROJECT = "Viseron";
 const SITE_URL = "https://viseron.netlify.app";
+const DISCORD_URL = "https://discord.gg/MxP5xpyvk7";
 
 const config: Config = {
   title: PROJECT,
@@ -73,6 +74,11 @@ const config: Config = {
           label: "Developers",
         },
         {
+          href: DISCORD_URL,
+          label: "Discord",
+          position: "right",
+        },
+        {
           href: "https://hub.docker.com/r/roflcoopter/viseron/tags",
           label: "Docker Hub",
           position: "right",
@@ -120,8 +126,16 @@ const config: Config = {
           title: "Community",
           items: [
             {
+              label: "Discord",
+              href: DISCORD_URL,
+            },
+            {
               label: "GitHub",
               href: "https://github.com/roflcoopter/viseron",
+            },
+            {
+              label: "GitHub Discussions",
+              href: "https://github.com/roflcoopter/viseron/discussions",
             },
           ],
         },
