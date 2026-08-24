@@ -53,6 +53,9 @@ updates:
         versions: [">=10"]
       - dependency-name: "@eslint/js"
         versions: [">=10"]
+      # typescript-eslint peers typescript <6.1.0.
+      - dependency-name: "typescript"
+        versions: [">=6"]
       # @mui/lab has no stable v8/v9 release yet, it still peers
       # @mui/material ^7.3.11. Bumping any of the core MUI packages on its own
       # breaks npm install with ERESOLVE, so keep them all on v7 until
