@@ -6,12 +6,15 @@ import logging
 from abc import abstractmethod
 from dataclasses import dataclass
 from queue import Empty, Queue
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import voluptuous as vol
 from sqlalchemy import insert
 
-from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
+from viseron.components.storage.const import (
+    COMPONENT as STORAGE_COMPONENT,
+    LATEST_SNAPSHOT_FILENAME,
+)
 from viseron.components.storage.models import PostProcessorResults
 from viseron.const import INSERT, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains import AbstractDomain
@@ -41,6 +44,7 @@ from .const import (
     DESC_LABELS_LOCAL,
     DESC_MASK,
 )
+from .image import PostProcessorSnapshotImage
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -54,7 +58,7 @@ if TYPE_CHECKING:
         EventDetectedObjectsData,
     )
     from viseron.domains.object_detector.zone import Zone
-    from viseron.viseron_types import SupportedDomains
+    from viseron.viseron_types import SnapshotDomain, SupportedDomains
 
 
 LABEL_SCHEMA = vol.Schema([str])
@@ -97,8 +101,15 @@ class PostProcessorFrame:
 class AbstractPostProcessor(AbstractDomain):
     """Abstract Post Processor."""
 
+    domain: ClassVar[SupportedDomains]
+    snapshot_domain: ClassVar[SnapshotDomain]
+
     def __init__(
-        self, vis: Viseron, config: dict[str, Any], camera_identifier: str
+        self,
+        vis: Viseron,
+        component: str,
+        config: dict[str, Any],
+        camera_identifier: str,
     ) -> None:
         self._vis = vis
         self._storage = vis.data[STORAGE_COMPONENT]
@@ -124,6 +135,13 @@ class AbstractPostProcessor(AbstractDomain):
             self._logger.debug("Creating mask")
             self._mask = generate_mask(mask_config)
             self._mask_image = generate_mask_image(self._mask, self._camera.resolution)
+
+        self._latest_snapshot_entity = PostProcessorSnapshotImage(
+            vis, self._camera, self.snapshot_domain
+        )
+        vis.add_entity(
+            component, self._latest_snapshot_entity, self.domain, camera_identifier
+        )
 
         self._kill_received = False
         self._post_processor_queue: Queue[Event[EventDetectedObjectsData]] = Queue(
@@ -223,6 +241,35 @@ class AbstractPostProcessor(AbstractDomain):
     @abstractmethod
     def process(self, post_processor_frame: PostProcessorFrame) -> None:
         """Process frame."""
+
+    def _save_snapshot(
+        self,
+        shared_frame: SharedFrame,
+        *,
+        zoom_coordinates: tuple[float, float, float, float] | None = None,
+        detected_object: DetectedObject | None = None,
+        bbox: tuple[float, float, float, float] | None = None,
+        text: str | None = None,
+        subfolder: str | None = None,
+    ) -> str:
+        """Save a snapshot and update the latest snapshot file and entity."""
+        frame = self._camera.build_snapshot_frame(
+            shared_frame,
+            zoom_coordinates=zoom_coordinates,
+            detected_object=detected_object,
+            bbox=bbox,
+            text=text,
+        )
+        snapshot_path = self._camera.write_snapshot(
+            frame, self.snapshot_domain, subfolder=subfolder
+        )
+        # The latest snapshot always lives in the domain root, never in a subfolder,
+        # so there is exactly one per camera and domain.
+        self._camera.write_snapshot(
+            frame, self.snapshot_domain, filename=LATEST_SNAPSHOT_FILENAME
+        )
+        self._latest_snapshot_entity.update_snapshot(frame, snapshot_path)
+        return snapshot_path
 
     def _insert_result(
         self, domain: SupportedDomains, snapshot_path: str | None, data: dict[str, Any]

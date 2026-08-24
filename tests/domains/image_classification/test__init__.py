@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import numpy as np
 import numpy.typing as npt
 import pytest
 
+from viseron.components.storage.const import LATEST_SNAPSHOT_FILENAME
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.image_classification import (
     AbstractImageClassification,
@@ -34,6 +35,7 @@ if TYPE_CHECKING:
 CAMERA_IDENTIFIER = "test_camera"
 COMPONENT = "test_image_classification"
 SNAPSHOT_PATH = "/snapshots/image_classification/test.jpg"
+LATEST_SNAPSHOT_PATH = f"/snapshots/image_classification/{LATEST_SNAPSHOT_FILENAME}"
 
 
 class ConcreteImageClassification(AbstractImageClassification):
@@ -80,7 +82,8 @@ def patch_restartable_thread() -> Iterator[MagicMock]:
 def fixture_mock_camera(vis: MockViseron) -> MockCamera:
     """Return a registered mock camera with mocked snapshots."""
     camera = MockCamera(vis, identifier=CAMERA_IDENTIFIER)
-    camera.save_snapshot.return_value = SNAPSHOT_PATH
+    # The unique snapshot is written first, the latest snapshot second
+    camera.write_snapshot.side_effect = [SNAPSHOT_PATH, LATEST_SNAPSHOT_PATH]
     return camera
 
 
@@ -137,11 +140,24 @@ class TestAbstractImageClassification:
         with patch.object(post_processor, "_insert_result") as mock_insert_result:
             post_processor.process(_post_processor_frame(mock_shared_frame))
 
-        mock_camera.save_snapshot.assert_called_once_with(
-            mock_shared_frame, SnapshotDomain.IMAGE_CLASSIFICATION
+        mock_camera.build_snapshot_frame.assert_called_once_with(
+            mock_shared_frame,
+            zoom_coordinates=None,
+            detected_object=None,
+            bbox=None,
+            text=None,
         )
+        frame = mock_camera.build_snapshot_frame.return_value
+        assert mock_camera.write_snapshot.call_args_list == [
+            call(frame, SnapshotDomain.IMAGE_CLASSIFICATION, subfolder=None),
+            call(
+                frame,
+                SnapshotDomain.IMAGE_CLASSIFICATION,
+                filename=LATEST_SNAPSHOT_FILENAME,
+            ),
+        ]
         assert mock_insert_result.call_count == 2
-        assert [call.args for call in mock_insert_result.call_args_list] == [
+        assert [args for args, _ in mock_insert_result.call_args_list] == [
             (
                 "image_classification",
                 SNAPSHOT_PATH,
@@ -186,5 +202,8 @@ class TestAbstractImageClassification:
         with patch.object(post_processor, "_insert_result") as mock_insert_result:
             post_processor.process(_post_processor_frame(shared_frame))
 
-        mock_camera.save_snapshot.assert_not_called()
+        # build_snapshot_frame must not run either, otherwise the latest snapshot
+        # would add per-frame work where none was done before
+        mock_camera.build_snapshot_frame.assert_not_called()
+        mock_camera.write_snapshot.assert_not_called()
         mock_insert_result.assert_not_called()

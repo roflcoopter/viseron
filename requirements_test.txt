@@ -1,5 +1,5 @@
 coverage===7.15.4
-filelock==3.32.2
+filelock==3.32.3
 pre-commit==4.6.2
 pylint==4.0.7
 pylint-strict-informational==0.1
@@ -17,7 +17,7 @@ docker==7.2.0
 vulture==2.16
 
 # The following libraries has to be kept in sync with .pre-commit-config.yaml
-ruff==0.16.2
+ruff==0.16.3
 autoflake==2.3.3
 codespell==2.4.3
 flake8==7.3.0
@@ -25,7 +25,7 @@ flake8-comprehensions==3.17.0
 flake8-docstrings==1.7.0
 flake8-noqa==1.5.0
 mccabe==0.7.0
-mypy==2.3.0
+mypy==2.3.1
 pycodestyle==2.14.0
 pydocstyle==6.3.0
 pyflakes==3.4.0

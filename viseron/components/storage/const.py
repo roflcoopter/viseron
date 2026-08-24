@@ -57,6 +57,8 @@ TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION: Final = "license_plate_recognition"
 TIER_SUBCATEGORY_MOTION_DETECTOR: Final = "motion_detector"
 TIER_SUBCATEGORY_TIMELAPSE: Final = "timelapse"
 
+LATEST_SNAPSHOT_FILENAME: Final = "latest_snapshot.jpg"
+
 
 # Storage configuration
 DESC_COMPONENT = "Storage configuration."

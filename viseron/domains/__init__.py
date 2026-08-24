@@ -246,10 +246,12 @@ def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bo
         SLOW_SETUP_WARNING,
         LOGGER.warning,
         args=(
-            f"Setup of domain {entry.domain} "
-            f"with identifier {entry.identifier} "
-            f"for component {entry.component_name} "
-            f"is taking longer than {SLOW_SETUP_WARNING} seconds",
+            (
+                f"Setup of domain {entry.domain} "
+                f"with identifier {entry.identifier} "
+                f"for component {entry.component_name} "
+                f"is taking longer than {SLOW_SETUP_WARNING} seconds"
+            ),
         ),
         name=f"{entry.domain}_{entry.identifier}_slow_setup_warning",
         daemon=True,

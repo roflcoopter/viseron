@@ -116,6 +116,9 @@ class EventFaceDetected(EventData):
 class AbstractFaceRecognition(AbstractPostProcessor):
     """Abstract face recognition."""
 
+    domain = DOMAIN
+    snapshot_domain = SnapshotDomain.FACE_RECOGNITION
+
     def __init__(
         self,
         vis: Viseron,
@@ -125,7 +128,7 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         *,
         generate_entities: bool = True,
     ) -> None:
-        super().__init__(vis, config, camera_identifier)
+        super().__init__(vis, component, config, camera_identifier)
         self._faces: dict[str, FaceDict] = {}
         if generate_entities:
             for face_dir in os.listdir(config[CONFIG_FACE_RECOGNITION_PATH]):
@@ -168,9 +171,8 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         """Save face to disk and database."""
         snapshot_path = None
         if shared_frame:
-            snapshot_path = self._camera.save_snapshot(
+            snapshot_path = self._save_snapshot(
                 shared_frame,
-                SnapshotDomain.FACE_RECOGNITION,
                 zoom_coordinates=calculate_relative_coords(
                     coordinates, self._camera.resolution
                 ),

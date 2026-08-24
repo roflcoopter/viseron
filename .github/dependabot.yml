@@ -53,9 +53,18 @@ updates:
         versions: [">=10"]
       - dependency-name: "@eslint/js"
         versions: [">=10"]
-      # @mui/icons-material v9 peers @mui/material ^9, but @mui/lab has no
-      # stable v9 release yet, which keeps @mui/material on v7.
+      # typescript-eslint peers typescript <6.1.0.
+      - dependency-name: "typescript"
+        versions: [">=6"]
+      # @mui/lab has no stable v8/v9 release yet, it still peers
+      # @mui/material ^7.3.11. Bumping any of the core MUI packages on its own
+      # breaks npm install with ERESOLVE, so keep them all on v7 until
+      # @mui/lab catches up and they can be upgraded together by hand.
+      - dependency-name: "@mui/material"
+        versions: [">=8"]
       - dependency-name: "@mui/icons-material"
+        versions: [">=8"]
+      - dependency-name: "@mui/lab"
         versions: [">=8"]
 
   - package-ecosystem: "npm"

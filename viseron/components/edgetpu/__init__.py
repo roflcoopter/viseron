@@ -154,8 +154,10 @@ def available_devices() -> list[str]:
             [
                 "/usr/bin/python3.9",
                 "-c",
-                "from pycoral.utils.edgetpu import list_edge_tpus;"
-                "print(list_edge_tpus())",
+                (
+                    "from pycoral.utils.edgetpu import list_edge_tpus;"
+                    "print(list_edge_tpus())"
+                ),
             ],
             capture_output=True,
             text=True,

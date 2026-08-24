@@ -140,6 +140,9 @@ class EventPlateDetected(EventData):
 class AbstractLicensePlateRecognition(AbstractPostProcessor):
     """Abstract license plate recognition."""
 
+    domain = DOMAIN
+    snapshot_domain = SnapshotDomain.LICENSE_PLATE_RECOGNITION
+
     def __init__(
         self,
         vis: Viseron,
@@ -147,7 +150,7 @@ class AbstractLicensePlateRecognition(AbstractPostProcessor):
         config: dict[str, Any],
         camera_identifier: str,
     ) -> None:
-        super().__init__(vis, config, camera_identifier)
+        super().__init__(vis, component, config, camera_identifier)
         self._expire_timer: Timer | None = None
         self._plates: dict[str, LicensePlateRecognitionResult] = {}
         vis.add_entity(
@@ -209,9 +212,8 @@ class AbstractLicensePlateRecognition(AbstractPostProcessor):
         """Save plate to disk and database."""
         snapshot_path = None
         if shared_frame:
-            snapshot_path = self._camera.save_snapshot(
-                shared_frame=shared_frame,
-                domain=SnapshotDomain.LICENSE_PLATE_RECOGNITION,
+            snapshot_path = self._save_snapshot(
+                shared_frame,
                 zoom_coordinates=plate.detected_object.rel_coordinates,
                 bbox=plate.rel_coordinates,
                 text=f"{plate.plate} {int(plate.confidence * 100)}%",

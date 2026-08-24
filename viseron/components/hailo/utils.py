@@ -16,7 +16,7 @@ from viseron.domains.object_detector.const import MODEL_CACHE
 LOGGER = logging.getLogger(__name__)
 
 
-def get_hailo_arch() -> None | Literal["hailo8l"] | Literal["hailo8"]:
+def get_hailo_arch() -> Literal["hailo8l", "hailo8"] | None:
     """Return detected Hailo device architecture."""
     cmd = ["hailortcli", "fw-control", "identify"]
     try:

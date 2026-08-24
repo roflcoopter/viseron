@@ -1,7 +1,9 @@
 """Telegram utilities."""
 
 import logging
+from collections.abc import Callable, Sequence
 from functools import wraps
+from typing import Any
 
 from telegram import Update
 from telegram.ext import CallbackContext
@@ -13,6 +15,25 @@ from viseron.components.telegram.const import (
 )
 
 LOGGER = logging.getLogger(__name__)
+
+
+def parse_command_args(
+    args: Sequence[str] | None,
+    /,
+    **params: tuple[Callable[[str], Any], Any],
+) -> list[Any]:
+    """Parse the positional arguments of a Telegram command.
+
+    Each keyword argument is a (converter, default) tuple. The keywords name the
+    parameters for readability and are matched against the arguments supplied in
+    the Telegram message in the order they are given. Arguments that are not
+    supplied fall back to their default.
+    """
+    given = args or []
+    return [
+        converter(given[index]) if index < len(given) else default
+        for index, (converter, default) in enumerate(params.values())
+    ]
 
 
 def limit_user_access(func):
