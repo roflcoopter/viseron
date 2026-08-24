@@ -1,4 +1,4 @@
-import { Cube, LogoGithub } from "@carbon/icons-react";
+import { Cube, LogoDiscord, LogoGithub } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Link from "@mui/material/Link";
 import Typography from "@mui/material/Typography";
@@ -111,6 +111,34 @@ export default function AppFooter() {
               <Cube size={16} />
             </Box>
             Components
+          </Link>
+
+          <Link
+            target="_blank"
+            href="https://discord.gg/MxP5xpyvk7"
+            color={theme.palette.text.secondary}
+            variant="body2"
+            sx={{
+              fontWeight: "medium",
+              display: "flex",
+              alignItems: "center",
+              textDecoration: "none",
+              "&:hover": {
+                textDecoration: "underline",
+              },
+            }}
+          >
+            <Box
+              component="span"
+              sx={{
+                display: "inline-flex",
+                alignItems: "center",
+                marginRight: "5px",
+              }}
+            >
+              <LogoDiscord size={16} />
+            </Box>
+            Discord
           </Link>
         </Box>
       </Box>

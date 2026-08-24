@@ -6,6 +6,12 @@ Viseron is a self-hosted, local only NVR and AI Computer Vision software impleme
 
 The goal of Viseron is to be easy to setup and use, while still being powerful and flexible. It is designed to be run on a local network, with no external dependencies, and no cloud services required.
 
+:::tip Need help or want to chat?
+
+Join the [Viseron Discord server](https://discord.gg/MxP5xpyvk7) to get help with your setup, share tips and follow along with development.
+
+:::
+
 ## Notable features
 
 Viserons features include, but not limited to the following:

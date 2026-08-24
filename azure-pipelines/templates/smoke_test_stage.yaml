@@ -5,7 +5,6 @@ parameters:
       - aarch64
       - amd64
       - amd64-cuda
-      - rpi3
   - name: namespace
     type: string
     default: roflcoopter
