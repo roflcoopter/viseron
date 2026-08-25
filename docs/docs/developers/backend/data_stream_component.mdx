@@ -2,10 +2,47 @@
 title: Data stream
 ---
 
-_Information has not yet been added._
+`data_stream` is the publish/subscribe bus that carries frames, detections and events
+between the different parts of Viseron. It is a core component and is always loaded.
 
-:::info
+Most code does not use it directly. `vis.dispatch_event` / `vis.listen_event` publish and
+subscribe to `event/<name>` topics, and `vis.register_signal_handler` subscribes to the
+shutdown signals.
 
-The developer documentation is still under construction and this page is not complete.
+## Topics
 
-:::
+A topic can be any string. Subscribing to a topic containing `*` matches using
+[fnmatch](https://docs.python.org/3/library/fnmatch.html) semantics, so
+`domain/setup/*/*/*` matches `domain/setup/loaded/camera/camera_1`. A star matches across
+`/` as well.
+
+## Subscriber types
+
+`subscribe_data` accepts four kinds of subscriber, and rejects anything else immediately:
+
+| Subscriber                        | Delivery                                                      |
+| --------------------------------- | ------------------------------------------------------------- |
+| `Callable`                        | Runs on a shared thread pool                                  |
+| `Callable` + `ioloop`             | Scheduled on the given Tornado IOLoop, coroutines are awaited |
+| `queue.Queue`                     | Put on the queue by the consumer thread                       |
+| `tornado.queues.Queue` + `ioloop` | Put on the queue from the given IOLoop                        |
+
+## Ordering
+
+A single consumer thread reads published data and hands it to subscribers, so subscribers
+observe messages in publish order. Callback subscribers are drained one message at a time,
+meaning a subscriber never has two of its own invocations running concurrently.
+
+## Backpressure
+
+Nothing on the bus ever blocks a publisher.
+
+- **Signals** (`viseron/signal/*`) go on their own unbounded queue and are handled before
+  any queued data, so a shutdown signal can never be dropped.
+- **Data** is put on a bounded queue. If it fills, the oldest message is dropped and a warning
+  is logged.
+- **Callback subscribers** each have a bounded backlog. A subscriber that cannot keep up
+  drops its own oldest messages, and is named in the resulting warning, rather than
+  slowing down the rest of the bus.
+- **Queue subscribers** drops the oldest message by using the helper `pop_if_full`.
+  Used primarily by the frame pipeline with `maxsize=1` so slow consumers always works on the newest frame.
