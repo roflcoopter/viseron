@@ -58,8 +58,6 @@ from .const import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    import numpy as np
-
     from viseron import Viseron
     from viseron.domains.camera import AbstractCamera, EventFrameBytesData
     from viseron.domains.camera.recorder import ManualRecording
@@ -99,7 +97,7 @@ def setup(vis: Viseron, config: dict[str, Any], identifier: str) -> bool:
 class EventProcessedFrame(EventData):
     """Processed frame that is sent on EVENT_PROCESSED_FRAME_TOPIC."""
 
-    frame: np.ndarray
+    shared_frame: SharedFrame
     objects_in_fov: list[DetectedObject] | None
     motion_contours: Contours | None
 
@@ -935,9 +933,7 @@ class NVR(AbstractNVR):
                 camera_identifier=self._camera.identifier
             ),
             EventProcessedFrame(
-                frame=self._camera.shared_frames.get_decoded_frame_rgb(
-                    shared_frame
-                ).copy(),
+                shared_frame=shared_frame,
                 objects_in_fov=self._object_detector.objects_in_fov
                 if self._object_detector
                 else None,
