@@ -76,14 +76,12 @@ export function OSDTextsSection({
                 justifyContent: "flex-start",
                 textTransform: "none",
               }}
-              startIcon={
-                osdText.type === "camera" ? (
-                  <Camera size={20} />
-                ) : (
-                  <Video size={20} />
-                )
-              }
             >
+              {osdText.type === "camera" ? (
+                <Camera size={20} style={{ marginRight: 8, flexShrink: 0 }} />
+              ) : (
+                <Video size={20} style={{ marginRight: 8, flexShrink: 0 }} />
+              )}
               <Typography
                 variant="body2"
                 sx={{

@@ -92,7 +92,10 @@ export function LabelsSection({
                   textTransform: "none",
                 }}
               >
-                <IconComponent style={{ marginRight: 8, flexShrink: 0 }} />
+                <IconComponent
+                  size={20}
+                  style={{ marginRight: 8, flexShrink: 0 }}
+                />
                 <Typography
                   variant="body2"
                   sx={{

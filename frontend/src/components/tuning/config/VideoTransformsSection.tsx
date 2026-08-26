@@ -38,13 +38,25 @@ export function VideoTransformsSection({
   const getTransformIcon = (transformType: string) => {
     switch (transformType) {
       case "hflip":
-        return <ReflectHorizontal size={20} />;
+        return (
+          <ReflectHorizontal
+            size={20}
+            style={{ marginRight: 8, flexShrink: 0 }}
+          />
+        );
       case "vflip":
-        return <ReflectVertical size={20} />;
+        return (
+          <ReflectVertical
+            size={20}
+            style={{ marginRight: 8, flexShrink: 0 }}
+          />
+        );
       case "rotate180":
-        return <Rotate180 size={20} />;
+        return (
+          <Rotate180 size={20} style={{ marginRight: 8, flexShrink: 0 }} />
+        );
       default:
-        return <Video size={20} />;
+        return <Video size={20} style={{ marginRight: 8, flexShrink: 0 }} />;
     }
   };
 
@@ -123,8 +135,8 @@ export function VideoTransformsSection({
                 alignItems: "center",
                 textTransform: "none",
               }}
-              startIcon={getTransformIcon(transform.transform)}
             >
+              {getTransformIcon(transform.transform)}
               <Typography
                 variant="body2"
                 sx={{

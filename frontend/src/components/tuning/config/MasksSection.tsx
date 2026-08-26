@@ -64,14 +64,28 @@ export function MasksSection({
               }
               variant={selectedMaskIndex === index ? "contained" : "outlined"}
               fullWidth
-              sx={{ justifyContent: "flex-start" }}
+              sx={{
+                p: 1.5,
+                display: "flex",
+                justifyContent: "flex-start",
+                textTransform: "none",
+              }}
               onClick={() => onMaskClick(index)}
               onContextMenu={(e) => onContextMenu(e, "mask", index)}
               disabled={isDrawingMode || isSaving}
               color="error"
-              startIcon={<Area />}
             >
-              {mask.name || `Mask ${index + 1}`}
+              <Area size={20} style={{ marginRight: 8, flexShrink: 0 }} />
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 500,
+                  flexGrow: 1,
+                  textAlign: "left",
+                }}
+              >
+                {mask.name || `Mask ${index + 1}`}
+              </Typography>
             </Button>
           ))}
         </Box>
