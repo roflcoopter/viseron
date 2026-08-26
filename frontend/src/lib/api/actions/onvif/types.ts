@@ -114,6 +114,32 @@ export type MediaProfilesResponse = {
   profiles: any[];
 };
 
+export type MediaProfileCreateParams = {
+  name: string;
+  token?: string;
+};
+
+export type MediaUri = {
+  Uri?: string;
+  InvalidAfterConnect?: boolean;
+  InvalidAfterReboot?: boolean;
+  Timeout?: string;
+};
+
+export type MediaStreamUriParams = {
+  token?: string;
+  protocol: string;
+  stream_type: string;
+};
+
+export type MediaStreamUriResponse = {
+  stream_uri: MediaUri;
+};
+
+export type MediaSnapshotUriResponse = {
+  snapshot_uri: MediaUri;
+};
+
 // Imaging Types ----------------------------------------------------------------------
 
 export type ImagingSettingsResponse = {
