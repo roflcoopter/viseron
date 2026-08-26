@@ -426,13 +426,17 @@ export function DeviceNetworkInterfaces({
               const infoItems: { label: string; value: string }[] = [];
 
               // General Information
+              if (iface.Info?.Name) {
+                infoItems.push({ label: "Interface", value: iface.Info.Name });
+              }
+              infoItems.push({
+                label: "Token",
+                value: iface.token,
+              });
               infoItems.push({
                 label: "Status",
                 value: iface.Enabled ? "Enabled" : "Disabled",
               });
-              if (iface.Info?.Name) {
-                infoItems.push({ label: "Interface", value: iface.Info.Name });
-              }
               if (iface.Info?.HwAddress) {
                 infoItems.push({
                   label: "MAC Address",
@@ -487,23 +491,34 @@ export function DeviceNetworkInterfaces({
                   infoItems.push({
                     label: "IPv4 Address",
                     value: iface.IPv4.Config.Manual?.map(
-                      (addr) =>
-                        `${addr.Address ?? "N/A"}/${
-                          addr.PrefixLength ?? "N/A"
-                        }`,
+                      (addr) => `${addr.Address ?? "N/A"}`,
+                    ).join(", "),
+                  });
+                  infoItems.push({
+                    label: "Prefix Length",
+                    value: iface.IPv4.Config.Manual?.map(
+                      (addr) => `${addr.PrefixLength ?? "N/A"}`,
                     ).join(", "),
                   });
                 }
                 if (iface.IPv4.Config.LinkLocal) {
                   infoItems.push({
                     label: "IPv4 Address",
-                    value: `${iface.IPv4.Config.LinkLocal.Address ?? "N/A"}/${iface.IPv4.Config.LinkLocal.PrefixLength ?? "N/A"}`,
+                    value: `${iface.IPv4.Config.LinkLocal.Address ?? "N/A"}`,
+                  });
+                  infoItems.push({
+                    label: "Prefix Length",
+                    value: `${iface.IPv4.Config.LinkLocal.PrefixLength ?? "N/A"}`,
                   });
                 }
                 if (iface.IPv4.Config.FromDHCP) {
                   infoItems.push({
                     label: "IPv4 Address",
-                    value: `${iface.IPv4.Config.FromDHCP.Address ?? "N/A"}/${iface.IPv4.Config.FromDHCP.PrefixLength ?? "N/A"}`,
+                    value: `${iface.IPv4.Config.FromDHCP.Address ?? "N/A"}`,
+                  });
+                  infoItems.push({
+                    label: "Prefix Length",
+                    value: `${iface.IPv4.Config.FromDHCP.PrefixLength ?? "N/A"}`,
                   });
                 }
               }
@@ -523,10 +538,13 @@ export function DeviceNetworkInterfaces({
                     infoItems.push({
                       label: "IPv6 Address",
                       value: iface.IPv6.Config.Manual?.map(
-                        (addr) =>
-                          `${addr.Address ?? "N/A"}/${
-                            addr.PrefixLength ?? "N/A"
-                          }`,
+                        (addr) => `${addr.Address ?? "N/A"}`,
+                      ).join(", "),
+                    });
+                    infoItems.push({
+                      label: "Prefix Length",
+                      value: iface.IPv6.Config.Manual?.map(
+                        (addr) => `${addr.PrefixLength ?? "N/A"}`,
                       ).join(", "),
                     });
                   }
@@ -534,10 +552,13 @@ export function DeviceNetworkInterfaces({
                     infoItems.push({
                       label: "IPv6 Address",
                       value: iface.IPv6.Config.LinkLocal?.map(
-                        (addr) =>
-                          `${addr.Address ?? "N/A"}/${
-                            addr.PrefixLength ?? "N/A"
-                          }`,
+                        (addr) => `${addr.Address ?? "N/A"}`,
+                      ).join(", "),
+                    });
+                    infoItems.push({
+                      label: "Prefix Length",
+                      value: iface.IPv6.Config.LinkLocal?.map(
+                        (addr) => `${addr.PrefixLength ?? "N/A"}`,
                       ).join(", "),
                     });
                   }
@@ -545,10 +566,13 @@ export function DeviceNetworkInterfaces({
                     infoItems.push({
                       label: "IPv6 Address",
                       value: iface.IPv6.Config.FromDHCP?.map(
-                        (addr) =>
-                          `${addr.Address ?? "N/A"}/${
-                            addr.PrefixLength ?? "N/A"
-                          }`,
+                        (addr) => `${addr.Address ?? "N/A"}`,
+                      ).join(", "),
+                    });
+                    infoItems.push({
+                      label: "Prefix Length",
+                      value: iface.IPv6.Config.FromDHCP?.map(
+                        (addr) => `${addr.PrefixLength ?? "N/A"}`,
                       ).join(", "),
                     });
                   }
@@ -556,21 +580,18 @@ export function DeviceNetworkInterfaces({
                     infoItems.push({
                       label: "IPv6 Address",
                       value: iface.IPv6.Config.FromRA?.map(
-                        (addr) =>
-                          `${addr.Address ?? "N/A"}/${
-                            addr.PrefixLength ?? "N/A"
-                          }`,
+                        (addr) => `${addr.Address ?? "N/A"}`,
+                      ).join(", "),
+                    });
+                    infoItems.push({
+                      label: "Prefix Length",
+                      value: iface.IPv6.Config.FromRA?.map(
+                        (addr) => `${addr.PrefixLength ?? "N/A"}`,
                       ).join(", "),
                     });
                   }
                 }
               }
-
-              // Token
-              infoItems.push({
-                label: "Token",
-                value: iface.token,
-              });
 
               return (
                 <TableContainer key={iface.token}>

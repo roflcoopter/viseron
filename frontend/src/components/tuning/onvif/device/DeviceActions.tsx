@@ -36,12 +36,13 @@ export function DeviceActions({
     "Perform actions on the ONVIF device. Some cameras may ignore the actions defined here.";
   const toast = useToast();
 
-  const [rebootOpen, setRebootOpen] = useState(false);
-  const [factoryResetOpen, setFactoryResetOpen] = useState(false);
-
   // ONVIF API hooks
   const rebootMutation = useDeviceReboot(cameraIdentifier);
   const factoryResetMutation = useDeviceFactoryReset(cameraIdentifier);
+
+  // Section state
+  const [rebootOpen, setRebootOpen] = useState(false);
+  const [factoryResetOpen, setFactoryResetOpen] = useState(false);
 
   // Handlers
   const handleReboot = () => {
@@ -84,6 +85,7 @@ export function DeviceActions({
         </Box>
       </Box>
       <Box display="flex" flexDirection="column" gap={1}>
+        {/* Reboot */}
         <Button
           variant="contained"
           color="warning"
@@ -106,6 +108,7 @@ export function DeviceActions({
           {rebootMutation.isSuccess ? "Rebooting..." : "Reboot Device"}
         </Button>
 
+        {/* Factory Reset */}
         <Button
           variant="contained"
           color="warning"
@@ -130,6 +133,8 @@ export function DeviceActions({
             : "Factory Reset Device"}
         </Button>
       </Box>
+
+      {/* Reboot Dialog */}
       <Dialog open={rebootOpen} onClose={() => setRebootOpen(false)}>
         <DialogTitle>
           <Stack direction="row" alignItems="center" spacing={1}>
@@ -152,7 +157,7 @@ export function DeviceActions({
             disabled={rebootMutation.isPending}
           >
             {rebootMutation.isPending ? (
-              <CircularProgress enableTrackSlot size={20} />
+              <CircularProgress enableTrackSlot size={24} />
             ) : (
               "Reboot"
             )}
@@ -160,6 +165,7 @@ export function DeviceActions({
         </DialogActions>
       </Dialog>
 
+      {/* Factory Reset Dialog */}
       <Dialog
         open={factoryResetOpen}
         onClose={() => setFactoryResetOpen(false)}

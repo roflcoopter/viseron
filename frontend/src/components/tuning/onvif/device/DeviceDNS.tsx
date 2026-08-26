@@ -435,113 +435,135 @@ export function DeviceDNS({
               </FormControl>
 
               {/* Search Domains */}
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <Typography variant="subtitle2">Search Domains</Typography>
-                {searchDomains.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    No search domains configured.
-                  </Typography>
-                ) : (
-                  searchDomains.map((entry, index) => (
-                    <Box
-                      key={entry.id}
-                      sx={{ display: "flex", gap: 2, alignItems: "center" }}
-                    >
-                      <TextField
-                        fullWidth
-                        label={`Domain #${index + 1}`}
-                        value={entry.domain}
-                        onChange={(e) =>
-                          handleSearchDomainChange(index, e.target.value)
-                        }
-                        disabled={DNSFromDHCP}
-                        placeholder="example.com"
-                      />
-                      <IconButton
-                        onClick={() => handleRemoveSearchDomain(index)}
-                        disabled={DNSFromDHCP}
-                        color="error"
-                      >
-                        <TrashCan size={20} />
-                      </IconButton>
-                    </Box>
-                  ))
-                )}
-                <Button
-                  startIcon={<AddAlt size={16} />}
-                  onClick={handleAddSearchDomain}
-                  variant="outlined"
-                  disabled={DNSFromDHCP}
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  Search Domains
+                </Typography>
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 2,
+                    mt: 2,
+                  }}
                 >
-                  Add Domain
-                </Button>
+                  {searchDomains.length === 0 ? (
+                    <Typography variant="caption" color="text.secondary">
+                      No search domains configured.
+                    </Typography>
+                  ) : (
+                    searchDomains.map((entry, index) => (
+                      <Box
+                        key={entry.id}
+                        sx={{ display: "flex", gap: 2, alignItems: "center" }}
+                      >
+                        <TextField
+                          fullWidth
+                          label={`Domain #${index + 1}`}
+                          value={entry.domain}
+                          onChange={(e) =>
+                            handleSearchDomainChange(index, e.target.value)
+                          }
+                          disabled={DNSFromDHCP}
+                          placeholder="example.com"
+                        />
+                        <IconButton
+                          onClick={() => handleRemoveSearchDomain(index)}
+                          disabled={DNSFromDHCP}
+                          color="error"
+                        >
+                          <TrashCan size={20} />
+                        </IconButton>
+                      </Box>
+                    ))
+                  )}
+                  <Button
+                    startIcon={<AddAlt size={16} />}
+                    onClick={handleAddSearchDomain}
+                    variant="outlined"
+                    disabled={DNSFromDHCP}
+                  >
+                    Add Domain
+                  </Button>
+                </Box>
               </Box>
 
               {/* DNS Servers */}
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <Typography variant="subtitle2">DNS Servers</Typography>
-                {dnsServers.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    No DNS servers configured.
-                  </Typography>
-                ) : (
-                  dnsServers.map((serverEntry, index) => (
-                    <Box
-                      key={serverEntry.id}
-                      sx={{
-                        display: "flex",
-                        gap: 2,
-                        alignItems: "center",
-                      }}
-                    >
-                      <FormControl sx={{ minWidth: 120 }}>
-                        <InputLabel>Type</InputLabel>
-                        <Select
-                          value={serverEntry.type}
-                          label="Type"
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  DNS Servers
+                </Typography>
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 2,
+                    mt: 2,
+                  }}
+                >
+                  {dnsServers.length === 0 ? (
+                    <Typography variant="caption" color="text.secondary">
+                      No DNS servers configured.
+                    </Typography>
+                  ) : (
+                    dnsServers.map((serverEntry, index) => (
+                      <Box
+                        key={serverEntry.id}
+                        sx={{
+                          display: "flex",
+                          gap: 2,
+                          alignItems: "center",
+                        }}
+                      >
+                        <FormControl sx={{ minWidth: 120 }}>
+                          <InputLabel>Type</InputLabel>
+                          <Select
+                            value={serverEntry.type}
+                            label="Type"
+                            onChange={(e) =>
+                              handleServerChange(index, "type", e.target.value)
+                            }
+                            disabled={DNSFromDHCP}
+                          >
+                            <MenuItem value="IPv4">IPv4</MenuItem>
+                            <MenuItem value="IPv6">IPv6</MenuItem>
+                          </Select>
+                        </FormControl>
+                        <TextField
+                          fullWidth
+                          label={`DNS Server #${index + 1}`}
+                          value={serverEntry.server}
                           onChange={(e) =>
-                            handleServerChange(index, "type", e.target.value)
+                            handleServerChange(index, "server", e.target.value)
                           }
                           disabled={DNSFromDHCP}
+                          placeholder={
+                            serverEntry.type === "IPv4"
+                              ? "8.8.8.8"
+                              : serverEntry.type === "IPv6"
+                                ? "2001:4860:4860::8888"
+                                : "Select type first"
+                          }
+                        />
+                        <IconButton
+                          onClick={() => handleRemoveServer(index)}
+                          disabled={DNSFromDHCP}
+                          color="error"
                         >
-                          <MenuItem value="IPv4">IPv4</MenuItem>
-                          <MenuItem value="IPv6">IPv6</MenuItem>
-                        </Select>
-                      </FormControl>
-                      <TextField
-                        fullWidth
-                        label={`DNS Server #${index + 1}`}
-                        value={serverEntry.server}
-                        onChange={(e) =>
-                          handleServerChange(index, "server", e.target.value)
-                        }
-                        disabled={DNSFromDHCP}
-                        placeholder={
-                          serverEntry.type === "IPv4"
-                            ? "8.8.8.8"
-                            : serverEntry.type === "IPv6"
-                              ? "2001:4860:4860::8888"
-                              : "Select type first"
-                        }
-                      />
-                      <IconButton
-                        onClick={() => handleRemoveServer(index)}
-                        disabled={DNSFromDHCP}
-                        color="error"
-                      >
-                        <TrashCan size={20} />
-                      </IconButton>
-                    </Box>
-                  ))
-                )}
-                <Button
-                  startIcon={<AddAlt size={16} />}
-                  onClick={handleAddServer}
-                  variant="outlined"
-                  disabled={DNSFromDHCP}
-                >
-                  Add Server
-                </Button>
+                          <TrashCan size={20} />
+                        </IconButton>
+                      </Box>
+                    ))
+                  )}
+                  <Button
+                    startIcon={<AddAlt size={16} />}
+                    onClick={handleAddServer}
+                    variant="outlined"
+                    disabled={DNSFromDHCP}
+                  >
+                    Add Server
+                  </Button>
+                </Box>
               </Box>
             </Box>
           </DialogContent>

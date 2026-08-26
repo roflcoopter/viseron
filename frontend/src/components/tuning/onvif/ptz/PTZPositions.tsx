@@ -257,7 +257,7 @@ export function PTZPositions({
             >
               <Box display="flex" alignItems="center" gap={1}>
                 <Tooltip
-                  title="RREAD-ONLY: PTZ status information including current position and movement state."
+                  title="READ-ONLY: PTZ status information including current position and movement state."
                   arrow
                   placement="top"
                 >
