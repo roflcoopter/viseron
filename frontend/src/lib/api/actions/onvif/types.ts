@@ -232,6 +232,15 @@ export type PtzConfigurationsResponse = {
   configurations: any[];
 };
 
+export type PtzConfigurationOptionsResponse = {
+  configuration_options: any;
+};
+
+export type PtzConfigurationParams = {
+  configuration: Record<string, any>;
+  force_persistence: boolean;
+};
+
 export type PtzContinuousMoveParams = {
   x_velocity?: number;
   y_velocity?: number;

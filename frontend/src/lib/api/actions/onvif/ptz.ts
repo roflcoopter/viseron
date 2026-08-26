@@ -69,6 +69,61 @@ export function useGetPtzConfigurations(cameraIdentifier: string) {
   });
 }
 
+// Get PTZ Configuration Options
+const CONFIGURATION_OPTIONS = "configuration_options";
+async function getPtzConfigurationOptions(cameraIdentifier: string) {
+  const response = await viseronAPI.get(
+    `${ONVIF_PTZ_BASE_PATH}/${cameraIdentifier}/${CONFIGURATION_OPTIONS}`,
+  );
+  return response.data;
+}
+
+export function useGetPtzConfigurationOptions(cameraIdentifier: string) {
+  return useQuery<
+    onvif_types.PtzConfigurationOptionsResponse,
+    types.APIErrorResponse
+  >({
+    queryKey: [PTZ, CONFIGURATION_OPTIONS, cameraIdentifier],
+    queryFn: () => getPtzConfigurationOptions(cameraIdentifier),
+    enabled: !!cameraIdentifier,
+  });
+}
+
+// PTZ Set Configuration
+const SET_CONFIGURATION = "set_configuration";
+async function ptzSetConfiguration(
+  cameraIdentifier: string,
+  params: onvif_types.PtzConfigurationParams,
+) {
+  const response = await viseronAPI.put(
+    `${ONVIF_PTZ_BASE_PATH}/${cameraIdentifier}/${SET_CONFIGURATION}`,
+    params,
+  );
+  return response.data;
+}
+
+export function usePtzSetConfiguration() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    types.APISuccessResponse,
+    types.APIErrorResponse,
+    {
+      cameraIdentifier: string;
+      params: onvif_types.PtzConfigurationParams;
+    }
+  >({
+    mutationFn: ({ cameraIdentifier, params }) =>
+      ptzSetConfiguration(cameraIdentifier, params),
+
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: [PTZ, CONFIGURATIONS, variables.cameraIdentifier],
+      });
+    },
+  });
+}
+
 // MOVEMENT OPERATIONS ------------------------------------------------------------------
 // //////////////////////////////////////////////////////////////////////////////////////
 

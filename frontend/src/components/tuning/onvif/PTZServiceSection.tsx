@@ -2,7 +2,7 @@ import { Box } from "@mui/material";
 
 import { useGetPtzNodes } from "lib/api/actions/onvif/ptz";
 
-import { PTZMovements, PTZPositions } from "./ptz";
+import { PTZConfiguration, PTZMovements, PTZPositions } from "./ptz";
 
 interface PTZServiceSectionProps {
   cameraIdentifier: string;
@@ -42,6 +42,7 @@ export function PTZServiceSection({
         isError={isError}
         error={error}
       />
+      <PTZConfiguration cameraIdentifier={cameraIdentifier} />
     </Box>
   );
 }

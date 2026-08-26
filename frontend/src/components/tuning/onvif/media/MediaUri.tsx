@@ -36,8 +36,7 @@ export function MediaUri({
   mediaCapabilities,
 }: MediaUriProps) {
   const TITLE = "Media URI";
-  const DESC =
-    "READ-ONLY: List of media stream URIs for snapshot and stream.";
+  const DESC = "READ-ONLY: List of media stream URIs for snapshot and stream.";
 
   // ONVIF API hooks
   const { data, isLoading, isError, error } =

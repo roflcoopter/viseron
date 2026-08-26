@@ -92,10 +92,10 @@ export function PTZMovements({
         isLoading={isLoading}
         isError={isError}
         errorMessage={
-          error?.message || "Failed to load ptz movements information"
+          error?.message || "Failed to load PTZ movements information"
         }
         isEmpty
-        emptyMessage="No ptz capabilities information available"
+        emptyMessage="No PTZ capabilities information available"
         title={TITLE}
       >
         <Box />
