@@ -151,3 +151,20 @@ def test_vainfo_runs(host: testinfra.host.Host, arch: str) -> None:
         f"vainfo did not produce expected output:\nstdout=\n{cmd.stdout}\n"
         f"stderr=\n{cmd.stderr}"
     )
+
+
+def test_ffmpeg_drawtext_smoke_encode(host: testinfra.host.Host) -> None:
+    """Make sure ffmpeg filter ``drawtext`` is working correctly."""
+    cmd = host.run(
+        "/ffmpeg/bin/ffmpeg -hide_banner -nostats "
+        "-f lavfi -i testsrc=duration=1:size=160x120:rate=10 "
+        '-vf "drawtext=text=viseron:x=4:y=4:fontcolor=white:fontsize=16" '
+        "-f null -"
+    )
+    assert cmd.rc == 0, (
+        f"ffmpeg drawtext smoke encode failed: rc={cmd.rc}\n"
+        f"stdout=\n{cmd.stdout}\nstderr=\n{cmd.stderr}"
+    )
+    assert "Fontconfig error" not in cmd.stderr, (
+        f"fontconfig logged errors during drawtext:\nstderr=\n{cmd.stderr}"
+    )
