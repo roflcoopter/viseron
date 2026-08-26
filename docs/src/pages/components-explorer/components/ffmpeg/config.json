@@ -2644,7 +2644,7 @@
                   {
                     "type": "string",
                     "name": "codec",
-                    "description": "FFmpeg video encoder codec, eg <code>h264_nvenc</code>. Defaults to <code>copy</code> except for MJPEG streams where the default is <code>h264</code>.",
+                    "description": "FFmpeg video encoder codec, eg <code>h264_nvenc</code>. Defaults to <code>copy</code>. MJPEG and MPEG-4 Part 2 (<code>mpeg4</code>/<code>mp4v</code>) streams default to <code>h264</code> for browser-compatible recordings.",
                     "optional": true,
                     "default": null
                   },

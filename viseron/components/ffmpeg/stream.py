@@ -313,13 +313,22 @@ class Stream:
         return []
 
     @property
+    def is_mjpeg_stream(self) -> bool:
+        """Return whether the mainstream contains MJPEG video."""
+        return (
+            self._config[CONFIG_STREAM_FORMAT] == "mjpeg"
+            or self._mainstream.codec.lower() == "mjpeg"
+        )
+
+    @property
     def encoder_codec(self) -> str:
         """Return encoder codec set in config."""
         if self._config[CONFIG_RECORDER][CONFIG_RECORDER_CODEC] != UNDEFINED:
             return self._config[CONFIG_RECORDER][CONFIG_RECORDER_CODEC]
-        if self._config[CONFIG_STREAM_FORMAT] == "mjpeg":
+        if self.is_mjpeg_stream or self._mainstream.codec.lower() in ["mpeg4", "mp4v"]:
             self._logger.warning(
-                "MJPEG stream detected. Defaulting to h264 encoder codec. "
+                "Browser-incompatible stream codec detected. Defaulting to h264 "
+                "encoder codec. "
                 "Consider setting `codec: h264` under the cameras `recorder` "
                 "section in your config.yaml to avoid this warning. "
             )
@@ -422,9 +431,7 @@ class Stream:
         causing a delay in the output.
         Using -tune zerolatency eliminates this buffering delay.
         """
-        if self._config[
-            CONFIG_STREAM_FORMAT
-        ] == "mjpeg" and self.encoder_codec.lower() in [
+        if self.is_mjpeg_stream and self.encoder_codec.lower() in [
             "libx264",
             "h264",
         ]:
@@ -438,7 +445,7 @@ class Stream:
         MJPEG streams. Force keyframes at the segment
         duration interval to ensure segments are created.
         """
-        if self._config[CONFIG_STREAM_FORMAT] == "mjpeg":
+        if self.is_mjpeg_stream:
             return [
                 "-force_key_frames",
                 f"expr:gte(t,n_forced*{CAMERA_SEGMENT_DURATION})",
