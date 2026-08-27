@@ -64,6 +64,8 @@ class DownloadAPIHandler(BaseAPIHandler):
             return
 
         safe_filename = os.path.basename(download_token.filename)
+        if any(char in safe_filename for char in ("\r", "\n", '"', "\\")):
+            safe_filename = f"download{ext}"
 
         try:
             file_size = os.path.getsize(download_token.filename)
@@ -71,7 +73,7 @@ class DownloadAPIHandler(BaseAPIHandler):
             self.set_header("Content-Type", ALLOWED_EXTENSIONS[ext])
             self.set_header("Content-Length", file_size)
             self.set_header(
-                "Content-Disposition", f"attachment; filename={safe_filename}"
+                "Content-Disposition", f'attachment; filename="{safe_filename}"'
             )
 
             content = StaticFileHandler.get_content(download_token.filename, None, None)

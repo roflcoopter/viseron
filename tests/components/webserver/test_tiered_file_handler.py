@@ -10,12 +10,48 @@ import tornado.web
 
 from viseron.components.storage import RequestedFilesCount
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT, CONFIG_PATH
-from viseron.components.webserver.tiered_file_handler import TieredFileHandler
+from viseron.components.webserver.tiered_file_handler import (
+    TieredFileHandler,
+    rewrite_tier_hint_path,
+)
 
 from tests.components.webserver.common import TestAppBaseNoAuth
 
 if TYPE_CHECKING:
     from viseron.components.storage import Storage
+
+
+def test_rewrite_tier_hint_path_allows_configured_tiers():
+    """Legitimate HLS hints rewrite first-tier paths onto the actual tier."""
+    rewritten = rewrite_tier_hint_path(
+        "/tmp/viseron/tier1/cam/seg.m4s",
+        "/tmp/viseron/tier1",
+        "/tmp/viseron/tier2",
+        ["/tmp/viseron/tier1", "/tmp/viseron/tier2"],
+    )
+    assert rewritten == "/tmp/viseron/tier2/cam/seg.m4s"
+
+
+def test_rewrite_tier_hint_path_rejects_unconfigured_actual():
+    """A client must not point actual_tier_path at an arbitrary directory."""
+    rewritten = rewrite_tier_hint_path(
+        "/tmp/viseron/tier1/cam/seg.m4s",
+        "/tmp/viseron/tier1",
+        "/etc",
+        ["/tmp/viseron/tier1", "/tmp/viseron/tier2"],
+    )
+    assert rewritten is None
+
+
+def test_rewrite_tier_hint_path_rejects_prefix_trick():
+    """first_tier_path=/tmp must not match /tmp/viseron/... unless /tmp is a tier."""
+    rewritten = rewrite_tier_hint_path(
+        "/tmp/viseron/tier1/cam/seg.m4s",
+        "/tmp",
+        "/etc",
+        ["/tmp/viseron/tier1", "/tmp/viseron/tier2"],
+    )
+    assert rewritten is None
 
 
 class TestTieredFileHandler(TestAppBaseNoAuth):
