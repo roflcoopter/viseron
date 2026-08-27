@@ -555,7 +555,12 @@ class Stream:
         )
 
     def pipe(self) -> RestartablePopen:
-        """Return subprocess pipe for FFmpeg."""
+        """Return subprocess pipe for FFmpeg.
+
+        Called from inside the frame reader process, which is the only holder of
+        a handle on these processes. They are kept in the frame readers process
+        group so that killing it takes them with it.
+        """
         try:
             if self._log_pipe:
                 self._log_pipe.close()
@@ -574,6 +579,7 @@ class Stream:
                 stdin=sp.DEVNULL,
                 stdout=sp.PIPE,
                 stderr=self._log_pipe,
+                start_new_session=False,
             )
 
         return RestartablePopen(
@@ -583,6 +589,7 @@ class Stream:
             stdin=sp.DEVNULL,
             stdout=sp.PIPE,
             stderr=self._log_pipe,
+            start_new_session=False,
         )
 
     def start_pipe(self) -> None:
