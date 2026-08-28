@@ -7,9 +7,10 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from onvif import ONVIFClient  # type: ignore[attr-defined]
+from onvif import ONVIFClient
 
 from .const import (
+    COMPONENT,
     CONFIG_PTZ_HOME_POSITION,
     CONFIG_PTZ_MAX_PAN,
     CONFIG_PTZ_MAX_TILT,
@@ -32,6 +33,7 @@ if TYPE_CHECKING:
     from viseron.domains.camera import AbstractCamera
 
 LOGGER = logging.getLogger(__name__)
+logging.getLogger(COMPONENT).setLevel(logging.CRITICAL)
 
 
 class PTZ:

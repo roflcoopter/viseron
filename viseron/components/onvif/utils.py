@@ -16,7 +16,10 @@ from viseron.components.go2rtc.const import COMPONENT as GO2RTC_COMPONENT
 if TYPE_CHECKING:
     from viseron.domains.camera import AbstractCamera
 
+from .const import COMPONENT
+
 LOGGER = logging.getLogger(__name__)
+logging.getLogger(COMPONENT).setLevel(logging.CRITICAL)
 
 
 def to_dict(zeep_object: Any) -> dict[str, Any] | list[dict[str, Any]]:

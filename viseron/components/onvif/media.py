@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from onvif import ONVIFClient  # type: ignore[attr-defined]
 
 from .const import (
+    COMPONENT,
     CONFIG_AUDIO_BITRATE,
     CONFIG_AUDIO_ENCODER,
     CONFIG_AUDIO_ENCODING,
@@ -35,6 +36,7 @@ if TYPE_CHECKING:
     from viseron.domains.camera import AbstractCamera
 
 LOGGER = logging.getLogger(__name__)
+logging.getLogger(COMPONENT).setLevel(logging.CRITICAL)
 
 
 class Media:
