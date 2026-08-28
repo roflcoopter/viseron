@@ -13,10 +13,11 @@ from onvif import ONVIFOperationException  # type: ignore[attr-defined]
 
 from viseron.components.go2rtc.const import COMPONENT as GO2RTC_COMPONENT
 
+from .const import COMPONENT
+
 if TYPE_CHECKING:
     from viseron.domains.camera import AbstractCamera
 
-from .const import COMPONENT
 
 LOGGER = logging.getLogger(__name__)
 logging.getLogger(COMPONENT).setLevel(logging.CRITICAL)
