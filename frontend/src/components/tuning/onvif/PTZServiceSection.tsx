@@ -1,6 +1,9 @@
 import { Box } from "@mui/material";
 
-import { useGetPtzNodes } from "lib/api/actions/onvif/ptz";
+import {
+  useGetPtzConfigurations,
+  useGetPtzNodes,
+} from "lib/api/actions/onvif/ptz";
 
 import { PTZConfiguration, PTZMovements, PTZPositions } from "./ptz";
 
@@ -19,6 +22,15 @@ export function PTZServiceSection({
     isError,
     error,
   } = useGetPtzNodes(cameraIdentifier);
+
+  const {
+    data: ptzConfigurations,
+    isLoading: isConfigLoading,
+    isError: isConfigError,
+    error: configError,
+  } = useGetPtzConfigurations(cameraIdentifier);
+
+  const canConfig = ptzConfigurations?.configurations?.[0];
 
   return (
     <Box
@@ -42,7 +54,15 @@ export function PTZServiceSection({
         isError={isError}
         error={error}
       />
-      <PTZConfiguration cameraIdentifier={cameraIdentifier} />
+      {canConfig && (
+        <PTZConfiguration
+          ptzConfigurations={ptzConfigurations}
+          cameraIdentifier={cameraIdentifier}
+          isLoading={isConfigLoading}
+          isError={isConfigError}
+          error={configError}
+        />
+      )}
     </Box>
   );
 }

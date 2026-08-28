@@ -23,12 +23,12 @@ import { useMemo, useState } from "react";
 
 import { useToast } from "hooks/UseToast";
 import { useFormChanges } from "hooks/useFormChanges";
-// import { useToast } from "hooks/UseToast";
 import {
   useGetPtzConfigurationOptions,
-  useGetPtzConfigurations,
   usePtzSetConfiguration,
 } from "lib/api/actions/onvif/ptz";
+import * as onvif_types from "lib/api/actions/onvif/types";
+import * as types from "lib/types";
 
 import { QueryWrapper } from "../../config/QueryWrapper";
 
@@ -82,9 +82,19 @@ function getChangedConfiguration(
 
 interface PTZConfigurationProps {
   cameraIdentifier: string;
+  ptzConfigurations?: onvif_types.PtzConfigurationsResponse;
+  isLoading: boolean;
+  isError: boolean;
+  error: types.APIErrorResponse | null;
 }
 
-export function PTZConfiguration({ cameraIdentifier }: PTZConfigurationProps) {
+export function PTZConfiguration({
+  cameraIdentifier,
+  ptzConfigurations,
+  isLoading,
+  isError,
+  error,
+}: PTZConfigurationProps) {
   const TITLE = "PTZ Configuration";
   const DESC =
     "Manage PTZ configuration for the camera; all these configurations will affect PTZ behavior.";
@@ -93,12 +103,6 @@ export function PTZConfiguration({ cameraIdentifier }: PTZConfigurationProps) {
   const toast = useToast();
 
   // ONVIF API hooks
-  const {
-    data: ptzConfigurations,
-    isLoading,
-    isError,
-    error,
-  } = useGetPtzConfigurations(cameraIdentifier);
   const { data: ptzConfigurationOptions } =
     useGetPtzConfigurationOptions(cameraIdentifier);
   const setConfigurationMutation = usePtzSetConfiguration();
@@ -358,7 +362,7 @@ export function PTZConfiguration({ cameraIdentifier }: PTZConfigurationProps) {
                     sx={{
                       py: 1,
                       pl: 0,
-                      width: "75%",
+                      width: "60%",
                       color: "text.secondary",
                     }}
                   >
