@@ -273,15 +273,14 @@ class Stream(FFmpegStream):
                     return None
 
                 if frame_bytes and len(frame_bytes) == self._frame_bytes_size:
-                    shared_frame = SharedFrame(
+                    return SharedFrame(
+                        frame_bytes,
                         self._color_plane_width,
                         self._color_plane_height,
                         self._pixel_format,
                         (self.width, self.height),
                         self._camera_identifier,
                     )
-                    self._camera.shared_frames.create(shared_frame, frame_bytes)
-                    return shared_frame
         except Exception as err:  # pylint: disable=broad-except
             self._logger.error(f"Error reading frame from pipe: {err}")
         return None

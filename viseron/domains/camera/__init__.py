@@ -142,7 +142,7 @@ class AbstractCamera(AbstractDomain):
         self.stopped = Event()
         self.stopped.set()
         self.current_frame: SharedFrame | None = None
-        self.shared_frames = SharedFrames(vis)
+        self.shared_frames = SharedFrames()
         self.frame_bytes_topic = EVENT_FRAME_BYTES_TOPIC.format(
             camera_identifier=self.identifier
         )
