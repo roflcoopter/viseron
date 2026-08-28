@@ -30,8 +30,6 @@ export function PTZServiceSection({
     error: configError,
   } = useGetPtzConfigurations(cameraIdentifier);
 
-  const canConfig = ptzConfigurations?.configurations?.[0];
-
   return (
     <Box
       display="flex"
@@ -54,15 +52,13 @@ export function PTZServiceSection({
         isError={isError}
         error={error}
       />
-      {canConfig && (
-        <PTZConfiguration
-          ptzConfigurations={ptzConfigurations}
-          cameraIdentifier={cameraIdentifier}
-          isLoading={isConfigLoading}
-          isError={isConfigError}
-          error={configError}
-        />
-      )}
+      <PTZConfiguration
+        ptzConfigurations={ptzConfigurations}
+        cameraIdentifier={cameraIdentifier}
+        isLoading={isConfigLoading}
+        isError={isConfigError}
+        error={configError}
+      />
     </Box>
   );
 }
