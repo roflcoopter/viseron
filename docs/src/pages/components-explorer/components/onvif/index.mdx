@@ -9,7 +9,7 @@ import config from "./config.json";
 
 The ONVIF component allows you to manage and control ONVIF cameras directly in Viseron using the [Profile S](https://www.onvif.org/wp-content/uploads/2019/12/ONVIF_Profile_-S_Specification_v1-3.pdf) Client requirements implementation. Currently, the implementation is limited to the **Device**, **Media**, **Imaging**, and **PTZ** (pan-tilt-zoom) services. And not all operations on the service are implemented in this component, if you feel the implementation of the operation is lacking, [please contribute!](/docs/contributing)
 
-All services can be configured directly via the Viseron Dashboard ([Camera Tuning](/docs/documentation/configuration)), and the PTZ service can also be controlled via the [Telegram component](/components-explorer/components/telegram) or via [Live View](/docs/documentation/configuration/live_view) page.
+All services can be configured directly via the Viseron Dashboard ([Camera Tuning](/docs/documentation/configuration/edit_config#camera-tuning)), and the PTZ service can also be controlled via the [Telegram component](/components-explorer/components/telegram) or via [Live View](/docs/documentation/configuration/live_view) page.
 
 Since this component's implementation uses the `onvif-python` library, you can visit the project's [GitHub Repository](https://github.com/nirsimetri/onvif-python) for more details.
 
@@ -23,7 +23,7 @@ If `auto_config` is set to **true**, all service configurations will be ignored 
 
 :::tip
 
-It is recommended to set `auto_config` to **true** so you can configure further ONVIF settings directly in the [Camera Tuning](/docs/documentation/configuration). But if you want the ONVIF settings to be persistent every time Viseron is started, then you can configure it directly in each key service.
+It is recommended to set `auto_config` to **true** so you can configure further ONVIF settings directly in the [Camera Tuning](/docs/documentation/configuration/edit_config#camera-tuning). But if you want the ONVIF settings to be persistent every time Viseron is started, then you can configure it directly in each key service.
 
 :::
 
@@ -51,8 +51,8 @@ onvif:
         datetime_type: NTP
         ntp_from_dhcp: false
         ntp_manual:
-        - ntp_type: DNS
-          ntp_server: pool.ntp.org
+          - ntp_type: DNS
+            ntp_server: pool.ntp.org
       imaging:
         brightness: 50.0
         color_saturation: 50.0
@@ -105,14 +105,14 @@ Device service allows you to manage ONVIF devices in the following subcategories
 
 But it should be noted that **not all operations are supported by all types of cameras**, and this **ONVIF component does not implement all operations**. For a more detailed explanation, you can refer to the [official document](https://developer.onvif.org/pub/specs/branches/development/doc/Core.xml) regarding this service. The operations implemented by this component in the Device service are described as follows:
 
-| No  | Area         | Operations                                                                                                                                                                                                                                                                                |
-| --- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Capabilities | `GetServiceCapabilities`, `GetServices`                                                                                                                                                                                                                                                   |
-| 2   | System       | `GetDeviceInformation`, `GetScopes`, `AddScopes`, `SetScopes`, `RemoveScopes`, `GetSystemDateAndTime`, `SetSystemDateAndTime`, `SystemReboot`, `SystemFactoryDefault`                                                                                                                     |
-| 3   | Security     | `GetUsers`, `CreateUsers`, `DeleteUsers`, `SetUser`                                                                                                                                                                                                                                       |
-| 4   | Network      | `GetHostname`, `SetHostname`, `SetHostnameFromDHCP`,`GetDiscoveryMode`, `SetDiscoveryMode`, `GetNTP`, `SetNTP`,  `GetNetworkDefaultGateway`, `SetNetworkDefaultGateway`, `GetNetworkProtocols`, `SetNetworkProtocols`, `GetNetworkInterfaces`, `SetNetworkInterfaces`, `GetDNS`, `SetDNS` |
+| No  | Area         | Operations                                                                                                                                                                                                                                                                               |
+| --- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Capabilities | `GetServiceCapabilities`, `GetServices`                                                                                                                                                                                                                                                  |
+| 2   | System       | `GetDeviceInformation`, `GetScopes`, `AddScopes`, `SetScopes`, `RemoveScopes`, `GetSystemDateAndTime`, `SetSystemDateAndTime`, `SystemReboot`, `SystemFactoryDefault`                                                                                                                    |
+| 3   | Security     | `GetUsers`, `CreateUsers`, `DeleteUsers`, `SetUser`                                                                                                                                                                                                                                      |
+| 4   | Network      | `GetHostname`, `SetHostname`, `SetHostnameFromDHCP`,`GetDiscoveryMode`, `SetDiscoveryMode`, `GetNTP`, `SetNTP`, `GetNetworkDefaultGateway`, `SetNetworkDefaultGateway`, `GetNetworkProtocols`, `SetNetworkProtocols`, `GetNetworkInterfaces`, `SetNetworkInterfaces`, `GetDNS`, `SetDNS` |
 
-All Device service operations and settings can be configured via the [Camera Tuning](/docs/documentation/configuration) page.
+All Device service operations and settings can be configured via the [Camera Tuning](/docs/documentation/configuration/edit_config#camera-tuning) page.
 
 ### Media
 
@@ -131,7 +131,7 @@ This ONVIF component does **not implement all Media service operations** defined
 | 5   | Audio        | `GetAudioEncoderConfiguration`, `GetAudioEncoderConfigurationOptions`, `SetVideoEncoderConfiguration` |
 | 6   | OSD          | `GetOSD`, `GetOSDs`, `GetOSDOptions`, `CreateOSD`, `DeleteOSD`, `SetOSD`                              |
 
-All Media service operations and settings can be configured via the [Camera Tuning](/docs/documentation/configuration) page.
+All Media service operations and settings can be configured via the [Camera Tuning](/docs/documentation/configuration/edit_config#camera-tuning) page.
 
 If you decide not to use auto configuration (`auto_config` is set to `false`), this ONVIF component **assumes that you know the variable options for each key in `video_encoder` and `audio_encoder`**. If you fill them in incorrectly, an error will appear.
 
@@ -139,7 +139,7 @@ If you decide not to use auto configuration (`auto_config` is set to `false`), t
 
 Imaging service allows you to control and configure the imaging properties of your ONVIF camera video. The Imaging service is mandatory for ONVIF camera devices with a video source, so if your ONVIF device is a camera, this service is definitely present. For a more detailed explanation, you can refer to the [official document](https://developer.onvif.org/pub/specs/branches/development/doc/Imaging.xml) regarding this service.
 
-Please note that **not all Imaging service operations parameters are supported by your camera**, this component will adjust automatically in the frontend ([Camera Tuning](/docs/documentation/configuration) page) based on your camera capabilities. The operations implemented by this component in the Imaging service are described as follows:
+Please note that **not all Imaging service operations parameters are supported by your camera**, this component will adjust automatically in the frontend ([Camera Tuning](/docs/documentation/configuration/edit_config#camera-tuning) page) based on your camera capabilities. The operations implemented by this component in the Imaging service are described as follows:
 
 | No  | Area         | Operations                                               |
 | --- | ------------ | -------------------------------------------------------- |
@@ -148,7 +148,7 @@ Please note that **not all Imaging service operations parameters are supported b
 | 3   | Presets      | `GetPresets`, `GetCurrentPreset`, `SetCurrentPreset`     |
 | 4   | Focus        | `GetMoveOptions`, `GetStatus`, `Move`, `Stop`            |
 
-All Imaging service operations and settings can be configured via the [Camera Tuning](/docs/documentation/configuration) page.
+All Imaging service operations and settings can be configured via the [Camera Tuning](/docs/documentation/configuration/edit_config#camera-tuning) page.
 
 If you decide not to use auto configuration (`auto_config` is set to `false`) the `brightness`, `color_saturation`, `contrast`, and `sharpness` parameters have their units unspecified and you must know their minimum and maximum values beforehand. If you enter the unit incorrectly, an error will appear.
 
@@ -189,7 +189,7 @@ But it should be noted that **not all operations are supported by all types of c
 | 3   | Position      | `GotoHomePosition`, `SetHomePosition`, `GetStatus`, `GetPresets`, `GotoPreset`, `SetPreset`, `RemovePreset` |
 | 4   | Configuration | `GetNodes`, `GetConfigurations`, `GetConfigurationOptions`, `SetConfiguration`                              |
 
-All PTZ service settings can be configured via the [Camera Tuning](/docs/documentation/configuration) page and some settings/operations can be configured on the [Live View](/docs/documentation/configuration/live_view) page.
+All PTZ service settings can be configured via the [Camera Tuning](/docs/documentation/configuration/edit_config#camera-tuning) page and some settings/operations can be configured on the [Live View](/docs/documentation/configuration/live_view) page.
 
 For transparency, PTZ Control available in [Live View](/docs/documentation/configuration/live_view) uses the `ContinuousMove` operation, which is **mandatory for all ONVIF PTZ cameras**. PTZ Control in the [Telegram component](/components-explorer/components/telegram), however, will use the `RelativeMove` operation if supported by the camera, and will use `ContinuousMove` as a fallback.
 
@@ -211,7 +211,7 @@ For transparency, PTZ Control available in [Live View](/docs/documentation/confi
 
 ### Strange camera behavior
 
-Although this ONVIF component has tried to implement all configurations dynamically based on the camera's capabilities, there are still some cameras that have non-standard/uncommon behavior in general ONVIF compliant cameras. 
+Although this ONVIF component has tried to implement all configurations dynamically based on the camera's capabilities, there are still some cameras that have non-standard/uncommon behavior in general ONVIF compliant cameras.
 
 Moreover, if your camera brand/model is not registered in [ONVIF Conformant Products](https://www.onvif.org/conformant-products/), then there is a big possibility that your camera will behave strangely. Some of the issues commonly encountered regarding the compatibility of ONVIF components are:
 
