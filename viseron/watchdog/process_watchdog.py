@@ -5,7 +5,8 @@ from __future__ import annotations
 import logging
 import multiprocessing as mp
 import os
-from collections.abc import Callable
+import signal
+from typing import TYPE_CHECKING
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.base import SchedulerNotRunningError
@@ -15,6 +16,9 @@ from viseron.helpers import utcnow
 from viseron.watchdog import WatchDog
 from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
 from viseron.watchdog.thread_watchdog import ThreadWatchDog
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 LOGGER = logging.getLogger(__name__)
 
@@ -141,12 +145,36 @@ class RestartableProcess:
         self._started = True
         self._process.start()
 
+    def _signal_process_group(self, sig: int) -> None:
+        """Signal the process group led by the process.
+
+        The wrapped target calls os.setsid(), which makes the process the leader
+        of its own group. Anything it spawns without a session of its own joins
+        that group, so signalling the group is the only way to reach subprocesses
+        the parent holds no handle on.
+
+        Processes created through create_process_method never call os.setsid and
+        share our own group, which must never be signalled.
+        """
+        if not self._process or self._process.pid is None:
+            return
+
+        pid = self._process.pid
+        try:
+            if os.getpgid(pid) != pid:
+                return
+            os.killpg(pid, sig)
+        except OSError as err:
+            LOGGER.debug(f"Failed to signal process group of {self._name}: {err}")
+
     def restart(self, timeout: float | None = None) -> None:
         """Restart the process."""
         self._started = False
         if self._process:
+            self._signal_process_group(signal.SIGTERM)
             self._process.terminate()
             self._process.join(timeout=timeout)
+            self._signal_process_group(signal.SIGKILL)
             self._process.kill()
         self.start()
 
@@ -183,17 +211,19 @@ class RestartableProcess:
                 LOGGER.warning(f"Failed to shutdown scheduler: {err}")
 
     def terminate(self) -> None:
-        """Terminate the process."""
+        """Terminate the process and everything it started."""
         self._started = False
         ProcessWatchDog.unregister(self)
         if self._process:
+            self._signal_process_group(signal.SIGTERM)
             self._process.terminate()
 
     def kill(self) -> None:
-        """Kill the process."""
+        """Kill the process and everything it started."""
         self._started = False
         ProcessWatchDog.unregister(self)
         if self._process:
+            self._signal_process_group(signal.SIGKILL)
             self._process.kill()
 
     def _start_local_watchdogs(self) -> None:

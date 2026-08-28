@@ -165,6 +165,48 @@ class TestStream:
             assert stream.fps == expected_fps
 
     @pytest.mark.parametrize(
+        ("config", "expected_popen_count"),
+        [
+            pytest.param(CONFIG, 1, id="single_stream"),
+            pytest.param(CONFIG_WITH_SUBSTREAM, 2, id="substream"),
+        ],
+    )
+    def test_pipe_starts_ffmpeg_in_the_frame_reader_process_group(
+        self, config, expected_popen_count
+    ) -> None:
+        """Ffmpeg must stay in the process group of the frame reader.
+
+        pipe() runs inside the frame reader process, so nothing else holds a
+        handle on the FFmpeg processes. Giving them their own session would make
+        them unreachable, and they would keep running when the frame reader is
+        killed.
+        """
+        mocked_camera = MockCamera(identifier="test_camera_identifier")
+        with patch.object(
+            Stream, "__init__", MagicMock(spec=Stream, return_value=None)
+        ):
+            stream = Stream(config, mocked_camera, "test_camera_identifier")
+            stream._logger = MagicMock()
+            stream._config = config
+            stream._camera = mocked_camera
+            stream._log_pipe = None
+            with (
+                patch(
+                    "viseron.components.ffmpeg.stream.RestartablePopen"
+                ) as mocked_popen,
+                patch("viseron.components.ffmpeg.stream.LogPipe", MagicMock()),
+                patch.object(Stream, "build_command", MagicMock(return_value=["cmd"])),
+                patch.object(
+                    Stream, "build_segment_command", MagicMock(return_value=["cmd"])
+                ),
+            ):
+                stream.pipe()
+
+        assert mocked_popen.call_count == expected_popen_count
+        for call in mocked_popen.call_args_list:
+            assert call.kwargs["start_new_session"] is False
+
+    @pytest.mark.parametrize(
         "config_codec, stream_codec, device_env, expected_cmd",
         [
             ("test_codec", "hevc", None, ["-c:v", "test_codec"]),

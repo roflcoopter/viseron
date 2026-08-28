@@ -65,6 +65,8 @@
 !/tests/domains/**
 !/tests/helpers
 !/tests/helpers/**
+!/tests/watchdog
+!/tests/watchdog/**
 
 # Source
 !/viseron
