@@ -538,8 +538,7 @@ class AbstractObjectDetector(AbstractDomain):
                 self._logger.debug(f"Frame is {frame_age} seconds old. Discarding")
                 continue
 
-            with shared_frame:
-                self._detect(shared_frame, frame_time)
+            self._detect(shared_frame, frame_time)
 
         self._logger.debug("Object detection thread stopped")
 

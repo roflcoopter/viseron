@@ -206,13 +206,12 @@ class DynamicStreamHandler(StreamHandler):
         while True:
             try:
                 processed_frame = await frame_queue.get()
-                with processed_frame.data.shared_frame:
-                    ret, jpg = await self.run_in_executor(
-                        self.process_frame,
-                        nvr,
-                        processed_frame.data,
-                        mjpeg_stream_config,
-                    )
+                ret, jpg = await self.run_in_executor(
+                    self.process_frame,
+                    nvr,
+                    processed_frame.data,
+                    mjpeg_stream_config,
+                )
 
                 if ret:
                     await self.write_jpg(jpg)
@@ -254,10 +253,9 @@ class StaticStreamHandler(StreamHandler):
 
         while self.active_streams[(nvr.camera.identifier, mjpeg_stream)]:
             processed_frame = await frame_queue.get()
-            with processed_frame.data.shared_frame:
-                ret, jpg = await self.run_in_executor(
-                    self.process_frame, nvr, processed_frame.data, mjpeg_stream_config
-                )
+            ret, jpg = await self.run_in_executor(
+                self.process_frame, nvr, processed_frame.data, mjpeg_stream_config
+            )
 
             if ret:
                 self._vis.dispatch_event(

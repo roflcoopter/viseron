@@ -486,6 +486,7 @@ class Camera(AbstractCamera):
 
             if len(frame_bytes) == self.stream.frame_bytes_size:
                 shared_frame = SharedFrame(
+                    frame_bytes,
                     self.stream.color_plane_width,
                     self.stream.color_plane_height,
                     self.stream.pixel_format,
@@ -496,7 +497,6 @@ class Camera(AbstractCamera):
                 continue
 
             self._poll_timer = utcnow().timestamp()
-            self.shared_frames.create(shared_frame, frame_bytes)
             self.current_frame = shared_frame
             self._vis.dispatch_event(
                 self.frame_bytes_topic,

@@ -155,14 +155,14 @@ class CameraAPIHandler(BaseAPIHandler):
 
     def _snapshot_from_memory(self, camera: AbstractCamera) -> bytes | None:
         """Return snapshot from camera memory."""
-        if camera.current_frame:
-            with camera.current_frame:
-                _ret, jpg = camera.get_snapshot(
-                    camera.current_frame,
-                    self.request_arguments["width"],
-                    self.request_arguments["height"],
-                )
-                return jpg
+        current_frame = camera.current_frame
+        if current_frame:
+            _ret, jpg = camera.get_snapshot(
+                current_frame,
+                self.request_arguments["width"],
+                self.request_arguments["height"],
+            )
+            return jpg
         return None
 
     async def get_snapshot(self, camera_identifier: str) -> None:
