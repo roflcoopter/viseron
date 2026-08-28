@@ -151,6 +151,36 @@ class ActionsOnvifMediaAPIHandler(ActionsOnvifAPIHandler):
             )
             return
 
+        if action == "osd":
+            required_query = "token"
+            token = self.validate_query_parameter(
+                self.get_query_argument(required_query, None), required_query
+            )
+            await self.validate_action_response(
+                await media_service.get_osd(token),
+                action,
+                camera_identifier,
+            )
+            return
+
+        if action == "osds":
+            config_token = self.get_query_argument("config_token", None)
+            await self.validate_action_response(
+                await media_service.get_osds(config_token),
+                action,
+                camera_identifier,
+            )
+            return
+
+        if action == "osd_options":
+            config_token = self.get_query_argument("config_token", None)
+            await self.validate_action_response(
+                await media_service.get_osd_options(config_token),
+                action,
+                camera_identifier,
+            )
+            return
+
         self.unknown_action(action)
 
     @action_handler
