@@ -195,19 +195,18 @@ class AbstractPostProcessor(AbstractDomain):
             if detected_objects_data.shared_frame is None:
                 return
 
-            with detected_objects_data.shared_frame:
-                decoded_frame = self.apply_mask(detected_objects_data.shared_frame)
-                preprocessed_frame = self.preprocess(decoded_frame)
-                self.process(
-                    PostProcessorFrame(
-                        camera_identifier=detected_objects_data.camera_identifier,
-                        shared_frame=detected_objects_data.shared_frame,
-                        frame=preprocessed_frame,
-                        detected_objects=detected_objects_data.objects,
-                        filtered_objects=filtered_objects,
-                        zone=detected_objects_data.zone,
-                    )
+            decoded_frame = self.apply_mask(detected_objects_data.shared_frame)
+            preprocessed_frame = self.preprocess(decoded_frame)
+            self.process(
+                PostProcessorFrame(
+                    camera_identifier=detected_objects_data.camera_identifier,
+                    shared_frame=detected_objects_data.shared_frame,
+                    frame=preprocessed_frame,
+                    detected_objects=detected_objects_data.objects,
+                    filtered_objects=filtered_objects,
+                    zone=detected_objects_data.zone,
                 )
+            )
 
         while not self._kill_received:
             try:

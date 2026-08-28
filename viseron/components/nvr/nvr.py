@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import datetime
 import logging
-import threading
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -280,7 +279,6 @@ class NVR(AbstractNVR):
         self._manual_recording: ManualRecording | None = None
         self._start_manual_recording = False
         self._kill_received = False
-        self._removal_timers: list[threading.Timer] = []
         self._operation_state: OperationState | None = None
 
         self._frame_scanners: dict[str, FrameIntervalCalculator] = {}
@@ -878,26 +876,6 @@ class NVR(AbstractNVR):
             self._stop_recorder_at = None
             self._seconds_left = 0
 
-    def remove_frame(self, shared_frame: SharedFrame) -> None:
-        """Remove frame after a delay.
-
-        This makes sure all frames are cleaned up eventually.
-        """
-
-        def _remove() -> None:
-            self._camera.shared_frames.remove(shared_frame, self._camera)
-            self._removal_timers.remove(timer)
-
-        timer = threading.Timer(
-            2,
-            _remove,
-            args=(),
-        )
-        timer.name = f"{self!s}.remove_frame.{shared_frame.name}"
-        timer.daemon = True
-        self._removal_timers.append(timer)
-        timer.start()
-
     def run(self) -> None:
         """Frame processing loop."""
         self._logger.debug("Waiting for first frame")
@@ -923,7 +901,6 @@ class NVR(AbstractNVR):
         shared_frame = frame.data.shared_frame
         if (frame_age := time.time() - shared_frame.capture_time) > 1:
             self._logger.debug(f"Frame is {frame_age} seconds old. Discarding")
-            self.remove_frame(shared_frame)
             return
 
         self.process_frame(shared_frame)
@@ -943,7 +920,6 @@ class NVR(AbstractNVR):
             ),
             store=False,
         )
-        self.remove_frame(shared_frame)
 
     def unload(self) -> None:
         """Unload nvr."""
@@ -966,9 +942,6 @@ class NVR(AbstractNVR):
         # Stop potential recording
         if self._camera.is_recording:
             self._camera.stop_recorder()
-
-        for timer in self._removal_timers:
-            timer.cancel()
 
     @property
     def camera(self) -> AbstractCamera:
