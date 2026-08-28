@@ -159,8 +159,14 @@ export function ImagingSettings({
   cameraIdentifier,
   onSettingsApplied,
 }: ImagingSettingsProps) {
+  const TITLE = "Imaging Settings";
+  const DESC =
+    "Manage ONVIF imaging settings for the camera. Some cameras may ignore the parameters defined here.";
+
   const toast = useToast();
   const queryClient = useQueryClient();
+
+  // ONVIF API hooks
   const {
     data: imagingSettings,
     isLoading,
@@ -377,7 +383,7 @@ export function ImagingSettings({
       isLoading={isLoading}
       isError={isError}
       errorMessage={error?.message || "Failed to load imaging settings"}
-      isEmpty={!imagingSettings}
+      isEmpty={!imagingSettings?.settings}
       emptyMessage="No imaging settings available"
       title="Imaging Settings"
     >
@@ -389,12 +395,8 @@ export function ImagingSettings({
           mb={1.5}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Typography variant="subtitle2">Imaging Settings</Typography>
-            <Tooltip
-              title="Manage ONVIF imaging settings for the camera. Some cameras may ignore the parameters defined here."
-              arrow
-              placement="top"
-            >
+            <Typography variant="subtitle2">{TITLE}</Typography>
+            <Tooltip title={DESC} arrow placement="top">
               <Help size={16} />
             </Tooltip>
           </Box>

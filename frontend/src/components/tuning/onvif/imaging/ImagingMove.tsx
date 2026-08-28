@@ -33,7 +33,15 @@ export function ImagingMove({
   imagingMoveOptions,
   onSettingsApplied,
 }: ImagingMoveProps) {
+  const TITLE = "Move Operations";
+  const DESC =
+    "The move command moves the focus lens in an absolute, a relative or in a continuous manner from its current position. Focus adjustments through this operation will turn off the autofocus.";
+
   const toast = useToast();
+
+  // ONVIF API hooks
+  const moveFocusMutation = useMoveFocusImaging(cameraIdentifier);
+  const stopFocusMutation = useStopFocusImaging(cameraIdentifier);
 
   // Absolute move state
   const absoluteDefaults = {
@@ -104,9 +112,6 @@ export function ImagingMove({
 
   const [isMoving, setIsMoving] = useState<boolean>(false);
   const [isStopping, setIsStopping] = useState<boolean>(false);
-
-  const moveFocusMutation = useMoveFocusImaging(cameraIdentifier);
-  const stopFocusMutation = useStopFocusImaging(cameraIdentifier);
 
   const thumbWidth = 16;
   const halfThumb = thumbWidth / 2;
@@ -398,12 +403,8 @@ export function ImagingMove({
         mb={1.5}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Typography variant="subtitle2">Move Operations</Typography>
-          <Tooltip
-            title="The move command moves the focus lens in an absolute, a relative or in a continuous manner from its current position. Focus adjustments through this operation will turn off the autofocus."
-            arrow
-            placement="top"
-          >
+          <Typography variant="subtitle2">{TITLE}</Typography>
+          <Tooltip title={DESC} arrow placement="top">
             <Help size={16} />
           </Tooltip>
         </Box>

@@ -28,7 +28,12 @@ export function ImagingPresets({
   cameraIdentifier,
   onSettingsApplied,
 }: ImagingPresetsProps) {
+  const TITLE = "Imaging Presets";
+  const DESC = "Manage ONVIF imaging presets.";
+
   const toast = useToast();
+
+  // ONVIF API hooks
   const {
     data: imagingPresets,
     isLoading,
@@ -89,12 +94,8 @@ export function ImagingPresets({
           mb={1}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Typography variant="subtitle2">Imaging Presets</Typography>
-            <Tooltip
-              title="Manage ONVIF imaging presets."
-              arrow
-              placement="top"
-            >
+            <Typography variant="subtitle2">{TITLE}</Typography>
+            <Tooltip title={DESC} arrow placement="top">
               <Help size={16} />
             </Tooltip>
           </Box>
