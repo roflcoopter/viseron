@@ -34,5 +34,20 @@ if [ "${1:-}" = "--reload" ]; then
   exit "$?"
 fi
 
+# Behave as a plain interpreter when handed interpreter arguments.
+#
+# The line below spoofs argv[0] to "viseron" so that ps and pgrep show a useful
+# name. A side effect is that Python resolves sys.executable back to this script
+# rather than to python3. multiprocessing starts the forkserver and the resource
+# tracker by re-execing sys.executable with "-c <bootstrap>", so without this
+# passthrough those re-execs would land here, ignore -c, and boot a second
+# Viseron.
+#
+# Viseron itself takes no arguments (--reload is handled above), so any argument
+# reaching this point came from such a re-exec.
+if [ "$#" -gt 0 ]; then
+  exec python3 "$@"
+fi
+
 cd "$APP_DIR"
-exec -a "viseron" python3 -u -m viseron "$@"
+exec -a "viseron" python3 -u -m viseron
