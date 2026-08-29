@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import gc
 import multiprocessing as mp
+import os
+import pickle
 import subprocess as sp
 import time
 from typing import TYPE_CHECKING
@@ -10,7 +13,10 @@ from typing import TYPE_CHECKING
 import psutil
 import pytest
 
-from viseron.watchdog.process_watchdog import RestartableProcess
+from viseron.watchdog.process_watchdog import (
+    RestartableProcess,
+    _ChildProcessTarget,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -141,3 +147,57 @@ class TestProcessGroupCleanup:
         finally:
             _kill(grandchild_pid)
             _kill(sibling.pid)
+
+
+def _report_child_setup(queue) -> None:
+    """Run in the child; report what the target wrapper set up."""
+    queue.put(
+        {
+            "session_leader": os.getsid(0) == os.getpid(),
+            "frozen_objects": gc.get_freeze_count(),
+        }
+    )
+
+
+class TestChildProcessTarget:
+    """Tests for the picklable wrapper used as the child process entrypoint."""
+
+    def test_is_picklable(self) -> None:
+        """The wrapper must survive pickling; forkserver pickles the target."""
+        restored = pickle.loads(  # noqa: S301
+            pickle.dumps(_ChildProcessTarget(_report_child_setup, False))
+        )
+        assert restored._target is _report_child_setup
+        assert restored._start_watchdogs is False
+
+    def test_defaults_to_current_context(self) -> None:
+        """Passing no context must not change existing behaviour."""
+        process = RestartableProcess(
+            target=_report_child_setup, name="ctx_default", register=False
+        )
+        assert process._ctx.get_start_method() == mp.get_start_method()
+
+    def test_forkserver_child_is_session_leader_and_frozen(self) -> None:
+        """The wrapper calls os.setsid() and gc.freeze() inside the child.
+
+        os.setsid() is what _signal_process_group relies on to reach the
+        subprocesses the child started.
+        """
+        ctx = mp.get_context("forkserver")
+        queue = ctx.Queue()
+        process = RestartableProcess(
+            target=_report_child_setup,
+            args=(queue,),
+            name="forkserver_child",
+            register=False,
+            context="forkserver",
+        )
+        process.start()
+        try:
+            result = queue.get(timeout=120)
+        finally:
+            process.join(timeout=30)
+            process.kill()
+
+        assert result["session_leader"] is True
+        assert result["frozen_objects"] > 0
