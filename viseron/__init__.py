@@ -8,12 +8,10 @@ import json
 import logging
 import multiprocessing.process
 import os
-import sys
 import threading
 import time
 import tracemalloc
 from functools import partial
-from logging.handlers import RotatingFileHandler
 from timeit import default_timer as timer
 from typing import TYPE_CHECKING, Any, Literal, overload
 
@@ -42,14 +40,11 @@ from viseron.components.nvr.const import (
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.config import load_config
 from viseron.const import (
-    ENV_LOG_BACKUP_COUNT,
     ENV_LOG_FD,
-    ENV_LOG_MAX_BYTES,
     ENV_PROFILE_MEMORY,
     FAILED,
     LOADED,
     LOADING,
-    VISERON_LOG_PATH,
     VISERON_SIGNAL_LAST_WRITE,
     VISERON_SIGNAL_SHUTDOWN,
     VISERON_SIGNAL_STOPPING,
@@ -63,17 +58,9 @@ from viseron.exceptions import DataStreamNotLoaded
 from viseron.helpers import (
     check_fd_usage,
     memory_usage_profiler,
-    parse_size_to_bytes,
     utcnow,
 )
 from viseron.helpers.json import JSONEncoder
-from viseron.helpers.logs import (
-    LOG_DATE_FORMAT,
-    LOG_FORMAT,
-    DuplicateFilter,
-    SensitiveInformationFilter,
-    ViseronLogFormat,
-)
 from viseron.states import States
 from viseron.viseron_types import Domain, SupportedDomains, ViseronData
 from viseron.watchdog.process_watchdog import ProcessWatchDog
@@ -113,90 +100,6 @@ SIGNAL_SCHEMA = vol.Schema(
 )
 
 LOGGER = logging.getLogger(f"{__name__}.core")
-
-
-def _get_rotation_rules() -> tuple[int, int]:
-    env_max_bytes = os.getenv(ENV_LOG_MAX_BYTES)
-    env_backup_count = os.getenv(ENV_LOG_BACKUP_COUNT)
-
-    max_bytes = 0
-    if env_max_bytes is not None:
-        try:
-            max_bytes = parse_size_to_bytes(env_max_bytes)
-        except ValueError as error:
-            LOGGER.error(
-                f"Failed to parse {ENV_LOG_MAX_BYTES} as int, using default value",
-                exc_info=error,
-            )
-
-    backup_count = 1
-    if env_backup_count is not None:
-        try:
-            backup_count = parse_size_to_bytes(env_backup_count)
-        except ValueError as error:
-            LOGGER.error(
-                f"Failed to parse {ENV_LOG_BACKUP_COUNT} as int, using default value",
-                exc_info=error,
-            )
-
-    return max_bytes, backup_count
-
-
-def enable_logging() -> None:
-    """Enable logging."""
-    root_logger = logging.getLogger()
-    root_logger.propagate = False
-    formatter = ViseronLogFormat()
-    duplicate_filter = DuplicateFilter()
-    sensitive_information_filter = SensitiveInformationFilter()
-
-    handler = logging.StreamHandler()
-    handler.setFormatter(formatter)
-    handler.addFilter(duplicate_filter)
-    handler.addFilter(sensitive_information_filter)
-    root_logger.addHandler(handler)
-
-    max_bytes, backup_count = _get_rotation_rules()
-    file_handler = RotatingFileHandler(
-        VISERON_LOG_PATH,
-        maxBytes=max_bytes,
-        backupCount=backup_count,
-        delay=True,
-    )
-    file_handler.setFormatter(
-        logging.Formatter(fmt=LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
-    )
-    file_handler.addFilter(sensitive_information_filter)
-    file_handler.doRollover()
-    root_logger.addHandler(file_handler)
-
-    root_logger.setLevel(logging.INFO)
-
-    # Silence noisy loggers
-    logging.getLogger("apscheduler.scheduler").setLevel(logging.ERROR)
-    logging.getLogger("apscheduler.executors").setLevel(logging.ERROR)
-    logging.getLogger("requests").setLevel(logging.WARNING)
-    logging.getLogger("urllib3").setLevel(logging.WARNING)
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("httpcore").setLevel(logging.WARNING)
-    logging.getLogger("tornado.access").setLevel(logging.WARNING)
-    logging.getLogger("tornado.application").setLevel(logging.WARNING)
-    logging.getLogger("tornado.general").setLevel(logging.WARNING)
-    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
-    logging.getLogger("watchdog.observers.inotify_buffer").setLevel(logging.WARNING)
-
-    sys.excepthook = lambda *args: logging.getLogger(None).error(
-        "Uncaught exception", exc_info=args
-    )
-    threading.excepthook = lambda args: logging.getLogger(None).error(
-        "Uncaught thread exception in thread %s",
-        args.thread.name if args.thread else "unknown",
-        exc_info=(
-            args.exc_type,
-            args.exc_value,
-            args.exc_traceback,
-        ),  # type: ignore[arg-type]
-    )
 
 
 def setup_viseron(vis: Viseron) -> None:

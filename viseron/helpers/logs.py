@@ -6,17 +6,27 @@ import io
 import logging
 import os
 import re
+import sys
 import threading
 import typing
-from typing import Any, AnyStr, ClassVar, Literal, NoReturn, TextIO
+from logging.handlers import RotatingFileHandler
+from typing import Any, AnyStr, ClassVar, Final, Literal, NoReturn, TextIO
 
 from colorlog import ColoredFormatter
 
-from viseron.const import ENV_DEV_WARNINGS
+from viseron.const import (
+    ENV_DEV_WARNINGS,
+    ENV_LOG_BACKUP_COUNT,
+    ENV_LOG_MAX_BYTES,
+    VISERON_LOG_PATH,
+)
+from viseron.helpers import parse_size_to_bytes
 
 if typing.TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator
     from types import TracebackType
+
+LOGGER = logging.getLogger(__name__)
 
 LOG_FORMAT = "%(asctime)s.%(msecs)03d [%(levelname)-8s] [%(name)s] - %(message)s"
 STREAM_LOG_FORMAT = "%(log_color)s" + LOG_FORMAT
@@ -394,3 +404,136 @@ def development_warning(logger: logging.Logger, message: str) -> None:
     """Log a warning in development mode."""
     if os.environ.get(ENV_DEV_WARNINGS, None):
         logger.warning(message)
+
+
+def _get_rotation_rules() -> tuple[int, int]:
+    """Return log rotation rules from the environment."""
+    env_max_bytes = os.getenv(ENV_LOG_MAX_BYTES)
+    env_backup_count = os.getenv(ENV_LOG_BACKUP_COUNT)
+
+    max_bytes = 0
+    if env_max_bytes is not None:
+        try:
+            max_bytes = parse_size_to_bytes(env_max_bytes)
+        except ValueError as error:
+            LOGGER.error(
+                f"Failed to parse {ENV_LOG_MAX_BYTES} as int, using default value",
+                exc_info=error,
+            )
+
+    backup_count = 1
+    if env_backup_count is not None:
+        try:
+            backup_count = parse_size_to_bytes(env_backup_count)
+        except ValueError as error:
+            LOGGER.error(
+                f"Failed to parse {ENV_LOG_BACKUP_COUNT} as int, using default value",
+                exc_info=error,
+            )
+
+    return max_bytes, backup_count
+
+
+# Third party loggers that are too chatty on their default level
+NOISY_LOGGERS: Final[dict[str, int]] = {
+    "apscheduler.scheduler": logging.ERROR,
+    "apscheduler.executors": logging.ERROR,
+    "requests": logging.WARNING,
+    "urllib3": logging.WARNING,
+    "httpx": logging.WARNING,
+    "httpcore": logging.WARNING,
+    "tornado.access": logging.WARNING,
+    "tornado.application": logging.WARNING,
+    "tornado.general": logging.WARNING,
+    "sqlalchemy.engine": logging.WARNING,
+    "watchdog.observers.inotify_buffer": logging.WARNING,
+}
+
+
+def _silence_noisy_loggers() -> None:
+    """Raise the log level of noisy third party loggers."""
+    for logger_name, level in NOISY_LOGGERS.items():
+        logging.getLogger(logger_name).setLevel(level)
+
+
+def _install_excepthooks() -> None:
+    """Log uncaught exceptions from the main thread as well as from threads."""
+    sys.excepthook = lambda *args: logging.getLogger(None).error(
+        "Uncaught exception", exc_info=args
+    )
+    threading.excepthook = lambda args: logging.getLogger(None).error(
+        "Uncaught thread exception in thread %s",
+        args.thread.name if args.thread else "unknown",
+        exc_info=(
+            args.exc_type,
+            args.exc_value,
+            args.exc_traceback,
+        ),  # type: ignore[arg-type]
+    )
+
+
+def _setup_logging(
+    level: int,
+    *,
+    sensitive_strings: tuple[str, ...] = (),
+    rollover: bool = False,
+) -> None:
+    """Configure the root logger with Viserons handlers and filters.
+
+    Any handlers already attached to the root logger are replaced, making this
+    safe to call more than once.
+    """
+    for sensitive_string in sensitive_strings:
+        SensitiveInformationFilter.add_sensitive_string(sensitive_string)
+
+    root_logger = logging.getLogger()
+    root_logger.propagate = False
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+
+    sensitive_information_filter = SensitiveInformationFilter()
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(ViseronLogFormat())
+    stream_handler.addFilter(DuplicateFilter())
+    stream_handler.addFilter(sensitive_information_filter)
+    root_logger.addHandler(stream_handler)
+
+    max_bytes, backup_count = _get_rotation_rules()
+    file_handler = RotatingFileHandler(
+        VISERON_LOG_PATH,
+        maxBytes=max_bytes,
+        backupCount=backup_count,
+        delay=True,
+    )
+    file_handler.setFormatter(
+        logging.Formatter(fmt=LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
+    )
+    file_handler.addFilter(sensitive_information_filter)
+    if rollover:
+        file_handler.doRollover()
+    root_logger.addHandler(file_handler)
+
+    root_logger.setLevel(level)
+    _silence_noisy_loggers()
+    _install_excepthooks()
+
+
+def enable_logging(level: int = logging.INFO) -> None:
+    """Enable logging in the main process.
+
+    Rotates the log file so that every start of Viseron gets a fresh log.
+    """
+    _setup_logging(level, rollover=True)
+
+
+def enable_child_logging(sensitive_strings: tuple[str, ...], level: int) -> None:
+    """Configure logging inside a child process.
+
+    Children created with the forkserver start method do not inherit the parent's
+    logging configuration, so it has to be re-established.
+    The sensitive strings collected by the parent are not inherited either and are
+    therefore passed in and seeded here.
+    The log file is not rotated since the parent already did that on startup.
+    """
+    _setup_logging(level, sensitive_strings=sensitive_strings)

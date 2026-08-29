@@ -9,8 +9,9 @@ import signal
 import sys
 import threading
 
-from viseron import Viseron, enable_logging, setup_viseron
+from viseron import Viseron, setup_viseron
 from viseron.helpers import kill_zombie_processes
+from viseron.helpers.logs import enable_logging
 from viseron.helpers.named_timer import NamedTimer
 from viseron.reload import reload_config
 
