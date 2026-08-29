@@ -311,11 +311,12 @@ export function SnapshotIcon({ events }: { events: types.CameraEvent[] }) {
               })}
             >
               <Icon
-                color="primary"
                 style={{
+                  color: "primary",
                   height: EVENT_ICON_HEIGHT,
                   width: EVENT_ICON_HEIGHT,
                 }}
+                stroke={1.25}
               />
             </Box>
             <PopoverComponent
