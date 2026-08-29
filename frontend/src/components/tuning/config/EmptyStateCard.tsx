@@ -9,7 +9,7 @@ export function EmptyStateCard({ message }: EmptyStateCardProps) {
     <Card
       variant="outlined"
       sx={{
-        height: { md: "72.5vh" },
+        height: { md: "72.5vh", xl: "80vh" },
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",

@@ -139,7 +139,7 @@ export function TuneSnapshot({
       ref={ref}
       variant="outlined"
       sx={{
-        height: { md: "72.5vh" },
+        height: { md: "72.5vh", xl: "80vh" },
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

@@ -474,7 +474,7 @@ function Tunes() {
 
       <Box
         sx={{
-          height: { md: "75vh" },
+          height: { md: "75vh", xl: "81.5vh" },
           display: "flex",
           flexDirection: "column",
           paddingY: 0.5,
