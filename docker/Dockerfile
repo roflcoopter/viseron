@@ -60,9 +60,6 @@ FROM roflcoopter/${ARCH}-base:${BASE_VERSION}-${UBUNTU_VERSION}
 
 WORKDIR /src
 
-COPY --from=wheels /wheels /wheels
-COPY --from=wheels /wheels-3.9 /wheels-3.9
-
 ARG S6_OVERLAY_ARCH
 ARG S6_OVERLAY_VERSION
 ARG EXTRA_APT_PACKAGES
@@ -84,7 +81,19 @@ ENV \
 
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_OVERLAY_ARCH}-installer /tmp/s6-overlay-installer
 
+# The two wheel directories are bind-mounted from the `wheels` stage rather than
+# COPYed in. A COPY commits them to their own layer, and the `rm -r` further down
+# can only write a whiteout on top -- a layer that is already committed cannot be
+# removed by a later one, so both directories shipped in every published image.
+# A bind mount is never committed, so there is nothing left to remove.
+#
+# They are mounted on `-stage` paths rather than straight onto /wheels because
+# the base image ships its own /wheels, and `pip install /wheels/*.whl` below
+# installs the union of the two. Mounting over /wheels would hide the base's
+# copy and silently drop those wheels from the image.
 RUN \
+  --mount=type=bind,from=wheels,source=/wheels,target=/wheels-stage \
+  --mount=type=bind,from=wheels,source=/wheels-3.9,target=/wheels-3.9-stage \
   apt-get update && apt-get install -y --no-install-recommends \
   software-properties-common \
   curl \
@@ -127,7 +136,7 @@ RUN \
   python3-gst-1.0 \
   && rm -rf /var/lib/apt/lists/* \
   \
-  && python3 -m pip install --no-deps --ignore-installed /wheels/*.whl \
+  && python3 -m pip install --no-deps --ignore-installed /wheels/*.whl /wheels-stage/*.whl \
   # Register PyTorch runtime libs (installed via ultralytics) with the system
   # linker so that ldd and ld.so can resolve libtorch.so / libc10.so etc.
   && python3 -c \
@@ -152,8 +161,7 @@ RUN \
   && echo "libedgetpu1-max libedgetpu/accepted-eula select true" | debconf-set-selections \
   && apt-get -qq update && apt-get -qq install -y --no-install-recommends \
   libedgetpu1-max \
-  && python3.9 -m pip install --ignore-installed /wheels-3.9/*.whl \
-  && rm -r /wheels-3.9 \
+  && python3.9 -m pip install --ignore-installed /wheels-3.9-stage/*.whl \
   \
   # Python 3.9 wheels (e.g. Pillow for armhf) may have been compiled against
   # Ubuntu 22.04 which shipped libtiff.so.5 and libwebp.so.6.  Ubuntu 24.04
