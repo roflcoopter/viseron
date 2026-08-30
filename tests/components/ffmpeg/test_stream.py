@@ -176,7 +176,7 @@ class TestStream:
     ) -> None:
         """Ffmpeg must stay in the process group of the frame reader.
 
-        pipe() runs inside the frame reader process, so nothing else holds a
+        The pipe runs inside the frame reader process, so nothing else holds a
         handle on the FFmpeg processes. Giving them their own session would make
         them unreachable, and they would keep running when the frame reader is
         killed.
@@ -189,18 +189,19 @@ class TestStream:
             stream._logger = MagicMock()
             stream._config = config
             stream._camera = mocked_camera
-            stream._log_pipe = None
+            stream._camera_identifier = "test_camera_identifier"
+            stream._ffmpeg_pipe = None
             with (
                 patch(
-                    "viseron.components.ffmpeg.stream.RestartablePopen"
+                    "viseron.components.ffmpeg.pipe.RestartablePopen"
                 ) as mocked_popen,
-                patch("viseron.components.ffmpeg.stream.LogPipe", MagicMock()),
+                patch("viseron.components.ffmpeg.pipe.LogPipe", MagicMock()),
                 patch.object(Stream, "build_command", MagicMock(return_value=["cmd"])),
                 patch.object(
                     Stream, "build_segment_command", MagicMock(return_value=["cmd"])
                 ),
             ):
-                stream.pipe()
+                stream.start_pipe()
 
         assert mocked_popen.call_count == expected_popen_count
         for call in mocked_popen.call_args_list:
