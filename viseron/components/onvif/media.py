@@ -97,29 +97,29 @@ class Media:
     # ---- Capabilities Operations ---- #
 
     @operation()
-    async def get_service_capabilities(self) -> Any:
+    def get_service_capabilities(self) -> Any:
         """Get Media service capabilities."""
         return self._onvif_media_service.GetServiceCapabilities()
 
     # ---- Profiles Operations ---- #
 
     @operation()
-    async def get_profiles(self) -> Any:
+    def get_profiles(self) -> Any:
         """Get media profiles."""
         return self._onvif_media_service.GetProfiles()
 
     @operation()
-    async def get_profile(self, profile_token: str) -> Any:
+    def get_profile(self, profile_token: str) -> Any:
         """Get a specific media profile."""
         return self._onvif_media_service.GetProfile(ProfileToken=profile_token)
 
     @operation()
-    async def create_profile(self, name: str, token: str | None = None) -> Any:
+    def create_profile(self, name: str, token: str | None = None) -> Any:
         """Create a new media profile."""
         return self._onvif_media_service.CreateProfile(Name=name, Token=token)
 
     @operation()
-    async def delete_profile(self, profile_token: str) -> bool:
+    def delete_profile(self, profile_token: str) -> bool:
         """Delete a media profile."""
         self._onvif_media_service.DeleteProfile(ProfileToken=profile_token)
         return True
@@ -127,7 +127,7 @@ class Media:
     # ---- URI Operations ---- #
 
     @operation()
-    async def get_stream_uri(
+    def get_stream_uri(
         self,
         profile_token: str | None = None,
         stream_type: str = "RTP-Unicast",
@@ -141,7 +141,7 @@ class Media:
         )
 
     @operation()
-    async def get_snapshot_uri(self, profile_token: str | None = None) -> Any:
+    def get_snapshot_uri(self, profile_token: str | None = None) -> Any:
         """Get snapshot URI for a profile."""
         return self._onvif_media_service.GetSnapshotUri(
             ProfileToken=profile_token or self._selected_profile.token
@@ -150,9 +150,7 @@ class Media:
     # ---- Video Operations ---- #
 
     @operation()
-    async def get_video_encoder_configuration(
-        self, config_token: str | None = None
-    ) -> Any:
+    def get_video_encoder_configuration(self, config_token: str | None = None) -> Any:
         """Get video encoder configuration."""
         return self._onvif_media_service.GetVideoEncoderConfiguration(
             ConfigurationToken=config_token
@@ -160,7 +158,7 @@ class Media:
         )
 
     @operation()
-    async def get_video_encoder_configuration_options(
+    def get_video_encoder_configuration_options(
         self, config_token: str | None = None
     ) -> Any:
         """Get video encoder configuration options."""
@@ -170,7 +168,7 @@ class Media:
         )
 
     @operation()
-    async def set_video_encoder_configuration(
+    def set_video_encoder_configuration(
         self, configuration: dict[str, Any], force_persistence: bool = True
     ) -> bool:
         """Set video encoder configuration for a profile."""
@@ -193,9 +191,7 @@ class Media:
     # ---- Audio Operations ---- #
 
     @operation()
-    async def get_audio_encoder_configuration(
-        self, config_token: str | None = None
-    ) -> Any:
+    def get_audio_encoder_configuration(self, config_token: str | None = None) -> Any:
         """Get audio encoder configurations."""
         return self._onvif_media_service.GetAudioEncoderConfiguration(
             ConfigurationToken=config_token
@@ -203,7 +199,7 @@ class Media:
         )
 
     @operation()
-    async def get_audio_encoder_configuration_options(
+    def get_audio_encoder_configuration_options(
         self, config_token: str | None = None
     ) -> Any:
         """Get audio encoder configuration options."""
@@ -213,7 +209,7 @@ class Media:
         )
 
     @operation()
-    async def set_audio_encoder_configuration(
+    def set_audio_encoder_configuration(
         self, configuration: dict[str, Any], force_persistence: bool = True
     ) -> bool:
         """Set audio encoder configuration for a profile."""
@@ -236,12 +232,12 @@ class Media:
     # ---- OSD Operations ---- #
 
     @operation()
-    async def get_osd(self, token: str) -> Any:
+    def get_osd(self, token: str) -> Any:
         """Get on-screen display configuration."""
         return self._onvif_media_service.GetOSD(OSDToken=token)
 
     @operation()
-    async def get_osds(self, config_token: str | None = None) -> Any:
+    def get_osds(self, config_token: str | None = None) -> Any:
         """Get all on-screen display configurations."""
         return self._onvif_media_service.GetOSDs(
             ConfigurationToken=config_token
@@ -249,7 +245,7 @@ class Media:
         )
 
     @operation()
-    async def get_osd_options(self, config_token: str | None = None) -> Any:
+    def get_osd_options(self, config_token: str | None = None) -> Any:
         """Get on-screen display configuration options."""
         return self._onvif_media_service.GetOSDOptions(
             ConfigurationToken=config_token
@@ -257,7 +253,7 @@ class Media:
         )
 
     @operation()
-    async def create_osd(self, osd_config: dict[str, Any]) -> bool:
+    def create_osd(self, osd_config: dict[str, Any]) -> bool:
         """Create new on-screen display configuration."""
 
         if not osd_config.get("VideoSourceConfigurationToken"):
@@ -269,13 +265,13 @@ class Media:
         return True
 
     @operation()
-    async def delete_osd(self, token: str) -> bool:
+    def delete_osd(self, token: str) -> bool:
         """Delete on-screen display configuration."""
         self._onvif_media_service.DeleteOSD(OSDToken=token)
         return True
 
     @operation()
-    async def set_osd(self, osd_config: dict[str, Any]) -> bool:
+    def set_osd(self, osd_config: dict[str, Any]) -> bool:
         """Set existing on-screen display configuration."""
 
         if not osd_config.get("VideoSourceConfigurationToken"):

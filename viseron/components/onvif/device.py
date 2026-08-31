@@ -58,54 +58,54 @@ class Device:
     # ---- Capabilities Operations ---- #
 
     @operation()
-    async def get_service_capabilities(self) -> Any:
+    def get_service_capabilities(self) -> Any:
         """Get Device service capabilities."""
         return self._onvif_device_service.GetServiceCapabilities()
 
     @operation()
-    async def get_services(self) -> Any:
+    def get_services(self) -> Any:
         """Get available services on the device."""
         return self._onvif_device_service.GetServices(IncludeCapability=False)
 
     # ---- System Operations ---- #
 
     @operation()
-    async def get_device_information(self) -> Any:
+    def get_device_information(self) -> Any:
         """Get device information."""
         return self._onvif_device_service.GetDeviceInformation()
 
     @operation()
-    async def get_scopes(self) -> Any:
+    def get_scopes(self) -> Any:
         """Get device scopes."""
         return self._onvif_device_service.GetScopes()
 
     @operation()
-    async def add_scopes(self, scopes: list[str]) -> bool:
+    def add_scopes(self, scopes: list[str]) -> bool:
         """Add device scopes."""
         self._onvif_device_service.AddScopes(ScopeItem=scopes)
         return True
 
     @operation()
-    async def set_scopes(self, scopes: list[str]) -> bool:
+    def set_scopes(self, scopes: list[str]) -> bool:
         """Set device scopes."""
         self._onvif_device_service.SetScopes(Scopes=scopes)
         return True
 
     @operation()
-    async def remove_scopes(self, scopes: list[str]) -> bool:
+    def remove_scopes(self, scopes: list[str]) -> bool:
         """Remove device scopes."""
         self._onvif_device_service.RemoveScopes(ScopeItem=scopes)
         return True
 
     @operation()
-    async def system_reboot(self) -> bool:
+    def system_reboot(self) -> bool:
         """Reboot the device."""
         LOGGER.warning(f"Rebooting ONVIF camera for {self._camera.identifier}")
         self._onvif_device_service.SystemReboot()
         return True
 
     @operation()
-    async def system_factory_default(self, level: str) -> bool:
+    def system_factory_default(self, level: str) -> bool:
         """Restore the device to factory default settings."""
         LOGGER.warning(
             f"Restoring ONVIF camera to factory default for {self._camera.identifier}"
@@ -116,12 +116,12 @@ class Device:
     # ---- Date & Time Operations ---- #
 
     @operation()
-    async def get_system_date_and_time(self) -> Any:
+    def get_system_date_and_time(self) -> Any:
         """Get system date and time from the device."""
         return self._onvif_device_service.GetSystemDateAndTime()
 
     @operation()
-    async def set_system_date_and_time(
+    def set_system_date_and_time(
         self,
         datetime_type: str = "NTP",
         daylight_savings: bool = False,
@@ -141,24 +141,24 @@ class Device:
     # ---- Security Operations ---- #
 
     @operation()
-    async def get_users(self) -> Any:
+    def get_users(self) -> Any:
         """Get device users."""
         return self._onvif_device_service.GetUsers()
 
     @operation()
-    async def create_users(self, users: list[dict[str, Any]]) -> bool:
+    def create_users(self, users: list[dict[str, Any]]) -> bool:
         """Create device users."""
         self._onvif_device_service.CreateUsers(User=users)
         return True
 
     @operation()
-    async def delete_users(self, username: str) -> bool:
+    def delete_users(self, username: str) -> bool:
         """Delete device user."""
         self._onvif_device_service.DeleteUsers(Username=username)
         return True
 
     @operation()
-    async def set_user(self, users: list[dict[str, Any]]) -> bool:
+    def set_user(self, users: list[dict[str, Any]]) -> bool:
         """Set device users."""
         self._onvif_device_service.SetUser(User=users)
         return True
@@ -166,41 +166,41 @@ class Device:
     # ---- Network Operations ---- #
 
     @operation()
-    async def get_hostname(self) -> Any:
+    def get_hostname(self) -> Any:
         """Get device hostname."""
         return self._onvif_device_service.GetHostname()
 
     @operation()
-    async def set_hostname(self, hostname: str | None = None) -> bool:
+    def set_hostname(self, hostname: str | None = None) -> bool:
         """Set device hostname."""
         self._onvif_device_service.SetHostname(Name=hostname)
         return True
 
     @operation()
-    async def set_hostname_from_dhcp(self, from_dhcp: bool) -> bool:
+    def set_hostname_from_dhcp(self, from_dhcp: bool) -> bool:
         """Set device hostname from DHCP."""
         self._onvif_device_service.SetHostnameFromDHCP(FromDHCP=from_dhcp)
         return True
 
     @operation()
-    async def get_discovery_mode(self) -> Any:
+    def get_discovery_mode(self) -> Any:
         """Get discovery mode."""
         return self._onvif_device_service.GetDiscoveryMode()
 
     @operation()
-    async def set_discovery_mode(self, discoverable: bool) -> bool:
+    def set_discovery_mode(self, discoverable: bool) -> bool:
         """Set discovery mode."""
         mode = "Discoverable" if discoverable else "NonDiscoverable"
         self._onvif_device_service.SetDiscoveryMode(DiscoveryMode=mode)
         return True
 
     @operation()
-    async def get_ntp(self) -> Any:
+    def get_ntp(self) -> Any:
         """Get NTP configuration."""
         return self._onvif_device_service.GetNTP()
 
     @operation()
-    async def set_ntp(
+    def set_ntp(
         self,
         from_dhcp: bool,
         ntp_manual: list[dict[str, Any]] | None = None,
@@ -210,12 +210,12 @@ class Device:
         return True
 
     @operation()
-    async def get_network_default_gateway(self) -> Any:
+    def get_network_default_gateway(self) -> Any:
         """Get network default gateway."""
         return self._onvif_device_service.GetNetworkDefaultGateway()
 
     @operation()
-    async def set_network_default_gateway(
+    def set_network_default_gateway(
         self, ipv4_address: str | None = None, ipv6_address: str | None = None
     ) -> bool:
         """Set network default gateway."""
@@ -225,14 +225,12 @@ class Device:
         return True
 
     @operation()
-    async def get_network_protocols(self) -> Any:
+    def get_network_protocols(self) -> Any:
         """Get network protocols."""
         return self._onvif_device_service.GetNetworkProtocols()
 
     @operation()
-    async def set_network_protocols(
-        self, network_protocols: list[dict[str, Any]]
-    ) -> bool:
+    def set_network_protocols(self, network_protocols: list[dict[str, Any]]) -> bool:
         """Set network protocols."""
         self._onvif_device_service.SetNetworkProtocols(
             NetworkProtocols=network_protocols
@@ -240,12 +238,12 @@ class Device:
         return True
 
     @operation()
-    async def get_network_interfaces(self) -> Any:
+    def get_network_interfaces(self) -> Any:
         """Get network interfaces."""
         return self._onvif_device_service.GetNetworkInterfaces()
 
     @operation()
-    async def set_network_interfaces(
+    def set_network_interfaces(
         self, interface_token: str, network_interface: dict[str, Any]
     ) -> bool:
         """Set network interfaces."""
@@ -255,12 +253,12 @@ class Device:
         return True
 
     @operation()
-    async def get_dns(self) -> Any:
+    def get_dns(self) -> Any:
         """Get network DNS."""
         return self._onvif_device_service.GetDNS()
 
     @operation()
-    async def set_dns(
+    def set_dns(
         self,
         from_dhcp: bool,
         search_domain: list[str] | None = None,

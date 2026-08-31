@@ -112,21 +112,21 @@ class Imaging:
     # ---- Capabilities Operations ---- #
 
     @operation()
-    async def get_service_capabilities(self) -> Any:
+    def get_service_capabilities(self) -> Any:
         """Get Imaging service capabilities."""
         return self._onvif_imaging_service.GetServiceCapabilities()
 
     # ---- Settings Operations ---- #
 
     @operation()
-    async def get_imaging_settings(self) -> Any:
+    def get_imaging_settings(self) -> Any:
         """Get current imaging settings."""
         return self._onvif_imaging_service.GetImagingSettings(
             VideoSourceToken=self._video_source_token,
         )
 
     @operation()
-    async def set_imaging_settings(
+    def set_imaging_settings(
         self, settings: dict[str, Any], force_persistence: bool = True
     ) -> bool:
         """Set imaging settings."""
@@ -138,7 +138,7 @@ class Imaging:
         return True
 
     @operation()
-    async def get_options(self) -> Any:
+    def get_options(self) -> Any:
         """Get available imaging options."""
         return self._onvif_imaging_service.GetOptions(
             VideoSourceToken=self._video_source_token
@@ -147,7 +147,7 @@ class Imaging:
     # ---- Presets Operations ---- #
 
     @operation()
-    async def get_presets(self) -> Any:
+    def get_presets(self) -> Any:
         """Get available imaging presets."""
         if not self._imaging_capabilities.Presets:
             return False
@@ -156,7 +156,7 @@ class Imaging:
         )
 
     @operation()
-    async def get_current_preset(self) -> Any:
+    def get_current_preset(self) -> Any:
         """Get current imaging preset."""
         if not self._imaging_capabilities.Presets:
             return False
@@ -165,7 +165,7 @@ class Imaging:
         )
 
     @operation()
-    async def set_current_preset(self, preset_token: str) -> bool:
+    def set_current_preset(self, preset_token: str) -> bool:
         """Set current imaging preset."""
         if not self._imaging_capabilities.AdaptablePreset:
             return False
@@ -178,21 +178,21 @@ class Imaging:
     # ---- Focus Operations ---- #
 
     @operation()
-    async def get_move_options(self) -> Any:
+    def get_move_options(self) -> Any:
         """Get available move options."""
         return self._onvif_imaging_service.GetMoveOptions(
             VideoSourceToken=self._video_source_token
         )
 
     @operation()
-    async def get_status(self) -> Any:
+    def get_status(self) -> Any:
         """Get focus movement status."""
         return self._onvif_imaging_service.GetStatus(
             VideoSourceToken=self._video_source_token,
         )
 
     @operation()
-    async def move_focus(self, move_config: dict[str, Any]) -> bool:
+    def move_focus(self, move_config: dict[str, Any]) -> bool:
         """Move focus continuously or relatively."""
         self._onvif_imaging_service.Move(
             VideoSourceToken=self._video_source_token,
@@ -201,7 +201,7 @@ class Imaging:
         return True
 
     @operation()
-    async def stop_focus(self) -> bool:
+    def stop_focus(self) -> bool:
         """Stop focus movement."""
         self._onvif_imaging_service.Stop(
             VideoSourceToken=self._video_source_token,

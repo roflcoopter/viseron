@@ -136,14 +136,14 @@ class PTZ:
     # ---- Capabilities Operations ---- #
 
     @operation()
-    async def get_service_capabilities(self) -> Any:
+    def get_service_capabilities(self) -> Any:
         """Get PTZ service capabilities."""
         return self._onvif_ptz_service.GetServiceCapabilities()
 
     # ---- Movement Operations ---- #
 
     @operation()
-    async def continuous_move(
+    def continuous_move(
         self,
         x_velocity: float,
         y_velocity: float,
@@ -172,7 +172,7 @@ class PTZ:
         return True
 
     @operation()
-    async def relative_move(
+    def relative_move(
         self,
         x_translation: float,
         y_translation: float,
@@ -218,7 +218,7 @@ class PTZ:
         return True
 
     @operation()
-    async def absolute_move(
+    def absolute_move(
         self,
         x_position: float,
         y_position: float,
@@ -269,7 +269,7 @@ class PTZ:
         return True
 
     @operation()
-    async def stop(self) -> bool:
+    def stop(self) -> bool:
         """Stop any ongoing PTZ movement."""
         self._onvif_ptz_service.Stop(ProfileToken=self._media_profile.token)
         return True
@@ -277,31 +277,31 @@ class PTZ:
     # ---- Position Operations ---- #
 
     @operation()
-    async def goto_home_position(self) -> bool:
+    def goto_home_position(self) -> bool:
         """Move the camera to its home position."""
         self._onvif_ptz_service.GotoHomePosition(ProfileToken=self._media_profile.token)
         return True
 
     @operation()
-    async def set_home_position(self) -> bool:
+    def set_home_position(self) -> bool:
         """Set the current position as the home position."""
         self._onvif_ptz_service.SetHomePosition(ProfileToken=self._media_profile.token)
         return True
 
     @operation()
-    async def get_status(self) -> Any:
+    def get_status(self) -> Any:
         """Get the PTZ status of the camera."""
         return self._onvif_ptz_service.GetStatus(ProfileToken=self._media_profile.token)
 
     @operation()
-    async def get_presets(self) -> Any:
+    def get_presets(self) -> Any:
         """Get the PTZ presets of the camera."""
         return self._onvif_ptz_service.GetPresets(
             ProfileToken=self._media_profile.token
         )
 
     @operation()
-    async def goto_preset(self, preset_token: str) -> bool:
+    def goto_preset(self, preset_token: str) -> bool:
         """Move the camera to the specified preset."""
         self._onvif_ptz_service.GotoPreset(
             ProfileToken=self._media_profile.token,
@@ -310,7 +310,7 @@ class PTZ:
         return True
 
     @operation()
-    async def set_preset(self, preset_name: str) -> bool:
+    def set_preset(self, preset_name: str) -> bool:
         """Set a preset at the current position with the given name."""
         return self._onvif_ptz_service.SetPreset(
             ProfileToken=self._media_profile.token,
@@ -318,7 +318,7 @@ class PTZ:
         )
 
     @operation()
-    async def remove_preset(self, preset_token: str) -> bool:
+    def remove_preset(self, preset_token: str) -> bool:
         """Remove the specified preset."""
         self._onvif_ptz_service.RemovePreset(
             ProfileToken=self._media_profile.token,
@@ -329,24 +329,24 @@ class PTZ:
     # ---- Configuration Operations ---- #
 
     @operation()
-    async def get_nodes(self) -> Any:
+    def get_nodes(self) -> Any:
         """Get the PTZ nodes of the camera."""
         return self._onvif_ptz_service.GetNodes()
 
     @operation()
-    async def get_configurations(self) -> Any:
+    def get_configurations(self) -> Any:
         """Get the PTZ configurations of the camera."""
         return self._onvif_ptz_service.GetConfigurations()
 
     @operation()
-    async def get_configuration_options(self) -> Any:
+    def get_configuration_options(self) -> Any:
         """Get the PTZ configuration options of the camera."""
         return self._onvif_ptz_service.GetConfigurationOptions(
             ConfigurationToken=self._media_profile.PTZConfiguration.token
         )
 
     @operation()
-    async def set_configuration(
+    def set_configuration(
         self, ptz_config: dict[str, Any], force_persistence: bool = True
     ) -> bool:
         """Set the PTZ configuration of the camera."""
