@@ -473,6 +473,11 @@ class AbstractCamera(AbstractDomain):
         """Return PTZ support type."""
         return self._ptz_support
 
+    @ptz_support.setter
+    def ptz_support(self, value: str | None) -> None:
+        """Set PTZ support."""
+        self._ptz_support = value
+
     def tier_base_path(self, tier_id: int, tier_category: str, subcategory: str) -> str:
         """Return storage tier base path."""
         return self._storage.camera_tier_handlers[self.identifier][tier_category][
