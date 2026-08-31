@@ -53,7 +53,7 @@ repos:
           - mccabe==0.7.0
         files: ^(viseron|tests)/.+\.py$
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.3
+    rev: v0.16.4
     hooks:
       - id: ruff-check
         args: [--fix]
