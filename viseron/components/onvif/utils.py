@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 
 import zeep.helpers
 from onvif import ONVIFOperationException  # type: ignore[attr-defined]
+from tornado.ioloop import IOLoop
 
 from viseron.components.go2rtc.const import COMPONENT as GO2RTC_COMPONENT
 
@@ -21,6 +22,8 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 logging.getLogger(COMPONENT).setLevel(logging.CRITICAL)
+
+COMMON_RTSP_PORT = 554
 
 
 def to_dict(zeep_object: Any) -> dict[str, Any] | list[dict[str, Any]]:
@@ -34,25 +37,27 @@ def to_dict(zeep_object: Any) -> dict[str, Any] | list[dict[str, Any]]:
     else:
         serialized = zeep.helpers.serialize_object(zeep_object)
 
-    # Convert to JSON and back to ensure full serialization
-    # This handles any remaining XML elements or non-serializable types
-    try:
-        return json.loads(json.dumps(serialized, default=str))
-    except (TypeError, ValueError) as error:
-        LOGGER.warning(
-            f"Error serializing zeep object, using string conversion: {error}"
-        )
-        return json.loads(json.dumps(serialized, default=str))
+    return json.loads(json.dumps(serialized, default=str))
 
 
 def operation():
-    """Handle any ONVIF operations."""
+    """Run blocking ONVIF operations in an executor."""
 
     def decorator(func):
         @functools.wraps(func)
         async def wrapper(self, *args, **kwargs):
             try:
-                return await func(self, *args, **kwargs)
+                operation_func = functools.partial(
+                    func,
+                    self,
+                    *args,
+                    **kwargs,
+                )
+
+                return await IOLoop.current().run_in_executor(
+                    None,
+                    operation_func,
+                )
             except (
                 ONVIFOperationException,  # must exists !
                 TypeError,
@@ -178,7 +183,7 @@ def build_camera_rtsp_url(
         protocol = config.get("protocol") or "rtsp"
 
         # Build URL
-        if port and port != 554:
+        if port and port != COMMON_RTSP_PORT:
             url = f"{protocol}://{host}:{port}{path}"
         else:
             url = f"{protocol}://{host}{path}"
