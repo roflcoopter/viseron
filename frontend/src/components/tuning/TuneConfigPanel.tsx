@@ -172,13 +172,19 @@ export function TuneConfigPanel({
 
   if (!selectedComponentData) {
     return (
-      <EmptyStateCard message="Please select component first" hasSetupErrors={hasSetupErrors} />
+      <EmptyStateCard
+        message="Please select component first"
+        hasSetupErrors={hasSetupErrors}
+      />
     );
   }
 
   if (selectedComponentData.componentType === "not_tunable") {
     return (
-      <EmptyStateCard message="This component can't be tuned" hasSetupErrors={hasSetupErrors} />
+      <EmptyStateCard
+        message="This component can't be tuned"
+        hasSetupErrors={hasSetupErrors}
+      />
     );
   }
 
