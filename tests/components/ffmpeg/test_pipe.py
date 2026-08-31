@@ -6,6 +6,8 @@ import logging
 import subprocess as sp
 from unittest.mock import patch
 
+import pytest
+
 from viseron.components.ffmpeg.pipe import FFmpegPipe
 
 LOGGER = logging.getLogger(__name__)
@@ -45,6 +47,40 @@ def test_start_with_segment_command_starts_both() -> None:
     assert popen.call_count == 2
     assert popen.call_args_list[0].kwargs["name"] == "viseron.camera.cam.segments"
     assert popen.call_args_list[1].kwargs["name"] == "viseron.camera.cam.pipe"
+
+
+@pytest.mark.parametrize(
+    ("segment_command", "expected_popen_count"),
+    [
+        pytest.param(None, 1, id="single_stream"),
+        pytest.param(["ffmpeg", "-i", "seg"], 2, id="substream"),
+    ],
+)
+def test_start_keeps_ffmpeg_in_the_frame_reader_process_group(
+    segment_command: list[str] | None, expected_popen_count: int
+) -> None:
+    """Ffmpeg must stay in the process group of the frame reader.
+
+    The pipe runs inside the frame reader process, which is the only holder of a
+    handle on the FFmpeg processes. Giving them their own session would make them
+    unreachable, and they would keep running when the frame reader is killed.
+    """
+    with (
+        patch("viseron.components.ffmpeg.pipe.RestartablePopen") as popen,
+        patch("viseron.components.ffmpeg.pipe.LogPipe"),
+    ):
+        pipe = FFmpegPipe(
+            "cam",
+            LOGGER,
+            10,
+            decoder_command=["ffmpeg", "-i", "x"],
+            segment_command=segment_command,
+        )
+        pipe.start()
+
+    assert popen.call_count == expected_popen_count
+    for call in popen.call_args_list:
+        assert call.kwargs["start_new_session"] is False
 
 
 def test_read_returns_requested_number_of_bytes() -> None:

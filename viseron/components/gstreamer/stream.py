@@ -264,7 +264,7 @@ class Stream(FFmpegStream):
             return self._process_frames_proc.exitcode
         return None
 
-    def read(self) -> SharedFrame | None:  # type: ignore[override]
+    def read(self) -> SharedFrame | None:
         """Return a single frame from Gst buffer."""
         try:
             if self._process_frames_proc:

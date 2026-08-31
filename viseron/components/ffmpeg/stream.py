@@ -560,37 +560,10 @@ class Stream:
             return self._ffmpeg_pipe.segment_process
         return None
 
-    def start_pipe(self) -> None:
-        """Start piping frames from FFmpeg."""
-        self._ffmpeg_pipe = FFmpegPipe(
-            self._camera_identifier,
-            self._logger,
-            FFMPEG_LOGLEVELS[self._config[CONFIG_FFMPEG_LOGLEVEL]],
-            decoder_command=self.build_command(),
-            segment_command=(
-                self.build_segment_command()
-                if self._config.get(CONFIG_SUBSTREAM, None)
-                else None
-            ),
-        )
-        self._ffmpeg_pipe.start()
-
     def close_pipe(self) -> None:
         """Close FFmpeg pipe."""
         if self._ffmpeg_pipe:
             self._ffmpeg_pipe.close()
-
-    def poll(self) -> int | None:
-        """Poll pipe."""
-        if self._ffmpeg_pipe:
-            return self._ffmpeg_pipe.poll()
-        return None
-
-    def read(self) -> bytes | None:
-        """Return a single frame from FFmpeg pipe."""
-        if self._ffmpeg_pipe:
-            return self._ffmpeg_pipe.read(self.frame_bytes_size)
-        return None
 
     def record_only(self) -> None:
         """Record only the stream."""
