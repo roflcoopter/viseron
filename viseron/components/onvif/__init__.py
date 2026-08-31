@@ -538,6 +538,11 @@ def setup(vis: Viseron, config: dict) -> bool:
 
 def unload(vis: Viseron) -> None:
     """Unload the ONVIF component."""
+    onvif: ONVIF | None = vis.data.get(COMPONENT)
+
+    if onvif is not None:
+        onvif.shutdown()
+
     vis.data.pop(COMPONENT, None)
 
 
@@ -664,27 +669,37 @@ class ONVIF:
         async def init_device():
             try:
                 device_config = config.get(CONFIG_DEVICE, {})
-                device_service = Device(camera, client, device_config, auto_config)
+                device_service = Device(
+                    camera,
+                    client,
+                    device_config,
+                    auto_config,
+                )
                 await device_service.initialize()
                 self._device_services[camera.identifier] = device_service
                 LOGGER.debug(f"Initialized Device service for {camera.identifier}")
             except Exception as error:  # pylint: disable=broad-exception-caught
                 LOGGER.error(
-                    f"Failed to initialize Device service for {camera.identifier}"
-                    f": {error}"
+                    f"Failed to initialize Device service for "
+                    f"{camera.identifier}: {error}"
                 )
 
         async def init_media():
             try:
                 media_config = config.get(CONFIG_MEDIA, {})
-                media_service = Media(camera, client, media_config, auto_config)
+                media_service = Media(
+                    camera,
+                    client,
+                    media_config,
+                    auto_config,
+                )
                 await media_service.initialize()
                 self._media_services[camera.identifier] = media_service
                 LOGGER.debug(f"Initialized Media service for {camera.identifier}")
             except Exception as error:  # pylint: disable=broad-exception-caught
                 LOGGER.error(
-                    f"Failed to initialize Media service for {camera.identifier}"
-                    f": {error}"
+                    f"Failed to initialize Media service for "
+                    f"{camera.identifier}: {error}"
                 )
 
         async def init_imaging():
@@ -702,13 +717,14 @@ class ONVIF:
                 LOGGER.debug(f"Initialized Imaging service for {camera.identifier}")
             except Exception as error:  # pylint: disable=broad-exception-caught
                 LOGGER.warning(
-                    f"Failed to initialize Imaging service for {camera.identifier}"
-                    f": {error}"
+                    f"Failed to initialize Imaging service for "
+                    f"{camera.identifier}: {error}"
                 )
 
         async def init_ptz():
             try:
                 ptz_config = config.get(CONFIG_PTZ, {})
+
                 ptz_service = PTZ(
                     camera,
                     client,
@@ -718,9 +734,7 @@ class ONVIF:
                 )
                 await ptz_service.initialize()
                 self._ptz_services[camera.identifier] = ptz_service
-                # Inject PTZ support into camera
-                # pylint: disable=protected-access
-                camera._ptz_support = (
+                camera.ptz_support = (
                     COMPONENT + "+auto" if auto_config else COMPONENT + "+manual"
                 )
                 LOGGER.debug(f"Initialized PTZ service for {camera.identifier}")
@@ -729,9 +743,19 @@ class ONVIF:
                     f"Failed to initialize PTZ service for {camera.identifier}: {error}"
                 )
 
-        loop.run_until_complete(
-            asyncio.gather(init_device(), init_media(), init_imaging(), init_ptz())
-        )
+        async def initialize_services():
+            await asyncio.gather(
+                init_device(),
+                init_media(),
+            )
+
+            await asyncio.gather(
+                init_imaging(),
+                init_ptz(),
+            )
+
+        loop.run_until_complete(initialize_services())
+        loop.close()
 
     # ONVIF Client accessor -> use this to access the ONVIF client in other components
 
