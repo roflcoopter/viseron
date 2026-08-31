@@ -1,5 +1,5 @@
 import { Box, Grid, Typography } from "@mui/material";
-import { useCallback, useState } from "react";
+import { useCallback, useContext, useState } from "react";
 import { useParams } from "react-router-dom";
 import ServerDown from "svg/undraw/server_down.svg?react";
 
@@ -24,6 +24,7 @@ import {
 } from "components/tuning/shared";
 import { NameInputDialog } from "components/tuning/shared/NameInputDialog";
 import { normalizeComponentData } from "components/tuning/utils";
+import { ViseronContext } from "context/ViseronContext";
 import { useTitle } from "hooks/UseTitle";
 import { useToast } from "hooks/UseToast";
 import { useCameras } from "lib/api/cameras";
@@ -34,6 +35,12 @@ function Tunes() {
   const { camera_identifier } = useParams<{ camera_identifier: string }>();
   const cameras = useCameras({});
   const toast = useToast();
+
+  const { setupStatus } = useContext(ViseronContext);
+
+  const hasSetupErrors = setupStatus.components.some(
+    (component) => component.errors.length > 0 || component.validation_error,
+  );
 
   const [selectedTab, setSelectedTab] = useState(0);
   const [expandedComponent, setExpandedComponent] = useState<string | false>(
@@ -474,7 +481,10 @@ function Tunes() {
 
       <Box
         sx={{
-          height: { md: "75vh", xl: "81.5vh" },
+          height: {
+            md: hasSetupErrors ? "73vh" : "75vh",
+            xl: hasSetupErrors ? "79vh" : "81.5vh",
+          },
           display: "flex",
           flexDirection: "column",
           paddingY: 0.5,
@@ -486,6 +496,7 @@ function Tunes() {
           <Grid size={{ xs: 12, md: 6.5 }} sx={{ order: { xs: 0, md: 1 } }}>
             <TuneSnapshot
               camera={camera}
+              hasSetupErrors={hasSetupErrors}
               snapshotURL={snapshotURL}
               isDrawingMode={tuneHandlers.isDrawingMode}
               selectedComponentData={tuneHandlers.selectedComponentData}
@@ -568,6 +579,7 @@ function Tunes() {
           {/* Left Card - Second on mobile, first on desktop */}
           <Grid size={{ xs: 12, md: 2.5 }} sx={{ order: { xs: 1, md: 0 } }}>
             <TuneConfigPanel
+              hasSetupErrors={hasSetupErrors}
               selectedComponentData={tuneHandlers.selectedComponentData}
               isDrawingMode={tuneHandlers.isDrawingMode}
               drawingType={tuneHandlers.drawingType}
@@ -660,6 +672,7 @@ function Tunes() {
           {/* Right Card with Tabs - Third on mobile, last on desktop */}
           <Grid size={{ xs: 12, md: 3 }} sx={{ order: { xs: 2, md: 2 } }}>
             <TuneComponentList
+              hasSetupErrors={hasSetupErrors}
               selectedTab={selectedTab}
               expandedComponent={expandedComponent}
               domainTabs={getDomainTabs()}

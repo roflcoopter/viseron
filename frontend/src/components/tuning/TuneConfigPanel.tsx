@@ -34,6 +34,7 @@ interface ComponentData {
 }
 
 interface TuneConfigPanelProps {
+  hasSetupErrors: boolean;
   selectedComponentData: ComponentData | null;
   isDrawingMode: boolean;
   drawingType: "zone" | "mask" | null;
@@ -75,6 +76,7 @@ interface TuneConfigPanelProps {
 }
 
 export function TuneConfigPanel({
+  hasSetupErrors,
   selectedComponentData,
   isDrawingMode,
   drawingType,
@@ -169,18 +171,25 @@ export function TuneConfigPanel({
   };
 
   if (!selectedComponentData) {
-    return <EmptyStateCard message="Please select component first" />;
+    return (
+      <EmptyStateCard message="Please select component first" hasSetupErrors={hasSetupErrors} />
+    );
   }
 
   if (selectedComponentData.componentType === "not_tunable") {
-    return <EmptyStateCard message="This component can't be tuned" />;
+    return (
+      <EmptyStateCard message="This component can't be tuned" hasSetupErrors={hasSetupErrors} />
+    );
   }
 
   return (
     <Card
       variant="outlined"
       sx={{
-        height: { md: "72.5vh", xl: "80vh" },
+        height: {
+          md: hasSetupErrors ? "70vh" : "72.5vh",
+          xl: hasSetupErrors ? "78vh" : "80vh",
+        },
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
