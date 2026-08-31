@@ -195,7 +195,6 @@ if TYPE_CHECKING:
     from viseron.domain_registry import EventDomainRegisteredData
 
 LOGGER = logging.getLogger(__name__)
-logging.getLogger(COMPONENT).setLevel(logging.CRITICAL)
 
 # NTP Server Schema
 NTP_SERVER_SCHEMA = vol.Schema(

@@ -14,14 +14,11 @@ from tornado.ioloop import IOLoop
 
 from viseron.components.go2rtc.const import COMPONENT as GO2RTC_COMPONENT
 
-from .const import COMPONENT
-
 if TYPE_CHECKING:
     from viseron.domains.camera import AbstractCamera
 
 
 LOGGER = logging.getLogger(__name__)
-logging.getLogger(COMPONENT).setLevel(logging.CRITICAL)
 
 COMMON_RTSP_PORT = 554
 

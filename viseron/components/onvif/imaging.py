@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, Any
 from onvif import ONVIFClient  # type: ignore[attr-defined]
 
 from .const import (
-    COMPONENT,
     CONFIG_IMAGING_BACKLIGHT_COMPENSATION,
     CONFIG_IMAGING_BRIGHTNESS,
     CONFIG_IMAGING_COLOR_SATURATION,
@@ -34,7 +33,6 @@ if TYPE_CHECKING:
     from viseron.domains.camera import AbstractCamera
 
 LOGGER = logging.getLogger(__name__)
-logging.getLogger(COMPONENT).setLevel(logging.CRITICAL)
 
 
 class Imaging:

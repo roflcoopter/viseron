@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any
 from onvif import ONVIFClient  # type: ignore[attr-defined]
 
 from .const import (
-    COMPONENT,
     CONFIG_DEVICE_DATETIME_TYPE,
     CONFIG_DEVICE_DAYLIGHT_SAVINGS,
     CONFIG_DEVICE_DISCOVERABLE,
@@ -25,7 +24,6 @@ if TYPE_CHECKING:
     from viseron.domains.camera import AbstractCamera
 
 LOGGER = logging.getLogger(__name__)
-logging.getLogger(COMPONENT).setLevel(logging.CRITICAL)
 
 
 class Device:
