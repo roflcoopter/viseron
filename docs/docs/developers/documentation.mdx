@@ -55,8 +55,11 @@ const ComponentMetadata: Component = {
   title: "Fancy Component",
   name: "fancy_component",
   description: "A fancy component",
-  image: "/img/components/fancy_component.png",
+  image: "/img/components/fancy_component.svg",  // SVG assets are prioritized.
   tags: ["motion_detector"],
+  category: "new",  // Set to null if it has already been published in a previous version.
+  path: "viseron/components/fancy_component",
+  issue: "fancy_component",
 };
 
 export default ComponentMetadata;
@@ -69,13 +72,16 @@ If domains are set up in the component, they will be automatically added to the 
 The following tags are available:
 
 - `camera`
-- `face_recognition`
-- `image_classification`
-- `license_plate_recognition`
-- `motion_detector`
 - `nvr`
-- `object_detector`
 - `system`
+- `protocol`
+- `notification`
+- `object_detector`
+- `motion_detector`
+- `image_classification`
+- `face_recognition`
+- `license_plate_recognition`
+- `integration`
 
 :::warning
 

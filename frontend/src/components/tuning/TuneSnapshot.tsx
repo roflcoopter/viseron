@@ -20,6 +20,7 @@ interface Camera {
 
 interface TuneSnapshotProps {
   camera: Camera;
+  hasSetupErrors: boolean;
   snapshotURL: {
     url: string;
     loading: boolean;
@@ -57,6 +58,7 @@ interface TuneSnapshotProps {
 
 export function TuneSnapshot({
   camera,
+  hasSetupErrors,
   snapshotURL,
   isDrawingMode,
   selectedComponentData,
@@ -139,7 +141,10 @@ export function TuneSnapshot({
       ref={ref}
       variant="outlined"
       sx={{
-        height: { md: "72.5vh" },
+        height: {
+          md: hasSetupErrors ? "70vh" : "72.5vh",
+          xl: hasSetupErrors ? "78vh" : "80vh",
+        },
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

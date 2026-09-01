@@ -10,13 +10,15 @@ from typing import TYPE_CHECKING
 import cv2
 import numpy as np
 from telegram import Update
+from telegram.constants import ParseMode
 from telegram.ext import CallbackContext, CommandHandler
 
+from viseron.components.onvif import ONVIF
 from viseron.components.telegram.utils import limit_user_access, parse_command_args
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.watchdog.thread_watchdog import RestartableThread
 
-from .const import CONFIG_PTZ_COMPONENT
+from .const import CONFIG_ONVIF_COMPONENT
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -39,7 +41,7 @@ class TelegramPTZ:
         self._vis = vis
         self._config = config
         self._telegram = telegram
-        self._ptz = self._vis.data[CONFIG_PTZ_COMPONENT]
+        self._onvif: ONVIF = self._vis.data[CONFIG_ONVIF_COMPONENT]
         self._stop_event = asyncio.Event()
         self._event_listeners = []
         self._event_listeners.append(
@@ -53,8 +55,15 @@ class TelegramPTZ:
         """Start the TelegramPTZ Controller."""
         self._thread.start()
 
+    @property
+    def _ptz_service(self):
+        """Get PTZ service for active camera."""
+        return self._onvif.get_ptz_service(self._telegram.active_camera_identifier)
+
     async def _listen(self) -> None:
         """Start listening for commands from Telegram."""
+        self._telegram.app.add_handler(CommandHandler("home", self._home))
+        self._telegram.app.add_handler(CommandHandler("h", self._home))
         self._telegram.app.add_handler(CommandHandler("left", self._pan_left))
         self._telegram.app.add_handler(CommandHandler("l", self._pan_left))
         self._telegram.app.add_handler(CommandHandler("right", self._pan_right))
@@ -63,19 +72,19 @@ class TelegramPTZ:
         self._telegram.app.add_handler(CommandHandler("u", self._tilt_up))
         self._telegram.app.add_handler(CommandHandler("down", self._tilt_down))
         self._telegram.app.add_handler(CommandHandler("d", self._tilt_down))
-        self._telegram.app.add_handler(CommandHandler("patrol", self._patrol))
-        self._telegram.app.add_handler(CommandHandler("p", self._patrol))
         self._telegram.app.add_handler(CommandHandler("zo", self._zoom_out))
         self._telegram.app.add_handler(CommandHandler("o", self._zoom_out))
         self._telegram.app.add_handler(CommandHandler("zi", self._zoom_in))
         self._telegram.app.add_handler(CommandHandler("i", self._zoom_in))
-        self._telegram.app.add_handler(CommandHandler("stop", self._stop_patrol))
-        self._telegram.app.add_handler(CommandHandler("st", self._stop_patrol))
         self._telegram.app.add_handler(CommandHandler("pos", self._get_position))
         self._telegram.app.add_handler(CommandHandler("preset", self._preset))
         self._telegram.app.add_handler(CommandHandler("pr", self._preset))
         self._telegram.app.add_handler(CommandHandler("repeat", self._repeat_preset))
+        self._telegram.app.add_handler(CommandHandler("patrol", self._patrol))
+        self._telegram.app.add_handler(CommandHandler("p", self._patrol))
         self._telegram.app.add_handler(CommandHandler("lissa", self._lissa))
+        self._telegram.app.add_handler(CommandHandler("stop", self._stop_patrol))
+        self._telegram.app.add_handler(CommandHandler("st", self._stop_patrol))
 
         while not self._stop_event.is_set():
             await asyncio.sleep(1)
@@ -101,6 +110,36 @@ class TelegramPTZ:
         loop.close()
         LOGGER.info("TelegramPTZ Controller done")
 
+    async def _inform(
+        self, update: Update, operation: str, status: bool | None
+    ) -> None:
+        """Inform the user with a message."""
+        if update.message:
+            if status:
+                message_status = "executed"
+            elif status is None:
+                message_status = "started"
+            else:
+                message_status = "failed"
+            message = (
+                f"<b>{operation.upper().replace('_', ' ')}</b> {message_status} for "
+                f"{self._telegram.active_camera_identifier}"
+            )
+            await update.message.reply_text(
+                message,
+                parse_mode=ParseMode.HTML,
+            )
+
+    # pylint: disable=unused-argument
+    @limit_user_access
+    async def _home(self, update: Update, context: CallbackContext) -> None:
+        """Move the camera to its home position."""
+
+        status = (
+            await self._ptz_service.goto_home_position() if self._ptz_service else False
+        )
+        await self._inform(update, "home", status)
+
     # pylint: disable=unused-argument
     @limit_user_access
     async def _pan_left(self, update: Update, context: CallbackContext) -> None:
@@ -112,10 +151,13 @@ class TelegramPTZ:
         step_size = 0.1
         if context.args:
             step_size = float(context.args[0])
-        self._ptz.pan_left(
-            camera_identifier=self._telegram.active_camera_identifier,
-            step_size=step_size,
+
+        status = (
+            await self._ptz_service.pan_left(step_size=step_size)
+            if self._ptz_service
+            else False
         )
+        await self._inform(update, "pan_left", status)
 
     # pylint: disable=unused-argument
     @limit_user_access
@@ -128,10 +170,13 @@ class TelegramPTZ:
         step_size = 0.1
         if context.args:
             step_size = float(context.args[0])
-        self._ptz.pan_right(
-            camera_identifier=self._telegram.active_camera_identifier,
-            step_size=step_size,
+
+        status = (
+            await self._ptz_service.pan_right(step_size=step_size)
+            if self._ptz_service
+            else False
         )
+        await self._inform(update, "pan_right", status)
 
     # pylint: disable=unused-argument
     @limit_user_access
@@ -144,10 +189,13 @@ class TelegramPTZ:
         step_size = 0.1
         if context.args:
             step_size = float(context.args[0])
-        self._ptz.tilt_up(
-            camera_identifier=self._telegram.active_camera_identifier,
-            step_size=step_size,
+
+        status = (
+            await self._ptz_service.tilt_up(step_size=step_size)
+            if self._ptz_service
+            else False
         )
+        await self._inform(update, "tilt_up", status)
 
     # pylint: disable=unused-argument
     @limit_user_access
@@ -160,10 +208,13 @@ class TelegramPTZ:
         step_size = 0.1
         if context.args:
             step_size = float(context.args[0])
-        self._ptz.tilt_down(
-            camera_identifier=self._telegram.active_camera_identifier,
-            step_size=step_size,
+
+        status = (
+            await self._ptz_service.tilt_down(step_size=step_size)
+            if self._ptz_service
+            else False
         )
+        await self._inform(update, "tilt_down", status)
 
     # pylint: disable=unused-argument
     @limit_user_access
@@ -176,10 +227,13 @@ class TelegramPTZ:
         step_size = 0.1
         if context.args:
             step_size = float(context.args[0])
-        self._ptz.zoom_out(
-            camera_identifier=self._telegram.active_camera_identifier,
-            step_size=step_size,
+
+        status = (
+            await self._ptz_service.zoom_out(step_size=step_size)
+            if self._ptz_service
+            else False
         )
+        await self._inform(update, "zoom_out", status)
 
     # pylint: disable=unused-argument
     @limit_user_access
@@ -192,22 +246,39 @@ class TelegramPTZ:
         step_size = 0.1
         if context.args:
             step_size = float(context.args[0])
-        self._ptz.zoom_in(
-            camera_identifier=self._telegram.active_camera_identifier,
-            step_size=step_size,
+
+        status = (
+            await self._ptz_service.zoom_in(step_size=step_size)
+            if self._ptz_service
+            else False
         )
+        await self._inform(update, "zoom_in", status)
 
     @limit_user_access
     async def _get_position(self, update: Update, context: CallbackContext) -> None:
         """Get the current (PTZ) position of the camera."""
-        x, y = self._ptz.get_position(self._telegram.active_camera_identifier)
+        x, y, z = (
+            await self._ptz_service.get_position()
+            if self._ptz_service
+            else (False, False, False)
+        )
+        if x is False or y is False or z is False:
+            if update.message:
+                await update.message.reply_text(
+                    f"Could not get position for "
+                    f"{self._telegram.active_camera_identifier}"
+                )
+            return
         if update.message:
-            await update.message.reply_text(f"Position: {x}, {y}")
+            await update.message.reply_text(
+                f"{self._telegram.active_camera_identifier} position:\n"
+                f"PanTilt = x : {x}, y : {y}\nZoom = x : {z}"
+            )
 
     @limit_user_access
     async def _patrol(self, update: Update, context: CallbackContext) -> None:
         """
-        Swings the camera from left to right and back, etc.
+        Swings the camera from left to right and back.
 
         @param duration: The duration of the patrol in seconds
         @param sleep_after_swing: The time to sleep after each swing in seconds
@@ -246,19 +317,25 @@ class TelegramPTZ:
             step_size=(float, 0.1),
             step_sleep_time=(float, 0.1),
         )
-        await self._ptz.patrol(
-            camera_identifier=self._telegram.active_camera_identifier,
-            duration=duration,
-            sleep_after_swing=sleep_after_swing,
-            step_size=step_size,
-            step_sleep_time=step_sleep_time,
+
+        status = (
+            await self._ptz_service.patrol(
+                duration=duration,
+                sleep_after_swing=sleep_after_swing,
+                step_size=step_size,
+                step_sleep_time=step_sleep_time,
+            )
+            if self._ptz_service
+            else False
         )
+        await self._inform(update, "patrol", status)
 
     # pylint: disable=unused-argument
     @limit_user_access
     async def _stop_patrol(self, update: Update, context: CallbackContext) -> None:
         """Stop the patrol."""
-        self._ptz.stop_patrol(self._telegram.active_camera_identifier)
+        status = await self._ptz_service.stop_patrol() if self._ptz_service else False
+        await self._inform(update, "stop_patrol", status)
 
     @limit_user_access
     async def _lissa(self, update: Update, context: CallbackContext) -> None:
@@ -370,15 +447,20 @@ class TelegramPTZ:
                 io_buf = io.BytesIO(buffer)
                 await update.message.reply_photo(photo=io_buf)
 
-        await self._ptz.lissajous_curve_patrol(
-            camera_identifier=self._telegram.active_camera_identifier,
-            pan_amp=pan_amp,
-            pan_freq=pan_freq,
-            tilt_amp=tilt_amp,
-            tilt_freq=tilt_freq,
-            phase_shift=phase_shift,
-            step_sleep_time=step_sleep_time,
+        status = (
+            await self._ptz_service.lissajous_curve_patrol(
+                pan_amp=pan_amp,
+                pan_freq=pan_freq,
+                tilt_amp=tilt_amp,
+                tilt_freq=tilt_freq,
+                phase_shift=phase_shift,
+                step_sleep_time=step_sleep_time,
+            )
+            if self._ptz_service
+            else False
         )
+
+        await self._inform(update, "lissa_patrol", status)
 
     @limit_user_access
     async def _preset(self, update: Update, context: CallbackContext) -> None:
@@ -390,20 +472,33 @@ class TelegramPTZ:
         """
         name = "list" if not context.args else context.args[0]
         if name == "list":
-            presets = self._ptz.get_presets(self._telegram.active_camera_identifier)
-            preset_cmds = "\n".join(f"/preset {preset}" for preset in presets)
+            if not self._ptz_service:
+                if update.message:
+                    await update.message.reply_text("No PTZ service available.")
+                return
+            config_presets = self._ptz_service.get_configured_presets()
+            config_preset_cmds = "\n".join(
+                f"/preset {preset}" for preset in config_presets
+            )
+            presets = await self._ptz_service.get_presets()
+            preset_cmds = "\n".join(
+                f"/preset {preset.Name or preset.token}" for preset in presets
+            )
+            all_presets = config_preset_cmds + "\n" + preset_cmds
             if update.message:
-                await update.message.reply_text(f"Available presets:\n{preset_cmds}")
+                await update.message.reply_text(f"Available presets:\n{all_presets}")
                 return
 
-        could_complete = await self._ptz.move_to_preset_wait_complete(
-            camera_identifier=self._telegram.active_camera_identifier, preset_name=name
-        )
+        could_complete = await self._ptz_service.move_to_preset(preset_name=name)
         if update.message:
             if could_complete:
-                await update.message.reply_text(f"Moved to preset '{name}'")
+                await update.message.reply_text(
+                    f"Moved to preset <b>{name}</b>", parse_mode=ParseMode.HTML
+                )
             else:
-                await update.message.reply_text(f"Failed to move to preset '{name}'")
+                await update.message.reply_text(
+                    f"Failed to move to preset <b>{name}</b>", parse_mode=ParseMode.HTML
+                )
 
     @limit_user_access
     async def _repeat_preset(self, update: Update, context: CallbackContext) -> None:
@@ -419,21 +514,30 @@ class TelegramPTZ:
         """
         name = "list" if not context.args else context.args[0]
         if name == "list":
-            presets = self._ptz.get_presets(self._telegram.active_camera_identifier)
-            preset_cmds = "\n".join(f"/preset {preset}" for preset in presets)
-            if update.message:
-                await update.message.reply_text(f"Available presets:\n{preset_cmds}")
+            if not self._ptz_service:
+                if update.message:
+                    await update.message.reply_text("No PTZ service available.")
                 return
+            config_presets = self._ptz_service.get_configured_presets()
+            config_preset_cmds = "\n".join(
+                f"/preset {preset}" for preset in config_presets
+            )
+            presets = await self._ptz_service.get_presets()
+            preset_cmds = "\n".join(
+                f"/preset {preset.Name or preset.token}" for preset in presets
+            )
+            all_presets = config_preset_cmds + "\n" + preset_cmds
+            if update.message:
+                await update.message.reply_text(f"Available presets:\n{all_presets}")
+                return
+
         repeat_count = 5
         if context.args and len(context.args) > 1:
             repeat_count = int(context.args[1])
 
         async def run_presets_sequentially():
             for _ in range(repeat_count):
-                await self._ptz.move_to_preset_wait_complete(
-                    camera_identifier=self._telegram.active_camera_identifier,
-                    preset_name=name,
-                )
+                await self._ptz_service.move_to_preset(preset_name=name)
 
         # Schedule the task to run in the background
         asyncio.create_task(run_presets_sequentially())

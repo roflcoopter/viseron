@@ -128,12 +128,17 @@ export function ViewSpeedDial({
                 {index + 1}
               </span>
             }
-            tooltipTitle={`Load ${view.name}`}
             onClick={() => handleLoadView(view.id)}
             onContextMenu={(e) => handleViewRightClick(e, view.id, view.name)}
             FabProps={{
               size: "small",
               color: "secondary",
+            }}
+            slotProps={{
+              tooltip: {
+                title: `Load ${view.name}`,
+                sx: { zIndex: 10010 },
+              },
             }}
           />
         ))}
