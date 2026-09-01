@@ -3,15 +3,9 @@
 # pyright: reportMissingModuleSource=false
 from __future__ import annotations
 
-import datetime
 import logging
-import multiprocessing as mp
 import os
-import time
 from typing import TYPE_CHECKING, Any
-
-import gi
-import setproctitle
 
 from viseron.components.ffmpeg.stream import FFprobe, Stream as FFmpegStream
 from viseron.const import (
@@ -23,33 +17,27 @@ from viseron.const import (
 )
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.helpers import pop_if_full
-from viseron.helpers.logs import UnhelpfullLogFilter
+from viseron.helpers.child_process_context import (
+    CHILD_PROCESS_START_METHOD,
+    get_child_process_context,
+)
+from viseron.helpers.logs import SensitiveInformationFilter, UnhelpfullLogFilter
 from viseron.watchdog.process_watchdog import RestartableProcess
 
 from .const import (
     CONFIG_GSTREAMER_LOGLEVEL,
     CONFIG_GSTREAMER_RECOVERABLE_ERRORS,
-    CONFIG_LOGLEVEL_TO_GSTREAMER,
     CONFIG_RAW_PIPELINE,
     ENV_GSTREAMER_PATH,
-    GSTREAMER_LOGLEVEL_TO_PYTHON,
     PIXEL_FORMAT,
 )
+from .gst_process import GstProcessConfig, gst_logger_names, run_gstreamer
 from .pipeline import AbstractPipeline, BasePipeline, JetsonPipeline, RawPipeline
 
 if TYPE_CHECKING:
-    from multiprocessing.synchronize import Event as EventClass
+    import multiprocessing as mp
 
     from viseron.components.gstreamer.camera import Camera
-
-# pylint: disable=useless-suppression
-# pylint: disable=wrong-import-position,wrong-import-order,no-name-in-module
-gi.require_version("Gst", "1.0")
-gi.require_version("GstApp", "1.0")
-from gi.repository import GLib, Gst, GstApp  # noqa: E402
-
-# pylint: enable=useless-suppression
-# pylint: enable=wrong-import-position,wrong-import-order,no-name-in-module
 
 
 class Stream(FFmpegStream):
@@ -81,8 +69,9 @@ class Stream(FFmpegStream):
 
         self._logger_gstreamer = logging.getLogger(f"{self._logger.name}.gstreamer")
         self._process_frames_proc: RestartableProcess | None = None
-        self._frame_queue: mp.Queue[bytes] = mp.Queue(maxsize=1)
-        self._process_frames_proc_exit = mp.Event()
+        self._mp_context = get_child_process_context()
+        self._frame_queue: mp.Queue[bytes] = self._mp_context.Queue(maxsize=1)
+        self._process_frames_proc_exit = self._mp_context.Event()
 
         self._output_fps = self.fps
         self._pixel_format = PIXEL_FORMAT.lower()
@@ -148,98 +137,33 @@ class Stream(FFmpegStream):
         """
         raise NotImplementedError
 
-    def on_new_sample(self, app_sink: GstApp.AppSink) -> Gst.FlowReturn:
-        """Process new buffer from appsink."""
-        sample = app_sink.get_last_sample()
-
-        if not isinstance(sample, Gst.Sample):
-            self._logger.debug("Did not get sample from appsink")
-            return Gst.FlowReturn.ERROR
-
-        buffer = sample.get_buffer()
-        if not buffer:
-            self._logger.debug("Could not get buffer from sample")
-            return Gst.FlowReturn.ERROR
-
-        success, map_info = buffer.map(Gst.MapFlags.READ)
-        if not success:
-            self._logger.debug("Could not map buffer data")
-            return Gst.FlowReturn.ERROR
-
-        pop_if_full(self._frame_queue, bytes(map_info.data))
-
-        buffer.unmap(map_info)
-        return Gst.FlowReturn.OK
-
-    def on_format_location(self, _splitmux, _fragment_id, _udata) -> str:
-        """Return the location of the next segment."""
-        timestamp = int(datetime.datetime.now().timestamp())
-        return os.path.join(
-            self._camera.temp_segments_folder,
-            f"{timestamp}.{self._camera.extension}",
-        )
-
-    def on_gst_log_message(
-        self,
-        category: Gst.DebugCategory,
-        level: Gst.DebugLevel,
-        file: str,
-        function: str,
-        line: int,
-        _object,
-        message: Gst.DebugMessage,
-        *_user_data: None,
-    ):
-        """Handle GStreamer log messages."""
-        self._logger_gstreamer.log(
-            GSTREAMER_LOGLEVEL_TO_PYTHON[level],
-            "%s %s:%s:%s: %s",
-            category.get_name(),
-            file,
-            line,
-            function,
-            message.get(),
-        )
-
-    def run_gstreamer(self, process_frames_proc_exit: EventClass) -> None:
-        """Run GStreamer in a subprocess."""
-        setproctitle.setproctitle(self.alias)
-        mainloop = GLib.MainLoop()
-
-        Gst.init(None)
-        # Remove logging to stderr
-        Gst.debug_remove_log_function(None)
-        Gst.debug_set_default_threshold(
-            CONFIG_LOGLEVEL_TO_GSTREAMER[self._config[CONFIG_GSTREAMER_LOGLEVEL]]
-        )
-        Gst.debug_add_log_function(self.on_gst_log_message, None)
-
-        gst_pipeline = Gst.parse_launch(" ".join(self._pipeline.build_pipeline()))
-        appsink = gst_pipeline.get_by_name(  # type: ignore[attr-defined]
-            "sink",
-        )
-        appsink.connect("new-sample", self.on_new_sample)
-        mux = gst_pipeline.get_by_name("mux")  # type: ignore[attr-defined]
-        mux.connect("format-location", self.on_format_location, None)
-
-        gst_pipeline.set_state(Gst.State.PLAYING)
-        while not process_frames_proc_exit.is_set():
-            time.sleep(1)
-
-        gst_pipeline.set_state(Gst.State.NULL)
-        mainloop.quit()
-
     def start_pipe(self) -> None:
         """Start piping frames from GStreamer."""
-        self._logger.debug(
-            f"GStreamer decoder command: {' '.join(self._pipeline.build_pipeline())}"
+        pipeline = " ".join(self._pipeline.build_pipeline())
+        self._logger.debug(f"GStreamer decoder command: {pipeline}")
+
+        gst_config = GstProcessConfig(
+            camera_identifier=self._camera_identifier,
+            alias=self.alias,
+            pipeline=pipeline,
+            gst_loglevel=self._config[CONFIG_GSTREAMER_LOGLEVEL],
+            temp_segments_folder=self._camera.temp_segments_folder,
+            extension=self._camera.extension,
+            sensitive_strings=tuple(SensitiveInformationFilter.sensitive_strings),
+            log_level=logging.getLogger().level,
         )
 
         self._process_frames_proc = RestartableProcess(
-            target=self.run_gstreamer,
-            args=(self._process_frames_proc_exit,),
+            target=run_gstreamer,
+            args=(
+                gst_config,
+                self._frame_queue,
+                self._process_frames_proc_exit,
+            ),
             name=self.alias,
             daemon=True,
+            context=CHILD_PROCESS_START_METHOD,
+            child_logger_names=gst_logger_names(self._camera_identifier),
         )
         self._process_frames_proc_exit.clear()
         self._process_frames_proc.start()
@@ -264,7 +188,7 @@ class Stream(FFmpegStream):
             return self._process_frames_proc.exitcode
         return None
 
-    def read(self) -> SharedFrame | None:  # type: ignore[override]
+    def read(self) -> SharedFrame | None:
         """Return a single frame from Gst buffer."""
         try:
             if self._process_frames_proc:

@@ -65,10 +65,10 @@ class MockViseron(Viseron):
 
     def _mock_add_entity(
         self,
-        component: str,
+        component: str,  # pylint: disable=W0613 # noqa: ARG002
         entity: EntityT,
-        domain: SupportedDomains | None = None,
-        identifier: str | None = None,
+        domain: SupportedDomains | None = None,  # pylint: disable=W0613 # noqa: ARG002
+        identifier: str | None = None,  # pylint: disable=W0613 # noqa: ARG002
     ) -> EntityT:
         """Assign vis the way States.add_entity does, without registering."""
         entity.vis = self
@@ -108,7 +108,7 @@ def patch_tier_check_worker() -> Iterator[None]:
 @pytest.fixture(scope="session", autouse=True)
 def patch_enable_logging() -> Iterator[None]:
     """Patch enable_logging to avoid adding duplicate handlers."""
-    with patch("viseron.enable_logging"):
+    with patch("viseron.helpers.logs.enable_logging"):
         yield
 
 

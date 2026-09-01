@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gc
 import logging
 import multiprocessing as mp
 import os
@@ -9,10 +10,13 @@ import signal
 from typing import TYPE_CHECKING
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.schedulers.base import SchedulerNotRunningError
 
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.helpers import utcnow
+from viseron.helpers.logs import (
+    register_child_log_levels,
+    unregister_child_log_levels,
+)
 from viseron.watchdog import WatchDog
 from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
 from viseron.watchdog.thread_watchdog import ThreadWatchDog
@@ -20,7 +24,61 @@ from viseron.watchdog.thread_watchdog import ThreadWatchDog
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from viseron.helpers.logs import ChildLogLevels
+
 LOGGER = logging.getLogger(__name__)
+
+
+class _ChildProcessTarget:
+    """Picklable wrapper executed as the child process entrypoint."""
+
+    def __init__(
+        self,
+        target: Callable,
+        start_watchdogs: bool,
+        child_log_levels: ChildLogLevels | None = None,
+    ) -> None:
+        self._target = target
+        self._start_watchdogs = start_watchdogs
+        self._child_log_levels = child_log_levels
+        self._background_scheduler: BackgroundScheduler | None = None
+        self._thread_watchdog: ThreadWatchDog | None = None
+        self._subprocess_watchdog: SubprocessWatchDog | None = None
+        self._process_watchdog: ProcessWatchDog | None = None
+
+    def __call__(self, *args, **kwargs):
+        """Set up the child process, then run the wrapped target.
+
+        Creating a new session (setsid) ensures the child process becomes the leader
+        of a new session and process group. This makes signal management more robust
+        and prevents the process from receiving signals intended for the parent group.
+
+        gc.freeze() moves everything already allocated into a permanent generation
+        that the collector never scans again. Without it the collector writes to the
+        gc header of every tracked object.
+        """
+        os.setsid()
+        gc.freeze()
+        ThreadWatchDog.started = False
+        SubprocessWatchDog.started = False
+        ProcessWatchDog.started = False
+        if self._start_watchdogs:
+            self._start_local_watchdogs()
+        if self._child_log_levels:
+            self._child_log_levels.start()
+        self._target(*args, **kwargs)
+
+    def _start_local_watchdogs(self) -> None:
+        """Start watchdogs inside the child process.
+
+        Threads, subprocesses and processes are monitored in the parent, but if the
+        child itself spawns long-running entities, those need to be monitored too.
+        """
+        self._background_scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
+        self._background_scheduler.start()
+        self._thread_watchdog = ThreadWatchDog(self._background_scheduler)
+        self._subprocess_watchdog = SubprocessWatchDog(self._background_scheduler)
+        self._process_watchdog = ProcessWatchDog(self._background_scheduler)
 
 
 class RestartableProcess:
@@ -36,9 +94,11 @@ class RestartableProcess:
         name=None,
         grace_period=20,
         register=True,
+        context: str | None = None,
         stage: str | None = VISERON_SIGNAL_SHUTDOWN,
         create_process_method: Callable[[], mp.Process] | None = None,
         start_watchdogs: bool = False,
+        child_logger_names: tuple[str, ...] | None = None,
         **kwargs,
     ) -> None:
         self._args = args
@@ -47,16 +107,27 @@ class RestartableProcess:
         self._kwargs = kwargs
         self._kwargs["name"] = name
         self._original_target: Callable | None = self._kwargs.get("target")
+        self._ctx = mp.get_context(context)
         self._process: mp.Process | None = None
         self._started = False
         self._start_time: float | None = None
         self._register = register
         self._create_process_method = create_process_method
         self._start_watchdogs = start_watchdogs
-        self._background_scheduler: BackgroundScheduler | None = None
-        self._thread_watchdog: ThreadWatchDog | None = None
-        self._subprocess_watchdog: SubprocessWatchDog | None = None
-        self._process_watchdog: ProcessWatchDog | None = None
+        self._child_log_levels: ChildLogLevels | None = None
+        if child_logger_names:
+            if create_process_method:
+                raise ValueError(
+                    "child_logger_names needs the wrapped target, which is not used "
+                    "by processes created with create_process_method"
+                )
+            if not name:
+                raise ValueError("child_logger_names requires a name to key them by")
+            # Registered here and unregistered when the process is stopped, so that
+            # a reload of the logger component reaches the child while it runs.
+            self._child_log_levels = register_child_log_levels(
+                name, self._ctx, child_logger_names
+            )
         if self._register:
             ProcessWatchDog.register(self)
         setattr(self, "__stage__", stage)
@@ -111,33 +182,14 @@ class RestartableProcess:
         # Always (re)set the wrapped target so that restarts also create a new
         # process that calls os.setsid() before executing the user target.
         if self._original_target:
-            original_target = self._original_target
-
-            def wrapped_target(*targs, **tkwargs):
-                """Wrap original target to establish its own session ID.
-
-                Creating a new session (setsid) ensures the child process becomes
-                the leader of a new session and process group. This makes signal
-                management (e.g. terminating entire groups) more robust and
-                prevents the process from receiving signals intended for the
-                parent group.
-
-                Watchdogs are also started inside the process if enabled.
-                """
-                os.setsid()
-                ThreadWatchDog.started = False
-                SubprocessWatchDog.started = False
-                ProcessWatchDog.started = False
-                if self._start_watchdogs:
-                    self._start_local_watchdogs()
-                original_target(*targs, **tkwargs)
-
-            self._kwargs["target"] = wrapped_target
+            self._kwargs["target"] = _ChildProcessTarget(
+                self._original_target, self._start_watchdogs, self._child_log_levels
+            )
 
         if self._create_process_method:
             self._process = self._create_process_method()
         else:
-            self._process = mp.Process(
+            self._process = self._ctx.Process(  # type: ignore[attr-defined]
                 *self._args,
                 **self._kwargs,
             )
@@ -189,55 +241,34 @@ class RestartableProcess:
         if self._process:
             self._process.join(timeout=timeout)
 
-    def stop(self) -> None:
-        """Stop (unregister) the process."""
+    def _unregister(self) -> None:
+        """Stop monitoring the process and free what is tied to its lifetime.
+
+        Not called by restart, which reuses everything the process was created
+        with, including its shared log levels.
+        """
         self._started = False
         ProcessWatchDog.unregister(self)
+        if self._child_log_levels:
+            unregister_child_log_levels(self._name)
 
-        if (
-            self._thread_watchdog
-            and self._subprocess_watchdog
-            and self._process_watchdog
-        ):
-            self._thread_watchdog.stop()
-            self._subprocess_watchdog.stop()
-            self._process_watchdog.stop()
-
-        if self._background_scheduler:
-            try:
-                self._background_scheduler.remove_all_jobs()
-                self._background_scheduler.shutdown(wait=False)
-            except SchedulerNotRunningError as err:
-                LOGGER.warning(f"Failed to shutdown scheduler: {err}")
+    def stop(self) -> None:
+        """Stop (unregister) the process."""
+        self._unregister()
 
     def terminate(self) -> None:
         """Terminate the process and everything it started."""
-        self._started = False
-        ProcessWatchDog.unregister(self)
+        self._unregister()
         if self._process:
             self._signal_process_group(signal.SIGTERM)
             self._process.terminate()
 
     def kill(self) -> None:
         """Kill the process and everything it started."""
-        self._started = False
-        ProcessWatchDog.unregister(self)
+        self._unregister()
         if self._process:
             self._signal_process_group(signal.SIGKILL)
             self._process.kill()
-
-    def _start_local_watchdogs(self) -> None:
-        """Start local watchdogs inside the process.
-
-        Threads, subprocesses and processes are monitored in the parent,
-        but if the process itself spawns long-running entities, those need to
-        be monitored as well.
-        """
-        self._background_scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
-        self._background_scheduler.start()
-        self._thread_watchdog = ThreadWatchDog(self._background_scheduler)
-        self._subprocess_watchdog = SubprocessWatchDog(self._background_scheduler)
-        self._process_watchdog = ProcessWatchDog(self._background_scheduler)
 
 
 class ProcessWatchDog(WatchDog):

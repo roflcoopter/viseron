@@ -6,17 +6,28 @@ import io
 import logging
 import os
 import re
+import sys
 import threading
 import typing
-from typing import Any, AnyStr, ClassVar, Literal, NoReturn, TextIO
+from logging.handlers import RotatingFileHandler
+from typing import Any, AnyStr, ClassVar, Final, Literal, NoReturn, TextIO
 
 from colorlog import ColoredFormatter
 
-from viseron.const import ENV_DEV_WARNINGS
+from viseron.const import (
+    ENV_DEV_WARNINGS,
+    ENV_LOG_BACKUP_COUNT,
+    ENV_LOG_MAX_BYTES,
+    VISERON_LOG_PATH,
+)
+from viseron.helpers import parse_size_to_bytes
 
 if typing.TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator
+    from multiprocessing.context import BaseContext
     from types import TracebackType
+
+LOGGER = logging.getLogger(__name__)
 
 LOG_FORMAT = "%(asctime)s.%(msecs)03d [%(levelname)-8s] [%(name)s] - %(message)s"
 STREAM_LOG_FORMAT = "%(log_color)s" + LOG_FORMAT
@@ -394,3 +405,227 @@ def development_warning(logger: logging.Logger, message: str) -> None:
     """Log a warning in development mode."""
     if os.environ.get(ENV_DEV_WARNINGS, None):
         logger.warning(message)
+
+
+def _get_rotation_rules() -> tuple[int, int]:
+    """Return log rotation rules from the environment."""
+    env_max_bytes = os.getenv(ENV_LOG_MAX_BYTES)
+    env_backup_count = os.getenv(ENV_LOG_BACKUP_COUNT)
+
+    max_bytes = 0
+    if env_max_bytes is not None:
+        try:
+            max_bytes = parse_size_to_bytes(env_max_bytes)
+        except ValueError as error:
+            LOGGER.error(
+                f"Failed to parse {ENV_LOG_MAX_BYTES} as int, using default value",
+                exc_info=error,
+            )
+
+    backup_count = 1
+    if env_backup_count is not None:
+        try:
+            backup_count = parse_size_to_bytes(env_backup_count)
+        except ValueError as error:
+            LOGGER.error(
+                f"Failed to parse {ENV_LOG_BACKUP_COUNT} as int, using default value",
+                exc_info=error,
+            )
+
+    return max_bytes, backup_count
+
+
+# Third party loggers that are too chatty on their default level
+NOISY_LOGGERS: Final[dict[str, int]] = {
+    "apscheduler.scheduler": logging.ERROR,
+    "apscheduler.executors": logging.ERROR,
+    "requests": logging.WARNING,
+    "urllib3": logging.WARNING,
+    "httpx": logging.WARNING,
+    "httpcore": logging.WARNING,
+    "tornado.access": logging.WARNING,
+    "tornado.application": logging.WARNING,
+    "tornado.general": logging.WARNING,
+    "sqlalchemy.engine": logging.WARNING,
+    "watchdog.observers.inotify_buffer": logging.WARNING,
+}
+
+
+def _silence_noisy_loggers() -> None:
+    """Raise the log level of noisy third party loggers."""
+    for logger_name, level in NOISY_LOGGERS.items():
+        logging.getLogger(logger_name).setLevel(level)
+
+
+def _install_excepthooks() -> None:
+    """Log uncaught exceptions from the main thread as well as from threads."""
+    sys.excepthook = lambda *args: logging.getLogger(None).error(
+        "Uncaught exception", exc_info=args
+    )
+    threading.excepthook = lambda args: logging.getLogger(None).error(
+        "Uncaught thread exception in thread %s",
+        args.thread.name if args.thread else "unknown",
+        exc_info=(
+            args.exc_type,
+            args.exc_value,
+            args.exc_traceback,
+        ),  # type: ignore[arg-type]
+    )
+
+
+def _setup_logging(
+    level: int,
+    *,
+    sensitive_strings: tuple[str, ...] = (),
+    rollover: bool = False,
+) -> None:
+    """Configure the root logger with Viserons handlers and filters.
+
+    Any handlers already attached to the root logger are replaced, making this
+    safe to call more than once.
+    """
+    for sensitive_string in sensitive_strings:
+        SensitiveInformationFilter.add_sensitive_string(sensitive_string)
+
+    root_logger = logging.getLogger()
+    root_logger.propagate = False
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+
+    sensitive_information_filter = SensitiveInformationFilter()
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(ViseronLogFormat())
+    stream_handler.addFilter(DuplicateFilter())
+    stream_handler.addFilter(sensitive_information_filter)
+    root_logger.addHandler(stream_handler)
+
+    max_bytes, backup_count = _get_rotation_rules()
+    file_handler = RotatingFileHandler(
+        VISERON_LOG_PATH,
+        maxBytes=max_bytes,
+        backupCount=backup_count,
+        delay=True,
+    )
+    file_handler.setFormatter(
+        logging.Formatter(fmt=LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
+    )
+    file_handler.addFilter(sensitive_information_filter)
+    if rollover:
+        file_handler.doRollover()
+    root_logger.addHandler(file_handler)
+
+    root_logger.setLevel(level)
+    _silence_noisy_loggers()
+    _install_excepthooks()
+
+
+def enable_logging(level: int = logging.INFO) -> None:
+    """Enable logging in the main process.
+
+    Rotates the log file so that every start of Viseron gets a fresh log.
+    """
+    _setup_logging(level, rollover=True)
+
+
+class ChildLogLevels:
+    """Log levels of the loggers a child process creates, shared through memory.
+
+    The logger component installs its overrides on the logger class and on the
+    already existing loggers, which child processes can't access when using forkserver.
+    The effective levels are therefore resolved in the parent and read back from
+    shared memory by the child, which allows the child to start with the current levels.
+    """
+
+    def __init__(self, mp_context: BaseContext, logger_names: tuple[str, ...]) -> None:
+        self._logger_names = logger_names
+        self._levels = mp_context.Array("i", len(logger_names))
+        self._changed = mp_context.Event()
+        self._resolve()
+
+    def _resolve(self) -> None:
+        """Store the levels the parent resolves for the child loggers."""
+        for index, logger_name in enumerate(self._logger_names):
+            self._levels[index] = logging.getLogger(logger_name).getEffectiveLevel()
+
+    def start(self) -> threading.Thread:
+        """Apply the levels in this process and keep applying every refresh."""
+        self.apply()
+        thread = threading.Thread(
+            target=self._watch, name="child_log_levels", daemon=True
+        )
+        thread.start()
+        return thread
+
+    def _watch(self) -> NoReturn:
+        """Apply every refresh the parent makes, for the life of the process."""
+        while True:
+            self.wait_and_apply()
+
+    def refresh(self) -> None:
+        """Resolve the levels again and notify the child that they changed."""
+        self._resolve()
+        self._changed.set()
+
+    def wait_and_apply(self, timeout: float | None = None) -> bool:
+        """Block until the parent refreshes the levels, then apply them.
+
+        Returns False if the timeout was reached before a refresh. The event is
+        cleared before the levels are read, so a refresh that lands while they
+        are being applied results in another, idempotent, round.
+        """
+        if not self._changed.wait(timeout):
+            return False
+        self._changed.clear()
+        self.apply()
+        return True
+
+    def apply(self) -> None:
+        """Apply the shared levels to the loggers in this process."""
+        for logger_name, level in zip(self._logger_names, self._levels[:], strict=True):
+            logging.getLogger(logger_name).setLevel(level)
+
+
+_CHILD_LOG_LEVELS: dict[str, ChildLogLevels] = {}
+_CHILD_LOG_LEVELS_LOCK = threading.Lock()
+
+
+def register_child_log_levels(
+    key: str, mp_context: BaseContext, logger_names: tuple[str, ...]
+) -> ChildLogLevels:
+    """Return shared log levels for a child process, registered for refreshes."""
+    child_log_levels = ChildLogLevels(mp_context, logger_names)
+    with _CHILD_LOG_LEVELS_LOCK:
+        _CHILD_LOG_LEVELS[key] = child_log_levels
+    return child_log_levels
+
+
+def unregister_child_log_levels(key: str) -> None:
+    """Stop refreshing the log levels of a child that is gone."""
+    with _CHILD_LOG_LEVELS_LOCK:
+        _CHILD_LOG_LEVELS.pop(key, None)
+
+
+def refresh_child_log_levels() -> None:
+    """Push the current log levels to every registered child process.
+
+    Called when the logger component has applied a new configuration.
+    """
+    with _CHILD_LOG_LEVELS_LOCK:
+        child_log_levels = list(_CHILD_LOG_LEVELS.values())
+    for child in child_log_levels:
+        child.refresh()
+
+
+def enable_child_logging(sensitive_strings: tuple[str, ...], level: int) -> None:
+    """Configure logging inside a child process.
+
+    Children created with the forkserver start method do not inherit the parent's
+    logging configuration, so it has to be re-established.
+    The sensitive strings collected by the parent are not inherited either and are
+    therefore passed in and seeded here.
+    The levels of the loggers the child creates are restored by `ChildLogLevels`
+    before the child entrypoint runs.
+    The log file is not rotated since the parent already did that on startup.
+    """
+    _setup_logging(level, sensitive_strings=sensitive_strings)

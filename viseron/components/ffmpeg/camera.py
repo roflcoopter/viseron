@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-import contextlib
+import logging
 import multiprocessing as mp
 import os
-import signal
 import time
-from queue import Empty, Full
+from queue import Empty
 from typing import TYPE_CHECKING, Any
 
 import cv2
-import setproctitle
 import voluptuous as vol
 
 from viseron.const import ENV_CUDA_SUPPORTED, ENV_VAAPI_SUPPORTED
@@ -24,6 +22,10 @@ from viseron.domains.camera.config import (
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.exceptions import DomainNotReady, FFprobeError, FFprobeTimeout
 from viseron.helpers import escape_string, utcnow
+from viseron.helpers.child_process_context import (
+    CHILD_PROCESS_START_METHOD,
+    get_child_process_context,
+)
 from viseron.helpers.logs import SensitiveInformationFilter
 from viseron.helpers.validators import (
     UNDEFINED,
@@ -133,8 +135,12 @@ from .const import (
     DESC_WIDTH,
     FFMPEG_LOGLEVELS,
     HWACCEL_VAAPI,
-    MAX_EMPTY_FRAMES,
     STREAM_FORMAT_MAP,
+)
+from .frame_reader import (
+    FrameReaderConfig,
+    frame_reader_logger_name,
+    run_frame_reader,
 )
 from .recorder import Recorder
 from .stream import Stream
@@ -347,13 +353,13 @@ class Camera(AbstractCamera):
         self.stream = Stream(config, self, identifier, attempt)
 
         super().__init__(vis, COMPONENT, config, identifier)
+        self._mp_context = get_child_process_context()
         self._frame_queue: mp.Queue[  # pylint: disable=unsubscriptable-object
             bytes
-        ] = mp.Queue(maxsize=2)
-        self._capture_frames = mp.Event()
-        self._thread_stuck = False
+        ] = self._mp_context.Queue(maxsize=2)
+        self._capture_frames = self._mp_context.Event()
         self.resolution = self.stream.width, self.stream.height
-        self.decode_error = mp.Event()
+        self.decode_error = self._mp_context.Event()
 
         if cv2.ocl.haveOpenCL():
             cv2.ocl.setUseOpenCL(True)
@@ -367,21 +373,52 @@ class Camera(AbstractCamera):
         )
         self._logger.debug(f"Camera {self.name} initialized")
 
+    @property
+    def _frame_reader_name(self) -> str:
+        """Return the name of the frame reader process."""
+        return "viseron.camera." + self.identifier
+
     def _create_frame_reader(self) -> tuple[RestartableProcess, RestartableThread]:
-        """Return a frame reader thread."""
+        """Return a frame reader process and its relay thread."""
         if self._frame_queue:
             self._frame_queue.close()
-        self._frame_queue = mp.Queue(maxsize=2)
+        self._frame_queue = self._mp_context.Queue(maxsize=2)
+
+        frame_reader_config = FrameReaderConfig(
+            camera_identifier=self.identifier,
+            decoder_command=self.stream.build_command(),
+            segment_command=(
+                self.stream.build_segment_command()
+                if self._config.get(CONFIG_SUBSTREAM, None)
+                else None
+            ),
+            frame_bytes_size=self.stream.frame_bytes_size,
+            ffmpeg_loglevel=self._config[CONFIG_FFMPEG_LOGLEVEL],
+            recoverable_errors=list(
+                set(self._config[CONFIG_FFMPEG_RECOVERABLE_ERRORS])
+                | set(DEFAULT_FFMPEG_RECOVERABLE_ERRORS)
+            ),
+            sensitive_strings=tuple(SensitiveInformationFilter.sensitive_strings),
+            log_level=logging.getLogger().level,
+        )
+
         # Start watchdogs for this process since it spawns a RestartablePopen
         return RestartableProcess(
-            name="viseron.camera." + self.identifier,
-            args=(self._frame_queue,),
-            target=self.read_frames,
+            name=self._frame_reader_name,
+            args=(
+                frame_reader_config,
+                self._frame_queue,
+                self._capture_frames,
+                self.decode_error,
+            ),
+            target=run_frame_reader,
             daemon=True,
             register=True,
             start_watchdogs=True,
+            context=CHILD_PROCESS_START_METHOD,
+            child_logger_names=(frame_reader_logger_name(self.identifier),),
         ), RestartableThread(
-            name="viseron.camera." + self.identifier + ".relay_frame",
+            name=self._frame_reader_name + ".relay_frame",
             target=self.relay_frame,
             poll_method=self.poll_method,
             poll_target=self.poll_target,
@@ -419,53 +456,6 @@ class Camera(AbstractCamera):
         )
         self._check_segment_process_thread.start()
         self.stream.record_only()
-
-    def read_frames(
-        self,
-        frame_queue: mp.Queue[bytes],  # pylint: disable=unsubscriptable-object
-    ) -> None:
-        """Read frames from camera."""
-        setproctitle.setproctitle("viseron.camera." + self.identifier + ".read_frames")
-        self.decode_error.clear()
-        empty_frames = 0
-        self._thread_stuck = False
-
-        self.stream.start_pipe()
-
-        while self._capture_frames.is_set():
-            if self.decode_error.is_set():
-                time.sleep(5)
-                self._logger.error("Restarting frame pipe")
-                self.stream.close_pipe()
-                self.stream.start_pipe()
-                self.decode_error.clear()
-                empty_frames = 0
-
-            frame_bytes = self.stream.read()
-            if frame_bytes:
-                empty_frames = 0
-                # Dont queue frames if consumer is not ready
-                with contextlib.suppress(Full):
-                    frame_queue.put_nowait(frame_bytes)
-                continue
-
-            if self._thread_stuck:
-                return
-
-            if self.stream.poll() is not None:
-                self._logger.error("Frame reader process has exited")
-                self.decode_error.set()
-                continue
-
-            empty_frames += 1
-            if empty_frames >= MAX_EMPTY_FRAMES:
-                self._logger.error("Did not receive a frame")
-                self.decode_error.set()
-
-        self.stream.close_pipe()
-        self._frame_queue.close()
-        self._logger.debug("Frame reader stopped")
-        os.kill(os.getpid(), signal.SIGKILL)
 
     def relay_frame(self) -> None:
         """Read from the frame queue and create a SharedFrame."""
@@ -514,7 +504,6 @@ class Camera(AbstractCamera):
     def poll_target(self) -> None:
         """Close pipe when RestartableThread.poll_timeout has been reached."""
         self._logger.error("Timeout waiting for frame")
-        self._thread_stuck = True
         self.stop_camera()
 
     def poll_method(self) -> bool:
@@ -573,7 +562,6 @@ class Camera(AbstractCamera):
                 self._frame_reader.kill()
                 self._frame_reader.join(timeout=5)
                 self._frame_reader = None
-                self.stream.close_pipe()
 
         if self._config[CONFIG_RECORD_ONLY] and self._check_segment_process_thread:
             self._logger.debug("Stopping record-only process")
