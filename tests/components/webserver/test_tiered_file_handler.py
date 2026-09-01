@@ -32,6 +32,28 @@ def test_rewrite_tier_hint_path_allows_configured_tiers():
     assert rewritten == "/tmp/viseron/tier2/cam/seg.m4s"
 
 
+def test_rewrite_tier_hint_path_normalizes_trailing_slashes():
+    """Trailing slashes in configured tier paths must not break the rewrite."""
+    rewritten = rewrite_tier_hint_path(
+        "/tmp/viseron/tier1/cam/seg.m4s",
+        "/tmp/viseron/tier1/",
+        "/tmp/viseron/tier2/",
+        ["/tmp/viseron/tier1/", "/tmp/viseron/tier2/"],
+    )
+    assert rewritten == "/tmp/viseron/tier2/cam/seg.m4s"
+
+
+def test_rewrite_tier_hint_path_handles_root_tier():
+    """A root-like tier path is contained correctly and joined without gluing."""
+    rewritten = rewrite_tier_hint_path(
+        "/cam/seg.m4s",
+        "/",
+        "/tmp/viseron/tier2",
+        ["/", "/tmp/viseron/tier2"],
+    )
+    assert rewritten == "/tmp/viseron/tier2/cam/seg.m4s"
+
+
 def test_rewrite_tier_hint_path_rejects_unconfigured_actual():
     """A client must not point actual_tier_path at an arbitrary directory."""
     rewritten = rewrite_tier_hint_path(

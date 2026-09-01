@@ -23,7 +23,13 @@ def _is_same_or_child(path: str, root: str) -> bool:
     """Return True if path is root or a file under root."""
     path_n = os.path.normpath(path)
     root_n = os.path.normpath(root)
-    return path_n == root_n or path_n.startswith(root_n + os.sep)
+    if path_n == root_n:
+        return True
+    try:
+        return os.path.commonpath([path_n, root_n]) == root_n
+    except ValueError:
+        # Raised for a mix of absolute/relative paths, or different drives
+        return False
 
 
 def rewrite_tier_hint_path(
@@ -53,7 +59,12 @@ def rewrite_tier_hint_path(
     if not _is_same_or_child(original, first):
         return None
 
-    rewritten = os.path.normpath(actual + original[len(first) :])
+    relative = os.path.relpath(original, first)
+    rewritten = (
+        actual
+        if relative == os.curdir
+        else os.path.normpath(os.path.join(actual, relative))
+    )
     if not _is_same_or_child(rewritten, actual):
         return None
     return rewritten
