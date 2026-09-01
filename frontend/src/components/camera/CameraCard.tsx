@@ -31,7 +31,6 @@ import { CameraUptime } from "components/camera/CameraUptime";
 import { FailedCameraCard } from "components/camera/FailedCameraCard";
 import { useAuthContext } from "context/AuthContext";
 import { ViseronContext } from "context/ViseronContext";
-import { useFirstRender } from "hooks/UseFirstRender";
 import useOnScreen from "hooks/UseOnScreen";
 import { useCamera, useCameraStartStop } from "lib/api/camera";
 import { BASE_PATH } from "lib/api/client";
@@ -63,9 +62,6 @@ interface CameraCardProps {
   border?: string;
 }
 
-const blankImage =
-  "data:image/svg+xml;charset=utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E";
-
 function SuccessCameraCard({
   camera,
   buttons = true,
@@ -79,7 +75,6 @@ function SuccessCameraCard({
   const ref: any = useRef<HTMLDivElement>(undefined);
   const onScreen = useOnScreen<HTMLDivElement>(ref);
   const isVisible = usePageVisibility();
-  const firstRender = useFirstRender();
 
   const cameraStartStop = useCameraStartStop();
 
@@ -92,30 +87,25 @@ function SuccessCameraCard({
         .substring(7)}${width ? `&width=${Math.trunc(width)}` : ""}`,
     [camera.identifier],
   );
-  const [snapshotURL, setSnapshotURL] = useState({
-    // Show blank image on start
-    url: blankImage,
+  const [snapshotURL, setSnapshotURL] = useState<{
+    // null until the first snapshot has been requested
+    url: string | null;
+    disableSpinner: boolean;
+    disableTransition: boolean;
+    loading: boolean;
+  }>({
+    url: null,
+    // Spinner and transition are only used until the first snapshot has loaded
     disableSpinner: false,
     disableTransition: false,
-    loading: true,
+    loading: false,
   });
   const updateSnapshot = useRef<NodeJS.Timeout | null>(undefined);
   const updateImage = useCallback(() => {
     setSnapshotURL((prevSnapshotURL) => {
-      if (prevSnapshotURL.loading && !firstRender) {
+      if (prevSnapshotURL.loading) {
         // Dont load new image if we are still loading
         return prevSnapshotURL;
-      }
-      if (firstRender) {
-        // Make sure we show the spinner on the first image fetched.
-        return {
-          url: generateSnapshotURL(
-            ref.current ? ref.current.offsetWidth : null,
-          ),
-          disableSpinner: false,
-          disableTransition: false,
-          loading: true,
-        };
       }
       return {
         ...prevSnapshotURL,
@@ -123,7 +113,7 @@ function SuccessCameraCard({
         loading: true,
       };
     });
-  }, [firstRender, generateSnapshotURL]);
+  }, [generateSnapshotURL]);
 
   useEffect(() => {
     // If element is on screen and browser is visible, start interval to fetch images
@@ -155,6 +145,14 @@ function SuccessCameraCard({
     camera.still_image.available,
     camera.still_image.refresh_interval,
   ]);
+
+  const mediaPlaceholderSx = {
+    aspectRatio: camera.still_image.width / camera.still_image.height,
+    backgroundColor: theme.palette.background.default,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  };
 
   return (
     <div
@@ -194,16 +192,7 @@ function SuccessCameraCard({
         >
           <CardMedia>
             {!camera.connected ? (
-              <Box
-                sx={{
-                  aspectRatio:
-                    camera.still_image.width / camera.still_image.height,
-                  backgroundColor: theme.palette.background.default,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
+              <Box sx={mediaPlaceholderSx}>
                 <VideoOff
                   size={48}
                   style={{
@@ -211,6 +200,16 @@ function SuccessCameraCard({
                     opacity: 0.5,
                   }}
                 />
+              </Box>
+            ) : snapshotURL.url === null ? (
+              // No snapshot requested yet, card is off screen or disconnected
+              <Box
+                sx={mediaPlaceholderSx}
+                data-testid="camera-snapshot-loading"
+              >
+                {camera.still_image.available ? (
+                  <CircularProgress enableTrackSlot />
+                ) : null}
               </Box>
             ) : (
               <Image
@@ -222,6 +221,7 @@ function SuccessCameraCard({
                   camera.still_image.width / camera.still_image.height
                 }
                 color={theme.palette.background.default}
+                loading={<CircularProgress enableTrackSlot />}
                 onLoad={() => {
                   setSnapshotURL((prevSnapshotURL) => ({
                     ...prevSnapshotURL,
