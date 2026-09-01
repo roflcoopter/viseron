@@ -24,6 +24,7 @@ from viseron.helpers import parse_size_to_bytes
 
 if typing.TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator
+    from multiprocessing.context import BaseContext
     from types import TracebackType
 
 LOGGER = logging.getLogger(__name__)
@@ -527,6 +528,95 @@ def enable_logging(level: int = logging.INFO) -> None:
     _setup_logging(level, rollover=True)
 
 
+class ChildLogLevels:
+    """Log levels of the loggers a child process creates, shared through memory.
+
+    The logger component installs its overrides on the logger class and on the
+    already existing loggers, which child processes can't access when using forkserver.
+    The effective levels are therefore resolved in the parent and read back from
+    shared memory by the child, which allows the child to start with the current levels.
+    """
+
+    def __init__(self, mp_context: BaseContext, logger_names: tuple[str, ...]) -> None:
+        self._logger_names = logger_names
+        self._levels = mp_context.Array("i", len(logger_names))
+        self._changed = mp_context.Event()
+        self._resolve()
+
+    def _resolve(self) -> None:
+        """Store the levels the parent resolves for the child loggers."""
+        for index, logger_name in enumerate(self._logger_names):
+            self._levels[index] = logging.getLogger(logger_name).getEffectiveLevel()
+
+    def start(self) -> threading.Thread:
+        """Apply the levels in this process and keep applying every refresh."""
+        self.apply()
+        thread = threading.Thread(
+            target=self._watch, name="child_log_levels", daemon=True
+        )
+        thread.start()
+        return thread
+
+    def _watch(self) -> NoReturn:
+        """Apply every refresh the parent makes, for the life of the process."""
+        while True:
+            self.wait_and_apply()
+
+    def refresh(self) -> None:
+        """Resolve the levels again and notify the child that they changed."""
+        self._resolve()
+        self._changed.set()
+
+    def wait_and_apply(self, timeout: float | None = None) -> bool:
+        """Block until the parent refreshes the levels, then apply them.
+
+        Returns False if the timeout was reached before a refresh. The event is
+        cleared before the levels are read, so a refresh that lands while they
+        are being applied results in another, idempotent, round.
+        """
+        if not self._changed.wait(timeout):
+            return False
+        self._changed.clear()
+        self.apply()
+        return True
+
+    def apply(self) -> None:
+        """Apply the shared levels to the loggers in this process."""
+        for logger_name, level in zip(self._logger_names, self._levels[:], strict=True):
+            logging.getLogger(logger_name).setLevel(level)
+
+
+_CHILD_LOG_LEVELS: dict[str, ChildLogLevels] = {}
+_CHILD_LOG_LEVELS_LOCK = threading.Lock()
+
+
+def register_child_log_levels(
+    key: str, mp_context: BaseContext, logger_names: tuple[str, ...]
+) -> ChildLogLevels:
+    """Return shared log levels for a child process, registered for refreshes."""
+    child_log_levels = ChildLogLevels(mp_context, logger_names)
+    with _CHILD_LOG_LEVELS_LOCK:
+        _CHILD_LOG_LEVELS[key] = child_log_levels
+    return child_log_levels
+
+
+def unregister_child_log_levels(key: str) -> None:
+    """Stop refreshing the log levels of a child that is gone."""
+    with _CHILD_LOG_LEVELS_LOCK:
+        _CHILD_LOG_LEVELS.pop(key, None)
+
+
+def refresh_child_log_levels() -> None:
+    """Push the current log levels to every registered child process.
+
+    Called when the logger component has applied a new configuration.
+    """
+    with _CHILD_LOG_LEVELS_LOCK:
+        child_log_levels = list(_CHILD_LOG_LEVELS.values())
+    for child in child_log_levels:
+        child.refresh()
+
+
 def enable_child_logging(sensitive_strings: tuple[str, ...], level: int) -> None:
     """Configure logging inside a child process.
 
@@ -534,6 +624,8 @@ def enable_child_logging(sensitive_strings: tuple[str, ...], level: int) -> None
     logging configuration, so it has to be re-established.
     The sensitive strings collected by the parent are not inherited either and are
     therefore passed in and seeded here.
+    The levels of the loggers the child creates are restored by `ChildLogLevels`
+    before the child entrypoint runs.
     The log file is not rotated since the parent already did that on startup.
     """
     _setup_logging(level, sensitive_strings=sensitive_strings)

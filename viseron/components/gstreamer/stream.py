@@ -31,7 +31,7 @@ from .const import (
     ENV_GSTREAMER_PATH,
     PIXEL_FORMAT,
 )
-from .gst_process import GstProcessConfig, run_gstreamer
+from .gst_process import GstProcessConfig, gst_logger_names, run_gstreamer
 from .pipeline import AbstractPipeline, BasePipeline, JetsonPipeline, RawPipeline
 
 if TYPE_CHECKING:
@@ -163,6 +163,7 @@ class Stream(FFmpegStream):
             name=self.alias,
             daemon=True,
             context=CHILD_PROCESS_START_METHOD,
+            child_logger_names=gst_logger_names(self._camera_identifier),
         )
         self._process_frames_proc_exit.clear()
         self._process_frames_proc.start()

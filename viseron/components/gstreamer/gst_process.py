@@ -50,6 +50,16 @@ class GstProcessConfig:
     log_level: int
 
 
+def gst_logger_names(camera_identifier: str) -> tuple[str, ...]:
+    """Return the names of the loggers the GStreamer child process creates.
+
+    Kept here instead of derived from the stream module so that the parent can
+    resolve their log levels without duplicating the names.
+    """
+    logger_name = f"viseron.components.gstreamer.stream.{camera_identifier}"
+    return (logger_name, f"{logger_name}.gstreamer")
+
+
 def segment_location(config: GstProcessConfig) -> str:
     """Return the location of the next segment."""
     timestamp = int(datetime.datetime.now().timestamp())
@@ -71,10 +81,9 @@ class GstRunner:
         self._config = config
         self._frame_queue = frame_queue
         self._exit_event = exit_event
-        self._logger = logging.getLogger(
-            f"viseron.components.gstreamer.stream.{config.camera_identifier}"
-        )
-        self._logger_gstreamer = logging.getLogger(f"{self._logger.name}.gstreamer")
+        logger_name, gstreamer_logger_name = gst_logger_names(config.camera_identifier)
+        self._logger = logging.getLogger(logger_name)
+        self._logger_gstreamer = logging.getLogger(gstreamer_logger_name)
 
     def on_new_sample(self, app_sink: GstApp.AppSink) -> Gst.FlowReturn:
         """Read a sample from the appsink and queue its bytes."""

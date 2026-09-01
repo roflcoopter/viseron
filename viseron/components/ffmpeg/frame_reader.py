@@ -42,6 +42,15 @@ class FrameReaderConfig:
     log_level: int
 
 
+def frame_reader_logger_name(camera_identifier: str) -> str:
+    """Return the name of the logger the frame reader child process creates.
+
+    Kept here instead of derived from the stream module so that the parent can
+    resolve its log level without the child having to import anything heavy.
+    """
+    return f"viseron.components.ffmpeg.stream.{camera_identifier}"
+
+
 def run_frame_reader(
     config: FrameReaderConfig,
     frame_queue: Queue[bytes],  # pylint: disable=unsubscriptable-object
@@ -52,9 +61,7 @@ def run_frame_reader(
     setproctitle.setproctitle(f"viseron.camera.{config.camera_identifier}.read_frames")
     enable_child_logging(config.sensitive_strings, config.log_level)
 
-    logger = logging.getLogger(
-        f"viseron.components.ffmpeg.stream.{config.camera_identifier}"
-    )
+    logger = logging.getLogger(frame_reader_logger_name(config.camera_identifier))
     logger.addFilter(UnhelpfullLogFilter(config.recoverable_errors))
 
     pipe = FFmpegPipe(

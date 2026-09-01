@@ -5,12 +5,7 @@ from __future__ import annotations
 import logging
 import pickle
 
-import pytest
-
-gst_process = pytest.importorskip(
-    "viseron.components.gstreamer.gst_process",
-    reason="GStreamer typelibs are not installed",
-)
+from viseron.components.gstreamer import gst_process, stream
 
 
 def _config(**overrides):
@@ -42,3 +37,11 @@ def test_segment_location_uses_temp_folder_and_extension() -> None:
     location = gst_process.segment_location(_config())
     assert location.startswith("/tmp/segments/")
     assert location.endswith(".mp4")
+
+
+def test_gst_logger_names_matches_the_parent_stream_loggers() -> None:
+    """The child must configure the levels of the loggers the parent named."""
+    assert gst_process.gst_logger_names("cam") == (
+        f"{stream.__name__}.cam",
+        f"{stream.__name__}.cam.gstreamer",
+    )

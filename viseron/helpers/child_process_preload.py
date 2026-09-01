@@ -1,7 +1,7 @@
 """Modules preloaded into the multiprocessing forkserver.
 
 Importing any ``viseron.*`` submodule executes ``viseron/__init__.py``, which pulls
-in roughly a lot of dependencies. Preloading the child entrypoints means every child
+in a lot of dependencies. Preloading the child entrypoints means every child
 shares that copy-on-write instead of importing a private copy after forking.
 Only works together with ``gc.freeze()`` in the child.
 """

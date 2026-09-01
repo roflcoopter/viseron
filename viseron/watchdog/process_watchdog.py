@@ -13,6 +13,10 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.helpers import utcnow
+from viseron.helpers.logs import (
+    register_child_log_levels,
+    unregister_child_log_levels,
+)
 from viseron.watchdog import WatchDog
 from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
 from viseron.watchdog.thread_watchdog import ThreadWatchDog
@@ -20,15 +24,23 @@ from viseron.watchdog.thread_watchdog import ThreadWatchDog
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from viseron.helpers.logs import ChildLogLevels
+
 LOGGER = logging.getLogger(__name__)
 
 
 class _ChildProcessTarget:
     """Picklable wrapper executed as the child process entrypoint."""
 
-    def __init__(self, target: Callable, start_watchdogs: bool) -> None:
+    def __init__(
+        self,
+        target: Callable,
+        start_watchdogs: bool,
+        child_log_levels: ChildLogLevels | None = None,
+    ) -> None:
         self._target = target
         self._start_watchdogs = start_watchdogs
+        self._child_log_levels = child_log_levels
         self._background_scheduler: BackgroundScheduler | None = None
         self._thread_watchdog: ThreadWatchDog | None = None
         self._subprocess_watchdog: SubprocessWatchDog | None = None
@@ -38,7 +50,7 @@ class _ChildProcessTarget:
         """Set up the child process, then run the wrapped target.
 
         Creating a new session (setsid) ensures the child process becomes the leader
-        of a new session and process group. This makes signal management) more robust
+        of a new session and process group. This makes signal management more robust
         and prevents the process from receiving signals intended for the parent group.
 
         gc.freeze() moves everything already allocated into a permanent generation
@@ -52,6 +64,8 @@ class _ChildProcessTarget:
         ProcessWatchDog.started = False
         if self._start_watchdogs:
             self._start_local_watchdogs()
+        if self._child_log_levels:
+            self._child_log_levels.start()
         self._target(*args, **kwargs)
 
     def _start_local_watchdogs(self) -> None:
@@ -84,6 +98,7 @@ class RestartableProcess:
         stage: str | None = VISERON_SIGNAL_SHUTDOWN,
         create_process_method: Callable[[], mp.Process] | None = None,
         start_watchdogs: bool = False,
+        child_logger_names: tuple[str, ...] | None = None,
         **kwargs,
     ) -> None:
         self._args = args
@@ -99,6 +114,20 @@ class RestartableProcess:
         self._register = register
         self._create_process_method = create_process_method
         self._start_watchdogs = start_watchdogs
+        self._child_log_levels: ChildLogLevels | None = None
+        if child_logger_names:
+            if create_process_method:
+                raise ValueError(
+                    "child_logger_names needs the wrapped target, which is not used "
+                    "by processes created with create_process_method"
+                )
+            if not name:
+                raise ValueError("child_logger_names requires a name to key them by")
+            # Registered here and unregistered when the process is stopped, so that
+            # a reload of the logger component reaches the child while it runs.
+            self._child_log_levels = register_child_log_levels(
+                name, self._ctx, child_logger_names
+            )
         if self._register:
             ProcessWatchDog.register(self)
         setattr(self, "__stage__", stage)
@@ -154,7 +183,7 @@ class RestartableProcess:
         # process that calls os.setsid() before executing the user target.
         if self._original_target:
             self._kwargs["target"] = _ChildProcessTarget(
-                self._original_target, self._start_watchdogs
+                self._original_target, self._start_watchdogs, self._child_log_levels
             )
 
         if self._create_process_method:
@@ -212,23 +241,31 @@ class RestartableProcess:
         if self._process:
             self._process.join(timeout=timeout)
 
-    def stop(self) -> None:
-        """Stop (unregister) the process."""
+    def _unregister(self) -> None:
+        """Stop monitoring the process and free what is tied to its lifetime.
+
+        Not called by restart, which reuses everything the process was created
+        with, including its shared log levels.
+        """
         self._started = False
         ProcessWatchDog.unregister(self)
+        if self._child_log_levels:
+            unregister_child_log_levels(self._name)
+
+    def stop(self) -> None:
+        """Stop (unregister) the process."""
+        self._unregister()
 
     def terminate(self) -> None:
         """Terminate the process and everything it started."""
-        self._started = False
-        ProcessWatchDog.unregister(self)
+        self._unregister()
         if self._process:
             self._signal_process_group(signal.SIGTERM)
             self._process.terminate()
 
     def kill(self) -> None:
         """Kill the process and everything it started."""
-        self._started = False
-        ProcessWatchDog.unregister(self)
+        self._unregister()
         if self._process:
             self._signal_process_group(signal.SIGKILL)
             self._process.kill()

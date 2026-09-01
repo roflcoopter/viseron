@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import multiprocessing as mp
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 
@@ -20,6 +21,10 @@ from viseron.components.logger.const import (
     CONFIG_DEFAULT_LEVEL,
     CONFIG_LOGS,
     PREVIOUS_CONFIG,
+)
+from viseron.helpers.logs import (
+    register_child_log_levels,
+    unregister_child_log_levels,
 )
 
 if TYPE_CHECKING:
@@ -486,3 +491,21 @@ class TestHelpers:
         assert match1 in result
         assert match2 in result
         assert no_match not in result
+
+
+def test_setup_pushes_new_levels_to_child_processes() -> None:
+    """A reload must reach the loggers of already running child processes."""
+    vis = _make_vis()
+    setup(vis, _make_config(default_level="info"))
+    child_log_levels = register_child_log_levels(
+        "test_camera", mp.get_context(), ("test_child_logger",)
+    )
+
+    try:
+        unload(vis)
+        setup(vis, _make_config(default_level="debug"))
+
+        assert child_log_levels.wait_and_apply(timeout=5) is True
+        assert logging.getLogger("test_child_logger").level == logging.DEBUG
+    finally:
+        unregister_child_log_levels("test_camera")

@@ -137,7 +137,11 @@ from .const import (
     HWACCEL_VAAPI,
     STREAM_FORMAT_MAP,
 )
-from .frame_reader import FrameReaderConfig, run_frame_reader
+from .frame_reader import (
+    FrameReaderConfig,
+    frame_reader_logger_name,
+    run_frame_reader,
+)
 from .recorder import Recorder
 from .stream import Stream
 
@@ -369,6 +373,11 @@ class Camera(AbstractCamera):
         )
         self._logger.debug(f"Camera {self.name} initialized")
 
+    @property
+    def _frame_reader_name(self) -> str:
+        """Return the name of the frame reader process."""
+        return "viseron.camera." + self.identifier
+
     def _create_frame_reader(self) -> tuple[RestartableProcess, RestartableThread]:
         """Return a frame reader process and its relay thread."""
         if self._frame_queue:
@@ -395,7 +404,7 @@ class Camera(AbstractCamera):
 
         # Start watchdogs for this process since it spawns a RestartablePopen
         return RestartableProcess(
-            name="viseron.camera." + self.identifier,
+            name=self._frame_reader_name,
             args=(
                 frame_reader_config,
                 self._frame_queue,
@@ -407,8 +416,9 @@ class Camera(AbstractCamera):
             register=True,
             start_watchdogs=True,
             context=CHILD_PROCESS_START_METHOD,
+            child_logger_names=(frame_reader_logger_name(self.identifier),),
         ), RestartableThread(
-            name="viseron.camera." + self.identifier + ".relay_frame",
+            name=self._frame_reader_name + ".relay_frame",
             target=self.relay_frame,
             poll_method=self.poll_method,
             poll_target=self.poll_target,

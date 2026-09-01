@@ -8,8 +8,13 @@ import queue
 from contextlib import ExitStack
 from unittest.mock import MagicMock, patch
 
+from viseron.components.ffmpeg import stream
 from viseron.components.ffmpeg.const import MAX_EMPTY_FRAMES
-from viseron.components.ffmpeg.frame_reader import FrameReaderConfig, run_frame_reader
+from viseron.components.ffmpeg.frame_reader import (
+    FrameReaderConfig,
+    frame_reader_logger_name,
+    run_frame_reader,
+)
 
 
 class _FakeQueue(queue.Queue):
@@ -57,6 +62,11 @@ def test_config_is_picklable() -> None:
     """The payload crosses a forkserver boundary, so it must pickle."""
     config = _config()
     assert pickle.loads(pickle.dumps(config)) == config  # noqa: S301
+
+
+def test_frame_reader_logger_name_matches_the_parent_stream_logger() -> None:
+    """The child must configure the level of the logger the parent named."""
+    assert frame_reader_logger_name("cam") == f"{stream.__name__}.cam"
 
 
 def test_reads_frames_until_capture_frames_clears() -> None:
