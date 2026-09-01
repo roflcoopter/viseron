@@ -369,7 +369,7 @@ export function TuneOSDTextDialog({
       <DialogActions>
         <Button onClick={onCancel}>Cancel</Button>
         <Button onClick={onConfirm} variant="contained" color="primary">
-          Save
+          {isEdit ? "Save" : "Add"}
         </Button>
       </DialogActions>
     </Dialog>

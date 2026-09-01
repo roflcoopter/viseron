@@ -9,7 +9,9 @@ const ComponentMetadata: Component = {
   // through ONNX Runtime under the hood, so that logo is used instead.
   image: "/img/logos/onnxruntime.png",
   tags: ["license_plate_recognition"],
-  category: null,
+  category: "new",
+  path: "viseron/components/fastalpr",
+  issue: 'fastalpr OR label:"component: fastalpr"',
 };
 
 export default ComponentMetadata;

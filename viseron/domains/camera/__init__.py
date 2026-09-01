@@ -46,9 +46,7 @@ from viseron.helpers import (
     utcnow,
     zoom_boundingbox,
 )
-from viseron.helpers.logs import (
-    SensitiveInformationFilterTracker,
-)
+from viseron.helpers.logs import SensitiveInformationFilterTracker
 from viseron.viseron_types import SnapshotDomain
 
 from .const import (
@@ -221,6 +219,8 @@ class AbstractCamera(AbstractDomain):
             self._logger.debug("Still image is configured, setting availability.")
             self.still_image_available = True
 
+        self._ptz_support: str | None = None
+
     def __post_init__(self, *args: Any, **kwargs: Any) -> None:
         """Post init hook."""
         self._vis.register_domain(DOMAIN, self._identifier, self)
@@ -247,6 +247,7 @@ class AbstractCamera(AbstractDomain):
             "connected": self.connected,
             "live_stream_available": self.live_stream_available,
             "is_recording": self.is_recording,
+            "ptz_support": self.ptz_support,
         }
 
     def generate_token(self) -> str:
@@ -467,6 +468,16 @@ class AbstractCamera(AbstractDomain):
         """Return camera config."""
         return self._config
 
+    @property
+    def ptz_support(self) -> str | None:
+        """Return PTZ support type."""
+        return self._ptz_support
+
+    @ptz_support.setter
+    def ptz_support(self, value: str | None) -> None:
+        """Set PTZ support."""
+        self._ptz_support = value
+
     def tier_base_path(self, tier_id: int, tier_category: str, subcategory: str) -> str:
         """Return storage tier base path."""
         return self._storage.camera_tier_handlers[self.identifier][tier_category][
@@ -635,8 +646,8 @@ class FailedCamera:
         """Initialize failed camera."""
         # Local import to avoid circular import
         # pylint: disable=import-outside-toplevel
-        from viseron.components.storage.tier_handler import (  # noqa: PLC0415
-            add_file_handler,
+        from viseron.components.storage.tier_handler import (
+            add_file_handler,  # noqa: PLC0415
         )
 
         self._vis = vis

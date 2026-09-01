@@ -206,6 +206,7 @@ export interface Camera {
   connected: boolean;
   live_stream_available: boolean;
   is_recording: boolean;
+  ptz_support?: string | null;
 }
 
 export interface Cameras {
