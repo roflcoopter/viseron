@@ -91,6 +91,7 @@ from .const import (
     DEFAULT_RECORDER_HWACCEL_ARGS,
     DEFAULT_RECORDER_OUTPUT_ARGS,
     DEFAULT_RECORDER_VIDEO_FILTERS,
+    DEFAULT_RESTART_DELAY,
     DEFAULT_RTSP_TRANSPORT,
     DEFAULT_STREAM_FORMAT,
     DEFAULT_SUBSTREAM,
@@ -134,6 +135,7 @@ from .const import (
     FFMPEG_LOGLEVELS,
     HWACCEL_VAAPI,
     MAX_EMPTY_FRAMES,
+    MAX_RESTART_DELAY,
     STREAM_FORMAT_MAP,
 )
 from .recorder import Recorder
@@ -427,6 +429,7 @@ class Camera(AbstractCamera):
         """Read frames from camera."""
         setproctitle.setproctitle("viseron.camera." + self.identifier + ".read_frames")
         self.decode_error.clear()
+        self._restart_delay = DEFAULT_RESTART_DELAY
         empty_frames = 0
         self._thread_stuck = False
 
@@ -434,15 +437,25 @@ class Camera(AbstractCamera):
 
         while self._capture_frames.is_set():
             if self.decode_error.is_set():
-                time.sleep(5)
+                # A dead or unreachable camera would otherwise spawn a new
+                # decode process every few seconds indefinitely. Back off
+                # exponentially so the retry rate drops quickly once failures
+                # are clearly persistent.
+                self._logger.warning(
+                    "Camera failed to produce frames, restarting in %s seconds",
+                    self._restart_delay,
+                )
+                time.sleep(self._restart_delay)
                 self._logger.error("Restarting frame pipe")
                 self.stream.close_pipe()
                 self.stream.start_pipe()
                 self.decode_error.clear()
                 empty_frames = 0
+                self._restart_delay = min(self._restart_delay * 2, MAX_RESTART_DELAY)
 
             frame_bytes = self.stream.read()
             if frame_bytes:
+                self._restart_delay = DEFAULT_RESTART_DELAY
                 empty_frames = 0
                 # Dont queue frames if consumer is not ready
                 with contextlib.suppress(Full):

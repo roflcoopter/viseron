@@ -89,6 +89,7 @@ from .const import (
     DEFAULT_PASSWORD,
     DEFAULT_PROTOCOL,
     DEFAULT_RAW_PIPELINE,
+    DEFAULT_RESTART_DELAY,
     DEFAULT_RTSP_TRANSPORT,
     DEFAULT_STREAM_FORMAT,
     DEFAULT_USERNAME,
@@ -117,6 +118,7 @@ from .const import (
     DESC_USERNAME,
     DESC_WIDTH,
     MAX_EMPTY_FRAMES,
+    MAX_RESTART_DELAY,
     STREAM_FORMAT_MAP,
 )
 from .recorder import Recorder
@@ -333,6 +335,7 @@ class Camera(AbstractCamera):
     def read_frames(self) -> None:
         """Read frames from camera."""
         self.decode_error.clear()
+        self._restart_delay = DEFAULT_RESTART_DELAY
         self._poll_timer = utcnow().timestamp()
         empty_frames = 0
         self._thread_stuck = False
@@ -344,15 +347,25 @@ class Camera(AbstractCamera):
                 self._poll_timer = utcnow().timestamp()
                 self.connected = False
                 self.still_image_available = self.still_image_configured
-                time.sleep(5)
+                # A dead or unreachable camera would otherwise spawn a new
+                # decode process every few seconds indefinitely. Back off
+                # exponentially so the retry rate drops quickly once failures
+                # are clearly persistent.
+                self._logger.warning(
+                    "Camera failed to produce frames, restarting in %s seconds",
+                    self._restart_delay,
+                )
+                time.sleep(self._restart_delay)
                 self._logger.error("Restarting frame pipe")
                 self.stream.close_pipe()
                 self.stream.start_pipe()
                 self.decode_error.clear()
                 empty_frames = 0
+                self._restart_delay = min(self._restart_delay * 2, MAX_RESTART_DELAY)
 
             self.current_frame = self.stream.read()
             if self.current_frame:
+                self._restart_delay = DEFAULT_RESTART_DELAY
                 self.connected = True
                 self.still_image_available = True
                 empty_frames = 0
