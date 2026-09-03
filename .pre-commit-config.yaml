@@ -23,7 +23,7 @@ repos:
           - --keep-updates
         files: ^(viseron|tests)/.+\.py$
   - repo: https://github.com/PyCQA/autoflake
-    rev: v2.3.3
+    rev: v2.4.0
     hooks:
       - id: autoflake
         args:
