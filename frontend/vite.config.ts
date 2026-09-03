@@ -103,6 +103,8 @@ export default defineConfig(({ mode }) => {
       setupFiles: "tests/setupTests.ts",
       include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
       testTimeout: 30000,
+      // Disable Node's own Web Storage so jsdom owns localStorage again
+      execArgv: ["--no-experimental-webstorage"],
     },
   };
 });
