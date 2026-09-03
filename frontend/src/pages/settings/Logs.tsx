@@ -210,7 +210,7 @@ function LogLine({ entry }: { entry: LogEntry }) {
             xs: "normal",
             md: "nowrap",
           },
-          minWidth: 310,
+          minWidth: { xs: 0, md: 310 },
           fontWeight: 550,
         }}
         title={entry.name}
@@ -357,9 +357,12 @@ function Logs() {
 
     try {
       await navigator.clipboard.writeText(text);
-      toast.success("Successfully copy current logs");
+      toast.success("Successfully copied current logs");
     } catch (error) {
-      toast.error(`Failed to copy logs: ${error}`);
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(
+        message ? `Failed to copy logs: ${message}` : "Failed to copy logs",
+      );
     }
   };
 
