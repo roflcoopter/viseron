@@ -95,7 +95,7 @@ def _tail_file(
     result: list[dict[str, Any]] = []
     count = 0
 
-    with open(filepath, encoding="utf-8", errors="replace") as f:
+    with open(filepath, "rb") as f:
         # seek from end for efficiency
         f.seek(0, os.SEEK_END)
         file_size = f.tell()
@@ -108,7 +108,7 @@ def _tail_file(
             read_size = min(block_size, position)
             position -= read_size
             f.seek(position)
-            block = f.read(read_size)
+            block = f.read(read_size).decode("utf-8", errors="replace")
             blocks.append(block)
             count += block.count("\n")
 
@@ -135,9 +135,8 @@ def _tail_file(
             parsed = _parse_log_line(line, i)
 
             # Filter by level
-            if levels and parsed.get("level"):
-                if parsed["level"] not in levels:
-                    continue
+            if levels and parsed.get("level") not in levels:
+                continue
 
             # Filter by search string
             if search:
