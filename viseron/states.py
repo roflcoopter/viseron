@@ -6,7 +6,7 @@ import logging
 import threading
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict, overload
 
 from viseron.const import EVENT_ENTITY_ADDED, EVENT_STATE_CHANGED
 from viseron.events import EventData
@@ -66,6 +66,30 @@ class ComponentOwnerDict(TypedDict):
 EntityOwner = dict[str, ComponentOwnerDict]
 
 
+@dataclass(frozen=True)
+class EntityOwnership:
+    """Where an entity was registered from."""
+
+    component_name: str
+    domain: SupportedDomains | None
+    identifier: str | None
+
+
+def validate_entity_ownership(
+    domain: SupportedDomains | None, identifier: str | None
+) -> None:
+    """Raise if domain and identifier are not both given or both omitted.
+
+    An entity is either scoped to a domain identifier or to nothing at all,
+    half of the pair leaves it unowned and impossible to unload with its domain.
+    """
+    if (domain is None) != (identifier is None):
+        raise ValueError(
+            "domain and identifier must be given together, got "
+            f"domain={domain}, identifier={identifier}"
+        )
+
+
 class State:
     """Hold the state of a single entity."""
 
@@ -102,6 +126,7 @@ class States:
         self._registry: dict[str, Entity] = {}
         self._registry_lock = threading.Lock()
         self._entity_owner: EntityOwner = {}
+        self._entity_ownership: dict[str, EntityOwnership] = {}
 
         self._current_states: dict[str, State] = {}
 
@@ -141,6 +166,18 @@ class States:
             ),
         )
 
+    @overload
+    def add_entity(self, component: Component, entity: Entity) -> Entity: ...
+
+    @overload
+    def add_entity(
+        self,
+        component: Component,
+        entity: Entity,
+        domain: SupportedDomains,
+        identifier: str,
+    ) -> Entity: ...
+
     def add_entity(
         self,
         component: Component,
@@ -149,6 +186,8 @@ class States:
         identifier: str | None = None,
     ) -> Entity:
         """Add entity to states registry."""
+        validate_entity_ownership(domain, identifier)
+
         with self._registry_lock:
             if not entity.name:
                 LOGGER.error(
@@ -190,15 +229,30 @@ class States:
                         "is missing unload method",
                     )
 
-            self._register_entity_owner(
-                component.name, entity.entity_id, domain, identifier
-            )
+            if domain is not None and identifier is not None:
+                self._register_entity_owner(
+                    component.name, entity.entity_id, domain, identifier
+                )
+            else:
+                self._register_entity_owner(component.name, entity.entity_id)
 
             self._vis.dispatch_event(
                 EVENT_ENTITY_ADDED, EventEntityAddedData(entity), store=False
             )
             self.set_state(entity)
             return entity
+
+    @overload
+    def _register_entity_owner(self, component_name: str, entity_id: str) -> None: ...
+
+    @overload
+    def _register_entity_owner(
+        self,
+        component_name: str,
+        entity_id: str,
+        domain: SupportedDomains,
+        identifier: str,
+    ) -> None: ...
 
     def _register_entity_owner(
         self,
@@ -209,8 +263,11 @@ class States:
     ) -> None:
         """Register entity ownership for tracking."""
         self._ensure_component_owner_entry(component_name)
+        self._entity_ownership[entity_id] = EntityOwnership(
+            component_name, domain, identifier
+        )
 
-        if domain:
+        if domain is not None and identifier is not None:
             self._register_domain_entity(component_name, domain, identifier, entity_id)
         else:
             self._entity_owner[component_name]["entities"].append(entity_id)
@@ -227,7 +284,7 @@ class States:
         self,
         component_name: str,
         domain: SupportedDomains,
-        identifier: str | None,
+        identifier: str,
         entity_id: str,
     ) -> None:
         """Register entity under a specific domain."""
@@ -236,24 +293,28 @@ class States:
         if domain not in domains:
             domains[domain] = {"identifiers": {}}
 
-        if identifier:
-            if identifier not in domains[domain]["identifiers"]:
-                domains[domain]["identifiers"][identifier] = []
-            domains[domain]["identifiers"][identifier].append(entity_id)
+        if identifier not in domains[domain]["identifiers"]:
+            domains[domain]["identifiers"][identifier] = []
+        domains[domain]["identifiers"][identifier].append(entity_id)
 
     def get_entities(self) -> dict[str, Entity]:
         """Return all registered entities."""
         with self._registry_lock:
             return dict(sorted(self._registry.items()))
 
-    def get_entity(self, entity_id: str) -> Entity | None:
-        """Return a single registered entity, if it exists.
+    def get_entity_identifier(self, entity_id: str) -> str | None:
+        """Return the domain identifier an entity was registered under.
+
+        For entities belonging to a camera this is the camera identifier, which
+        makes it the authoritative answer to "which camera does this entity
+        belong to". None means the entity is not scoped to an identifier.
 
         Deliberately does not take _registry_lock: a single dict lookup needs no
         locking, and add_entity dispatches state_changed while holding the lock,
         so a listener resolving an entity must not contend for it.
         """
-        return self._registry.get(entity_id, None)
+        ownership = self._entity_ownership.get(entity_id, None)
+        return ownership.identifier if ownership else None
 
     def unload_entity(self, entity_id: str) -> None:
         """Unload entity from states registry."""
@@ -278,14 +339,30 @@ class States:
             if entity_id in self._current_states:
                 del self._current_states[entity_id]
 
-            # Also delete from entity owner registry
-            for component in self._entity_owner.values():
-                if entity_id in component["entities"]:
-                    component["entities"].remove(entity_id)
-                for domain in component["domains"].values():
-                    for entities in domain["identifiers"].values():
-                        if entity_id in entities:
-                            entities.remove(entity_id)
+            self._unregister_entity_owner(entity_id)
+
+    def _unregister_entity_owner(self, entity_id: str) -> None:
+        """Remove entity from the entity owner registry."""
+        ownership = self._entity_ownership.pop(entity_id, None)
+        if ownership is None:
+            return
+
+        component = self._entity_owner.get(ownership.component_name, None)
+        if component is None:
+            return
+
+        if ownership.domain is None:
+            if entity_id in component["entities"]:
+                component["entities"].remove(entity_id)
+            return
+
+        domain_info = component["domains"].get(ownership.domain, None)
+        if domain_info is None or ownership.identifier is None:
+            return
+
+        entities = domain_info["identifiers"].get(ownership.identifier, None)
+        if entities and entity_id in entities:
+            entities.remove(entity_id)
 
     @staticmethod
     def _assign_object_id(entity: Entity) -> None:

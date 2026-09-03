@@ -194,14 +194,15 @@ def _state_changed_allowed(
 ) -> bool:
     """Return whether the connection may receive a state change.
 
-    Entities tied to a camera declare it in device_identifiers.
+    The states registry records the identifier an entity was registered under,
+    which for entities belonging to a camera is the camera identifier.
     """
     assigned_cameras = _assigned_cameras(connection)
     if assigned_cameras is None:
         return True
 
-    entity = connection.vis.get_entity(event.data.entity_id)
-    if entity is None or not entity.device_identifiers:
+    identifier = connection.vis.states.get_entity_identifier(event.data.entity_id)
+    if identifier is None:
         return True
 
     try:
@@ -209,10 +210,10 @@ def _state_changed_allowed(
     except DomainNotRegisteredError:
         return True
 
-    for device_identifier in entity.device_identifiers:
-        if device_identifier in cameras:
-            return device_identifier in assigned_cameras
-    return True
+    if identifier not in cameras:
+        return True
+
+    return identifier in assigned_cameras
 
 
 @websocket_command({vol.Required("type"): "ping"})

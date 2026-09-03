@@ -625,6 +625,18 @@ class Viseron:
 
         LOGGER.info("Shutdown complete in %.1f seconds", timer() - start)
 
+    @overload
+    def add_entity(self, component: str, entity: Entity) -> Entity: ...
+
+    @overload
+    def add_entity(
+        self,
+        component: str,
+        entity: Entity,
+        domain: SupportedDomains,
+        identifier: str,
+    ) -> Entity: ...
+
     def add_entity(
         self,
         component: str,
@@ -636,7 +648,11 @@ class Viseron:
         component_instance = self.data[LOADED].get(component, None)
         if not component_instance:
             component_instance = self.data[LOADING][component]
-        return self.states.add_entity(component_instance, entity, domain, identifier)
+        if domain is not None and identifier is not None:
+            return self.states.add_entity(
+                component_instance, entity, domain, identifier
+            )
+        return self.states.add_entity(component_instance, entity)
 
     def add_entities(self, component: str, entities: list[Entity]) -> None:
         """Add entities to states registry."""
@@ -646,10 +662,6 @@ class Viseron:
     def get_entities(self) -> dict[str, Entity]:
         """Return all registered entities."""
         return self.states.get_entities()
-
-    def get_entity(self, entity_id: str) -> Entity | None:
-        """Return a single registered entity, if it exists."""
-        return self.states.get_entity(entity_id)
 
     def get_setup_status(self) -> dict[str, Any]:
         """Return combined setup status for all components and domains."""

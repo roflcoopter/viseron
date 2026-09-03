@@ -204,19 +204,14 @@ class TestStateChangedAllowed:
         )
 
     @staticmethod
-    def _with_entities(connection, entities: dict[str, list[str] | None]) -> None:
-        """Register entities owned by the given devices."""
-        registry = {}
-        for entity_id, device_identifiers in entities.items():
-            entity = MagicMock()
-            entity.device_identifiers = device_identifiers
-            registry[entity_id] = entity
-        connection.vis.get_entity.side_effect = registry.get
+    def _with_entities(connection, entities: dict[str, str | None]) -> None:
+        """Register entities under the identifiers they were added with."""
+        connection.vis.states.get_entity_identifier.side_effect = entities.get
 
     def test_entity_of_assigned_camera_is_allowed(self) -> None:
         """State changes for an assigned camera are forwarded."""
         connection = _connection(_user(Role.READ, ["cam_a"]))
-        self._with_entities(connection, {"binary_sensor.cam_a_face": ["cam_a"]})
+        self._with_entities(connection, {"binary_sensor.cam_a_face": "cam_a"})
 
         event = self._state_changed("binary_sensor.cam_a_face")
         assert _state_changed_allowed(connection, event) is True
@@ -224,23 +219,31 @@ class TestStateChangedAllowed:
     def test_entity_of_unassigned_camera_is_denied(self) -> None:
         """State changes for an unassigned camera are dropped."""
         connection = _connection(_user(Role.READ, ["cam_a"]))
-        self._with_entities(connection, {"binary_sensor.cam_b_face": ["cam_b"]})
+        self._with_entities(connection, {"binary_sensor.cam_b_face": "cam_b"})
 
         event = self._state_changed("binary_sensor.cam_b_face")
         assert _state_changed_allowed(connection, event) is False
 
-    def test_entity_without_camera_is_allowed(self) -> None:
-        """Entities not tied to a camera are unaffected."""
+    def test_entity_without_identifier_is_allowed(self) -> None:
+        """Entities not scoped to an identifier are unaffected."""
         connection = _connection(_user(Role.READ, ["cam_a"]))
         self._with_entities(connection, {"sensor.cpu": None})
 
         event = self._state_changed("sensor.cpu")
         assert _state_changed_allowed(connection, event) is True
 
+    def test_entity_of_non_camera_identifier_is_allowed(self) -> None:
+        """Identifiers that name something other than a camera are unaffected."""
+        connection = _connection(_user(Role.READ, ["cam_a"]))
+        self._with_entities(connection, {"sensor.tier_usage": "tier_1"})
+
+        event = self._state_changed("sensor.tier_usage")
+        assert _state_changed_allowed(connection, event) is True
+
     def test_admin_is_allowed(self) -> None:
         """Admins keep the previous behaviour."""
         connection = _connection(_user(Role.ADMIN, ["cam_a"]))
-        self._with_entities(connection, {"binary_sensor.cam_b_face": ["cam_b"]})
+        self._with_entities(connection, {"binary_sensor.cam_b_face": "cam_b"})
 
         event = self._state_changed("binary_sensor.cam_b_face")
         assert _state_changed_allowed(connection, event) is True
@@ -252,9 +255,7 @@ class TestSubscribeStates:
     def test_unfiltered_subscription_does_not_leak(self) -> None:
         """subscribe_states without entity filter respects the assignment."""
         connection = _connection(_user(Role.READ, ["cam_a"]))
-        entity = MagicMock()
-        entity.device_identifiers = ["cam_b"]
-        connection.vis.get_entity.return_value = entity
+        connection.vis.states.get_entity_identifier.return_value = "cam_b"
 
         async def run() -> None:
             await subscribe_states(
