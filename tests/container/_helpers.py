@@ -90,13 +90,18 @@ HTTP_PROBE_SOURCE = Path(__file__).parent / "scripts" / "http_probe.py"
 HTTP_PROBE_CONTAINER_PATH = "/tmp/viseron_http_probe.py"  # noqa: S108
 
 
-def _make_tar(items: dict[str, bytes]) -> bytes:
+def _make_tar(items: dict[str, bytes], owner: tuple[int, int] | None = None) -> bytes:
     """Return an in-memory tar archive containing ``items``.
 
     ``items`` maps archive-relative paths (relative to the extraction root) to
     file contents.  Parent directory entries are emitted automatically so
     ``put_archive`` can create them even when they don't already exist in the
     container image.
+
+    ``owner``, if given, is applied as the ``(uid, gid)`` of every entry
+    (files and auto-generated parent directories alike) instead of the
+    tarfile default of ``0:0``.  Use this to simulate a host bind mount that
+    is already owned by a specific user/group before the container starts.
     """
     buf = io.BytesIO()
     dirs_added: set[str] = set()
@@ -110,17 +115,26 @@ def _make_tar(items: dict[str, bytes]) -> bytes:
                     dir_info = tarfile.TarInfo(name=dir_path)
                     dir_info.type = tarfile.DIRTYPE
                     dir_info.mode = 0o755
+                    if owner is not None:
+                        dir_info.uid, dir_info.gid = owner
                     tar.addfile(dir_info)
                     dirs_added.add(dir_path)
             info = tarfile.TarInfo(name=name)
             info.size = len(data)
             info.mode = 0o644
+            if owner is not None:
+                info.uid, info.gid = owner
             tar.addfile(info, io.BytesIO(data))
     buf.seek(0)
     return buf.getvalue()
 
 
-def put_abs(container: Any, container_path: str, data: bytes) -> None:
+def put_abs(
+    container: Any,
+    container_path: str,
+    data: bytes,
+    owner: tuple[int, int] | None = None,
+) -> None:
     """Stream ``data`` to an absolute path inside ``container``.
 
     Works regardless of whether intermediate directories exist in the
@@ -128,9 +142,12 @@ def put_abs(container: Any, container_path: str, data: bytes) -> None:
     parents, and Docker's extraction creates them on the fly.  This is
     necessary for paths like ``/config/config.yaml`` where ``/config`` is
     created by the S6 init scripts at *runtime*, not baked into the image.
+
+    ``owner``, if given, is the ``(uid, gid)`` to create ``container_path``
+    (and any auto-created parent directories) with, instead of root.
     """
     rel = container_path.lstrip("/")  # e.g. "config/config.yaml"
-    container.put_archive("/", _make_tar({rel: data}))
+    container.put_archive("/", _make_tar({rel: data}, owner=owner))
 
 
 def create_directories(container: Any, *container_paths: str) -> None:

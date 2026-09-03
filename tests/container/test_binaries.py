@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING
 
 import pytest
@@ -136,6 +137,11 @@ def test_vainfo_runs(host: testinfra.host.Host, arch: str) -> None:
     """
     if not binary_expected_for_arch(VAINFO_BINARY, arch):
         pytest.skip(f"{VAINFO_BINARY} is not expected in {arch} image")
+
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        # GitHub-hosted runners expose a /dev/dri that opens but has no real
+        # VA-API driver behind it
+        pytest.skip("GitHub-hosted runners have no usable VA-API device")
 
     executable = host.run(f"test -x {VAINFO_BINARY}")
     assert executable.rc == 0, f"{VAINFO_BINARY} is expected in {arch} image"

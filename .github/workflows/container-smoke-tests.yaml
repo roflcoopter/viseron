@@ -1,0 +1,78 @@
+name: Container smoke tests
+
+on:
+  push:
+    branches:
+      - dev
+      - master
+    paths: &smoke-paths
+      - "viseron/**"
+      - "frontend/**"
+      - "rootfs/**"
+      - "docker/**"
+      - "tests/container/**"
+      - "requirements.txt"
+      - "requirements_container_test.txt"
+      - "azure-pipelines/.env"
+      - "azure-pipelines/docker-compose-build.yaml"
+      - ".github/workflows/container-smoke-tests.yaml"
+  pull_request:
+    paths: *smoke-paths
+
+env:
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
+  BUILDKIT_PROGRESS: plain
+  DOCKER_COMPOSE_CI_FILES: >-
+    --file azure-pipelines/docker-compose-build.yaml
+    --env-file azure-pipelines/.env
+
+jobs:
+  smoke-amd64:
+    name: Smoke test (amd64)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out code from GitHub
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Build wheels Docker image
+        run: |
+          docker compose ${{ env.DOCKER_COMPOSE_CI_FILES }} build amd64-wheels
+
+      - name: Build amd64 Viseron image
+        run: |
+          docker compose ${{ env.DOCKER_COMPOSE_CI_FILES }} build amd64-viseron
+
+      - name: Install smoke test requirements
+        run: |
+          python3 -m venv smoke-venv
+          smoke-venv/bin/pip install --upgrade pip
+          smoke-venv/bin/pip install -r requirements_container_test.txt
+
+      - name: Run container smoke tests
+        run: |
+          mkdir -p smoke-artifacts
+          smoke-venv/bin/pytest \
+            -rs \
+            tests/container/ \
+            --confcutdir=tests/container \
+            --image=roflcoopter/amd64-viseron:dev \
+            --arch=amd64 \
+            --boot-timeout=240 \
+            --timeout=300 \
+            --junitxml=smoke-artifacts/smoke-amd64.xml \
+            -v
+
+      - name: Upload smoke test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-artifacts-amd64
+          path: smoke-artifacts
+          retention-days: 7
+          if-no-files-found: ignore
