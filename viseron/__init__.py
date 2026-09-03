@@ -540,6 +540,18 @@ class Viseron:
 
         LOGGER.info("Shutdown complete in %.1f seconds", timer() - start)
 
+    @overload
+    def add_entity(self, component: str, entity: Entity) -> Entity: ...
+
+    @overload
+    def add_entity(
+        self,
+        component: str,
+        entity: Entity,
+        domain: SupportedDomains,
+        identifier: str,
+    ) -> Entity: ...
+
     def add_entity(
         self,
         component: str,
@@ -551,7 +563,11 @@ class Viseron:
         component_instance = self.data[LOADED].get(component, None)
         if not component_instance:
             component_instance = self.data[LOADING][component]
-        return self.states.add_entity(component_instance, entity, domain, identifier)
+        if domain is not None and identifier is not None:
+            return self.states.add_entity(
+                component_instance, entity, domain, identifier
+            )
+        return self.states.add_entity(component_instance, entity)
 
     def add_entities(self, component: str, entities: list[Entity]) -> None:
         """Add entities to states registry."""
