@@ -19,9 +19,12 @@ export default function AppFooter() {
   const theme = useTheme();
   const location = useLocation();
   const { version, gitCommit } = useContext(ViseronContext);
-  const showFooter = !["/events", "/live", "/settings/configuration"].includes(
-    location.pathname,
-  );
+  const showFooter = ![
+    "/events",
+    "/live",
+    "/settings/configuration",
+    "/settings/logs",
+  ].includes(location.pathname);
   const isLowerPaddingTop =
     location.pathname.startsWith("/cameras") ||
     ["/profile"].includes(location.pathname);

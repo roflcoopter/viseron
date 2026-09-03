@@ -1,20 +1,25 @@
 import { Erase, PlayFilledAlt, StopFilledAlt } from "@carbon/icons-react";
-import Autocomplete from "@mui/material/Autocomplete";
-import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import Container from "@mui/material/Container";
-import Paper from "@mui/material/Paper";
-import TextField from "@mui/material/TextField";
-import Typography from "@mui/material/Typography";
+import {
+  Autocomplete,
+  Box,
+  Button,
+  Container,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { dump as yamlDump } from "js-yaml";
 import { useContext, useRef, useState } from "react";
 
 import { ViseronContext } from "context/ViseronContext";
+import { useTitle } from "hooks/UseTitle";
 import { useToast } from "hooks/UseToast";
 import { useSystemDispatchedEvents } from "lib/api/system";
 import { subscribeEvent } from "lib/commands";
 
 function SystemEvents() {
+  useTitle("System Events");
   const { connection } = useContext(ViseronContext);
   const toast = useToast();
 
@@ -83,7 +88,7 @@ function SystemEvents() {
           )}
           sx={{ mb: 2 }}
         />
-        <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+        <Stack direction={{ sm: "column", md: "row" }} sx={{ mb: 2, gap: 2 }}>
           {subscribed ? (
             <Button
               variant="contained"
@@ -96,6 +101,7 @@ function SystemEvents() {
           ) : (
             <Button
               variant="contained"
+              color="success"
               onClick={handleSubscribe}
               disabled={!event}
               startIcon={<PlayFilledAlt size={16} />}
@@ -111,7 +117,7 @@ function SystemEvents() {
           >
             CLEAR EVENTS
           </Button>
-        </Box>
+        </Stack>
         <Typography variant="subtitle2">
           When clicking the text field above, you can see a list of all events
           fired since the last restart of Viseron.
