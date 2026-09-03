@@ -16,6 +16,10 @@ updates:
       python:
         patterns:
           - "*"
+      python-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
     ignore:
       # Numpy needs to be kept <2 at the moment, along with some deps
       # where newer versions require >2
@@ -43,6 +47,10 @@ updates:
       default-days: 7
     groups:
       frontend:
+        patterns:
+          - "*"
+      frontend-security:
+        applies-to: security-updates
         patterns:
           - "*"
     ignore:
@@ -77,6 +85,10 @@ updates:
       docs:
         patterns:
           - "*"
+      docs-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
     ignore:
       # ESLint 10 is not supported by the plugin ecosystem yet:
       # eslint-config-airbnb-extended peers eslint ^9, and eslint-plugin-import
@@ -98,6 +110,10 @@ updates:
       default-days: 7
     groups:
       github-actions:
+        patterns:
+          - "*"
+      github-actions-security:
+        applies-to: security-updates
         patterns:
           - "*"
 

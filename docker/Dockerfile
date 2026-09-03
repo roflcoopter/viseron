@@ -128,6 +128,10 @@ RUN \
   && rm -rf /var/lib/apt/lists/* \
   \
   && python3 -m pip install --no-deps --ignore-installed /wheels/*.whl \
+  # onnxruntime-gpu bundles a TensorRT execution provider linked against
+  # TensorRT 10, which the CUDA base image does not ship. Only the CUDA/CPU
+  # providers are ever requested, so drop the unloadable stub.
+  && rm -f /usr/local/lib/python3.*/*-packages/onnxruntime/capi/libonnxruntime_providers_tensorrt.so \
   # Register PyTorch runtime libs (installed via ultralytics) with the system
   # linker so that ldd and ld.so can resolve libtorch.so / libc10.so etc.
   && python3 -c \
