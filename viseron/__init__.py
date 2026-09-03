@@ -61,7 +61,7 @@ from viseron.helpers import (
     utcnow,
 )
 from viseron.helpers.json import JSONEncoder
-from viseron.states import States
+from viseron.states import States, validate_entity_ownership
 from viseron.viseron_types import Domain, SupportedDomains, ViseronData
 from viseron.watchdog.process_watchdog import ProcessWatchDog
 from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
@@ -85,7 +85,7 @@ if TYPE_CHECKING:
     from viseron.domains.motion_detector import AbstractMotionDetector
     from viseron.domains.nvr import AbstractNVR
     from viseron.domains.object_detector import AbstractObjectDetector
-    from viseron.helpers.entity import Entity, EntityT
+    from viseron.helpers.entity import Entity
 
 VISERON_SIGNALS = {
     VISERON_SIGNAL_SHUTDOWN: "viseron/signal/shutdown",
@@ -555,11 +555,13 @@ class Viseron:
     def add_entity(
         self,
         component: str,
-        entity: EntityT,
+        entity: Entity,
         domain: SupportedDomains | None = None,
         identifier: str | None = None,
-    ) -> EntityT:
+    ) -> Entity:
         """Add entity to states registry."""
+        validate_entity_ownership(domain, identifier)
+
         component_instance = self.data[LOADED].get(component, None)
         if not component_instance:
             component_instance = self.data[LOADING][component]
