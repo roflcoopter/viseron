@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import os
 import re
-import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -51,7 +50,7 @@ def _data_mount_container(
     *,
     name_suffix: str,
     env_overrides: dict[str, str] | None = None,
-    host_nginx_port: int | None = None,
+    publish_nginx: bool = False,
     log_label: str,
     config_owner: tuple[int, int] | None = None,
 ) -> Iterator[Any]:
@@ -63,7 +62,9 @@ def _data_mount_container(
     ``VISERON_DISABLE_CHOWN`` (documented in installation.mdx) since that
     flag skips the container's own recursive chown of ``/config``.
     """
-    container_name = f"viseron-smoke-data-mount-{name_suffix}-{int(time.time())}"
+    container_name = helpers.unique_container_name(
+        f"viseron-smoke-data-mount-{name_suffix}"
+    )
 
     environment = {
         "PUID": str(os.getuid()),
@@ -78,8 +79,8 @@ def _data_mount_container(
         "name": container_name,
         "environment": environment,
     }
-    if host_nginx_port is not None:
-        run_kwargs["ports"] = {f"{NGINX_PORT}/tcp": host_nginx_port}
+    if publish_nginx:
+        run_kwargs["ports"] = {f"{NGINX_PORT}/tcp": None}
 
     if Path("/dev/dri").exists():
         run_kwargs["devices"] = ["/dev/dri:/dev/dri"]
@@ -159,7 +160,6 @@ def viseron_container_data_mount(
     docker_client: docker.DockerClient,
     image: str,
     docker_platform: str,
-    host_nginx_port_data_mount: int,
     boot_timeout: float,
     artifact_dir: Path,
     request: pytest.FixtureRequest,
@@ -173,7 +173,7 @@ def viseron_container_data_mount(
         artifact_dir,
         request,
         name_suffix="default",
-        host_nginx_port=host_nginx_port_data_mount,
+        publish_nginx=True,
         log_label="data-mount",
     )
 

@@ -7,13 +7,20 @@ import os
 import re
 import tarfile
 import time
+import uuid
 from pathlib import Path
 from typing import Any
 
-import requests
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ENV_FILE = REPO_ROOT / "azure-pipelines" / ".env"
+
+
+def unique_container_name(prefix: str) -> str:
+    """Return a container name that is unique across workers and runs."""
+    # Each xdist worker is its own process, so a clock-derived name collides
+    # with a 409 when two workers create a container in the same second.
+    worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
+    return f"{prefix}-{worker}-{uuid.uuid4().hex[:8]}"
 
 
 def parse_env_file(path: Path = ENV_FILE) -> dict[str, str]:
@@ -41,7 +48,7 @@ EXPECTED = parse_env_file()
 def wait_for_log(
     container: Any,
     pattern: str,
-    timeout: float = 180.0,
+    timeout: float = 60.0,
     interval: float = 1.0,
 ) -> str:
     """Poll the container's logs until ``pattern`` matches, then return the logs.
@@ -61,27 +68,6 @@ def wait_for_log(
     )
 
 
-def wait_for_http(
-    url: str,
-    timeout: float = 60.0,
-    interval: float = 1.0,
-    accept_status: tuple[int, ...] = (200, 301, 302, 401, 403),
-) -> requests.Response:
-    """Poll ``url`` until it returns one of ``accept_status`` codes."""
-    deadline = time.monotonic() + timeout
-    last_exc: Exception | None = None
-    while time.monotonic() < deadline:
-        try:
-            response = requests.get(url, timeout=5, allow_redirects=True)
-            if response.status_code in accept_status:
-                return response
-            last_exc = RuntimeError(f"Got status {response.status_code} from {url}")
-        except requests.RequestException as exc:
-            last_exc = exc
-        time.sleep(interval)
-    raise TimeoutError(f"Timed out waiting for {url}: {last_exc}")
-
-
 # Probe script lives next to this file and is shipped into the container with
 # ``install_http_probe`` (via the Docker SDK's ``put_archive``).  We can't
 # rely on bind-mounting because in the dev-container environment the test
@@ -90,7 +76,11 @@ HTTP_PROBE_SOURCE = Path(__file__).parent / "scripts" / "http_probe.py"
 HTTP_PROBE_CONTAINER_PATH = "/tmp/viseron_http_probe.py"  # noqa: S108
 
 
-def _make_tar(items: dict[str, bytes], owner: tuple[int, int] | None = None) -> bytes:
+def _make_tar(
+    items: dict[str, bytes],
+    owner: tuple[int, int] | None = None,
+    mode: int = 0o644,
+) -> bytes:
     """Return an in-memory tar archive containing ``items``.
 
     ``items`` maps archive-relative paths (relative to the extraction root) to
@@ -102,6 +92,9 @@ def _make_tar(items: dict[str, bytes], owner: tuple[int, int] | None = None) -> 
     (files and auto-generated parent directories alike) instead of the
     tarfile default of ``0:0``.  Use this to simulate a host bind mount that
     is already owned by a specific user/group before the container starts.
+
+    ``mode`` is the permission bits for the file entries; pass ``0o755`` for
+    anything the container has to execute, such as an s6 init script.
     """
     buf = io.BytesIO()
     dirs_added: set[str] = set()
@@ -121,7 +114,7 @@ def _make_tar(items: dict[str, bytes], owner: tuple[int, int] | None = None) -> 
                     dirs_added.add(dir_path)
             info = tarfile.TarInfo(name=name)
             info.size = len(data)
-            info.mode = 0o644
+            info.mode = mode
             if owner is not None:
                 info.uid, info.gid = owner
             tar.addfile(info, io.BytesIO(data))
@@ -134,6 +127,7 @@ def put_abs(
     container_path: str,
     data: bytes,
     owner: tuple[int, int] | None = None,
+    mode: int = 0o644,
 ) -> None:
     """Stream ``data`` to an absolute path inside ``container``.
 
@@ -145,9 +139,12 @@ def put_abs(
 
     ``owner``, if given, is the ``(uid, gid)`` to create ``container_path``
     (and any auto-created parent directories) with, instead of root.
+
+    ``mode`` is the permission bits for the file; pass ``0o755`` for anything
+    the container has to execute, such as an s6 init script.
     """
     rel = container_path.lstrip("/")  # e.g. "config/config.yaml"
-    container.put_archive("/", _make_tar({rel: data}, owner=owner))
+    container.put_archive("/", _make_tar({rel: data}, owner=owner, mode=mode))
 
 
 def create_directories(container: Any, *container_paths: str) -> None:

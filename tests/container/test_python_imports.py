@@ -35,31 +35,33 @@ _ARCH_EXCLUDED_IMPORTS: dict[str, set[str]] = {
 
 @pytest.mark.parametrize("module", PYTHON_IMPORTS)
 def test_python_module_imports(
-    host: testinfra.host.Host, module: str, arch: str
+    image_host: testinfra.host.Host, module: str, arch: str
 ) -> None:
     """Each module must import without raising."""
     if module in _ARCH_EXCLUDED_IMPORTS.get(arch, set()):
         pytest.skip(f"{module} is not available on {arch}")
-    cmd = host.run(f"python3 -c 'import {module}'")
+    cmd = image_host.run(f"python3 -c 'import {module}'")
     assert cmd.rc == 0, (
         f"failed to import {module}:\nstdout=\n{cmd.stdout}\nstderr=\n{cmd.stderr}"
     )
 
 
-def test_cv2_version_matches_env(host: testinfra.host.Host, expected_versions) -> None:
+def test_cv2_version_matches_env(
+    image_host: testinfra.host.Host, expected_versions: dict[str, str]
+) -> None:
     """``cv2.__version__`` should match ``OPENCV_VERSION`` from .env."""
     expected = expected_versions.get("OPENCV_VERSION")
     assert expected, "OPENCV_VERSION missing from azure-pipelines/.env"
-    cmd = host.run("python3 -c 'import cv2; print(cv2.__version__)'")
+    cmd = image_host.run("python3 -c 'import cv2; print(cv2.__version__)'")
     assert cmd.rc == 0, cmd.stderr
     assert cmd.stdout.strip() == expected, (
         f"cv2.__version__={cmd.stdout.strip()!r} expected {expected!r}"
     )
 
 
-def test_cv2_built_without_ffmpeg(host: testinfra.host.Host) -> None:
+def test_cv2_built_without_ffmpeg(image_host: testinfra.host.Host) -> None:
     """``cv2.getBuildInformation()`` should report FFMPEG: NO."""
-    cmd = host.run("python3 -c 'import cv2; print(cv2.getBuildInformation())'")
+    cmd = image_host.run("python3 -c 'import cv2; print(cv2.getBuildInformation())'")
     assert cmd.rc == 0, cmd.stderr
     assert "FFMPEG" in cmd.stdout
     ffmpeg_lines = [
@@ -71,9 +73,9 @@ def test_cv2_built_without_ffmpeg(host: testinfra.host.Host) -> None:
     )
 
 
-def test_viseron_metadata(host: testinfra.host.Host) -> None:
+def test_viseron_metadata(image_host: testinfra.host.Host) -> None:
     """``viseron`` must expose its version and basic component module."""
-    cmd = host.run(
+    cmd = image_host.run(
         'python3 -c "'
         "import json, viseron; "
         "print(json.dumps({'version': getattr(viseron, '__version__', None), "

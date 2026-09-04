@@ -49,10 +49,10 @@ ARCH_FFMPEG_REQUIRED = {
 
 
 def test_ffmpeg_version_matches_env(
-    host: testinfra.host.Host, expected_versions: dict[str, str]
+    image_host: testinfra.host.Host, expected_versions: dict[str, str]
 ) -> None:
     """``ffmpeg -version`` should match ``FFMPEG_VERSION`` from .env."""
-    cmd = host.run("/ffmpeg/bin/ffmpeg -version")
+    cmd = image_host.run("/ffmpeg/bin/ffmpeg -version")
     assert cmd.rc == 0, cmd.stderr
     expected = expected_versions.get("FFMPEG_VERSION")
     assert expected, "FFMPEG_VERSION missing from azure-pipelines/.env"
@@ -60,9 +60,9 @@ def test_ffmpeg_version_matches_env(
     assert expected in first_line, f"expected ffmpeg {expected!r} in: {first_line!r}"
 
 
-def test_ffmpeg_buildconf_required_flags(host: testinfra.host.Host) -> None:
+def test_ffmpeg_buildconf_required_flags(image_host: testinfra.host.Host) -> None:
     """``ffmpeg -buildconf`` should contain all required flags."""
-    cmd = host.run("/ffmpeg/bin/ffmpeg -hide_banner -buildconf")
+    cmd = image_host.run("/ffmpeg/bin/ffmpeg -hide_banner -buildconf")
     assert cmd.rc == 0, cmd.stderr
     missing = [flag for flag in COMMON_FFMPEG_FLAGS if flag not in cmd.stdout]
     assert not missing, (
@@ -71,21 +71,21 @@ def test_ffmpeg_buildconf_required_flags(host: testinfra.host.Host) -> None:
 
 
 def test_ffmpeg_buildconf_arch_specific_flags(
-    host: testinfra.host.Host, arch: str
+    image_host: testinfra.host.Host, arch: str
 ) -> None:
     """Architecture-conditional flags should appear in the buildconf."""
     required = ARCH_FFMPEG_REQUIRED.get(arch, ())
     if not required:
         pytest.skip(f"no arch-specific flags for {arch}")
-    cmd = host.run("/ffmpeg/bin/ffmpeg -hide_banner -buildconf")
+    cmd = image_host.run("/ffmpeg/bin/ffmpeg -hide_banner -buildconf")
     assert cmd.rc == 0, cmd.stderr
     missing = [flag for flag in required if flag not in cmd.stdout]
     assert not missing, f"missing arch-specific flags for {arch}: {missing}"
 
 
-def test_ffmpeg_smoke_encode(host: testinfra.host.Host) -> None:
+def test_ffmpeg_smoke_encode(image_host: testinfra.host.Host) -> None:
     """A trivial lavfi → null encode must succeed."""
-    cmd = host.run(
+    cmd = image_host.run(
         "/ffmpeg/bin/ffmpeg -hide_banner -nostats "
         "-f lavfi -i testsrc=duration=1:size=160x120:rate=10 "
         "-f null -"
@@ -96,15 +96,15 @@ def test_ffmpeg_smoke_encode(host: testinfra.host.Host) -> None:
     )
 
 
-def test_ffprobe_version(host: testinfra.host.Host) -> None:
+def test_ffprobe_version(image_host: testinfra.host.Host) -> None:
     """``ffprobe -version`` should run."""
-    cmd = host.run("/ffmpeg/bin/ffprobe -version")
+    cmd = image_host.run("/ffmpeg/bin/ffprobe -version")
     assert cmd.rc == 0, cmd.stderr
 
 
-def test_mp4box_version(host: testinfra.host.Host) -> None:
+def test_mp4box_version(image_host: testinfra.host.Host) -> None:
     """``MP4Box -version`` should run."""
-    cmd = host.run("MP4Box -version")
+    cmd = image_host.run("MP4Box -version")
     # MP4Box returns rc=0 with version on stderr/stdout depending on build.
     assert (cmd.rc == 0) or ("MP4Box" in cmd.stdout + cmd.stderr), (
         f"MP4Box version check failed: rc={cmd.rc}\n"
@@ -112,9 +112,9 @@ def test_mp4box_version(host: testinfra.host.Host) -> None:
     )
 
 
-def test_go2rtc_help(host: testinfra.host.Host) -> None:
+def test_go2rtc_help(image_host: testinfra.host.Host) -> None:
     """``go2rtc --help`` should exit cleanly."""
-    cmd = host.run(f"{GO2RTC_BINARY} --help")
+    cmd = image_host.run(f"{GO2RTC_BINARY} --help")
     # go2rtc --help exits non-zero on some versions; just assert binary works.
     assert "go2rtc" in (cmd.stdout + cmd.stderr).lower(), (
         f"go2rtc smoke failed: rc={cmd.rc}\n"
@@ -122,14 +122,14 @@ def test_go2rtc_help(host: testinfra.host.Host) -> None:
     )
 
 
-def test_nginx_version(host: testinfra.host.Host) -> None:
+def test_nginx_version(image_host: testinfra.host.Host) -> None:
     """``nginx -v`` should print a version string."""
-    cmd = host.run("nginx -v")
+    cmd = image_host.run("nginx -v")
     output = cmd.stdout + cmd.stderr
     assert "nginx version" in output, output
 
 
-def test_vainfo_runs(host: testinfra.host.Host, arch: str) -> None:
+def test_vainfo_runs(image_host: testinfra.host.Host, arch: str) -> None:
     """``vainfo`` may report no device, but the binary itself must run.
 
     We only assert that the binary did not segfault. Exit code is permissive
@@ -143,10 +143,10 @@ def test_vainfo_runs(host: testinfra.host.Host, arch: str) -> None:
         # VA-API driver behind it
         pytest.skip("GitHub-hosted runners have no usable VA-API device")
 
-    executable = host.run(f"test -x {VAINFO_BINARY}")
+    executable = image_host.run(f"test -x {VAINFO_BINARY}")
     assert executable.rc == 0, f"{VAINFO_BINARY} is expected in {arch} image"
 
-    cmd = host.run(f"{VAINFO_BINARY} --display drm --device /dev/dri/renderD128")
+    cmd = image_host.run(f"{VAINFO_BINARY} --display drm --device /dev/dri/renderD128")
     output = (cmd.stdout + cmd.stderr).lower()
     assert cmd.rc != 127, (
         f"vainfo command was not found: rc={cmd.rc}\n"
@@ -159,9 +159,9 @@ def test_vainfo_runs(host: testinfra.host.Host, arch: str) -> None:
     )
 
 
-def test_ffmpeg_drawtext_smoke_encode(host: testinfra.host.Host) -> None:
+def test_ffmpeg_drawtext_smoke_encode(image_host: testinfra.host.Host) -> None:
     """Make sure ffmpeg filter ``drawtext`` is working correctly."""
-    cmd = host.run(
+    cmd = image_host.run(
         "/ffmpeg/bin/ffmpeg -hide_banner -nostats "
         "-f lavfi -i testsrc=duration=1:size=160x120:rate=10 "
         '-vf "drawtext=text=viseron:x=4:y=4:fontcolor=white:fontsize=16" '
