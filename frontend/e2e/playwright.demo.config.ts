@@ -1,12 +1,13 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// Exercises the production demo build: the app is served from dist/ and mocked
+// by the MSW service worker, with no @msw/playwright fixture involved.
 export default defineConfig({
   testDir: "./tests",
-  // demo.spec.ts targets the mocked demo build and has its own config.
-  testIgnore: "demo.spec.ts",
+  testMatch: "demo.spec.ts",
   fullyParallel: true,
   use: {
-    baseURL: "http://localhost:5173",
+    baseURL: "http://localhost:4173",
     viewport: { width: 1440, height: 900 },
     colorScheme: "dark",
     locale: "en-US",
@@ -23,10 +24,12 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run start",
+    command: "npm run build && npm run serve -- --port 4173 --strictPort",
     cwd: "../",
-    url: "http://localhost:5173",
-    reuseExistingServer: true,
+    url: "http://localhost:4173",
+    env: { VITE_MOCK_API: "true" },
+    reuseExistingServer: false,
+    timeout: 180000,
     stdout: "pipe",
   },
 });

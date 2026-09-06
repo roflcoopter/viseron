@@ -99,6 +99,8 @@ module.exports = defineConfig([
             "**/*.spec.ts",
             "**/*.spec.tsx",
             "**/tests/**/*.{tsx,ts}",
+            // Mocked demo build, only loaded when VITE_MOCK_API is set.
+            "**/src/demo/**/*.{tsx,ts}",
           ],
           optionalDependencies: false,
         },
