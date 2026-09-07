@@ -105,6 +105,10 @@ Several screenshots are taken programmatically during end-to-end tests, thus cam
 
 <img src="/img/ui/config/main.png" alt="Configuration Editor"/>
 
+### Log viewer
+
+<img src="/img/ui/logs/main.png" alt="Log viewer"/>
+
 ## How does Viseron compare to other NVR software?
 
 First of all, Viserons functionality is completely free and will always be free. There are no hidden costs or limitations.

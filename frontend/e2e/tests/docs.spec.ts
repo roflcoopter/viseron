@@ -240,3 +240,17 @@ test.describe("Screenshot config editor page", () => {
     });
   });
 });
+
+test.describe("Screenshot logs page", () => {
+  test("main view screenshot", async ({ page }: { page: Page }) => {
+    await page.goto("/#/settings/logs", { waitUntil: "domcontentloaded" });
+    await expect(page.getByText("System Logs")).toBeVisible();
+    await expect(
+      page.getByText(/Starting webserver on port 8888/).first(),
+    ).toBeVisible();
+    await page.screenshot({
+      path: "../docs/static/img/ui/logs/main.png",
+      fullPage: true,
+    });
+  });
+});
