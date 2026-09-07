@@ -74,6 +74,13 @@ const initializePlayer = (
   // Create a new hls instance using shared factory
   hlsRef.current = createHlsInstance(auth, hlsClientIdRef);
 
+  // The shared config uses autoStartLoad: false, so nothing but the playlist is
+  // fetched until startLoad is called. Register before loadSource so an early
+  // MANIFEST_PARSED is not missed.
+  hlsRef.current.on(Hls.Events.MANIFEST_PARSED, () => {
+    hlsRef.current?.startLoad(0);
+  });
+
   if (videoRef.current) {
     hlsRef.current.attachMedia(videoRef.current);
   }
