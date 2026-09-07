@@ -8,6 +8,8 @@ import checker from "vite-plugin-checker";
 import svgr from "vite-plugin-svgr";
 import viteTsconfigPaths from "vite-tsconfig-paths";
 
+import { mockServiceWorkerPlugin } from "./vite-plugins/mockServiceWorker.ts";
+
 const proxyOptions = {
   changeOrigin: true,
   timeout: 5000,
@@ -28,6 +30,11 @@ export default defineConfig(({ mode }) => {
       }),
       viteTsconfigPaths(),
       svgr(),
+      // Only the mocked demo build ships the MSW service worker.
+      mockServiceWorkerPlugin(
+        env.VITE_MOCK_API === "true",
+        import.meta.dirname,
+      ),
       checker({
         typescript: true,
         eslint: {

@@ -163,5 +163,10 @@
       "@mui/material": "$@mui/material",
       "@mui/icons-material": "$@mui/icons-material"
     }
+  },
+  "msw": {
+    "workerDirectory": [
+      "demo-public"
+    ]
   }
 }

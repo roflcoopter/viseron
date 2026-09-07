@@ -27,5 +27,12 @@
       "e2e/*": ["../e2e/*"]
     }
   },
-  "include": ["src", "tests", "e2e", "playwright.config.ts", "eslint-rules"]
+  "include": [
+    "src",
+    "tests",
+    "e2e",
+    "playwright.config.ts",
+    "eslint-rules",
+    "vite-plugins"
+  ]
 }

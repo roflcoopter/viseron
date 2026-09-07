@@ -1,12 +1,15 @@
 import { HttpResponse, http } from "msw";
-import { fileURLToPath } from "url";
 
 import { getDayjs } from "lib/helpers/dates";
 import * as types from "lib/types";
 
 export const API_BASE_URL = "/api/v1";
 
-export const handlers = [
+export type SnapshotLoader = (
+  cameraIdentifier: string,
+) => Promise<ArrayBuffer>;
+
+export const createHandlers = (loadSnapshot: SnapshotLoader) => [
   http.get(`${API_BASE_URL}/auth/enabled`, () =>
     HttpResponse.json(
       { enabled: true, onboarding_complete: true },
@@ -212,15 +215,8 @@ export const handlers = [
   http.get(
     `${API_BASE_URL}/camera/:camera_identifier/snapshot`,
     async ({ params }) => {
-      const fs = await import("fs");
-      const path = await import("path");
-      const __dirname = path.dirname(fileURLToPath(import.meta.url));
-      const imagePath = path.resolve(
-        __dirname,
-        `fixtures/${params.camera_identifier}_snapshot.jpg`,
-      );
-      const buffer = fs.readFileSync(imagePath);
-      return HttpResponse.arrayBuffer(buffer.buffer, {
+      const buffer = await loadSnapshot(String(params.camera_identifier));
+      return HttpResponse.arrayBuffer(buffer, {
         status: 200,
         headers: { "Content-Type": "image/jpeg" },
       });

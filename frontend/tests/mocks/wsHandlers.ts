@@ -1,5 +1,5 @@
 import { WebSocketData, WebSocketHandlerConnection, ws } from "msw";
-import { DEFAULT_YAML_CONFIG } from "tests/utils/const";
+import { DEFAULT_YAML_CONFIG, MOCK_ENTITIES } from "tests/utils/const";
 
 // Catch all ws connections
 const socket = ws.link(/ws(s)?:\/\/[^/]+\/?.*/);
@@ -26,10 +26,28 @@ const messageHandler = (
     const type = (msg as any)?.type || (msg as any)?.command;
     switch (type) {
       case "ping":
-        payload = { type: "pong" };
+        payload = { command_id: msg.command_id, type: "pong" };
+        break;
+      case "auth":
+        payload = {
+          type: "auth_ok",
+          message: "Authenticated.",
+          system_information: {
+            version: "demo",
+            git_commit: "abcdefg",
+            safe_mode: false,
+          },
+        };
         break;
       case "subscribe_event":
-        console.debug("Mock subscribe_event:", msg.event_type);
+      case "subscribe_states":
+      case "subscribe_timespans":
+      case "unsubscribe_event":
+      case "unsubscribe_states":
+      case "unsubscribe_timespans":
+      case "save_config":
+      case "reload_config":
+      case "restart_viseron":
         payload = {
           command_id: msg.command_id,
           type: "result",
@@ -38,7 +56,20 @@ const messageHandler = (
         };
         break;
       case "get_cameras":
-        payload = { cameras: [] };
+        payload = {
+          command_id: msg.command_id,
+          type: "result",
+          success: true,
+          result: { cameras: {} },
+        };
+        break;
+      case "get_entities":
+        payload = {
+          command_id: msg.command_id,
+          type: "result",
+          success: true,
+          result: MOCK_ENTITIES,
+        };
         break;
       case "get_setup_status":
         console.debug("Mock get_setup_status");
@@ -59,9 +90,34 @@ const messageHandler = (
           result: { config: DEFAULT_YAML_CONFIG },
         };
         break;
+      case "render_template":
+        payload = {
+          command_id: msg.command_id,
+          type: "result",
+          success: true,
+          result: { rendered: msg.template },
+        };
+        break;
+      case "export_recording":
+      case "export_snapshot":
+      case "export_timespan":
+        payload = {
+          command_id: msg.command_id,
+          type: "result",
+          success: true,
+          result: { filename: "demo_export.mp4", token: "demo-token" },
+        };
+        break;
+      // A missing envelope leaves the client's promise pending forever, so
+      // unmocked commands still get a valid result.
       default:
         console.warn("wsHandlers.ts: Unknown WS message type:", type);
-        payload = { command_id: msg.command_id, ok: true, type };
+        payload = {
+          command_id: msg.command_id,
+          type: "result",
+          success: true,
+          result: null,
+        };
     }
   } catch {
     throw new Error("Failed to parse WS message");

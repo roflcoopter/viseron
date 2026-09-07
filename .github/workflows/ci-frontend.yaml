@@ -70,3 +70,29 @@ jobs:
         run: npm ci
       - name: Run build
         run: npm run build
+      - name: Assert the mock service worker is not in the production build
+        run: |
+          if [ -e dist/mockServiceWorker.js ]; then
+            echo "::error::dist/mockServiceWorker.js must never ship outside the demo build"
+            exit 1
+          fi
+
+  demo:
+    name: Demo build smoke test
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out files from GitHub
+        uses: actions/checkout@v7.0.1
+      - name: Set up Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ./frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Run demo smoke test
+        run: npx playwright test -c e2e/playwright.demo.config.ts
