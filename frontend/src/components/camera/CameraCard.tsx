@@ -260,6 +260,7 @@ function SuccessCameraCard({
                     title={camera.is_on ? "Stop Camera" : "Start Camera"}
                   >
                     <Chip
+                      data-testid="camera-toggle-button"
                       icon={
                         camera.is_on ? (
                           <ViewOffFilled
@@ -371,6 +372,7 @@ function SuccessCameraCard({
                 {(!auth.enabled || user?.role === "admin") && (
                   <Tooltip title="Camera Tuning">
                     <IconButton
+                      data-testid="camera-tuning-button"
                       component={Link}
                       to={`/cameras/${camera.identifier}`}
                     >

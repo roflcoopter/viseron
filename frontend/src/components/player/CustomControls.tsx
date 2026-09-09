@@ -234,6 +234,7 @@ export function CustomControls({
               size="medium"
               title={isPlaying ? "Pause" : "Play"}
               isFullscreen={isFullscreen}
+              data-testid="player-play-pause-button"
             >
               {isPlaying ? <Pause size={20} /> : <Play size={20} />}
             </CustomFab>
@@ -279,6 +280,7 @@ export function CustomControls({
               size="medium"
               title={isPlaying ? "Pause" : "Play"}
               isFullscreen={isFullscreen}
+              data-testid="player-play-pause-button"
             >
               {isPlaying ? <Pause size={20} /> : <Play size={20} />}
             </CustomFab>

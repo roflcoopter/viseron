@@ -132,9 +132,9 @@ module.exports = defineConfig([
 
   eslintConfigPrettier,
 
-  // Exception for dates.ts - it needs to import dayjs directly
+  // Exception for files that needs to import dayjs directly
   {
-    files: ["src/lib/helpers/dates.ts"],
+    files: ["src/lib/helpers/dates.ts", "tests/mocks/clock.ts"],
     rules: {
       "viseron-custom/no-direct-dayjs-import": "off",
     },

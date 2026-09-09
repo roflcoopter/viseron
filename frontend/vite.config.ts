@@ -53,6 +53,13 @@ export default defineConfig(({ mode }) => {
           "monaco-editor/editor/editor.worker.js",
       },
     },
+    optimizeDeps: {
+      // Preload monaco to avoid full page reloads during tests
+      include: [
+        "monaco-yaml/yaml.worker.js",
+        "monaco-editor/editor/editor.worker.js",
+      ],
+    },
     legacy: {
       // Vite 8 switched to Node-style CJS interop, so a default import of a
       // CommonJS package now yields `module.exports` instead of its `default`

@@ -180,7 +180,11 @@ const sidebars: SidebarsConfig = {
         type: "doc",
         id: "developers/frontend",
       },
-      items: ["developers/frontend/proxy", "developers/frontend/demo"],
+      items: [
+        "developers/frontend/proxy",
+        "developers/frontend/demo",
+        "developers/frontend/screenshots",
+      ],
     },
     "developers/docker",
     "developers/documentation",
