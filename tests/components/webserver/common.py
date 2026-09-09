@@ -6,17 +6,19 @@ import json
 import logging
 import os
 import time
+from contextlib import ExitStack
 from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
 import pytest
-from filelock import FileLock
 from tornado.testing import AsyncHTTPTestCase
 from tornado.web import create_signed_value
 
 from viseron import Viseron, setup_viseron
 from viseron.components.webserver import Webserver, create_application
 from viseron.components.webserver.const import COMPONENT
+
+from tests.common import patch_storage_path
 
 if TYPE_CHECKING:
     from tornado.httpclient import HTTPResponse
@@ -103,6 +105,9 @@ class TestAppBase(AsyncHTTPTestCase):
 
     def setUp(self) -> None:
         """Set up the test."""
+        self._storage_stack = ExitStack()
+        self.storage_dir = self._storage_stack.enter_context(patch_storage_path())
+
         # Mock the real application so we dont listen on the same port twice
         with (
             patch("viseron.load_config") as mocked_load_config,
@@ -118,6 +123,7 @@ class TestAppBase(AsyncHTTPTestCase):
         """Tear down the test."""
         super().tearDown()
         self.webserver.stop()
+        self._storage_stack.close()
 
     def get_app(self):
         """Get the application.
@@ -140,29 +146,6 @@ class TestAppBaseAuth(TestAppBase):
     """Base class for testing the API with auth."""
 
     config = {"webserver": {"auth": None}}
-
-    def setUp(self) -> None:
-        """Set up the test."""
-        super().setUp()
-        self.auth_store_path = self.webserver.auth._auth_store.path
-        auth_store_lock_path = f"{self.auth_store_path}.lock"
-        self._auth_store_lock = FileLock(auth_store_lock_path)
-        self._auth_store_lock.acquire()
-
-        self.onboarding_path = self.webserver.auth.onboarding_path()
-        onboarding_lock_path = f"{self.onboarding_path}.lock"
-        self._onboarding_lock = FileLock(onboarding_lock_path)
-        self._onboarding_lock.acquire()
-
-    def tearDown(self) -> None:
-        """Tear down the test."""
-        if os.path.exists(self.auth_store_path):
-            os.remove(self.auth_store_path)
-        if os.path.exists(self.onboarding_path):
-            os.remove(self.onboarding_path)
-        self._auth_store_lock.release()
-        self._onboarding_lock.release()
-        return super().tearDown()
 
     def fetch_with_auth(
         self,

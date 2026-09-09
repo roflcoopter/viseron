@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import datetime
+import shutil
+import tempfile
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from sqlalchemy import insert
@@ -33,6 +36,27 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
     from viseron import Viseron
+
+STORAGE_PATH_TARGETS = (
+    "viseron.helpers.storage.STORAGE_PATH",
+    "viseron.components.webserver.auth.STORAGE_PATH",
+)
+
+
+@contextmanager
+def patch_storage_path() -> Generator[str]:
+    """Point storage at a temporary directory, unique per test.
+
+    STORAGE_PATH is bound at import time, so it has to be patched where it is used.
+    """
+    storage_dir = tempfile.mkdtemp()
+    try:
+        with ExitStack() as stack:
+            for target in STORAGE_PATH_TARGETS:
+                stack.enter_context(patch(target, storage_dir))
+            yield storage_dir
+    finally:
+        shutil.rmtree(storage_dir, ignore_errors=True)
 
 
 class MockComponent(Component):

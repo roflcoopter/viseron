@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import os
 import time
+from contextlib import ExitStack
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
 import pytest
-from filelock import FileLock
 
 from viseron.components.webserver.auth import (
     MAX_ACCESS_TOKENS_PER_USER,
@@ -28,6 +28,8 @@ from viseron.components.webserver.auth import (
     token_response,
 )
 
+from tests.common import patch_storage_path
+
 if TYPE_CHECKING:
     from viseron import Viseron
 
@@ -41,20 +43,13 @@ class TestAuth:
 
     def setup_method(self, vis: Viseron):
         """Set up tests."""
+        self._storage_stack = ExitStack()
+        self._storage_stack.enter_context(patch_storage_path())
         self.auth = Auth(vis, WEBSERVER_CONFIG)
-        self.auth_store_lock = FileLock(f"{self.auth._auth_store.path}.lock")
-        self.onboarding_lock = FileLock(f"{self.auth.onboarding_path()}.lock")
-        self.auth_store_lock.acquire()
-        self.onboarding_lock.acquire()
 
     def teardown_method(self):
         """Teardown tests."""
-        if os.path.exists(self.auth._auth_store.path):
-            os.remove(self.auth._auth_store.path)
-        if os.path.exists(self.auth.onboarding_path()):
-            os.remove(self.auth.onboarding_path())
-        self.auth_store_lock.release()
-        self.onboarding_lock.release()
+        self._storage_stack.close()
 
     def test_add_user(self):
         """Test adding user."""
@@ -710,20 +705,13 @@ class TestAccessToken:
 
     def setup_method(self, vis: Viseron):
         """Set up tests."""
+        self._storage_stack = ExitStack()
+        self._storage_stack.enter_context(patch_storage_path())
         self.auth = Auth(vis, WEBSERVER_CONFIG)
-        self.auth_store_lock = FileLock(f"{self.auth._auth_store.path}.lock")
-        self.onboarding_lock = FileLock(f"{self.auth.onboarding_path()}.lock")
-        self.auth_store_lock.acquire()
-        self.onboarding_lock.acquire()
 
     def teardown_method(self):
         """Teardown tests."""
-        if os.path.exists(self.auth._auth_store.path):
-            os.remove(self.auth._auth_store.path)
-        if os.path.exists(self.auth.onboarding_path()):
-            os.remove(self.auth.onboarding_path())
-        self.auth_store_lock.release()
-        self.onboarding_lock.release()
+        self._storage_stack.close()
 
     def test_create_access_token(self):
         """Token is returned raw once; only its hash is stored."""
