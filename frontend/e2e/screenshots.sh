@@ -2,7 +2,7 @@
 # Regenerates the documentation screenshots inside the pinned Playwright image.
 #
 # Runs a container to have a consistent environment between development
-# environemnts and CI runners.
+# environments and CI runners.
 
 set -euo pipefail
 
