@@ -7,6 +7,7 @@ import logging
 import os
 from typing import TYPE_CHECKING
 
+from viseron.components.storage.const import CONFIG_PATH
 from viseron.components.webserver.const import MAX_FILE_SEARCH_TRIES
 from viseron.components.webserver.static_file_handler import (
     AccessTokenStaticFileHandler,
@@ -16,6 +17,57 @@ if TYPE_CHECKING:
     from viseron import Viseron
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _is_same_or_child(path: str, root: str) -> bool:
+    """Return True if path is root or a file under root."""
+    path_n = os.path.normpath(path)
+    root_n = os.path.normpath(root)
+    if path_n == root_n:
+        return True
+    try:
+        return os.path.commonpath([path_n, root_n]) == root_n
+    except ValueError:
+        # Raised for a mix of absolute/relative paths, or different drives
+        return False
+
+
+def rewrite_tier_hint_path(
+    original_path: str,
+    first_tier_path: str,
+    actual_tier_path: str,
+    allowed_tier_paths: list[str],
+) -> str | None:
+    """Rewrite a first-tier path to the actual tier, if both are allowlisted.
+
+    Query parameters on /files are attacker-controlled. Without this check a
+    request can replace the storage prefix with an arbitrary directory
+    (for example /etc) and redirect into it.
+    """
+    first = os.path.normpath(first_tier_path)
+    actual = os.path.normpath(actual_tier_path)
+    allowed = {os.path.normpath(path) for path in allowed_tier_paths}
+    if first not in allowed or actual not in allowed:
+        LOGGER.debug(
+            "Ignoring tier hint with unconfigured paths first=%s actual=%s",
+            first,
+            actual,
+        )
+        return None
+
+    original = os.path.normpath(original_path)
+    if not _is_same_or_child(original, first):
+        return None
+
+    relative = os.path.relpath(original, first)
+    rewritten = (
+        actual
+        if relative == os.curdir
+        else os.path.normpath(os.path.join(actual, relative))
+    )
+    if not _is_same_or_child(rewritten, actual):
+        return None
+    return rewritten
 
 
 class TieredFileHandler(AccessTokenStaticFileHandler):
@@ -39,20 +91,39 @@ class TieredFileHandler(AccessTokenStaticFileHandler):
         self._tries = 0
         self._redirect = False
 
+    def _configured_tier_paths(self) -> list[str]:
+        """Return configured storage tier paths for this camera."""
+        paths: list[str] = []
+        camera_handlers = self._storage.camera_tier_handlers.get(
+            self._camera_identifier, {}
+        )
+        for category in camera_handlers.values():
+            for tier in category:
+                for handler in tier.values():
+                    tier_path = handler.tier.get(CONFIG_PATH)
+                    if tier_path:
+                        paths.append(tier_path)
+        return paths
+
     def handle_tier_hint(self, path: str) -> str | None:
         """Handle tier hint arguments."""
-        _path = os.path.join(self.root, path)
         first_tier_path = self.get_argument("first_tier_path", None, strip=True)
         actual_tier_path = self.get_argument("actual_tier_path", None, strip=True)
+        if not first_tier_path or not actual_tier_path:
+            return None
 
-        if first_tier_path and actual_tier_path and _path.startswith(first_tier_path):
-            _path = _path.replace(first_tier_path, actual_tier_path, 1)
+        rewritten = rewrite_tier_hint_path(
+            os.path.join(self.root, path),
+            first_tier_path,
+            actual_tier_path,
+            self._configured_tier_paths(),
+        )
+        if rewritten:
             LOGGER.debug(
                 "first_tier_path and actual_tier_path found, adjusted path to %s",
-                _path,
+                rewritten,
             )
-            return _path
-        return None
+        return rewritten
 
     def _search_file(self, path: str) -> str | None:
         """Search for a file in the tiers."""
