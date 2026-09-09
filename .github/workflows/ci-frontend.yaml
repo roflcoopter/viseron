@@ -53,6 +53,46 @@ jobs:
       - name: Run tests
         run: npm run test
 
+  screenshot-docker-image:
+    name: Resolve Playwright image
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.resolve.outputs.image }}
+    steps:
+      - name: Check out files from GitHub
+        uses: actions/checkout@v7.0.1
+      - name: Resolve the Playwright image from the lockfile
+        id: resolve
+        run: echo "image=$(node e2e/playwright-image.mjs)" >> "$GITHUB_OUTPUT"
+
+  screenshots:
+    name: Check docs screenshots
+    needs: [screenshot-docker-image]
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.screenshot-docker-image.outputs.image }}
+      # Chromium needs a real /dev/shm or it crashes on large pages.
+      options: --ipc=host
+    steps:
+      - name: Check out files from GitHub
+        uses: actions/checkout@v7.0.1
+      - name: Cache npm downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: screenshots-npm-${{ hashFiles('frontend/package-lock.json') }}
+      - name: Install dependencies
+        run: npm ci
+      - name: Check screenshots are up to date
+        run: npm run e2e:screenshots:run
+      - name: Upload screenshot diffs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-diffs
+          path: frontend/test-results/
+          retention-days: 7
+
   build:
     name: Build frontend
     needs: [lint, test]

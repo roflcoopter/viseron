@@ -1,19 +1,27 @@
 import { Page, expect } from "@playwright/test";
-import { test } from "e2e/playwright.setup";
+import {
+  test,
+  waitForCameraSnapshots,
+  waitForPlayButtons,
+  waitForSyntaxHighlighting,
+} from "e2e/playwright.setup";
 import { resetSetupStatusMock, setupStatusMock } from "tests/mocks/wsHandlers";
 import { MOCK_SETUP_STATUS_COMPONENTS } from "tests/utils/const";
+
+const SCREENSHOT_OPTIONS = { fullPage: true, timeout: 15000 } as const;
 
 test.describe("Screenshot cameras page", () => {
   test.beforeEach(async ({ page }: { page: Page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page.getByText(/Camera [0-9]/)).toHaveCount(3);
+    await waitForCameraSnapshots(page);
   });
 
   test("main view screenshot", async ({ page }: { page: Page }) => {
-    await page.screenshot({
-      path: "../docs/static/img/ui/cameras/main.png",
-      fullPage: true,
-    });
+    await expect(page).toHaveScreenshot(
+      ["cameras", "main.png"],
+      SCREENSHOT_OPTIONS,
+    );
   });
 
   test("camera toggle button screenshot", async ({ page }: { page: Page }) => {
@@ -23,10 +31,10 @@ test.describe("Screenshot cameras page", () => {
       el.style.outline = "3px solid #00ff00";
       el.style.outlineOffset = "3px";
     });
-    await page.screenshot({
-      path: "../docs/static/img/ui/cameras/camera-toggle-button.png",
-      fullPage: true,
-    });
+    await expect(page).toHaveScreenshot(
+      ["cameras", "camera-toggle-button.png"],
+      SCREENSHOT_OPTIONS,
+    );
   });
 });
 
@@ -34,23 +42,27 @@ test("Screenshot recordings page", async ({ page }: { page: Page }) => {
   await page.goto("/#/recordings", { waitUntil: "domcontentloaded" });
   await expect(page.getByText(/Camera [0-9]/)).toHaveCount(3);
   await expect(page.getByText(/Latest recording/)).toHaveCount(2);
-  await page.screenshot({
-    path: "../docs/static/img/ui/recordings/main.png",
-    fullPage: true,
-  });
+  await waitForCameraSnapshots(page);
+  // Camera 1 and 2 have recordings, camera 3 does not
+  await waitForPlayButtons(page, 2);
+  await expect(page).toHaveScreenshot(
+    ["recordings", "main.png"],
+    SCREENSHOT_OPTIONS,
+  );
 });
 
 test.describe("Screenshot live page", () => {
   test.beforeEach(async ({ page }: { page: Page }) => {
     await page.goto("/#/live", { waitUntil: "domcontentloaded" });
     await expect(page.getByText(/Camera [0-9]/)).toHaveCount(3);
+    await waitForCameraSnapshots(page);
   });
 
   test("main view screenshot", async ({ page }: { page: Page }) => {
-    await page.screenshot({
-      path: "../docs/static/img/ui/live/main.png",
-      fullPage: true,
-    });
+    await expect(page).toHaveScreenshot(
+      ["live", "main.png"],
+      SCREENSHOT_OPTIONS,
+    );
   });
 
   test("manual recording button screenshot", async ({
@@ -77,10 +89,10 @@ test.describe("Screenshot live page", () => {
     await recordingButton.hover({ force: true });
     await page.waitForTimeout(300);
 
-    await page.screenshot({
-      path: "../docs/static/img/ui/live/manual-recording-button.png",
-      fullPage: true,
-    });
+    await expect(page).toHaveScreenshot(
+      ["live", "manual-recording-button.png"],
+      SCREENSHOT_OPTIONS,
+    );
   });
 
   test("context menu screenshot", async ({ page }: { page: Page }) => {
@@ -99,10 +111,10 @@ test.describe("Screenshot live page", () => {
       el.style.outline = "3px solid #00ff00";
       el.style.outlineOffset = "3px";
     });
-    await page.screenshot({
-      path: "../docs/static/img/ui/live/context-menu.png",
-      fullPage: true,
-    });
+    await expect(page).toHaveScreenshot(
+      ["live", "context-menu.png"],
+      SCREENSHOT_OPTIONS,
+    );
   });
 });
 
@@ -120,24 +132,26 @@ test.describe("Screenshot tune page", () => {
 
     // Wait for the UI to update with the new tab content
     await page.waitForTimeout(300);
-    await page.screenshot({
-      path: "../docs/static/img/ui/tune/main.png",
-      fullPage: true,
-    });
+    await waitForCameraSnapshots(page);
+    await expect(page).toHaveScreenshot(
+      ["tune", "main.png"],
+      SCREENSHOT_OPTIONS,
+    );
   });
 
   test("camera tuning button screenshot", async ({ page }: { page: Page }) => {
     // Add a green highlight border around the camera tuning button
     await page.goto("/", { waitUntil: "domcontentloaded" });
+    await waitForCameraSnapshots(page);
     const cameraTuningButton = page.getByTestId("camera-tuning-button").first();
     await cameraTuningButton.evaluate((el) => {
       el.style.outline = "3px solid #00ff00";
       el.style.outlineOffset = "3px";
     });
-    await page.screenshot({
-      path: "../docs/static/img/ui/tune/camera-tuning-button.png",
-      fullPage: true,
-    });
+    await expect(page).toHaveScreenshot(
+      ["tune", "camera-tuning-button.png"],
+      SCREENSHOT_OPTIONS,
+    );
   });
 });
 
@@ -148,10 +162,10 @@ test.describe("Screenshot profile page", () => {
     await page.goto("/#/profile", { waitUntil: "domcontentloaded" });
     await expect(page.getByText(/Profile/)).toHaveCount(1);
     await expect(page.getByText(/Test User/)).toHaveCount(1);
-    await page.screenshot({
-      path: "../docs/static/img/ui/profile/main.png",
-      fullPage: true,
-    });
+    await expect(page).toHaveScreenshot(
+      ["profile", "main.png"],
+      SCREENSHOT_OPTIONS,
+    );
   });
 });
 
@@ -161,8 +175,7 @@ test.describe("Screenshot config editor page", () => {
       waitUntil: "domcontentloaded",
     });
     await expect(page.getByText(/ffmpeg/)).toHaveCount(1);
-    // Wait for syntax highlighting to load
-    await page.waitForTimeout(5000);
+    await waitForSyntaxHighlighting(page);
   });
   test.afterEach(async () => {
     // Reset the setup status mock to its default state after each test
@@ -170,10 +183,10 @@ test.describe("Screenshot config editor page", () => {
   });
 
   test("main view screenshot", async ({ page }: { page: Page }) => {
-    await page.screenshot({
-      path: "../docs/static/img/ui/config/main.png",
-      fullPage: true,
-    });
+    await expect(page).toHaveScreenshot(
+      ["config", "main.png"],
+      SCREENSHOT_OPTIONS,
+    );
   });
 
   test("config editor reload button screenshot", async ({
@@ -190,10 +203,10 @@ test.describe("Screenshot config editor page", () => {
       el.style.outlineOffset = "3px";
     });
 
-    await page.screenshot({
-      path: "../docs/static/img/ui/config/reload-button.png",
-      fullPage: true,
-    });
+    await expect(page).toHaveScreenshot(
+      ["config", "reload-button.png"],
+      SCREENSHOT_OPTIONS,
+    );
   });
 
   test("config editor YAML syntax error screenshot", async ({
@@ -220,10 +233,10 @@ test.describe("Screenshot config editor page", () => {
       el.style.outlineOffset = "-3px";
     });
 
-    await page.screenshot({
-      path: "../docs/static/img/ui/config/yaml-syntax-error.png",
-      fullPage: true,
-    });
+    await expect(page).toHaveScreenshot(
+      ["config", "yaml-syntax-error.png"],
+      SCREENSHOT_OPTIONS,
+    );
   });
 
   test("setup errors sidebar screenshot", async ({ page }: { page: Page }) => {
@@ -231,13 +244,12 @@ test.describe("Screenshot config editor page", () => {
     setupStatusMock.components = MOCK_SETUP_STATUS_COMPONENTS;
     // Reload the page to trigger the setup status update
     await page.reload({ waitUntil: "domcontentloaded" });
-    // Wait for syntax highlighting to load
-    await page.waitForTimeout(5000);
+    await waitForSyntaxHighlighting(page);
 
-    await page.screenshot({
-      path: "../docs/static/img/ui/config/setup-errors.png",
-      fullPage: true,
-    });
+    await expect(page).toHaveScreenshot(
+      ["config", "setup-errors.png"],
+      SCREENSHOT_OPTIONS,
+    );
   });
 });
 
@@ -248,9 +260,9 @@ test.describe("Screenshot logs page", () => {
     await expect(
       page.getByText(/Starting webserver on port 8888/).first(),
     ).toBeVisible();
-    await page.screenshot({
-      path: "../docs/static/img/ui/logs/main.png",
-      fullPage: true,
-    });
+    await expect(page).toHaveScreenshot(
+      ["logs", "main.png"],
+      SCREENSHOT_OPTIONS,
+    );
   });
 });

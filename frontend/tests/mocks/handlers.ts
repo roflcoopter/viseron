@@ -1,7 +1,7 @@
 import { HttpResponse, http } from "msw";
+import { getDayjs } from "tests/mocks/clock";
 
 import type { LogEntry, LogsResponse } from "lib/api/logger";
-import { getDayjs } from "lib/helpers/dates";
 import * as types from "lib/types";
 
 export const API_BASE_URL = "/api/v1";
@@ -104,9 +104,7 @@ const mockLogs = (): LogEntry[] => {
   });
 };
 
-export type SnapshotLoader = (
-  cameraIdentifier: string,
-) => Promise<ArrayBuffer>;
+export type SnapshotLoader = (cameraIdentifier: string) => Promise<ArrayBuffer>;
 
 export const createHandlers = (loadSnapshot: SnapshotLoader) => [
   http.get(`${API_BASE_URL}/auth/enabled`, () =>
