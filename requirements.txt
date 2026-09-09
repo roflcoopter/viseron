@@ -43,4 +43,4 @@ sqlalchemy==2.0.52
 watchdog==6.0.0
 python-telegram-bot==22.8
 onvif-python==0.2.11
-ultralytics==8.4.130; platform_machine == "x86_64" or platform_machine == "aarch64"
+ultralytics==8.4.134; platform_machine == "x86_64" or platform_machine == "aarch64"
