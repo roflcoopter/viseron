@@ -4,10 +4,17 @@ import {
   ThemeOptions,
   ThemeProvider,
   createTheme,
+  useTheme,
 } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { deepmerge } from "@mui/utils";
-import { createContext, useCallback, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 declare module "@mui/material/styles" {
   interface ColorRange {
@@ -87,6 +94,18 @@ export type ColorModeProviderProps = {
 export const ColorModeContext = createContext({
   toggleColorMode: () => {},
 });
+
+function ThemeMetaHandler() {
+  const theme = useTheme();
+
+  useEffect(() => {
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", theme.palette.background.default);
+  }, [theme.palette.background.default]);
+
+  return null;
+}
 
 export function ColorModeProvider({ children }: ColorModeProviderProps) {
   const preferredMode = useMediaQuery("(prefers-color-scheme: dark)")
@@ -323,7 +342,10 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
   );
   return (
     <ColorModeContext.Provider value={colorMode}>
-      <ThemeProvider theme={theme}>{children}</ThemeProvider>
+      <ThemeProvider theme={theme}>
+        {children}
+        <ThemeMetaHandler />
+      </ThemeProvider>
     </ColorModeContext.Provider>
   );
 }
