@@ -27,10 +27,16 @@ export default function AppFooter() {
   ].includes(location.pathname);
   const isLowerPaddingTop =
     location.pathname.startsWith("/cameras") ||
-    ["/profile"].includes(location.pathname);
+    ["/profile", "/settings"].includes(location.pathname);
 
   return showFooter ? (
-    <Footer sx={{ paddingTop: isLowerPaddingTop ? "30px" : "60px" }}>
+    <Footer
+      sx={{
+        paddingTop: isLowerPaddingTop
+          ? { md: "30px", lg: "40px", xxl: "60px" }
+          : "60px",
+      }}
+    >
       <Box
         sx={{
           display: "flex",
