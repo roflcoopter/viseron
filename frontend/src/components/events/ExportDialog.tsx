@@ -60,7 +60,7 @@ export function ExportDialog({ open, setOpen }: ExportDialogProps) {
       sx={{
         "& .MuiDialog-container": {
           alignItems: "flex-start",
-          paddingTop: "10vh",
+          paddingTop: { xs: "25vh", lg: "10vh", xl: "10vh", xxl: "25vh" },
         },
       }}
     >
