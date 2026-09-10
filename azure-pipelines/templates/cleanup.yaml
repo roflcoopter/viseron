@@ -1,29 +1,85 @@
+parameters:
+  # 'pre' runs a light safety-net reclaim before a build, 'post' runs the full
+  # reclaim after one and never fails the job.
+  - name: mode
+    type: string
+    default: pre
+    values:
+      - pre
+      - post
+  # Build cache retained per agent. BuildKit evicts least-recently-used records
+  # first, so the cache for the most recent build survives.
+  # Two agents share one host disk, so budget 2 * keepCacheGb + build headroom.
+  - name: keepCacheGb
+    type: number
+    default: 40
+  # Below this the build cache is sacrificed to keep the agent alive.
+  - name: minFreeGb
+    type: number
+    default: 20
+
 steps:
   - script: |
-      df -h
-      FREE_GB=$(df -BG --output=avail / | tail -1 | tr -d ' G')
-      echo "Free space: ${FREE_GB}GB"
-      if [ "${FREE_GB}" -lt 20 ]; then
-        echo "##vso[task.setvariable variable=needsCleanup]true"
-      else
-        echo "##vso[task.setvariable variable=needsCleanup]false"
+      echo "=== Host filesystem ==="
+      df -h /
+      echo
+      echo "=== Docker daemon (${DOCKER_HOST:-local}) ==="
+      docker system df || true
+      echo
+      echo "=== Agent work folder ==="
+      if [ -n "${AGENT_WORKFOLDER:-}" ] && [ -d "${AGENT_WORKFOLDER}" ]; then
+        du -h --max-depth=1 "${AGENT_WORKFOLDER}" 2>/dev/null | sort -h || true
       fi
-    displayName: Check free space
+      if [ -n "${AGENT_HOMEDIRECTORY:-}" ] && [ -d "${AGENT_HOMEDIRECTORY}/_diag" ]; then
+        du -sh "${AGENT_HOMEDIRECTORY}/_diag" 2>/dev/null || true
+      fi
+    displayName: Disk usage before cleanup (${{ parameters.mode }})
+    ${{ if eq(parameters.mode, 'post') }}:
+      condition: always()
+
   - script: |
-      docker rmi -f $(docker images -aq) || true
-    displayName: Clean up Docker images
-    condition: eq(variables.needsCleanup, 'true')
-  - script: |
-      docker system prune --force --all --volumes || true
-    displayName: Docker prune
-    condition: eq(variables.needsCleanup, 'true')
-  - script: |
-      sudo rm -rf /usr/local/lib/android || true
-      sudo rm -rf /usr/local/.ghcup || true
-      sudo rm -rf /opt/hostedtoolcache/CodeQL || true
-    displayName: Remove unused files
-    condition: eq(variables.needsCleanup, 'true')
-  - script: |
-      df -h
-    displayName: List free space after cleaning
-    condition: eq(variables.needsCleanup, 'true')
+      set -u
+      KEEP_CACHE_GB=${{ parameters.keepCacheGb }}
+      MIN_FREE_GB=${{ parameters.minFreeGb }}
+      KEEP_CACHE_BYTES=$((KEEP_CACHE_GB * 1024 * 1024 * 1024))
+
+      free_gb() {
+        df -BG --output=avail / | tail -1 | tr -dc '0-9'
+      }
+
+      # buildx renamed --keep-storage to --max-used-space in v0.18.
+      prune_build_cache() {
+        if docker buildx prune --help 2>&1 | grep -q -- '--max-used-space'; then
+          docker buildx prune --force --max-used-space "${KEEP_CACHE_BYTES}" || true
+        else
+          docker buildx prune --force --keep-storage "${KEEP_CACHE_BYTES}" || true
+        fi
+      }
+
+      echo "Free before cleanuo: $(free_gb)GB"
+
+      docker container prune --force || true
+      docker volume prune --force || true
+
+      # Unused images are safe to drop since build cache lives outside the image
+      if [ "${{ parameters.mode }}" = "post" ]; then
+        docker image prune --all --force || true
+      else
+        docker image prune --force || true
+      fi
+
+      prune_build_cache
+      echo "Free after docker prune: $(free_gb)GB"
+
+      if [ "$(free_gb)" -lt "${MIN_FREE_GB}" ]; then
+        echo "Still under ${MIN_FREE_GB}GB free. Dropping all build cache"
+        docker buildx prune --force --all || true
+        docker system prune --force --all --volumes || true
+      fi
+
+      echo "Free after cleanup: $(free_gb)GB"
+      df -h /
+      exit 0
+    displayName: Reclaim disk space (${{ parameters.mode }})
+    ${{ if eq(parameters.mode, 'post') }}:
+      condition: always()
