@@ -14,7 +14,7 @@ export function EmptyStateCard({
       variant="outlined"
       sx={{
         height: {
-          lg: hasSetupErrors ? "70vh" : "73vh",
+          md: hasSetupErrors ? "70vh" : "73vh",
           xl: hasSetupErrors ? "72vh" : "75vh",
           xxl: hasSetupErrors ? "77vh" : "80vh",
         },

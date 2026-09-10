@@ -482,7 +482,7 @@ function Tunes() {
       <Box
         sx={{
           height: {
-            lg: hasSetupErrors ? "72vh" : "76vh",
+            md: hasSetupErrors ? "72vh" : "76vh",
             xl: hasSetupErrors ? "74vh" : "78vh",
             xxl: hasSetupErrors ? "79vh" : "82vh",
           },
@@ -494,7 +494,10 @@ function Tunes() {
       >
         <Grid container spacing={1} sx={{ flexGrow: 1, overflow: "hidden" }}>
           {/* Center Snapshot - First on mobile, middle on desktop */}
-          <Grid size={{ xs: 12, md: 6.5 }} sx={{ order: { xs: 0, md: 1 } }}>
+          <Grid
+            size={{ xs: 12, md: 6, xxl: 7 }}
+            sx={{ order: { xs: 0, md: 1 } }}
+          >
             <TuneSnapshot
               camera={camera}
               hasSetupErrors={hasSetupErrors}
@@ -578,7 +581,10 @@ function Tunes() {
           </Grid>
 
           {/* Left Card - Second on mobile, first on desktop */}
-          <Grid size={{ xs: 12, md: 2.5 }} sx={{ order: { xs: 1, md: 0 } }}>
+          <Grid
+            size={{ xs: 12, md: 3, xxl: 2.5 }}
+            sx={{ order: { xs: 1, md: 0 } }}
+          >
             <TuneConfigPanel
               hasSetupErrors={hasSetupErrors}
               selectedComponentData={tuneHandlers.selectedComponentData}
@@ -671,7 +677,10 @@ function Tunes() {
           </Grid>
 
           {/* Right Card with Tabs - Third on mobile, last on desktop */}
-          <Grid size={{ xs: 12, md: 3 }} sx={{ order: { xs: 2, md: 2 } }}>
+          <Grid
+            size={{ xs: 12, md: 3, xxl: 2.5 }}
+            sx={{ order: { xs: 2, md: 2 } }}
+          >
             <TuneComponentList
               hasSetupErrors={hasSetupErrors}
               selectedTab={selectedTab}
