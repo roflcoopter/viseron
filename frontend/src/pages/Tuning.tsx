@@ -482,8 +482,9 @@ function Tunes() {
       <Box
         sx={{
           height: {
-            md: hasSetupErrors ? "73vh" : "75vh",
-            xl: hasSetupErrors ? "79vh" : "81.5vh",
+            lg: hasSetupErrors ? "72vh" : "76vh",
+            xl: hasSetupErrors ? "74vh" : "78vh",
+            xxl: hasSetupErrors ? "79vh" : "82vh",
           },
           display: "flex",
           flexDirection: "column",
