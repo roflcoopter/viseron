@@ -143,6 +143,40 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
     ),
   ),
 
+  http.get(`${API_BASE_URL}/auth/users`, () =>
+    HttpResponse.json(
+      {
+        users: [
+          {
+            id: "123456789",
+            name: "Test User",
+            username: "testuser",
+            role: "admin",
+            assigned_cameras: null,
+            preferences: null,
+          },
+          {
+            id: "223456789",
+            name: "Read Only",
+            username: "readonly",
+            role: "read",
+            assigned_cameras: ["camera1"],
+            preferences: null,
+          },
+          {
+            id: "323456789",
+            name: "Writer",
+            username: "writer",
+            role: "write",
+            assigned_cameras: ["camera2", "camera3"],
+            preferences: null,
+          },
+        ],
+      } as types.AuthUsersResponse,
+      { status: 200 },
+    ),
+  ),
+
   http.post(`${API_BASE_URL}/auth/token`, () => {
     const now = getDayjs().add(7, "day");
     return HttpResponse.json(

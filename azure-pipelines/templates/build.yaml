@@ -63,6 +63,8 @@ jobs:
               containerRegistry: "GHCR"
 
           - template: cleanup.yaml
+            parameters:
+              mode: pre
 
           - script: docker run --rm --privileged tonistiigi/binfmt --install all
             displayName: Register QEMU for cross-builds
@@ -241,3 +243,7 @@ jobs:
             inputs:
               command: logout
               containerRegistry: "GHCR"
+
+          - template: cleanup.yaml
+            parameters:
+              mode: post
