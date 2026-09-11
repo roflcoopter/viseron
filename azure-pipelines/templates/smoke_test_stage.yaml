@@ -54,3 +54,7 @@ jobs:
             inputs:
               command: logout
               containerRegistry: "Docker Hub"
+
+          - template: cleanup.yaml
+            parameters:
+              mode: post
