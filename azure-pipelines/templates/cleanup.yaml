@@ -56,7 +56,7 @@ steps:
         fi
       }
 
-      echo "Free before cleanuo: $(free_gb)GB"
+      echo "Free before cleanup: $(free_gb)GB"
 
       docker container prune --force || true
       docker volume prune --force || true
