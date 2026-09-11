@@ -195,6 +195,18 @@ class User:
     assigned_cameras: list[str] | None = None
     preferences: Preferences | None = None
 
+    def as_dict(self) -> dict[str, Any]:
+        """Convert to dict, excluding the password hash."""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "username": self.username,
+            "role": self.role,
+            "enabled": self.enabled,
+            "assigned_cameras": self.assigned_cameras,
+            "preferences": self.preferences,
+        }
+
 
 @dataclass
 class TokenResponse:
@@ -579,7 +591,8 @@ class Auth:
         """Save users to storage."""
         self._auth_store.save(
             {
-                "users": self.users,
+                # asdict is needed since as_dict excludes secrets from API responses
+                "users": {u.id: asdict(u) for u in self.users.values()},
                 "refresh_tokens": self.refresh_tokens,
                 "access_tokens": {t.id: asdict(t) for t in self.access_tokens.values()},
             }
