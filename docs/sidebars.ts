@@ -21,6 +21,11 @@ const sidebars: SidebarsConfig = {
           label: "Screenshots",
           href: "/docs/documentation#screenshots",
         },
+        {
+          type: "link",
+          label: "Demo",
+          href: "/docs/documentation#demo",
+        },
       ],
     },
     {

@@ -89,6 +89,11 @@ const config: Config = {
           position: "right",
         },
         {
+          href: "https://viseron-demo.pages.dev",
+          label: "Demo",
+          position: "right",
+        },
+        {
           type: "html",
           position: "right",
           value: `
