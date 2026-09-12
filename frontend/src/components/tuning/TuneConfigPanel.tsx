@@ -193,8 +193,9 @@ export function TuneConfigPanel({
       variant="outlined"
       sx={{
         height: {
-          md: hasSetupErrors ? "70vh" : "72.5vh",
-          xl: hasSetupErrors ? "78vh" : "80vh",
+          md: hasSetupErrors ? "70vh" : "73vh",
+          xl: hasSetupErrors ? "72vh" : "75vh",
+          xxl: hasSetupErrors ? "77vh" : "80vh",
         },
         display: "flex",
         flexDirection: "column",
