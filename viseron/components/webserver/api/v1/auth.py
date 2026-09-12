@@ -181,18 +181,23 @@ class AuthAPIHandler(BaseAPIHandler):
 
         Returns 200 OK with user data if user exists.
         """
+        # Checked before the lookup so that a 404 does not reveal which user ids exist.
+        if (
+            self.current_user
+            and self.current_user.role != Role.ADMIN
+            and self.current_user.id != user_id
+        ):
+            self.response_error(
+                HTTPStatus.FORBIDDEN,
+                reason="You are not authorized to view this user",
+            )
+            return
+
         user = await self.run_in_executor(self.auth.get_user, user_id)
         if user is None:
             self.response_error(HTTPStatus.NOT_FOUND, reason="User not found")
             return
-        await self.response_success(
-            response={
-                "name": user.name,
-                "username": user.username,
-                "role": user.role.value,
-                "preferences": user.preferences,
-            }
-        )
+        await self.response_success(response=user.as_dict())
 
     @require_auth
     async def auth_delete(self, user_id: str) -> None:

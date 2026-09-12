@@ -66,6 +66,14 @@ class TestAuth:
         user2 = self.auth.add_user("Test2", "Test2", "test", Role.WRITE)
         assert user2.role == Role.WRITE
 
+    def test_user_load_save_round_trip(self, vis: MockViseron):
+        """Test that the password hash survives a save-and-reload cycle."""
+        user = self.auth.add_user("Test", "test", "test", Role.ADMIN)
+
+        auth2 = Auth(vis, WEBSERVER_CONFIG)
+        assert auth2.users[user.id].password == user.password
+        assert auth2.validate_user("test", "test").id == user.id
+
     def test_onboard_user(self):
         """Test oboarding user."""
         assert self.auth.onboarding_complete() is False

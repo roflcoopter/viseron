@@ -6,6 +6,7 @@ Mocking is only done when it is strictly necessary.
 
 import json
 import os
+from contextlib import ExitStack
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import PropertyMock, patch
@@ -26,6 +27,8 @@ from tests.components.webserver.common import (
     AUTH_STORAGE_DATA,
     CLIENT_ID,
     READ_REFRESH_TOKEN_ID,
+    READ_USER_ID,
+    READ_USER_NAME,
     REFRESH_TOKEN_ID,
     USER_ID,
     USER_NAME,
@@ -126,6 +129,24 @@ class TestAuthAPIHandler(TestAppBaseAuth):
         assert "Invalid body" in body["error"]
         assert body["status"] == 400
 
+    def _authenticate_as(self, user: User) -> ExitStack:
+        """Make requests act as the given user regardless of the sent token."""
+        stack = ExitStack()
+        stack.enter_context(
+            patch(
+                "viseron.components.webserver.request_handler.ViseronRequestHandler.current_user",  # pylint: disable=line-too-long
+                new_callable=PropertyMock,
+                return_value=user,
+            )
+        )
+        stack.enter_context(
+            patch(
+                "viseron.components.webserver.request_handler.ViseronRequestHandler.validate_access_token",  # pylint: disable=line-too-long
+                return_value=True,
+            )
+        )
+        return stack
+
     def test_auth_user(self):
         """Test the auth user endpoint."""
         response = self.fetch_with_auth(
@@ -134,11 +155,93 @@ class TestAuthAPIHandler(TestAppBaseAuth):
         )
         assert response.code == 200
         assert json.loads(response.body) == {
+            "id": USER_ID,
             "name": "Asd",
             "username": USER_NAME,
             "role": "admin",
+            "enabled": True,
+            "assigned_cameras": None,
             "preferences": None,
         }
+
+    def test_auth_user_own_user_as_read_role(self):
+        """Test that a non-admin user can read their own user."""
+        with self._authenticate_as(
+            User(
+                name="Read User",
+                username=READ_USER_NAME,
+                password="test",
+                role=Role.READ,
+                id=READ_USER_ID,
+            )
+        ):
+            response = self.fetch_with_auth(
+                f"/api/v1/auth/user/{READ_USER_ID}",
+                method="GET",
+            )
+        assert response.code == 200
+        body = json.loads(response.body)
+        assert body["id"] == READ_USER_ID
+        assert "password" not in body
+
+    def test_auth_user_other_user_as_read_role(self):
+        """Test that a non-admin user cannot read another user."""
+        with self._authenticate_as(
+            User(
+                name="Read User",
+                username=READ_USER_NAME,
+                password="test",
+                role=Role.READ,
+                id=READ_USER_ID,
+            )
+        ):
+            response = self.fetch_with_auth(
+                f"/api/v1/auth/user/{USER_ID}",
+                method="GET",
+            )
+        assert response.code == 403
+        assert json.loads(response.body) == {
+            "error": "You are not authorized to view this user",
+            "status": 403,
+        }
+
+    def test_auth_user_other_user_as_admin(self):
+        """Test that an admin can read another user."""
+        with self._authenticate_as(
+            User(
+                name="Asd",
+                username=USER_NAME,
+                password="test",
+                role=Role.ADMIN,
+                id=USER_ID,
+            )
+        ):
+            response = self.fetch_with_auth(
+                f"/api/v1/auth/user/{READ_USER_ID}",
+                method="GET",
+            )
+        assert response.code == 200
+        assert json.loads(response.body)["id"] == READ_USER_ID
+
+    def test_auth_user_nonexistent_user_as_read_role(self):
+        """Test that a non-admin is denied before the user is looked up.
+
+        Returning 403 rather than 404 avoids leaking which user ids exist.
+        """
+        with self._authenticate_as(
+            User(
+                name="Read User",
+                username=READ_USER_NAME,
+                password="test",
+                role=Role.READ,
+                id=READ_USER_ID,
+            )
+        ):
+            response = self.fetch_with_auth(
+                "/api/v1/auth/user/nonexistent_id",
+                method="GET",
+            )
+        assert response.code == 403
 
     def test_auth_user_missing(self):
         """Test getting a user that doesn't exist."""
@@ -652,6 +755,14 @@ class TestAuthAPIHandler(TestAppBaseAuth):
         assert len(users) == 2
         assert users[0]["id"] == USER_ID
         assert users[0]["username"] == USER_NAME
+
+    def test_auth_users_does_not_leak_password_hash(self):
+        """Test that the password hash is never returned by the users endpoint."""
+        response = self.fetch_with_auth("/api/v1/auth/users", method="GET")
+        assert response.code == 200
+        users = json.loads(response.body)["users"]
+        assert len(users) == 2
+        assert all("password" not in user for user in users)
 
     def test_auth_admin_change_password(self):
         """Test changing a user's password as an admin."""
