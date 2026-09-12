@@ -751,10 +751,28 @@ class TestAuthAPIHandler(TestAppBaseAuth):
         """Test retrieving all users."""
         response = self.fetch_with_auth("/api/v1/auth/users", method="GET")
         assert response.code == 200
-        users = json.loads(response.body)["users"]
-        assert len(users) == 2
-        assert users[0]["id"] == USER_ID
-        assert users[0]["username"] == USER_NAME
+        assert json.loads(response.body) == {
+            "users": [
+                {
+                    "id": USER_ID,
+                    "name": "Asd",
+                    "username": USER_NAME,
+                    "role": "admin",
+                    "enabled": True,
+                    "assigned_cameras": None,
+                    "preferences": None,
+                },
+                {
+                    "id": READ_USER_ID,
+                    "name": "Read User",
+                    "username": READ_USER_NAME,
+                    "role": "read",
+                    "enabled": True,
+                    "assigned_cameras": None,
+                    "preferences": None,
+                },
+            ]
+        }
 
     def test_auth_users_does_not_leak_password_hash(self):
         """Test that the password hash is never returned by the users endpoint."""

@@ -357,9 +357,9 @@ class AuthAPIHandler(BaseAPIHandler):
     async def auth_users(self) -> None:
         """Get all users."""
         users = await self.run_in_executor(self.auth.get_users)
-        response = {}
-        response["users"] = list(users.values())
-        await self.response_success(response=response)
+        await self.response_success(
+            response={"users": [user.as_dict() for user in users.values()]}
+        )
 
     @require_auth
     async def auth_admin_change_password(self, user_id: str) -> None:
