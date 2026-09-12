@@ -15,6 +15,8 @@ from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.viseron_types import SnapshotDomain
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     import numpy.typing as npt
 
 
@@ -58,6 +60,37 @@ class TestCalculateOutputFps:
     ):
         """Multiple scanners -> output fps equals the highest scan fps."""
         assert _calculate_output_fps(scan_fps) == expected
+
+
+@pytest.mark.parametrize(
+    ("method", "expected_order"),
+    [
+        pytest.param(
+            AbstractCamera.start_camera,
+            ["fragmenter.start", "_start_camera"],
+            id="start_camera",
+        ),
+        pytest.param(
+            AbstractCamera.stop_camera,
+            ["_stop_camera", "fragmenter.stop"],
+            id="stop_camera",
+        ),
+    ],
+)
+def test_fragmenter_follows_camera_lifecycle(
+    method: Callable[[AbstractCamera], None], expected_order: list[str]
+) -> None:
+    """The fragmenter runs only while the camera does, so no process is left behind.
+
+    It starts before the stream so segments are picked up right away, and stops
+    after the stream so no new segments are written without a fragmenter.
+    """
+    stub = MagicMock()
+
+    method(stub)
+
+    calls = [name for name, _, _ in stub.mock_calls if name in expected_order]
+    assert calls == expected_order
 
 
 def _build_snapshot_frame(

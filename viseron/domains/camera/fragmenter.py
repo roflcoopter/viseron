@@ -11,6 +11,7 @@ import queue
 import re
 import shutil
 import subprocess as sp
+import threading
 import uuid
 from dataclasses import dataclass
 from math import ceil
@@ -42,6 +43,7 @@ from viseron.helpers.logs import LogPipe
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from apscheduler.schedulers.base import Job
     from sqlalchemy.orm import Session
 
     from viseron import Viseron
@@ -494,29 +496,57 @@ class Fragmenter:
             logging.ERROR,
         )
 
-        # Subprocess worker for fragmentation
-        self._fragment_worker = FragmenterSubProcessWorker(
-            vis,
-            self._storage,
-            camera,
-            camera.temp_segments_folder,
-            camera.segments_folder,
-            self._on_metadata_from_worker,
-        )
-
+        self._lock = threading.Lock()
+        self._fragment_worker: FragmenterSubProcessWorker | None = None
+        self._fragment_job: Job | None = None
         self._fragment_job_id = f"fragment_{self._camera.identifier}"
-        self._fragment_job = self._vis.background_scheduler.add_job(
-            self._fragment_command,
-            "interval",
-            seconds=1,
-            id=self._fragment_job_id,
-            max_instances=1,
-            coalesce=True,
-        )
         self._event_listeners = []
         self._event_listeners.append(
             vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self._shutdown)
         )
+
+    def start(self) -> None:
+        """Start the fragmentation child process and the job that feeds it."""
+        with self._lock:
+            if self._fragment_worker is not None:
+                return
+
+            self._logger.debug("Starting fragmenter")
+            # A ChildProcessWorker cannot be restarted once stopped
+            self._fragment_worker = FragmenterSubProcessWorker(
+                self._vis,
+                self._storage,
+                self._camera,
+                self._camera.temp_segments_folder,
+                self._camera.segments_folder,
+                self._on_metadata_from_worker,
+            )
+            self._fragment_job = self._vis.background_scheduler.add_job(
+                self._fragment_command,
+                "interval",
+                seconds=1,
+                id=self._fragment_job_id,
+                max_instances=1,
+                coalesce=True,
+                replace_existing=True,
+            )
+
+    def stop(self) -> None:
+        """Stop the fragmentation child process and the job that feeds it."""
+        with self._lock:
+            if self._fragment_worker is None:
+                return
+
+            self._logger.debug("Stopping fragmenter")
+            if self._fragment_job is not None:
+                try:
+                    self._fragment_job.remove()
+                except Exception:  # pylint: disable=broad-except
+                    self._logger.exception("Failed to remove fragment job.")
+                self._fragment_job = None
+
+            self._fragment_worker.stop()
+            self._fragment_worker = None
 
     def _on_metadata_from_worker(self, item) -> None:
         """Update temporary_files_meta with metadata from subprocess."""
@@ -526,11 +556,13 @@ class Fragmenter:
 
     def _fragment_command(self) -> None:
         """Periodically send work to the subprocess."""
-        if self._camera.stopped.is_set():
+        # Local reference since stop() may clear the worker from another thread
+        worker = self._fragment_worker
+        if worker is None or self._camera.stopped.is_set():
             return
 
         try:
-            self._fragment_worker.input_queue.put({"cmd": "fragment"}, timeout=1)
+            worker.input_queue.put({"cmd": "fragment"}, timeout=1)
         except queue.Full:
             pass
 
@@ -544,11 +576,7 @@ class Fragmenter:
     def unload(self) -> None:
         """Unload fragmenter."""
         self._logger.debug("Unloading fragmenter")
-        try:
-            self._fragment_job.remove()
-        except Exception:  # pylint: disable=broad-except
-            self._logger.exception("Failed to remove fragment job.")
-        self._fragment_worker.stop()
+        self.stop()
         self._shutdown()
         for unsubscribe in self._event_listeners:
             unsubscribe()
