@@ -1,5 +1,5 @@
 aiofiles==25.1.0
-alembic==1.19.1
+alembic==1.19.2
 apscheduler==3.11.3
 av==14.2.0; platform_machine == "aarch64" # Newer versions are incompatible with the Jetson Nano (Ubuntu bionic, glibc 2.27)
 bcrypt==5.0.0
@@ -32,7 +32,7 @@ requests==2.34.2
 requests-toolbelt==1.0.0
 scikit-learn==1.9.0
 scipy==1.17.1
-supervision==0.30.1
+supervision==0.30.2
 tornado==6.5.8
 tzlocal==5.4.4
 typing-extensions==4.16.0
@@ -43,4 +43,4 @@ sqlalchemy==2.0.52
 watchdog==6.0.0
 python-telegram-bot==22.8
 onvif-python==0.2.11
-ultralytics==8.4.134; platform_machine == "x86_64" or platform_machine == "aarch64"
+ultralytics==8.4.140; platform_machine == "x86_64" or platform_machine == "aarch64"
