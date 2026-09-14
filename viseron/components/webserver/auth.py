@@ -87,6 +87,10 @@ class SessionExpiredError(ViseronError):
     """Refresh token session has expired."""
 
 
+class OnboardingCompleteError(ViseronError):
+    """Onboarding has already been completed."""
+
+
 MAX_ACCESS_TOKENS_PER_USER = 20
 MAX_TOKEN_NAME_LENGTH = 100
 PAT_LAST_USED_SAVE_INTERVAL = datetime.timedelta(minutes=1)
@@ -266,6 +270,7 @@ class Auth:
         self._auth_store = Storage(vis, AUTH_STORAGE_KEY)
         self._data_lock = Lock()
         self._user_lock = Lock()
+        self._onboarding_lock = Lock()
         self._decoy_jwt_key = secrets.token_hex(64)
         self._session_revoked_listeners: list[Callable[[set[str]], None]] = []
 
@@ -397,9 +402,16 @@ class Auth:
         username: str,
         password: str,
     ) -> User:
-        """Onboard the first user."""
-        user = self.add_user(name, username, password, Role.ADMIN)
-        Path(self.onboarding_path()).touch()
+        """Onboard the first user.
+
+        The completion check and user creation share one lock so that concurrent
+        requests cannot both observe onboarding as open and create multiple admins.
+        """
+        with self._onboarding_lock:
+            if self.onboarding_complete():
+                raise OnboardingCompleteError("Onboarding has already been completed")
+            user = self.add_user(name, username, password, Role.ADMIN)
+            Path(self.onboarding_path()).touch()
         return user
 
     def validate_user(self, username: str, password: str) -> User:

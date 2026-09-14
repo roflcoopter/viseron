@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import os
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
@@ -20,6 +22,7 @@ from viseron.components.webserver.auth import (
     AuthenticationFailedError,
     InvalidRoleError,
     LastAdminUserError,
+    OnboardingCompleteError,
     RefreshToken,
     Role,
     SessionExpiredError,
@@ -79,6 +82,32 @@ class TestAuth:
         assert self.auth.onboarding_complete() is False
         self.auth.onboard_user("Test", "Test ", "test")
         assert self.auth.onboarding_complete() is True
+
+    def test_onboard_user_already_onboarded(self):
+        """Test that onboarding cannot be repeated with a different username."""
+        self.auth.onboard_user("Test", "test", "test")
+        with pytest.raises(OnboardingCompleteError):
+            self.auth.onboard_user("Test2", "test2", "test")
+        assert len(self.auth.users) == 1
+
+    def test_onboard_user_concurrent(self):
+        """Test that concurrent onboarding creates exactly one admin user."""
+        attempts = 5
+        barrier = threading.Barrier(attempts)
+
+        def onboard(index: int) -> bool:
+            barrier.wait()
+            try:
+                self.auth.onboard_user(f"Test{index}", f"test{index}", "test")
+            except OnboardingCompleteError:
+                return False
+            return True
+
+        with ThreadPoolExecutor(max_workers=attempts) as executor:
+            results = list(executor.map(onboard, range(attempts)))
+
+        assert results.count(True) == 1
+        assert len(self.auth.users) == 1
 
     def test_add_user_invalid_role(self):
         """Test adding user with invalid role."""
