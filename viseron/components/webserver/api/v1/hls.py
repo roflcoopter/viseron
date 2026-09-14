@@ -5,7 +5,6 @@ from __future__ import annotations
 import datetime
 import logging
 import os
-from collections.abc import Callable
 from dataclasses import dataclass
 from http import HTTPStatus
 from math import ceil
@@ -31,6 +30,8 @@ from viseron.helpers import client_current_datetime, daterange_to_utc, utcnow
 from viseron.helpers.fixed_size_dict import FixedSizeDict
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from sqlalchemy.orm import Session
 
     from viseron.domains.camera import AbstractCamera, FailedCamera
@@ -118,7 +119,7 @@ class HlsAPIHandler(BaseAPIHandler):
 
     async def get_recording_hls_playlist(
         self, camera_identifier: str, recording_id: int
-    ):
+    ) -> None:
         """Get the HLS playlist for a recording."""
         camera = self._get_camera(camera_identifier, failed=True)
 
@@ -152,7 +153,7 @@ class HlsAPIHandler(BaseAPIHandler):
     async def get_hls_playlist_time_period(
         self,
         camera_identifier: str,
-    ):
+    ) -> None:
         """Get the HLS playlist for a time period."""
         camera = self._get_camera(camera_identifier, failed=True)
 
@@ -189,7 +190,7 @@ class HlsAPIHandler(BaseAPIHandler):
     async def get_available_timespans(
         self,
         camera_identifier: str,
-    ):
+    ) -> None:
         """Get the available timespans of HLS fragments for a time period."""
         camera = self._get_camera(camera_identifier, failed=True)
 
@@ -232,7 +233,7 @@ def _get_init_file(
             .where(Files.camera_identifier == camera.identifier)
             .where(Files.category == TIER_CATEGORY_RECORDER)
             .where(Files.subcategory == TIER_SUBCATEGORY_SEGMENTS)
-            .order_by(Files.directory, Files.created_at.desc())
+            .order_by(Files.tier_id, Files.created_at.desc())
         )
         files = session.execute(stmt).scalars().all()
 
@@ -248,8 +249,7 @@ def get_target_duration(fragments: list[Fragment]) -> int:
     target_duration = 0
     if fragments:
         target_duration = ceil(max(f.duration for f in fragments))
-    target_duration = max(target_duration, CAMERA_SEGMENT_DURATION)
-    return target_duration
+    return max(target_duration, CAMERA_SEGMENT_DURATION)
 
 
 def update_hls_client(
@@ -365,7 +365,7 @@ def _generate_playlist(
     if not init_file or not fragments:
         return None
 
-    playlist = generate_playlist(
+    return generate_playlist(
         fragments,
         f"{subpath}/files{init_file}",
         media_sequence=hls_client.media_sequence if hls_client else 0,
@@ -373,7 +373,6 @@ def _generate_playlist(
         end=end,
         file_directive=False,
     )
-    return playlist
 
 
 def _generate_playlist_time_period(
@@ -409,7 +408,7 @@ def _generate_playlist_time_period(
     if not init_file:
         return None
 
-    playlist = generate_playlist(
+    return generate_playlist(
         fragments,
         f"{subpath}/files{init_file}",
         media_sequence=hls_client.media_sequence if hls_client else 0,
@@ -417,4 +416,3 @@ def _generate_playlist_time_period(
         end=end_playlist,
         file_directive=False,
     )
-    return playlist
