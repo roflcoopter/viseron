@@ -1,17 +1,17 @@
 """API handler for vod."""
+
 from __future__ import annotations
 
 import datetime
 import logging
 import os
-from collections.abc import Callable
 from dataclasses import dataclass
 from http import HTTPStatus
 from math import ceil
 from typing import TYPE_CHECKING
 
 import voluptuous as vol
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from viseron.components.storage.const import (
     TIER_CATEGORY_RECORDER,
@@ -21,6 +21,7 @@ from viseron.components.storage.models import Files, Recordings
 from viseron.components.storage.queries import get_time_period_fragments
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.const import CAMERA_SEGMENT_DURATION
+from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.fragmenter import (
     Fragment,
     generate_playlist,
@@ -30,9 +31,11 @@ from viseron.helpers import client_current_datetime, daterange_to_utc, utcnow
 from viseron.helpers.fixed_size_dict import FixedSizeDict
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from sqlalchemy.orm import Session
 
-    from viseron.domains.camera import AbstractCamera, FailedCamera
+    from viseron.domains.camera import FailedCamera
 
 LOGGER = logging.getLogger(__name__)
 
@@ -224,20 +227,27 @@ def _get_init_file(
     get_session: Callable[[], Session], camera: AbstractCamera | FailedCamera
 ) -> str | None:
     """Get the init file for a camera."""
+    # Normally in the first tier, so avoid querying every tier on each playlist poll
+    if isinstance(camera, AbstractCamera):
+        init_file = os.path.join(camera.segments_folder, "init.mp4")
+        if os.path.exists(init_file):
+            return init_file
+
     with get_session() as session:
         stmt = (
-            select(Files)
-            .distinct(Files.directory)
+            select(Files.directory)
             .where(Files.camera_identifier == camera.identifier)
             .where(Files.category == TIER_CATEGORY_RECORDER)
             .where(Files.subcategory == TIER_SUBCATEGORY_SEGMENTS)
-            .order_by(Files.directory, Files.created_at.desc())
+            .group_by(Files.directory)
+            .order_by(func.min(Files.tier_id), func.max(Files.created_at).desc())
         )
-        files = session.execute(stmt).scalars().all()
+        directories = session.execute(stmt).scalars().all()
 
-    for file in files:
-        if os.path.exists(os.path.join(file.directory, "init.mp4")):
-            return os.path.join(file.directory, "init.mp4")
+    for directory in directories:
+        init_file = os.path.join(directory, "init.mp4")
+        if os.path.exists(init_file):
+            return init_file
     LOGGER.error(f"Could not find init.mp4 file for camera {camera.identifier}")
     return None
 
@@ -287,7 +297,6 @@ def adjust_fragment_paths(
     """
     fragments = []
     for file in files:
-
         path: str
         if file.tier_id > 0:
             first_tier_path = camera.tier_base_path(
