@@ -36,6 +36,8 @@ from viseron.helpers import utcnow
 from viseron.helpers.storage import Storage
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from viseron import Viseron
 
 LOGGER = logging.getLogger(__name__)
@@ -120,6 +122,9 @@ class RefreshToken:
     access_token_expiration: datetime.timedelta = ACCESS_TOKEN_EXPIRATION
     created_at: float = field(default_factory=lambda: utcnow().timestamp())
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
+    # Stable across rotations, unlike id, so long-lived consumers such as
+    # WebSocket connections can track the session instead of the token.
+    session_id: str = field(default_factory=lambda: uuid.uuid4().hex)
     token: str = field(default_factory=lambda: secrets.token_hex(64))
     jwt_key: str = field(default_factory=lambda: secrets.token_hex(64))
     static_asset_key: str = field(default_factory=lambda: secrets.token_hex(64))
@@ -262,6 +267,35 @@ class Auth:
         self._data_lock = Lock()
         self._user_lock = Lock()
         self._decoy_jwt_key = secrets.token_hex(64)
+        self._session_revoked_listeners: list[Callable[[set[str]], None]] = []
+
+    def add_session_revoked_listener(
+        self, listener: Callable[[set[str]], None]
+    ) -> Callable[[], None]:
+        """Register a listener called with the session ids that were revoked.
+
+        Returns a callable that unregisters the listener again.
+        """
+        self._session_revoked_listeners.append(listener)
+
+        def remove_listener() -> None:
+            if listener in self._session_revoked_listeners:
+                self._session_revoked_listeners.remove(listener)
+
+        return remove_listener
+
+    def _notify_sessions_revoked(self, session_ids: set[str]) -> None:
+        """Notify listeners that sessions were revoked.
+
+        Must be called with no lock held, listeners may call back into Auth.
+        """
+        if not session_ids:
+            return
+        for listener in list(self._session_revoked_listeners):
+            try:
+                listener(session_ids)
+            except Exception:  # pylint: disable=broad-except
+                LOGGER.exception("Error in session revoked listener")
 
     @property
     def users(self) -> dict[str, User]:
@@ -416,9 +450,10 @@ class Auth:
                     raise LastAdminUserError("Cannot delete the last admin user")
 
             LOGGER.debug(f"Deleting user {user_to_delete.username}")
-            self._revoke_all_for_user(user_id)
+            revoked_session_ids = self._revoke_all_for_user(user_id)
             del self.users[user_id]
             self.save()
+        self._notify_sessions_revoked(revoked_session_ids)
 
     def change_password(self, user_id: str, new_password: str) -> None:
         """Change the password of a user."""
@@ -431,9 +466,10 @@ class Auth:
             # Forcibly log the user out everywhere on password change. Anyone
             # who knew the old password (e.g. an attacker the user is trying
             # to lock out) loses access immediately.
-            self._revoke_all_for_user(user_id)
+            revoked_session_ids = self._revoke_all_for_user(user_id)
             LOGGER.debug(f"Password changed for user {user.username}")
             self.save()
+        self._notify_sessions_revoked(revoked_session_ids)
 
     def update_user(
         self,
@@ -564,6 +600,7 @@ class Auth:
                 ),
                 created_at=refresh_token["created_at"],
                 id=refresh_token["id"],
+                session_id=refresh_token.get("session_id") or uuid.uuid4().hex,
                 token=refresh_token["token"],
                 jwt_key=refresh_token["jwt_key"],
                 static_asset_key=refresh_token["static_asset_key"],
@@ -636,12 +673,24 @@ class Auth:
 
         return found_token
 
+    def get_refresh_token_by_session_id(self, session_id: str) -> RefreshToken | None:
+        """Get the refresh token currently backing a session."""
+        with self._user_lock:
+            for refresh_token in self.refresh_tokens.values():
+                if refresh_token.session_id == session_id:
+                    return refresh_token
+        return None
+
     def delete_refresh_token(self, refresh_token: RefreshToken) -> None:
         """Delete refresh token."""
+        revoked = False
         with self._user_lock:
             if refresh_token.id in self.refresh_tokens:
                 del self.refresh_tokens[refresh_token.id]
                 self.save()
+                revoked = True
+        if revoked:
+            self._notify_sessions_revoked({refresh_token.session_id})
 
     @staticmethod
     def _hash_refresh_token(token: str) -> str:
@@ -685,6 +734,8 @@ class Auth:
         If the absolute session expiry has already passed, the stored token is
         revoked and None is returned.
         """
+        new: RefreshToken | None = None
+        expired_session_id: str | None = None
         with self._user_lock:
             stored = self.refresh_tokens.get(old.id)
             if stored is None or not hmac.compare_digest(stored.token, old.token):
@@ -695,29 +746,35 @@ class Auth:
             except SessionExpiredError:
                 del self.refresh_tokens[old.id]
                 self.save()
-                return None
+                expired_session_id = stored.session_id
+            else:
+                new = RefreshToken(
+                    user_id=stored.user_id,
+                    client_id=stored.client_id,
+                    session_expiration=stored.session_expiration,
+                    access_token_type=stored.access_token_type,
+                    access_token_expiration=stored.access_token_expiration,
+                    created_at=stored.created_at,
+                    # Rotation continues the same session, so consumers tracking
+                    # session_id are not disconnected by a routine token refresh.
+                    session_id=stored.session_id,
+                )
+                self.refresh_tokens[new.id] = new
+                self._purge_recent_refresh_token_rotations()
+                self._recent_refresh_token_rotations[
+                    self._hash_refresh_token(stored.token)
+                ] = RecentlyRotatedRefreshToken(
+                    client_id=stored.client_id,
+                    replacement_id=new.id,
+                    expires_at=(
+                        utcnow().timestamp() + REFRESH_TOKEN_REUSE_GRACE.total_seconds()
+                    ),
+                )
+                del self.refresh_tokens[old.id]
+                self.save()
 
-            new = RefreshToken(
-                user_id=stored.user_id,
-                client_id=stored.client_id,
-                session_expiration=stored.session_expiration,
-                access_token_type=stored.access_token_type,
-                access_token_expiration=stored.access_token_expiration,
-                created_at=stored.created_at,
-            )
-            self.refresh_tokens[new.id] = new
-            self._purge_recent_refresh_token_rotations()
-            self._recent_refresh_token_rotations[
-                self._hash_refresh_token(stored.token)
-            ] = RecentlyRotatedRefreshToken(
-                client_id=stored.client_id,
-                replacement_id=new.id,
-                expires_at=(
-                    utcnow().timestamp() + REFRESH_TOKEN_REUSE_GRACE.total_seconds()
-                ),
-            )
-            del self.refresh_tokens[old.id]
-            self.save()
+        if expired_session_id is not None:
+            self._notify_sessions_revoked({expired_session_id})
         return new
 
     def validate_refresh_token(self, refresh_token: RefreshToken) -> None:
@@ -909,16 +966,20 @@ class Auth:
                 self.save()
                 self._pat_last_used_persisted_at[stored_pat.id] = now
 
-    def _revoke_all_for_user(self, user_id: str) -> None:
+    def _revoke_all_for_user(self, user_id: str) -> set[str]:
         """Revoke all sessions and PATs for user_id without acquiring the lock.
 
         Caller MUST hold self._user_lock. The store is not persisted
         here either, the caller is expected to call self.save() after the
-        rest of its mutations.
+        rest of its mutations. The returned session ids MUST be passed to
+        self._notify_sessions_revoked once the lock has been released.
         """
         rt_ids_to_delete = [
             rt_id for rt_id, rt in self.refresh_tokens.items() if rt.user_id == user_id
         ]
+        revoked_session_ids = {
+            self.refresh_tokens[rt_id].session_id for rt_id in rt_ids_to_delete
+        }
         for rt_id in rt_ids_to_delete:
             del self.refresh_tokens[rt_id]
 
@@ -929,6 +990,8 @@ class Auth:
             self._pat_last_used_persisted_at.pop(t_id, None)
             del self.access_tokens[t_id]
 
+        return revoked_session_ids
+
     def revoke_all_for_user(self, user_id: str) -> None:
         """Revoke all sessions (refresh tokens) and personal access tokens for a user.
 
@@ -936,5 +999,6 @@ class Auth:
         re-authenticate on all devices and invalidates all PATs.
         """
         with self._user_lock:
-            self._revoke_all_for_user(user_id)
+            revoked_session_ids = self._revoke_all_for_user(user_id)
             self.save()
+        self._notify_sessions_revoked(revoked_session_ids)
