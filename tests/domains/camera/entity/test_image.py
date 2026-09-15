@@ -1,4 +1,4 @@
-"""Tests for PostProcessorSnapshotImage."""
+"""Tests for LatestSnapshotImage."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from viseron.domains.post_processor.image import PostProcessorSnapshotImage
+from viseron.domains.camera.entity.image import LatestSnapshotImage
 from viseron.helpers import zoom_boundingbox
 from viseron.viseron_types import SnapshotDomain
 
@@ -23,10 +23,10 @@ SNAPSHOT_PATH = "/snapshots/face_recognition/test_camera/alice/snapshot.jpg"
 
 
 @pytest.fixture(name="entity")
-def fixture_entity(vis: MockViseron) -> PostProcessorSnapshotImage:
+def fixture_entity(vis: MockViseron) -> LatestSnapshotImage:
     """Return an entity with vis assigned, as States.add_entity would."""
     camera = MockCamera(vis, identifier=CAMERA_IDENTIFIER)
-    entity = PostProcessorSnapshotImage(vis, camera, SnapshotDomain.FACE_RECOGNITION)
+    entity = LatestSnapshotImage(vis, camera, SnapshotDomain.FACE_RECOGNITION)
     entity.vis = vis
     return entity
 
@@ -34,6 +34,12 @@ def fixture_entity(vis: MockViseron) -> PostProcessorSnapshotImage:
 @pytest.mark.parametrize(
     ("snapshot_domain", "expected_object_id", "expected_name"),
     [
+        pytest.param(
+            SnapshotDomain.OBJECT_DETECTOR,
+            "test_camera_latest_object_detector_snapshot",
+            "test_camera Latest Object Detector Snapshot",
+            id="object_detector",
+        ),
         pytest.param(
             SnapshotDomain.FACE_RECOGNITION,
             "test_camera_latest_face_recognition_snapshot",
@@ -60,11 +66,11 @@ def test_identity_is_scoped_to_camera_and_domain(
     expected_object_id: str,
     expected_name: str,
 ) -> None:
-    """Test that each camera and post processor domain gets its own entity."""
+    """Test that each camera and snapshot domain gets its own entity."""
     camera = MockCamera(vis, identifier=CAMERA_IDENTIFIER)
     camera.name = CAMERA_IDENTIFIER
 
-    entity = PostProcessorSnapshotImage(vis, camera, snapshot_domain)
+    entity = LatestSnapshotImage(vis, camera, snapshot_domain)
 
     assert entity.domain == "image"
     assert entity.object_id == expected_object_id
@@ -72,7 +78,7 @@ def test_identity_is_scoped_to_camera_and_domain(
 
 
 def test_update_snapshot_publishes_state(
-    entity: PostProcessorSnapshotImage,
+    entity: LatestSnapshotImage,
 ) -> None:
     """Test that a new snapshot updates the image and publishes a state."""
     frame = np.full((10, 10, 3), 7, dtype=np.uint8)
@@ -88,11 +94,11 @@ def test_update_snapshot_publishes_state(
 
 
 def test_update_snapshot_after_unload_is_ignored(
-    entity: PostProcessorSnapshotImage,
+    entity: LatestSnapshotImage,
 ) -> None:
     """Test that a late update does not resurrect the entity in the registry.
 
-    Entities are unloaded before the post processor thread is stopped, so an
+    Entities are unloaded before the domain's worker thread is stopped, so an
     update can still arrive after unload.
     """
     entity.unload()
@@ -105,7 +111,7 @@ def test_update_snapshot_after_unload_is_ignored(
 
 
 def test_update_snapshot_does_not_retain_the_full_frame(
-    entity: PostProcessorSnapshotImage,
+    entity: LatestSnapshotImage,
 ) -> None:
     """Test that a zoomed snapshot does not keep the full resolution frame alive."""
     full_frame = np.zeros((1080, 1920, 3), dtype=np.uint8)

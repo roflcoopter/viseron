@@ -14,7 +14,10 @@ import voluptuous as vol
 from sqlalchemy import insert
 
 from viseron.components.nvr.const import EVENT_SCAN_FRAMES, OBJECT_DETECTOR
-from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
+from viseron.components.storage.const import (
+    COMPONENT as STORAGE_COMPONENT,
+    LATEST_SNAPSHOT_FILENAME,
+)
 from viseron.components.storage.models import Objects
 from viseron.const import INSERT, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains import AbstractDomain
@@ -22,6 +25,7 @@ from viseron.domains.camera.const import (
     DOMAIN as CAMERA_DOMAIN,
     EVENT_CAMERA_EVENT_DB_OPERATION,
 )
+from viseron.domains.camera.entity.image import LatestSnapshotImage
 from viseron.domains.camera.events import EventCameraEventData
 from viseron.domains.motion_detector.const import DOMAIN as MOTION_DETECTOR_DOMAIN
 from viseron.events import EventData
@@ -339,6 +343,13 @@ class AbstractObjectDetector(AbstractDomain):
             default=1.0,
         )
 
+        self._latest_snapshot_entity = LatestSnapshotImage(
+            vis, self._camera, SnapshotDomain.OBJECT_DETECTOR
+        )
+        vis.add_entity(
+            component, self._latest_snapshot_entity, DOMAIN, camera_identifier
+        )
+
         self._kill_received = False
         self.object_detection_queue: Queue[Event[EventFrameToScan]] = Queue(maxsize=1)
         self._object_detection_thread = RestartableThread(
@@ -468,17 +479,7 @@ class AbstractObjectDetector(AbstractDomain):
             if obj.store:
                 snapshot_path = None
                 if shared_frame:
-                    snapshot_path = self._camera.save_snapshot(
-                        shared_frame,
-                        SnapshotDomain.OBJECT_DETECTOR,
-                        (
-                            obj.rel_x1,
-                            obj.rel_y1,
-                            obj.rel_x2,
-                            obj.rel_y2,
-                        ),
-                        detected_object=obj,
-                    )
+                    snapshot_path = self._save_snapshot(shared_frame, obj)
                 self._insert_object(obj, snapshot_path)
                 self._vis.dispatch_event(
                     EVENT_CAMERA_EVENT_DB_OPERATION.format(
@@ -493,6 +494,22 @@ class AbstractObjectDetector(AbstractDomain):
                         data=obj,
                     ),
                 )
+
+    def _save_snapshot(self, shared_frame: SharedFrame, obj: DetectedObject) -> str:
+        """Save a snapshot and update the latest snapshot file and entity."""
+        frame = self._camera.build_snapshot_frame(
+            shared_frame,
+            zoom_coordinates=(obj.rel_x1, obj.rel_y1, obj.rel_x2, obj.rel_y2),
+            detected_object=obj,
+        )
+        snapshot_path = self._camera.write_snapshot(
+            frame, SnapshotDomain.OBJECT_DETECTOR
+        )
+        self._camera.write_snapshot(
+            frame, SnapshotDomain.OBJECT_DETECTOR, filename=LATEST_SNAPSHOT_FILENAME
+        )
+        self._latest_snapshot_entity.update_snapshot(frame, snapshot_path)
+        return snapshot_path
 
     def _objects_in_fov_setter(
         self, shared_frame: SharedFrame | None, objects: list[DetectedObject]

@@ -175,7 +175,7 @@ To download a snapshot, you use the `Download Snapshot` button in the event deta
 
 ## Latest snapshots
 
-The latest snapshot for each camera and post processor domain is stored under a stable filename, `latest_snapshot.jpg`, next to the timestamped snapshots:
+The latest snapshot for each camera and domain that saves snapshots (the object detector and the post processors) is stored under a stable filename, `latest_snapshot.jpg`, next to the timestamped snapshots:
 
 ```
 <tier path>/snapshots/<domain>/<camera identifier>/latest_snapshot.jpg
@@ -189,6 +189,6 @@ Alongside the file, an [image entity](/docs/developers/backend/entities) named `
 
 :::note
 
-The latest snapshot is only updated when a snapshot is actually saved, so it follows the same options as the rest of this page. If `save_faces` is disabled, for example, no latest snapshot is written for face recognition.
+The latest snapshot is only updated when a snapshot is actually saved, so it follows the same options as the rest of this page. If `save_faces` is disabled, for example, no latest snapshot is written for face recognition, and for the object detector it is only written for labels that have `store` enabled.
 
 :::
