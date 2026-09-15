@@ -3,8 +3,10 @@
 import logging
 from collections.abc import Callable
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import voluptuous as vol
+from croniter import croniter
 from jinja2 import BaseLoader, Environment
 
 from viseron.helpers import slugify
@@ -309,6 +311,53 @@ class PathExists:
         return self.path_exists_validator(
             value,
         )
+
+
+class CronExpression:
+    """Validate value is a valid cron expression."""
+
+    def __init__(
+        self,
+        description: str = "A cron expression, e.g. <code>0 8 * * mon-fri</code>.",
+    ) -> None:
+        self.description = description
+
+    def __call__(self, value: Any) -> str:
+        """Validate cron expression."""
+        if not isinstance(value, str) or not croniter.is_valid(value):
+            msg = f"Invalid cron expression: {value}"
+            LOGGER.error(msg)
+            raise vol.Invalid(msg)
+        return value
+
+
+class Timezone:
+    """Validate value is a valid IANA timezone name."""
+
+    def __init__(
+        self,
+        description: str = "An IANA timezone name, e.g. <code>Europe/Stockholm</code>.",
+    ) -> None:
+        self.description = description
+
+    def __call__(self, value: Any) -> Any:
+        """Validate timezone name."""
+        if value is UNDEFINED or isinstance(value, UNDEFINED):
+            return value
+
+        if not isinstance(value, str):
+            msg = f"Invalid timezone: {value}"
+            LOGGER.error(msg)
+            raise vol.Invalid(msg)
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError) as error:
+            # ZoneInfo raises ZoneInfoNotFoundError for unknown zones, but a
+            # plain ValueError for empty, absolute or non-normalized keys.
+            msg = f"Invalid timezone: {value}"
+            LOGGER.error(msg)
+            raise vol.Invalid(msg) from error
+        return value
 
 
 def request_argument_bool(value):

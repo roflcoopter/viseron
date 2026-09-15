@@ -12,6 +12,9 @@ const ComponentMetadata: Component = {{
   description: "<ENTER VALUE>",
   image: "<ENTER VALUE>",
   tags: {tags},
+  category: "new",
+  path: "viseron/components/{component}",
+  issue: "{component}",
 }};
 
 export default ComponentMetadata;

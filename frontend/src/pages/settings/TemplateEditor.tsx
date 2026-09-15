@@ -1,18 +1,21 @@
 import { Code, Erase, Warning } from "@carbon/icons-react";
 import { StreamLanguage } from "@codemirror/language";
 import { jinja2 } from "@codemirror/legacy-modes/mode/jinja2";
-import { TextField } from "@mui/material";
-import Alert from "@mui/material/Alert";
-import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import Container from "@mui/material/Container";
-import Grid from "@mui/material/Grid";
-import Paper from "@mui/material/Paper";
-import Typography from "@mui/material/Typography";
+import {
+  Alert,
+  Button,
+  Container,
+  Grid,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import CodeMirror, { basicSetup } from "@uiw/react-codemirror";
 import { useState } from "react";
 
+import { useTitle } from "hooks/UseTitle";
 import { useDebouncedTemplateRender } from "hooks/useDebouncedTemplateRender";
 
 const extensions = [
@@ -63,9 +66,10 @@ function Editor({
           marginBottom: "16px",
         }}
       />
-      <Box sx={{ display: "flex", gap: 2 }}>
+      <Stack direction={{ sm: "column", md: "row" }} gap={2} sx={{ mb: 2 }}>
         <Button
           variant="contained"
+          color="success"
           startIcon={<Code size={16} />}
           onClick={handleRender}
           disabled={loading || !template.trim()}
@@ -81,7 +85,7 @@ function Editor({
         >
           Clear Template
         </Button>
-      </Box>
+      </Stack>
     </Paper>
   );
 }
@@ -119,6 +123,7 @@ function Result({ result, error }: ResultProps) {
 }
 
 function TemplateEditor() {
+  useTitle("Template Editor");
   const [template, setTemplate] = useState<string>("");
 
   const { result, error, loading, renderNow, clear } =

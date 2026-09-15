@@ -6,6 +6,7 @@ Revises: 5e76f713b35c
 Create Date: 2023-12-11 10:20:42.925234
 
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa

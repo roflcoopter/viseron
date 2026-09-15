@@ -20,11 +20,13 @@ from viseron.helpers.validators import (
     UNDEFINED,
     CameraIdentifier,
     CoerceNoneToDict,
+    CronExpression,
     Deprecated,
     Maybe,
     PathExists,
     Slug,
     StringKey,
+    Timezone,
     Url,
     jinja2_template,
 )
@@ -252,6 +254,14 @@ def convert(schema, custom_convert=None):  # noqa: C901
             "name": schema.key,
             "value": schema.message,
         }
+
+    if isinstance(schema, CronExpression):
+        return {
+            "type": "string",
+        }
+
+    if isinstance(schema, Timezone):
+        return {"type": "string"}
 
     if schema == jinja2_template:  # pylint: disable=comparison-with-callable
         return {

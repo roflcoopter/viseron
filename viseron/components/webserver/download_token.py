@@ -1,4 +1,5 @@
 """Download token dataclass."""
+
 from dataclasses import dataclass
 
 

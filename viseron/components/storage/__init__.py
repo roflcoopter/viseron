@@ -44,6 +44,7 @@ from viseron.components.storage.const import (
     TIER_CATEGORY_TIMELAPSE,
     TIER_SUBCATEGORY_EVENT_CLIPS,
     TIER_SUBCATEGORY_FACE_RECOGNITION,
+    TIER_SUBCATEGORY_IMAGE_CLASSIFICATION,
     TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION,
     TIER_SUBCATEGORY_MOTION_DETECTOR,
     TIER_SUBCATEGORY_OBJECT_DETECTOR,
@@ -144,6 +145,10 @@ TIER_CATEGORIES: TierCategories = {
     TIER_CATEGORY_SNAPSHOTS: [
         {
             "subcategory": TIER_SUBCATEGORY_FACE_RECOGNITION,
+            "tier_handler": SnapshotTierHandler,
+        },
+        {
+            "subcategory": TIER_SUBCATEGORY_IMAGE_CLASSIFICATION,
             "tier_handler": SnapshotTierHandler,
         },
         {

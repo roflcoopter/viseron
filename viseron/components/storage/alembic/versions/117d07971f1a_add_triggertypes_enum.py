@@ -6,6 +6,7 @@ Revises: 8462ca6851b2
 Create Date: 2024-06-26 21:32:34.037301
 
 """
+
 from __future__ import annotations
 
 from enum import Enum

@@ -8,6 +8,8 @@ const ComponentMetadata: Component = {
   image: "/img/logos/compreface.png",
   tags: ["face_recognition"],
   category: null,
+  path: "viseron/components/compreface",
+  issue: 'compreface OR label:"domain: face_recognition"',
 };
 
 export default ComponentMetadata;

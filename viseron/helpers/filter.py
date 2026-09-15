@@ -11,7 +11,9 @@ from viseron.domains.object_detector.const import (
     CONFIG_LABEL_HEIGHT_MAX,
     CONFIG_LABEL_HEIGHT_MIN,
     CONFIG_LABEL_LABEL,
+    CONFIG_LABEL_MOTION_OVERLAP_THRESHOLD,
     CONFIG_LABEL_REQUIRE_MOTION,
+    CONFIG_LABEL_REQUIRE_MOTION_OVERLAP,
     CONFIG_LABEL_STORE,
     CONFIG_LABEL_STORE_INTERVAL,
     CONFIG_LABEL_TRIGGER_EVENT_RECORDING,
@@ -59,6 +61,12 @@ class Filter:
             seconds=object_filter[CONFIG_LABEL_STORE_INTERVAL]
         )
         self._require_motion = object_filter[CONFIG_LABEL_REQUIRE_MOTION]
+        self._require_motion_overlap = object_filter[
+            CONFIG_LABEL_REQUIRE_MOTION_OVERLAP
+        ]
+        self._motion_overlap_threshold = object_filter[
+            CONFIG_LABEL_MOTION_OVERLAP_THRESHOLD
+        ]
 
         self._last_stored = utcnow() - self._store_interval
 
@@ -126,3 +134,18 @@ class Filter:
     def require_motion(self, value: bool) -> None:
         """Set require motion value."""
         self._require_motion = value
+
+    @property
+    def require_motion_overlap(self) -> bool:
+        """Return if label requires motion to overlap the object."""
+        return self._require_motion_overlap
+
+    @require_motion_overlap.setter
+    def require_motion_overlap(self, value: bool) -> None:
+        """Set require motion overlap value."""
+        self._require_motion_overlap = value
+
+    @property
+    def motion_overlap_threshold(self) -> float:
+        """Return the minimum object bbox fraction motion must cover."""
+        return self._motion_overlap_threshold

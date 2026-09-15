@@ -101,6 +101,7 @@ export function TuneOSDTextDialog({
   const theme = useTheme();
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLocalCustomText(customText);
   }, [customText]);
 
@@ -368,7 +369,7 @@ export function TuneOSDTextDialog({
       <DialogActions>
         <Button onClick={onCancel}>Cancel</Button>
         <Button onClick={onConfirm} variant="contained" color="primary">
-          Save
+          {isEdit ? "Save" : "Add"}
         </Button>
       </DialogActions>
     </Dialog>

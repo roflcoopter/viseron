@@ -4,10 +4,14 @@ import datetime
 from typing import Any
 from unittest.mock import patch
 
+import numpy as np
+from croniter import croniter
 from sqlalchemy import update
 
 from viseron.components.storage.check_tier import (
+    FILES_DTYPE,
     Worker,
+    get_continuous_files_to_move,
     get_files_to_move,
     get_recordings_to_move,
     load_recordings,
@@ -15,8 +19,15 @@ from viseron.components.storage.check_tier import (
 )
 from viseron.components.storage.models import Recordings
 from viseron.components.storage.storage_subprocess import DataItem
+from viseron.const import CAMERA_SEGMENT_DURATION
+from viseron.domains.camera.schedule import schedule_active
 
 from tests.common import BaseTestWithRecordings
+
+# Active for a single minute per year, so effectively never
+NEVER_ACTIVE_SCHEDULE = [{"start": "0 0 1 1 *", "end": "1 0 1 1 *"}]
+# Started every minute and ended once a year, so effectively always
+ALWAYS_ACTIVE_SCHEDULE = [{"start": "* * * * *", "end": "0 0 1 1 *"}]
 
 
 class TestCheckTier(BaseTestWithRecordings):
@@ -37,6 +48,7 @@ class TestCheckTier(BaseTestWithRecordings):
             min_age_timestamp=self._simulated_now.timestamp(),
             min_bytes=0,
             max_age_timestamp=0,
+            file_min_age_timestamp=self._simulated_now.timestamp(),
             drain=False,
         )
 
@@ -63,6 +75,7 @@ class TestCheckTier(BaseTestWithRecordings):
             min_age_timestamp=min_age_timestamp,
             min_bytes=0,
             max_age_timestamp=0,
+            file_min_age_timestamp=self._simulated_now.timestamp(),
             drain=False,
         )
 
@@ -86,6 +99,7 @@ class TestCheckTier(BaseTestWithRecordings):
             min_age_timestamp=self._simulated_now.timestamp(),
             min_bytes=0,
             max_age_timestamp=max_age_timestamp,
+            file_min_age_timestamp=self._simulated_now.timestamp(),
             drain=False,
         )
         assert len(files_to_move) == 6
@@ -115,6 +129,7 @@ class TestCheckTier(BaseTestWithRecordings):
             min_age_timestamp=self._simulated_now.timestamp(),
             min_bytes=110,
             max_age_timestamp=max_age_timestamp,
+            file_min_age_timestamp=self._simulated_now.timestamp(),
             drain=False,
         )
         assert len(files_to_move) == 5
@@ -144,6 +159,7 @@ class TestCheckTier(BaseTestWithRecordings):
             min_age_timestamp=self._simulated_now.timestamp(),
             min_bytes=0,
             max_age_timestamp=max_age_timestamp,
+            file_min_age_timestamp=self._simulated_now.timestamp(),
             drain=False,
         )
 
@@ -168,6 +184,7 @@ class TestCheckTier(BaseTestWithRecordings):
             min_age_timestamp=self._simulated_now.timestamp(),
             min_bytes=0,
             max_age_timestamp=0,
+            file_min_age_timestamp=self._simulated_now.timestamp(),
             drain=True,
         )
 
@@ -188,10 +205,67 @@ class TestCheckTier(BaseTestWithRecordings):
             min_age_timestamp=self._simulated_now.timestamp(),
             min_bytes=0,
             max_age_timestamp=0,
+            file_min_age_timestamp=self._simulated_now.timestamp(),
             drain=True,
         )
 
         assert len(files_to_move) == 0
+
+    def test_get_files_to_move_file_min_age(self) -> None:
+        """Test get_files_to_move using file_min_age_timestamp.
+
+        max_age alone would select 6 files, but file_min_age_timestamp is a hard
+        floor on every selected file, keeping the 3 most recent of them. The age
+        branch has no min-age guard of its own, so this is the only thing
+        protecting files that are still being written to.
+        """
+        max_age_timestamp = (self._now + datetime.timedelta(seconds=26)).timestamp()
+        file_min_age_timestamp = (
+            self._now + datetime.timedelta(seconds=11)
+        ).timestamp()
+        data = load_tier(
+            get_session=self._get_db_session,
+            category="recorder",
+            subcategories=["segments"],
+            tier_id=0,
+            camera_identifier="test",
+        )
+        files_to_move = get_files_to_move(
+            data=data,
+            max_bytes=0,
+            min_age_timestamp=self._simulated_now.timestamp(),
+            min_bytes=0,
+            max_age_timestamp=max_age_timestamp,
+            file_min_age_timestamp=file_min_age_timestamp,
+            drain=False,
+        )
+
+        assert list(files_to_move["id"]) == [1, 3, 5]
+
+    def test_get_files_to_move_drain_ignores_file_min_age(self) -> None:
+        """Test that drain bypasses file_min_age_timestamp.
+
+        Mirrors get_recordings_to_move: a draining tier is being emptied, so the
+        per-file floor does not apply.
+        """
+        data = load_tier(
+            get_session=self._get_db_session,
+            category="recorder",
+            subcategories=["segments"],
+            tier_id=0,
+            camera_identifier="test",
+        )
+        files_to_move = get_files_to_move(
+            data=data,
+            max_bytes=80,
+            min_age_timestamp=self._simulated_now.timestamp(),
+            min_bytes=0,
+            max_age_timestamp=0,
+            file_min_age_timestamp=(self._now - datetime.timedelta(days=1)).timestamp(),
+            drain=True,
+        )
+
+        assert len(files_to_move) == len(data)
 
     def test_recordings_to_move_query_max_bytes(self) -> None:
         """Test recordings_to_move_query using max_bytes."""
@@ -524,6 +598,316 @@ class TestCheckTier(BaseTestWithRecordings):
             assert file["recording_id"] == -1
 
 
+class TestGetContinuousFilesToMove:
+    """Test get_continuous_files_to_move: schedule-aware continuous retention."""
+
+    # 08:00-18:00 daily
+    SCHEDULE = [{"start": "0 8 * * *", "end": "0 18 * * *"}]
+
+    def _files(self, *entries: tuple[int, int, datetime.datetime]) -> np.ndarray:
+        return np.array(
+            [
+                (id_, size, int(ts.timestamp()), f"/test/{id_}.m4s", "/test/")
+                for id_, size, ts in entries
+            ],
+            dtype=FILES_DTYPE,
+        )
+
+    def test_no_schedule_matches_get_files_to_move(self) -> None:
+        """With schedule_entries=None, behaves exactly like get_files_to_move."""
+        now = datetime.datetime(2024, 1, 2, 20, 0, tzinfo=datetime.timezone.utc)
+        data = self._files(
+            (1, 10, now - datetime.timedelta(days=40)),
+            (2, 10, now - datetime.timedelta(seconds=5)),
+        )
+        max_age_timestamp = (now - datetime.timedelta(days=30)).timestamp()
+
+        result = get_continuous_files_to_move(
+            data=data.copy(),
+            max_bytes=0,
+            min_age_timestamp=now.timestamp(),
+            min_bytes=0,
+            max_age_timestamp=max_age_timestamp,
+            file_min_age_timestamp=now.timestamp(),
+            drain=False,
+            now=now,
+            schedule_entries=None,
+            timezone="UTC",
+            lookback_seconds=30,
+        )
+        expected = get_files_to_move(
+            data=data.copy(),
+            max_bytes=0,
+            min_age_timestamp=now.timestamp(),
+            min_bytes=0,
+            max_age_timestamp=max_age_timestamp,
+            file_min_age_timestamp=now.timestamp(),
+            drain=False,
+        )
+        assert list(result["id"]) == list(expected["id"])
+
+    def test_file_recorded_during_active_window_keeps_full_retention(self) -> None:
+        """A file recorded while the schedule was active is not evicted early.
+
+        Case:
+        - Recorded at 10:00 (inside 08:00-18:00 schedule)
+        - Now is 20:00 the same day, ten hours after recording
+        - Max age is 30 days
+
+        Result: file is not evicted, because it was recorded during an active window
+        and is nowhere near the max age.
+        """
+        now = datetime.datetime(2024, 1, 2, 20, 0, tzinfo=datetime.timezone.utc)
+        recorded_at = datetime.datetime(2024, 1, 2, 10, 0, tzinfo=datetime.timezone.utc)
+        data = self._files((1, 10, recorded_at))
+
+        result = get_continuous_files_to_move(
+            data=data,
+            max_bytes=0,
+            min_age_timestamp=now.timestamp(),
+            min_bytes=0,
+            max_age_timestamp=(now - datetime.timedelta(days=30)).timestamp(),
+            file_min_age_timestamp=now.timestamp(),
+            drain=False,
+            now=now,
+            schedule_entries=self.SCHEDULE,
+            timezone="UTC",
+            lookback_seconds=30,
+        )
+        assert len(result) == 0
+
+    def test_file_recorded_during_inactive_window_evicted_past_lookback(
+        self,
+    ) -> None:
+        """A file recorded while the schedule was inactive is capped to lookback.
+
+        Case:
+        - Schedule is 08:00-18:00 daily
+        - Recorded at 19:00 (after the 18:00 end)
+        - Now is 20:00, one hour later - well past the 30s lookback
+        - Max age is 30 days
+
+        Result: file is evicted, because it was recorded during an inactive window
+        and is now past the lookback threshold.
+        """
+        now = datetime.datetime(2024, 1, 2, 20, 0, tzinfo=datetime.timezone.utc)
+        recorded_at = datetime.datetime(2024, 1, 2, 19, 0, tzinfo=datetime.timezone.utc)
+        data = self._files((1, 10, recorded_at))
+
+        result = get_continuous_files_to_move(
+            data=data,
+            max_bytes=0,
+            min_age_timestamp=now.timestamp(),
+            min_bytes=0,
+            max_age_timestamp=(now - datetime.timedelta(days=30)).timestamp(),
+            file_min_age_timestamp=now.timestamp(),
+            drain=False,
+            now=now,
+            schedule_entries=self.SCHEDULE,
+            timezone="UTC",
+            lookback_seconds=30,
+        )
+        assert list(result["id"]) == [1]
+
+    def test_file_recorded_during_inactive_window_within_lookback_is_kept(
+        self,
+    ) -> None:
+        """A file inside the lookback buffer is never evicted.
+
+        Even though it was recorded while the schedule was inactive, it may
+        still be needed as lookback for the next event.
+        """
+        now = datetime.datetime(2024, 1, 2, 20, 0, tzinfo=datetime.timezone.utc)
+        recorded_at = now - datetime.timedelta(seconds=10)  # 19:59:50, inactive
+        data = self._files((1, 10, recorded_at))
+
+        result = get_continuous_files_to_move(
+            data=data,
+            max_bytes=0,
+            min_age_timestamp=now.timestamp(),
+            min_bytes=0,
+            max_age_timestamp=(now - datetime.timedelta(days=30)).timestamp(),
+            file_min_age_timestamp=now.timestamp(),
+            drain=False,
+            now=now,
+            schedule_entries=self.SCHEDULE,
+            timezone="UTC",
+            lookback_seconds=30,
+        )
+        assert len(result) == 0
+
+    def test_inactive_file_straddling_lookback_boundary_is_kept(self) -> None:
+        """The segment covering the start of the pre-roll window is retained."""
+        now = datetime.datetime(2024, 1, 2, 20, 0, tzinfo=datetime.timezone.utc)
+        # Inactive (20:00 is outside 08:00-18:00), one second older than the
+        # lookback window, so it is the segment straddling its start.
+        recorded_at = now - datetime.timedelta(seconds=31)
+        data = self._files((1, 10, recorded_at))
+
+        result = get_continuous_files_to_move(
+            data=data,
+            max_bytes=0,
+            min_age_timestamp=now.timestamp(),
+            min_bytes=0,
+            max_age_timestamp=(now - datetime.timedelta(days=30)).timestamp(),
+            file_min_age_timestamp=now.timestamp(),
+            drain=False,
+            now=now,
+            schedule_entries=self.SCHEDULE,
+            timezone="UTC",
+            lookback_seconds=30,
+        )
+        assert len(result) == 0
+
+    def test_inactive_files_respect_min_age(self) -> None:
+        """A configured min_age is never overridden by the schedule cutoff.
+
+        The shortened inactive horizon selects the file, but the per-file floor
+        the caller passes still keeps it, exactly as it would for an active file.
+        """
+        now = datetime.datetime(2024, 1, 2, 20, 0, tzinfo=datetime.timezone.utc)
+        recorded_at = now - datetime.timedelta(minutes=10)  # inactive
+        data = self._files((1, 10, recorded_at))
+
+        result = get_continuous_files_to_move(
+            data=data,
+            max_bytes=0,
+            # min_age of one hour, i.e. nothing younger than this may be moved.
+            min_age_timestamp=(now - datetime.timedelta(hours=1)).timestamp(),
+            min_bytes=0,
+            max_age_timestamp=(now - datetime.timedelta(days=30)).timestamp(),
+            file_min_age_timestamp=(now - datetime.timedelta(hours=1)).timestamp(),
+            drain=False,
+            now=now,
+            schedule_entries=self.SCHEDULE,
+            timezone="UTC",
+            lookback_seconds=30,
+        )
+        assert len(result) == 0
+
+    def test_respects_configured_timezone(self) -> None:
+        """The configured timezone (not UTC) decides whether the window was active."""
+        now = datetime.datetime(2024, 1, 2, 20, 0, tzinfo=datetime.timezone.utc)
+        recorded_at = datetime.datetime(2024, 1, 2, 7, 30, tzinfo=datetime.timezone.utc)
+        data = self._files((1, 10, recorded_at))
+        max_age_timestamp = (now - datetime.timedelta(days=30)).timestamp()
+
+        result_utc = get_continuous_files_to_move(
+            data=data.copy(),
+            max_bytes=0,
+            min_age_timestamp=now.timestamp(),
+            min_bytes=0,
+            max_age_timestamp=max_age_timestamp,
+            file_min_age_timestamp=now.timestamp(),
+            drain=False,
+            now=now,
+            schedule_entries=self.SCHEDULE,
+            timezone="UTC",
+            lookback_seconds=30,
+        )
+        assert list(result_utc["id"]) == [1]
+
+        result_stockholm = get_continuous_files_to_move(
+            data=data.copy(),
+            max_bytes=0,
+            min_age_timestamp=now.timestamp(),
+            min_bytes=0,
+            max_age_timestamp=max_age_timestamp,
+            file_min_age_timestamp=now.timestamp(),
+            drain=False,
+            now=now,
+            schedule_entries=self.SCHEDULE,
+            timezone="Europe/Stockholm",
+            lookback_seconds=30,
+        )
+        assert len(result_stockholm) == 0
+
+    def test_mixed_active_and_inactive_files(self) -> None:
+        """Active and inactive files are evaluated independently in one call."""
+        now = datetime.datetime(2024, 1, 2, 20, 0, tzinfo=datetime.timezone.utc)
+        active_recorded = datetime.datetime(
+            2024, 1, 2, 10, 0, tzinfo=datetime.timezone.utc
+        )
+        inactive_recorded = datetime.datetime(
+            2024, 1, 2, 19, 0, tzinfo=datetime.timezone.utc
+        )
+        data = self._files(
+            (1, 10, active_recorded),
+            (2, 10, inactive_recorded),
+        )
+
+        result = get_continuous_files_to_move(
+            data=data,
+            max_bytes=0,
+            min_age_timestamp=now.timestamp(),
+            min_bytes=0,
+            max_age_timestamp=(now - datetime.timedelta(days=30)).timestamp(),
+            file_min_age_timestamp=now.timestamp(),
+            drain=False,
+            now=now,
+            schedule_entries=self.SCHEDULE,
+            timezone="UTC",
+            lookback_seconds=30,
+        )
+        assert list(result["id"]) == [2]
+
+    def test_schedule_evaluation_does_not_scale_with_file_count(self) -> None:
+        """Cron is parsed per schedule transition, not per file.
+
+        A tier holding a couple of days of segments has thousands of rows, and
+        evaluating the schedule for each of them parses two cron expressions per
+        entry. The state only flips where a cron fires, so the whole range is
+        resolved from a handful of evaluations.
+        """
+        now = datetime.datetime(2024, 1, 3, 4, 0, tzinfo=datetime.timezone.utc)
+        oldest = now - datetime.timedelta(days=2)
+        data = self._files(
+            *[
+                (id_, 10, oldest + datetime.timedelta(seconds=120 * id_))
+                for id_ in range(1, 1500)
+            ]
+        )
+        lookback_seconds = 30
+
+        with patch(
+            "viseron.domains.camera.schedule.croniter", wraps=croniter
+        ) as mock_croniter:
+            result = get_continuous_files_to_move(
+                data=data,
+                max_bytes=0,
+                min_age_timestamp=now.timestamp(),
+                min_bytes=0,
+                max_age_timestamp=0,
+                file_min_age_timestamp=now.timestamp(),
+                drain=False,
+                now=now,
+                schedule_entries=self.SCHEDULE,
+                timezone="UTC",
+                lookback_seconds=lookback_seconds,
+            )
+
+        # 6 window edges across the two days, plus the initial state
+        assert mock_croniter.call_count < 50
+
+        cutoff = (
+            now - datetime.timedelta(seconds=lookback_seconds + CAMERA_SEGMENT_DURATION)
+        ).timestamp()
+        expected = {
+            int(row["id"])
+            for row in data
+            if row["orig_ctime"] < cutoff
+            and not schedule_active(
+                self.SCHEDULE,
+                "UTC",
+                datetime.datetime.fromtimestamp(
+                    int(row["orig_ctime"]), tz=datetime.timezone.utc
+                ),
+            )
+        }
+        assert expected
+        assert set(result["id"].tolist()) == expected
+
+
 class TestShouldCheckTierFiles(BaseTestWithRecordings):
     """Test Worker._should_check_tier_files fast-path gate for file checks."""
 
@@ -683,6 +1067,127 @@ class TestShouldCheckTierFiles(BaseTestWithRecordings):
         )
         assert worker._should_check_tier_files(item) is False
 
+    def test_continuous_schedule_inactive_file_past_lookback_returns_true(self) -> None:
+        """A schedule-aware lookback gate fires even when bytes/age gates would not.
+
+        Without the schedule-aware gate, an inactive-window file older than the
+        lookback buffer would never trigger a real check (and would sit forever)
+        since neither max_bytes nor max_age alone would notice it.
+        """
+        worker = self._make_worker()
+        item = self._make_item(
+            max_bytes=0,
+            max_age=datetime.timedelta(days=365),
+            continuous_schedule=NEVER_ACTIVE_SCHEDULE,
+            continuous_schedule_timezone="UTC",
+            continuous_lookback_seconds=1,
+        )
+        future_now = self._now + datetime.timedelta(minutes=10)
+        with patch(
+            "viseron.components.storage.check_tier.utcnow", return_value=future_now
+        ):
+            assert worker._should_check_tier_files(item) is True
+
+    def test_continuous_schedule_oldest_file_within_lookback_returns_false(
+        self,
+    ) -> None:
+        """No gate fires when the oldest file is still within the lookback buffer."""
+        worker = self._make_worker()
+        item = self._make_item(
+            max_bytes=0,
+            max_age=datetime.timedelta(days=365),
+            continuous_schedule=NEVER_ACTIVE_SCHEDULE,
+            continuous_schedule_timezone="UTC",
+            continuous_lookback_seconds=99999,
+        )
+        assert worker._should_check_tier_files(item) is False
+
+    def test_continuous_schedule_only_active_files_returns_false(self) -> None:
+        """Files recorded while the schedule was active do not fire the gate.
+
+        They keep the full configured retention, so the schedule has nothing to
+        contribute and the expensive check is skipped. Without this the gate is
+        defeated for every camera that configures a schedule, since a tier almost
+        always holds files older than the lookback buffer.
+        """
+        worker = self._make_worker()
+        item = self._make_item(
+            max_bytes=0,
+            max_age=datetime.timedelta(days=365),
+            continuous_schedule=ALWAYS_ACTIVE_SCHEDULE,
+            continuous_schedule_timezone="UTC",
+            continuous_lookback_seconds=1,
+        )
+        future_now = self._now + datetime.timedelta(minutes=10)
+        with patch(
+            "viseron.components.storage.check_tier.utcnow", return_value=future_now
+        ):
+            assert worker._should_check_tier_files(item) is False
+
+    def test_continuous_schedule_inactive_file_newer_than_oldest_returns_true(
+        self,
+    ) -> None:
+        """The gate looks at every inactive window, not just the oldest file.
+
+        The oldest file was recorded while the schedule was active, but a later
+        one was not, so there is still something for the schedule to evict.
+        """
+        # Schedule ends on the next whole minute, which the last files fall after
+        ends_at = (self._now + datetime.timedelta(minutes=1)).replace(
+            second=0, microsecond=0
+        )
+        worker = self._make_worker()
+        item = self._make_item(
+            max_bytes=0,
+            max_age=datetime.timedelta(days=365),
+            continuous_schedule=[
+                {
+                    "start": "* * * * *",
+                    "end": f"{ends_at.minute} {ends_at.hour} "
+                    f"{ends_at.day} {ends_at.month} *",
+                }
+            ],
+            continuous_schedule_timezone="UTC",
+            continuous_lookback_seconds=1,
+        )
+        future_now = self._now + datetime.timedelta(minutes=10)
+        with patch(
+            "viseron.components.storage.check_tier.utcnow", return_value=future_now
+        ):
+            assert worker._should_check_tier_files(item) is True
+
+    def test_continuous_schedule_too_many_windows_returns_true(self) -> None:
+        """A schedule with more windows than can be queried defers to the check.
+
+        Every file here was recorded while the schedule was active, so the exact
+        answer is False, but the windows are capped before that can be decided.
+        """
+        # Schedule ends after the last file, so no file is in an inactive window
+        ends_at = (self._now + datetime.timedelta(minutes=3)).replace(
+            second=0, microsecond=0
+        )
+        worker = self._make_worker()
+        item = self._make_item(
+            max_bytes=0,
+            max_age=datetime.timedelta(days=365),
+            continuous_schedule=[
+                {
+                    "start": "* * * * *",
+                    "end": f"{ends_at.minute} {ends_at.hour} "
+                    f"{ends_at.day} {ends_at.month} *",
+                }
+            ],
+            continuous_schedule_timezone="UTC",
+            continuous_lookback_seconds=1,
+        )
+        future_now = self._now + datetime.timedelta(minutes=10)
+        with patch(
+            "viseron.components.storage.check_tier.utcnow", return_value=future_now
+        ):
+            assert worker._should_check_tier_files(item) is False
+            with patch("viseron.components.storage.check_tier.MAX_SCHEDULE_CHANGES", 2):
+                assert worker._should_check_tier_files(item) is True
+
 
 class TestCheckTierIntegration(BaseTestWithRecordings):
     """Integration tests for Worker.check_tier through the full gate + logic pipeline.
@@ -836,6 +1341,7 @@ class TestCheckTierIntegration(BaseTestWithRecordings):
             min_age_timestamp=min_age_timestamp,
             min_bytes=0,
             max_age_timestamp=0,
+            file_min_age_timestamp=min_age_timestamp,
             drain=False,
         )
 
@@ -872,6 +1378,7 @@ class TestCheckTierIntegration(BaseTestWithRecordings):
             min_age_timestamp=min_age_timestamp,
             min_bytes=0,
             max_age_timestamp=0,
+            file_min_age_timestamp=min_age_timestamp,
             drain=True,
         )
 

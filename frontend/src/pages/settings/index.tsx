@@ -38,7 +38,7 @@ function Settings() {
       disabledReason: null,
     },
     {
-      name: "User Management",
+      name: "Users Management",
       description: "Create, edit, and delete users",
       path: "/settings/users",
       icon: <UserMultiple size={23} />,
@@ -68,12 +68,12 @@ function Settings() {
     },
     {
       name: "Logs",
-      description: "View system logs",
+      description: "View the latest system logs in real time",
       path: "/settings/logs",
       icon: <DataBlob size={23} />,
       color: "orange",
-      disabled: true,
-      disabledReason: "Not implemented yet",
+      disabled: false,
+      disabledReason: null,
     },
   ];
 

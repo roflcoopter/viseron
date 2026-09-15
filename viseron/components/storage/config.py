@@ -1,4 +1,5 @@
 """Storage component configuration."""
+
 from __future__ import annotations
 
 import os
@@ -16,6 +17,7 @@ from viseron.components.storage.const import (
     CONFIG_FACE_RECOGNITION,
     CONFIG_GB,
     CONFIG_HOURS,
+    CONFIG_IMAGE_CLASSIFICATION,
     CONFIG_INTERVAL,
     CONFIG_LICENSE_PLATE_RECOGNITION,
     CONFIG_MAX_AGE,
@@ -50,6 +52,7 @@ from viseron.components.storage.const import (
     DEFAULT_FACE_RECOGNITION,
     DEFAULT_GB,
     DEFAULT_HOURS,
+    DEFAULT_IMAGE_CLASSIFICATION,
     DEFAULT_INTERVAL,
     DEFAULT_LICENSE_PLATE_RECOGNITION,
     DEFAULT_MAX_AGE,
@@ -82,6 +85,7 @@ from viseron.components.storage.const import (
     DESC_DRAIN,
     DESC_EVENTS,
     DESC_FACE_RECOGNITION,
+    DESC_IMAGE_CLASSIFICATION,
     DESC_INTERVAL,
     DESC_LICENSE_PLATE_RECOGNITION,
     DESC_MAX_AGE,
@@ -368,6 +372,18 @@ def get_snapshots_schema(undefined_defaults=False):
             }
         ),
         vol.Optional(
+            CONFIG_IMAGE_CLASSIFICATION,
+            default=UNDEFINED if undefined_defaults else DEFAULT_IMAGE_CLASSIFICATION,
+            description=DESC_IMAGE_CLASSIFICATION,
+        ): Maybe(
+            {
+                vol.Required(CONFIG_TIERS, description=DESC_DOMAIN_TIERS): vol.All(
+                    [TIER_SCHEMA_SNAPSHOTS],
+                    vol.Length(min=1),
+                ),
+            }
+        ),
+        vol.Optional(
             CONFIG_OBJECT_DETECTOR,
             default=UNDEFINED if undefined_defaults else DEFAULT_OBJECT_DETECTOR,
             description=DESC_OBJECT_DETECTOR,
@@ -617,7 +633,7 @@ def _validate_recorder_tiers(
                 )
 
     # Check events config
-    previous_tier: None | Tier = None
+    previous_tier: Tier | None = None
     paths: list[str] = []
     for tier in component_config.get(CONFIG_RECORDER, {}).get(CONFIG_TIERS, []):
         if tier.get(CONFIG_EVENTS, None):
@@ -653,6 +669,7 @@ def _validate_snapshots_tiers(
     # Check snapshots domain config
     for domain in [
         CONFIG_FACE_RECOGNITION,
+        CONFIG_IMAGE_CLASSIFICATION,
         CONFIG_OBJECT_DETECTOR,
         CONFIG_LICENSE_PLATE_RECOGNITION,
         CONFIG_MOTION_DETECTOR,

@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import os
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import ExitStack
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
 import pytest
-from filelock import FileLock
 
 from viseron.components.webserver.auth import (
     MAX_ACCESS_TOKENS_PER_USER,
@@ -20,6 +22,7 @@ from viseron.components.webserver.auth import (
     AuthenticationFailedError,
     InvalidRoleError,
     LastAdminUserError,
+    OnboardingCompleteError,
     RefreshToken,
     Role,
     SessionExpiredError,
@@ -27,6 +30,8 @@ from viseron.components.webserver.auth import (
     UserExistsError,
     token_response,
 )
+
+from tests.common import patch_storage_path
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -41,20 +46,13 @@ class TestAuth:
 
     def setup_method(self, vis: Viseron):
         """Set up tests."""
+        self._storage_stack = ExitStack()
+        self._storage_stack.enter_context(patch_storage_path())
         self.auth = Auth(vis, WEBSERVER_CONFIG)
-        self.auth_store_lock = FileLock(f"{self.auth._auth_store.path}.lock")
-        self.onboarding_lock = FileLock(f"{self.auth.onboarding_path()}.lock")
-        self.auth_store_lock.acquire()
-        self.onboarding_lock.acquire()
 
     def teardown_method(self):
         """Teardown tests."""
-        if os.path.exists(self.auth._auth_store.path):
-            os.remove(self.auth._auth_store.path)
-        if os.path.exists(self.auth.onboarding_path()):
-            os.remove(self.auth.onboarding_path())
-        self.auth_store_lock.release()
-        self.onboarding_lock.release()
+        self._storage_stack.close()
 
     def test_add_user(self):
         """Test adding user."""
@@ -71,11 +69,45 @@ class TestAuth:
         user2 = self.auth.add_user("Test2", "Test2", "test", Role.WRITE)
         assert user2.role == Role.WRITE
 
+    def test_user_load_save_round_trip(self, vis: MockViseron):
+        """Test that the password hash survives a save-and-reload cycle."""
+        user = self.auth.add_user("Test", "test", "test", Role.ADMIN)
+
+        auth2 = Auth(vis, WEBSERVER_CONFIG)
+        assert auth2.users[user.id].password == user.password
+        assert auth2.validate_user("test", "test").id == user.id
+
     def test_onboard_user(self):
         """Test oboarding user."""
         assert self.auth.onboarding_complete() is False
         self.auth.onboard_user("Test", "Test ", "test")
         assert self.auth.onboarding_complete() is True
+
+    def test_onboard_user_already_onboarded(self):
+        """Test that onboarding cannot be repeated with a different username."""
+        self.auth.onboard_user("Test", "test", "test")
+        with pytest.raises(OnboardingCompleteError):
+            self.auth.onboard_user("Test2", "test2", "test")
+        assert len(self.auth.users) == 1
+
+    def test_onboard_user_concurrent(self):
+        """Test that concurrent onboarding creates exactly one admin user."""
+        attempts = 5
+        barrier = threading.Barrier(attempts)
+
+        def onboard(index: int) -> bool:
+            barrier.wait()
+            try:
+                self.auth.onboard_user(f"Test{index}", f"test{index}", "test")
+            except OnboardingCompleteError:
+                return False
+            return True
+
+        with ThreadPoolExecutor(max_workers=attempts) as executor:
+            results = list(executor.map(onboard, range(attempts)))
+
+        assert results.count(True) == 1
+        assert len(self.auth.users) == 1
 
     def test_add_user_invalid_role(self):
         """Test adding user with invalid role."""
@@ -710,20 +742,13 @@ class TestAccessToken:
 
     def setup_method(self, vis: Viseron):
         """Set up tests."""
+        self._storage_stack = ExitStack()
+        self._storage_stack.enter_context(patch_storage_path())
         self.auth = Auth(vis, WEBSERVER_CONFIG)
-        self.auth_store_lock = FileLock(f"{self.auth._auth_store.path}.lock")
-        self.onboarding_lock = FileLock(f"{self.auth.onboarding_path()}.lock")
-        self.auth_store_lock.acquire()
-        self.onboarding_lock.acquire()
 
     def teardown_method(self):
         """Teardown tests."""
-        if os.path.exists(self.auth._auth_store.path):
-            os.remove(self.auth._auth_store.path)
-        if os.path.exists(self.auth.onboarding_path()):
-            os.remove(self.auth.onboarding_path())
-        self.auth_store_lock.release()
-        self.onboarding_lock.release()
+        self._storage_stack.close()
 
     def test_create_access_token(self):
         """Token is returned raw once; only its hash is stored."""

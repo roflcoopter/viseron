@@ -1,4 +1,5 @@
 """Test the System API handler."""
+
 from __future__ import annotations
 
 import json
@@ -26,18 +27,21 @@ class TestSystemApiHandler(TestAppBaseAuth):
 
     def test_get_dispatched_events_non_admin(self):
         """Test getting dispatched events as non-admin."""
-        with patch(
-            "viseron.components.webserver.request_handler.ViseronRequestHandler.current_user",  # pylint: disable=line-too-long
-            new_callable=PropertyMock,
-            return_value=User(
-                name="Test",
-                username="test",
-                password="test",
-                role=Role.READ,
+        with (
+            patch(
+                "viseron.components.webserver.request_handler.ViseronRequestHandler.current_user",  # pylint: disable=line-too-long
+                new_callable=PropertyMock,
+                return_value=User(
+                    name="Test",
+                    username="test",
+                    password="test",
+                    role=Role.READ,
+                ),
             ),
-        ), patch(
-            "viseron.components.webserver.request_handler.ViseronRequestHandler.validate_access_token",  # pylint: disable=line-too-long
-            return_value=True,
+            patch(
+                "viseron.components.webserver.request_handler.ViseronRequestHandler.validate_access_token",  # pylint: disable=line-too-long
+                return_value=True,
+            ),
         ):
             response = self.fetch_with_auth("/api/v1/system/dispatched_events")
             assert response.code == 403

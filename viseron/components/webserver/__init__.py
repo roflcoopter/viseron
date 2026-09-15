@@ -18,7 +18,7 @@ from viseron.components.webserver.auth import Auth
 from viseron.components.webserver.rate_limit import RateLimiter
 from viseron.const import DEFAULT_PORT, VISERON_SIGNAL_SHUTDOWN
 from viseron.exceptions import ComponentNotReady
-from viseron.helpers import current_system_datetime, normalize_subpath
+from viseron.helpers import normalize_subpath, utcnow
 from viseron.helpers.storage import Storage
 from viseron.helpers.validators import CoerceNoneToDict, Deprecated
 
@@ -100,6 +100,8 @@ from .websocket_api.commands import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from viseron import Viseron
     from viseron.components.webserver.download_token import DownloadToken
     from viseron.components.webserver.public_image_token import PublicImageToken
@@ -368,13 +370,29 @@ class Webserver(threading.Thread):
             raise
         self._ioloop = tornado.ioloop.IOLoop.current()
 
+        self._remove_session_revoked_listener: Callable[[], None] | None = None
+        if self._auth:
+            self._remove_session_revoked_listener = (
+                self._auth.add_session_revoked_listener(self._close_revoked_sessions)
+            )
+
         # Schedule periodic cleanup of expired public images (every hour)
         self._cleanup_task: asyncio.Task | None = None
+
+    def _close_revoked_sessions(self, session_ids: set[str]) -> None:
+        """Close WebSocket connections belonging to revoked sessions.
+
+        WebSockets authenticate once at connection time, so a revoked session
+        keeps full access over an already open connection until it is closed.
+        """
+        for connection in list(self._vis.data[WEBSOCKET_CONNECTIONS]):
+            if connection.session_id in session_ids:
+                connection.revoke_session()
 
     def _cleanup_expired_public_images(self) -> None:
         """Clean up expired public images (files older than max expiry)."""
         try:
-            timestamp_limit = current_system_datetime().timestamp() - (
+            timestamp_limit = utcnow().timestamp() - (
                 self.public_url_expiry_hours * 3600
             )
             cleaned_count = 0
@@ -488,6 +506,10 @@ class Webserver(threading.Thread):
     def stop(self) -> None:
         """Stop ioloop."""
         LOGGER.debug("Stopping webserver")
+        if self._remove_session_revoked_listener:
+            self._remove_session_revoked_listener()
+            self._remove_session_revoked_listener = None
+
         if self._httpserver:
             LOGGER.debug("Stopping HTTPServer")
             self._httpserver.stop()

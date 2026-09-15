@@ -157,7 +157,9 @@ def test_entity_command_handler_routes_to_handler(vis: MockViseron, nvr, monkeyp
     toggle = types.SimpleNamespace(nvr=nvr, domain="nvr", object_id="manual_recording")
     config = {"client_id": "vis"}
     entity = ManualRecordingToggleMQTTEntity(
-        vis, config, toggle  # type: ignore[arg-type]
+        vis,
+        config,
+        toggle,  # type: ignore[arg-type]
     )
 
     spy = Mock()

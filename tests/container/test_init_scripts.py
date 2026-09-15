@@ -73,26 +73,6 @@ def test_user_abc_present(host: testinfra.host.Host) -> None:
         assert "video" in user.groups, f"abc not in 'video' group, got {user.groups}"
 
 
-def test_postgres_ready(host: testinfra.host.Host) -> None:
-    """``pg_isready`` should report the local postgres as accepting."""
-    cmd = host.run("pg_isready -h /var/run/postgresql")
-    assert cmd.rc == 0, (
-        f"pg_isready failed: rc={cmd.rc}\nstdout=\n{cmd.stdout}\nstderr=\n{cmd.stderr}"
-    )
-
-
-def test_viseron_database_exists(host: testinfra.host.Host) -> None:
-    """The ``viseron`` database should have been created by 80-postgres."""
-    cmd = host.run(
-        'su - postgres -c "psql -tAc \\"SELECT 1 FROM pg_database '
-        "WHERE datname='viseron'\\\"\""
-    )
-    assert cmd.rc == 0, cmd.stderr
-    assert cmd.stdout.strip() == "1", (
-        f"viseron db not present:\nstdout=\n{cmd.stdout}\nstderr=\n{cmd.stderr}"
-    )
-
-
 def test_ffmpeg_wrapper_resolves(host: testinfra.host.Host) -> None:
     """``which ffmpeg`` (as the abc user) should resolve to the wrapper."""
     cmd = host.run("su - abc -c 'which ffmpeg'")
@@ -106,3 +86,11 @@ def test_gstreamer_inspect_runs(host: testinfra.host.Host) -> None:
     output = cmd.stdout + cmd.stderr
     assert cmd.rc == 0, output
     assert "gst-inspect" in output.lower() or "gstreamer" in output.lower()
+
+
+def test_boot_logs_confirm_chown_enabled_by_default(boot_logs: str) -> None:
+    """Boot logs should confirm volume path chown is enabled by default."""
+    assert "VISERON_DISABLE_CHOWN is not enabled" in boot_logs, (
+        "Expected a log line confirming volume path chown is enabled by default. "
+        f"First 2KB:\n{boot_logs[:2048]}"
+    )

@@ -12,6 +12,7 @@ import voluptuous as vol
 from viseron.domains.post_processor import BASE_CONFIG_SCHEMA, AbstractPostProcessor
 from viseron.events import EventData
 from viseron.helpers.schemas import FLOAT_MIN_ZERO
+from viseron.viseron_types import SnapshotDomain
 
 from .const import (
     CONFIG_EXPIRE_AFTER,
@@ -67,10 +68,13 @@ class EventImageClassification(EventData):
 class AbstractImageClassification(AbstractPostProcessor):
     """Abstract image classification."""
 
+    domain = DOMAIN
+    snapshot_domain = SnapshotDomain.IMAGE_CLASSIFICATION
+
     def __init__(
         self, vis: Viseron, component: str, config: dict, camera_identifier: str
     ) -> None:
-        super().__init__(vis, config, camera_identifier)
+        super().__init__(vis, component, config, camera_identifier)
         self._expire_timer: Timer | None = None
         vis.add_entity(
             component,
@@ -95,6 +99,11 @@ class AbstractImageClassification(AbstractPostProcessor):
             self._expire_timer.cancel()
 
         result = self.image_classification(post_processor_frame)
+
+        if result and post_processor_frame.shared_frame:
+            snapshot_path = self._save_snapshot(post_processor_frame.shared_frame)
+            for classification in result:
+                self._insert_result(DOMAIN, snapshot_path, classification.as_dict())
 
         self._vis.dispatch_event(
             EVENT_IMAGE_CLASSIFICATION_RESULT.format(

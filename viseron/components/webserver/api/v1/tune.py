@@ -8,9 +8,23 @@ from typing import Any
 from ruamel.yaml import YAML, YAMLError
 from ruamel.yaml.scalarstring import ScalarString
 
+from viseron.components.discord.const import COMPONENT as DISCORD_COMPONENT
+from viseron.components.gotify.const import COMPONENT as GOTIFY_COMPONENT
+from viseron.components.logger.const import COMPONENT as LOGGER_COMPONENT
+from viseron.components.nvr.const import COMPONENT as NVR_COMPONENT
+from viseron.components.onvif.const import COMPONENT as ONVIF_COMPONENT
+from viseron.components.telegram.const import COMPONENT as TELEGRAM_COMPONENT
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.components.webserver.auth import Role
 from viseron.const import CONFIG_PATH
+from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.domains.face_recognition.const import DOMAIN as FACE_RECOGNITION_DOMAIN
+from viseron.domains.license_plate_recognition import (
+    DOMAIN as LICENSE_PLATE_RECOGNITION_DOMAIN,
+)
+from viseron.domains.motion_detector.const import DOMAIN as MOTION_DETECTOR_DOMAIN
+from viseron.domains.object_detector.const import DOMAIN as OBJECT_DETECTOR_DOMAIN
+from viseron.domains.post_processor.const import CONFIG_CAMERAS
 
 from .tuning import (
     CameraTuningHandler,
@@ -18,10 +32,26 @@ from .tuning import (
     LicensePlateRecognitionTuningHandler,
     MotionDetectorTuningHandler,
     ObjectDetectorTuningHandler,
+    OnvifTuningHandler,
 )
 from .tuning.labels import get_available_labels
+from .tuning.onvif import process_onvif_config
 
 LOGGER = logging.getLogger(__name__)
+
+# The component has a "cameras" key but the option to do tuning is missing
+# or has not been implemented.
+SKIPPED_COMPONENTS = [
+    NVR_COMPONENT,
+    LOGGER_COMPONENT,
+    DISCORD_COMPONENT,
+    GOTIFY_COMPONENT,
+    TELEGRAM_COMPONENT,
+]
+
+# special case because the "Protocol" domain does not exist.
+PROTOCOL_RELATED = "protocol"  # not used for now, will be used later if needed
+PROTOCOL_COMPONENTS = [ONVIF_COMPONENT]
 
 
 class TuneAPIHandler(BaseAPIHandler):
@@ -119,11 +149,20 @@ class TuneAPIHandler(BaseAPIHandler):
         camera_identifier: str | None,
     ) -> None:
         """Process components with direct cameras key."""
-        for cam_id, cam_config in component_config["cameras"].items():
+        for cam_id, cam_config in component_config[CONFIG_CAMERAS].items():
             if self._should_skip_camera(cam_id, camera_identifier):
                 continue
             self._ensure_camera_in_settings(tune_settings, cam_id)
-            tune_settings[cam_id][component_name] = cam_config
+
+            if component_name in PROTOCOL_COMPONENTS:
+                # Special handling for ONVIF: group base keys under "client"
+                if component_name == ONVIF_COMPONENT and isinstance(cam_config, dict):
+                    processed_config = process_onvif_config(
+                        self._vis, cam_config, cam_id
+                    )
+                    tune_settings[cam_id][component_name] = processed_config
+            else:
+                tune_settings[cam_id][component_name] = cam_config
 
     def _process_camera_domain(
         self,
@@ -156,8 +195,8 @@ class TuneAPIHandler(BaseAPIHandler):
             return
 
         # Handle domains with 'cameras' key (e.g., mog2.motion_detector.cameras)
-        if "cameras" in domain_config:
-            cameras = domain_config["cameras"]
+        if CONFIG_CAMERAS in domain_config:
+            cameras = domain_config[CONFIG_CAMERAS]
             if isinstance(cameras, dict):
                 for cam_id, cam_config in cameras.items():
                     if self._should_skip_camera(cam_id, camera_identifier):
@@ -167,7 +206,7 @@ class TuneAPIHandler(BaseAPIHandler):
 
                     # Add available_labels for object_detector domain
                     config_to_store = cam_config if isinstance(cam_config, dict) else {}
-                    if domain_name == "object_detector":
+                    if domain_name == OBJECT_DETECTOR_DOMAIN:
                         available_labels = get_available_labels(
                             component_name, domain_config
                         )
@@ -176,7 +215,7 @@ class TuneAPIHandler(BaseAPIHandler):
                                 dict(config_to_store) if config_to_store else {}
                             )
                             config_to_store["available_labels"] = available_labels
-                    elif domain_name == "face_recognition":
+                    elif domain_name == FACE_RECOGNITION_DOMAIN:
                         # For face_recognition, available_labels is list of known faces
                         # from filesystem. This will be populated by backend based on
                         # face_recognition_path
@@ -228,13 +267,13 @@ class TuneAPIHandler(BaseAPIHandler):
             if not isinstance(component_config, dict):
                 continue
 
-            # Skip NVR component
-            if component_name == "nvr":
+            # Skipped components
+            if component_name in SKIPPED_COMPONENTS:
                 continue
 
             # Handle components with direct 'cameras' key
-            if "cameras" in component_config and isinstance(
-                component_config["cameras"], dict
+            if CONFIG_CAMERAS in component_config and isinstance(
+                component_config[CONFIG_CAMERAS], dict
             ):
                 self._process_direct_cameras(
                     tune_settings, component_config, component_name, camera_identifier
@@ -318,17 +357,20 @@ class TuneAPIHandler(BaseAPIHandler):
             return
 
         if domain not in [
-            "camera",
-            "object_detector",
-            "motion_detector",
-            "face_recognition",
-            "license_plate_recognition",
+            CAMERA_DOMAIN,
+            OBJECT_DETECTOR_DOMAIN,
+            MOTION_DETECTOR_DOMAIN,
+            FACE_RECOGNITION_DOMAIN,
+            LICENSE_PLATE_RECOGNITION_DOMAIN,
+            ONVIF_COMPONENT,  # ONVIF treated as special case
         ]:
             self.response_error(
                 status_code=HTTPStatus.BAD_REQUEST,
                 reason=f"Domain '{domain}' update not supported. "
-                "Only 'camera', 'object_detector', 'motion_detector', "
-                "'face_recognition', and 'license_plate_recognition' are supported.",
+                f"Only '{CAMERA_DOMAIN}', '{OBJECT_DETECTOR_DOMAIN}', "
+                f"'{MOTION_DETECTOR_DOMAIN}', '{FACE_RECOGNITION_DOMAIN}', "
+                f"'{LICENSE_PLATE_RECOGNITION_DOMAIN}', and '{ONVIF_COMPONENT}' "
+                f"are supported.",
             )
             return
 
@@ -342,19 +384,22 @@ class TuneAPIHandler(BaseAPIHandler):
                 | FaceRecognitionTuningHandler
                 | LicensePlateRecognitionTuningHandler
                 | CameraTuningHandler
+                | OnvifTuningHandler
                 | None
             ) = None
 
-            if domain == "camera":
+            if domain == CAMERA_DOMAIN:
                 handler = CameraTuningHandler(config)
-            elif domain == "object_detector":
+            elif domain == OBJECT_DETECTOR_DOMAIN:
                 handler = ObjectDetectorTuningHandler(config)
-            elif domain == "motion_detector":
+            elif domain == MOTION_DETECTOR_DOMAIN:
                 handler = MotionDetectorTuningHandler(config)
-            elif domain == "face_recognition":
+            elif domain == FACE_RECOGNITION_DOMAIN:
                 handler = FaceRecognitionTuningHandler(config)
-            elif domain == "license_plate_recognition":
+            elif domain == LICENSE_PLATE_RECOGNITION_DOMAIN:
                 handler = LicensePlateRecognitionTuningHandler(config)
+            elif domain == ONVIF_COMPONENT:
+                handler = OnvifTuningHandler(config)
 
             if handler:
                 success = handler.update(camera_identifier, component, data)

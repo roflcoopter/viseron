@@ -12,24 +12,27 @@ if TYPE_CHECKING:
     from sklearn.neighbors import KNeighborsClassifier
 
     from viseron.components import Component
-    from viseron.components.compreface.face_recognition import CompreFaceService
+    from viseron.components.compreface.face_recognition import \
+        CompreFaceService
     from viseron.components.darknet import BaseDarknet
     from viseron.components.data_stream import DataStream
     from viseron.components.discord import DiscordNotifier
     from viseron.components.edgetpu.edgetpu_types import EdgeTPUViseronData
+    from viseron.components.fastalpr.fastalpr_types import FastAlprViseronData
     from viseron.components.go2rtc import Go2RTC
     from viseron.components.gotify import GotifyEventNotifier
     from viseron.components.hailo import Hailo8Detector
     from viseron.components.logger.logger_types import LoggerViseronData
     from viseron.components.mqtt import MQTT
     from viseron.components.nvr.nvr import NVR
-    from viseron.components.ptz import PTZ
+    from viseron.components.onvif import ONVIF
     from viseron.components.storage import Storage
     from viseron.components.telegram.telegram_types import TelegramViseronData
     from viseron.components.webhook import Webhook
     from viseron.components.webserver import Webserver
     from viseron.components.webserver.download_token import DownloadToken
-    from viseron.components.webserver.public_image_token import PublicImageToken
+    from viseron.components.webserver.public_image_token import \
+        PublicImageToken
     from viseron.components.webserver.websocket_api import WebSocketHandler
 
 
@@ -64,14 +67,15 @@ class ViseronData(TypedDict, total=False):
     dlib: dict[Literal["classifier"], KNeighborsClassifier | None]
     discord: DiscordNotifier
     edgetpu: EdgeTPUViseronData
+    fastalpr: FastAlprViseronData
     go2rtc: Go2RTC
     gotify: GotifyEventNotifier
     hailo: dict[Literal["object_detector"], Hailo8Detector]
     mqtt: MQTT
     nvr: dict[str, NVR]
+    onvif: ONVIF
     telegram: TelegramViseronData
     webhook: Webhook
-    ptz: PTZ
 
 
 SupportedDomains = Literal[
@@ -116,6 +120,7 @@ class SnapshotDomain(enum.Enum):
     """Snapshot domains."""
 
     FACE_RECOGNITION = "face_recognition"
+    IMAGE_CLASSIFICATION = "image_classification"
     LICENSE_PLATE_RECOGNITION = "license_plate_recognition"
     MOTION_DETECTOR = "motion_detector"
     OBJECT_DETECTOR = "object_detector"

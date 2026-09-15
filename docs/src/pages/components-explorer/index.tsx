@@ -218,7 +218,7 @@ function ComponentCards({
   );
 }
 
-export default function Components(): JSX.Element {
+export default function Components(): React.JSX.Element {
   const filteredComponents = usefilteredComponents();
   return (
     <Layout title={TITLE} description={DESCRIPTION}>

@@ -9,7 +9,7 @@ import os
 import threading
 import time
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import setproctitle
 from apscheduler.triggers.cron import CronTrigger
@@ -38,6 +38,7 @@ from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
     from apscheduler.triggers.interval import IntervalTrigger
+    from sqlalchemy import CursorResult
     from sqlalchemy.orm import Session
 
     from viseron import Viseron
@@ -171,7 +172,10 @@ class BaseTableCleanupJob(BaseCleanupJob):
             batch_ids = [row[0] for row in batch]
 
             # Delete the batch
-            result = session.execute(delete(table).where(table.id.in_(batch_ids)))
+            result = cast(  # https://github.com/sqlalchemy/sqlalchemy/issues/12813
+                "CursorResult[Any]",
+                session.execute(delete(table).where(table.id.in_(batch_ids))),
+            )
             session.commit()
             total_deleted += result.rowcount
             self.log_progress(f"{self.name} deleted {result.rowcount} records in batch")
@@ -318,8 +322,9 @@ class OrphanedDatabaseFilesCleanup(BaseCleanupJob):
                 ]
 
                 if to_delete:
-                    result = session.execute(
-                        delete(Files).where(Files.id.in_(to_delete))
+                    result = cast(
+                        "CursorResult[Any]",
+                        session.execute(delete(Files).where(Files.id.in_(to_delete))),
                     )
                     session.commit()
                     total_deleted += result.rowcount
@@ -722,8 +727,11 @@ class OrphanedRecordingsCleanup(BaseCleanupJob):
                         to_delete.append(recording[0].id)
 
                 if to_delete:
-                    result = session.execute(
-                        delete(Recordings).where(Recordings.id.in_(to_delete))
+                    result = cast(
+                        "CursorResult[Any]",
+                        session.execute(
+                            delete(Recordings).where(Recordings.id.in_(to_delete))
+                        ),
                     )
                     session.commit()
                     total_deleted += result.rowcount
@@ -825,7 +833,7 @@ class OldEventsCleanup(BaseCleanupJob):
             stmt = delete(Events).where(
                 Events.created_at < utcnow() - datetime.timedelta(days=7)
             )
-            result = session.execute(stmt)
+            result = cast("CursorResult[Any]", session.execute(stmt))
             session.commit()
             LOGGER.debug(
                 "%s deleted %d old events, took %s",

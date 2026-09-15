@@ -1,10 +1,8 @@
 import {
-  CarFront,
-  CenterSquare,
   DocumentVideo,
-  FaceActivated,
   Movement,
   TrashCan,
+  WatsonHealth3DMprToggle,
 } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
@@ -179,25 +177,7 @@ export function RecordingHeaderDaily({
               aria-label="object"
               sx={{ paddingX: 2, flex: { xs: 1, lg: "initial" } }}
             >
-              <CenterSquare size={20} />
-            </ToggleButton>
-          </Tooltip>
-          <Tooltip title="Face Recognition">
-            <ToggleButton
-              value="face_recognition"
-              aria-label="face recognition"
-              sx={{ paddingX: 2, flex: { xs: 1, lg: "initial" } }}
-            >
-              <FaceActivated size={20} />
-            </ToggleButton>
-          </Tooltip>
-          <Tooltip title="License Plate Recognition">
-            <ToggleButton
-              value="license_plate_recognition"
-              aria-label="license plate recognition"
-              sx={{ paddingX: 2, flex: { xs: 1, lg: "initial" } }}
-            >
-              <CarFront size={20} />
+              <WatsonHealth3DMprToggle size={20} />
             </ToggleButton>
           </Tooltip>
         </ToggleButtonGroup>

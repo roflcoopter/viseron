@@ -162,8 +162,9 @@ DEFAULT_SEGMENTS_FOLDER = "/segments"
 DESC_RECORDER_HWACCEL_ARGS = "FFmpeg encoder hardware acceleration arguments."
 DESC_RECORDER_CODEC = (
     "FFmpeg video encoder codec, eg <code>h264_nvenc</code>. "
-    "Defaults to <code>copy</code> except for MJPEG streams where the default is "
-    "<code>h264</code>."
+    "Defaults to <code>copy</code>. MJPEG and MPEG-4 Part 2 "
+    "(<code>mpeg4</code>/<code>mp4v</code>) streams default to <code>h264</code> "
+    "for browser-compatible recordings."
 )
 DESC_RECORDER_AUDIO_CODEC = (
     "FFmpeg audio encoder codec, eg <code>aac</code>.<br>"

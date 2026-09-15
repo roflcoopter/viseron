@@ -1,8 +1,10 @@
 import React from "react";
-
+import { Debug, LogoGithub } from "@carbon/icons-react";
 import Head from "@docusaurus/Head";
+import Link from "@docusaurus/Link";
 import Heading from "@theme/Heading";
 
+import useCommitDates from "@site/src/lib/getCommitsDates";
 import { getIconComponent } from "@site/src/lib/iconMap";
 import { Component, DomainType, Domains } from "@site/src/types";
 
@@ -37,6 +39,8 @@ function TagBadge({ tag }: { tag: DomainType }) {
 }
 
 function ComponentHeader({ meta }: { meta: Component }) {
+  const { created, updated } = useCommitDates(meta.path);
+
   return (
     <div>
       <Head>
@@ -68,7 +72,66 @@ function ComponentHeader({ meta }: { meta: Component }) {
         </div>
         <img src={meta.image} alt={meta.title} />
       </div>
-      <hr className="divider" />
+      <hr className="divider" style={{ marginBottom: 10 }} />
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            columnGap: 20,
+          }}
+        >
+          <div
+            style={{
+              color: "gray",
+            }}
+          >
+            Created: {created ? new Date(created).toLocaleDateString() : "—"}
+          </div>
+          <div
+            style={{
+              color: "gray",
+            }}
+          >
+            Updated: {updated ? new Date(updated).toLocaleDateString() : "—"}
+          </div>
+        </div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            columnGap: 20,
+          }}
+        >
+          <Link
+            href={`https://github.com/roflcoopter/viseron/tree/master/${meta.path}`}
+            style={{
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            <LogoGithub />
+            &nbsp;View source on Github
+          </Link>
+          <Link
+            href={`https://github.com/roflcoopter/viseron/issues?q=is:issue%20${meta.issue}`}
+            style={{
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            <Debug />
+            &nbsp;View all issues
+          </Link>
+        </div>
+      </div>
+      <hr className="divider" style={{ marginTop: 10 }} />
     </div>
   );
 }

@@ -17,6 +17,7 @@ import voluptuous as vol
 from viseron.components.nvr.nvr import OperationState
 from viseron.components.storage.models import TriggerTypes
 from viseron.components.webserver.api.handlers import BaseAPIHandler
+from viseron.components.webserver.auth import Role
 from viseron.domains.camera.const import (
     AUTHENTICATION_BASIC,
     AUTHENTICATION_DIGEST,
@@ -67,16 +68,19 @@ class CameraAPIHandler(BaseAPIHandler):
             ),
         },
         {
+            "requires_role": [Role.ADMIN],
             "path_pattern": r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)/start",
             "supported_methods": ["POST"],
             "method": "post_start_camera",
         },
         {
+            "requires_role": [Role.ADMIN],
             "path_pattern": r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)/stop",
             "supported_methods": ["POST"],
             "method": "post_stop_camera",
         },
         {
+            "requires_role": [Role.ADMIN, Role.WRITE],
             "path_pattern": (
                 r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)/manual_recording"
             ),
@@ -155,14 +159,14 @@ class CameraAPIHandler(BaseAPIHandler):
 
     def _snapshot_from_memory(self, camera: AbstractCamera) -> bytes | None:
         """Return snapshot from camera memory."""
-        if camera.current_frame:
-            with camera.current_frame:
-                _ret, jpg = camera.get_snapshot(
-                    camera.current_frame,
-                    self.request_arguments["width"],
-                    self.request_arguments["height"],
-                )
-                return jpg
+        current_frame = camera.current_frame
+        if current_frame:
+            _ret, jpg = camera.get_snapshot(
+                current_frame,
+                self.request_arguments["width"],
+                self.request_arguments["height"],
+            )
+            return jpg
         return None
 
     async def get_snapshot(self, camera_identifier: str) -> None:

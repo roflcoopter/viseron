@@ -172,3 +172,23 @@ To download a snapshot, you use the `Download Snapshot` button in the event deta
   alt-text="Download Snapshot"
   width={700}
 />
+
+## Latest snapshots
+
+The latest snapshot for each camera and post processor domain is stored under a stable filename, `latest_snapshot.jpg`, next to the timestamped snapshots:
+
+```
+<tier path>/snapshots/<domain>/<camera identifier>/latest_snapshot.jpg
+```
+
+The file is overwritten in place every time a new snapshot is saved, so it always points at the most recent one without having to look up a filename. For face recognition, where snapshots are stored in a subfolder per face, the latest snapshot is still written to the domain folder itself so that there is exactly one per camera and domain.
+
+`latest_snapshot.jpg` is not tracked in the database. It is never moved between [tiers](#retention-rules) and is never removed by the retention rules.
+
+Alongside the file, an [image entity](/docs/developers/backend/entities) named `image.<camera identifier>_latest_<domain>_snapshot` is updated with the same image. If the [MQTT integration](/components-explorer/components/mqtt) is enabled, the image is published as a retained JPEG and is discovered by Home Assistant as a camera.
+
+:::note
+
+The latest snapshot is only updated when a snapshot is actually saved, so it follows the same options as the rest of this page. If `save_faces` is disabled, for example, no latest snapshot is written for face recognition.
+
+:::

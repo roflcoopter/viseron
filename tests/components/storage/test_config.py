@@ -121,6 +121,7 @@ DEFAULT_CONFIG = {
                 }
             ],
             "face_recognition": None,
+            "image_classification": None,
             "license_plate_recognition": None,
             "motion_detector": None,
             "object_detector": None,
@@ -241,8 +242,10 @@ TEST_CASES = [
             }
         },
         pytest.raises(vol.Invalid),
-        "Event recordings is not enabled in the first tier and thus cannot be "
-        "enabled in any subsequent tier",
+        (
+            "Event recordings is not enabled in the first tier and thus cannot be "
+            "enabled in any subsequent tier"
+        ),
     ),
     # Continuous not enabled in first tier
     (
@@ -264,8 +267,10 @@ TEST_CASES = [
             }
         },
         pytest.raises(vol.Invalid),
-        "Continuous recordings is not enabled in the first tier and thus cannot be "
-        "enabled in any subsequent tier",
+        (
+            "Continuous recordings is not enabled in the first tier and thus cannot be "
+            "enabled in any subsequent tier"
+        ),
     ),
     # Snapshot domain overrides
     (

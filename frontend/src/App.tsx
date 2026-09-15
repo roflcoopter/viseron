@@ -24,6 +24,7 @@ const Settings = lazy(() => import("pages/settings"));
 const SystemEvents = lazy(() => import("pages/settings/SystemEvents"));
 const Users = lazy(() => import("pages/settings/Users"));
 const TemplateEditor = lazy(() => import("pages/settings/TemplateEditor"));
+const Logs = lazy(() => import("pages/settings/Logs"));
 
 function App() {
   const routes = useRoutes([
@@ -103,6 +104,10 @@ function App() {
                 {
                   path: "/settings/template-editor",
                   element: <TemplateEditor />,
+                },
+                {
+                  path: "/settings/logs",
+                  element: <Logs />,
                 },
               ],
             },

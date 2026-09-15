@@ -4,10 +4,12 @@ import pytest
 import voluptuous as vol
 
 from viseron.helpers.validators import (
+    UNDEFINED,
     CoerceNoneToDict,
     Maybe,
     Slug,
     StringKey,
+    Timezone,
 )
 
 
@@ -96,6 +98,61 @@ class TestSlug:
             validator(123)
         with pytest.raises(vol.Invalid):
             validator(None)
+
+
+class TestTimezone:
+    """Tests for the Timezone validator."""
+
+    def test_returns_value_for_valid_iana_timezone(self):
+        """Test that a valid IANA timezone name is returned unchanged."""
+        validator = Timezone()
+        assert validator("Europe/Stockholm") == "Europe/Stockholm"
+        assert validator("UTC") == "UTC"
+
+    def test_raises_for_unknown_timezone(self):
+        """Test that an unknown timezone name raises vol.Invalid."""
+        validator = Timezone()
+        with pytest.raises(vol.Invalid):
+            validator("Not/AZone")
+
+    def test_raises_for_non_string(self):
+        """Test that a non-string value raises vol.Invalid."""
+        validator = Timezone()
+        with pytest.raises(vol.Invalid):
+            validator(123)
+        with pytest.raises(vol.Invalid):
+            validator(None)
+
+    def test_passes_undefined_through_without_logging(
+        self, caplog: pytest.LogCaptureFixture
+    ):
+        """Test that the UNDEFINED sentinel is passed through untouched.
+
+        Maybe(Timezone()) runs the UNDEFINED schema default through this
+        validator before reaching the UNDEFINED branch of vol.Any. Rejecting
+        it would log a bogus error on every config load for anyone who has a
+        schedule but no explicit timezone.
+        """
+        validator = Timezone()
+        assert validator(UNDEFINED) is UNDEFINED
+        instance = UNDEFINED()
+        assert validator(instance) is instance
+        assert "Invalid timezone" not in caplog.text
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "",
+            "/etc/passwd",
+            "../../etc/passwd",
+            "Europe/../Europe/Berlin",
+        ],
+    )
+    def test_raises_invalid_for_malformed_keys(self, value: str):
+        """Test that malformed zone keys raise vol.Invalid, not ValueError."""
+        validator = Timezone()
+        with pytest.raises(vol.Invalid):
+            validator(value)
 
 
 class TestMaybe:

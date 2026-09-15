@@ -1,4 +1,5 @@
 """Monkey-patch multiprocessing.resource_tracker so SharedMemory won't be tracked."""
+
 from multiprocessing import resource_tracker
 
 
@@ -7,6 +8,7 @@ def remove_shm_from_resource_tracker() -> None:
 
     More details at: https://bugs.python.org/issue38119
     """
+
     # pylint: disable=protected-access,too-many-function-args,undefined-variable
     def fix_register(name, rtype):
         if rtype == "shared_memory":

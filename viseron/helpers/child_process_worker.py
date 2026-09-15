@@ -34,7 +34,9 @@ class ChildProcessWorker(ABC):
     Work is then performed in the child process and returned through output queue.
     """
 
-    def __init__(self, vis: Viseron, name: str) -> None:
+    def __init__(
+        self, vis: Viseron, name: str, *, stop_on_shutdown: bool = True
+    ) -> None:
         self._name = name
 
         self._process_frames_proc_exit = mp.Event()
@@ -65,9 +67,10 @@ class ChildProcessWorker(ABC):
         self._process_frames_proc.start()
 
         self._event_listeners = []
-        self._event_listeners.append(
-            vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
-        )
+        if stop_on_shutdown:
+            self._event_listeners.append(
+                vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
+            )
 
     def create_process(self) -> mp.Process:
         """Return process used by RestartableProcess.

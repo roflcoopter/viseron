@@ -225,8 +225,10 @@ class BaseAPIHandler(ViseronRequestHandler):
                 )
                 return (
                     False,
-                    f"Invalid body: {self.request.body.decode()}. "
-                    f"{humanize_error(json_body, err)}",
+                    (
+                        f"Invalid body: {self.request.body.decode()}. "
+                        f"{humanize_error(json_body, err)}"
+                    ),
                 )
         return True, None
 

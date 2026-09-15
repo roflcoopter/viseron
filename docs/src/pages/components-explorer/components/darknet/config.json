@@ -120,6 +120,22 @@
                           "description": "If set to <code>true</code>, the recorder will stop as soon as motion is no longer detected, even if the object still is. This is useful to avoid never ending recordings of stationary objects, such as a car on a driveway",
                           "optional": true,
                           "default": false
+                        },
+                        {
+                          "type": "boolean",
+                          "name": "require_motion_overlap",
+                          "description": "If set to <code>true</code>, the detected object's bounding box has to overlap a motion contour instead of only requiring motion somewhere in the frame. This only has an effect when a <code>motion_detector</code> is configured. The legacy <code>require_motion</code> setting still controls stopping recordings.",
+                          "optional": true,
+                          "default": false
+                        },
+                        {
+                          "type": "float",
+                          "valueMin": 0.0,
+                          "valueMax": 1.0,
+                          "name": "motion_overlap_threshold",
+                          "description": "Minimum fraction (0-1) of the detected object's bounding box that must be covered by motion contours for the object to be considered overlapping motion.",
+                          "optional": true,
+                          "default": 0.1
                         }
                       ]
                     ],
@@ -311,6 +327,22 @@
                                 "description": "If set to <code>true</code>, the recorder will stop as soon as motion is no longer detected, even if the object still is. This is useful to avoid never ending recordings of stationary objects, such as a car on a driveway",
                                 "optional": true,
                                 "default": false
+                              },
+                              {
+                                "type": "boolean",
+                                "name": "require_motion_overlap",
+                                "description": "If set to <code>true</code>, the detected object's bounding box has to overlap a motion contour instead of only requiring motion somewhere in the frame. This only has an effect when a <code>motion_detector</code> is configured. The legacy <code>require_motion</code> setting still controls stopping recordings.",
+                                "optional": true,
+                                "default": false
+                              },
+                              {
+                                "type": "float",
+                                "valueMin": 0.0,
+                                "valueMax": 1.0,
+                                "name": "motion_overlap_threshold",
+                                "description": "Minimum fraction (0-1) of the detected object's bounding box that must be covered by motion contours for the object to be considered overlapping motion.",
+                                "optional": true,
+                                "default": 0.1
                               }
                             ]
                           ],

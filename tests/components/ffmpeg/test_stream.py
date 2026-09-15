@@ -371,27 +371,31 @@ class TestStream:
             )
 
     @pytest.mark.parametrize(
-        "stream_format, codec, expected_args",
+        "stream_format, stream_codec, recorder_codec, expected_args",
         [
-            ("mjpeg", "h264", ["-tune", "zerolatency"]),
-            ("mjpeg", "hevc", []),
-            ("mjpeg", UNDEFINED, ["-tune", "zerolatency"]),
-            ("rtsp", None, []),
-            ("rtsp", UNDEFINED, []),
-            ("rtmp", None, []),
-            ("rtmp", UNDEFINED, []),
+            ("mjpeg", None, "h264", ["-tune", "zerolatency"]),
+            ("mjpeg", None, "hevc", []),
+            ("mjpeg", None, UNDEFINED, ["-tune", "zerolatency"]),
+            ("rtsp", "mjpeg", "libx264", ["-tune", "zerolatency"]),
+            ("rtsp", "mjpeg", "hevc", []),
+            ("rtsp", "mjpeg", UNDEFINED, ["-tune", "zerolatency"]),
+            ("rtsp", "h264", UNDEFINED, []),
+            ("rtmp", "h264", UNDEFINED, []),
         ],
     )
-    def test_encoder_tuning_args(self, stream_format, codec, expected_args) -> None:
+    def test_encoder_tuning_args(
+        self, stream_format, stream_codec, recorder_codec, expected_args
+    ) -> None:
         """Test that encoder tuning args are only added for MJPEG streams."""
         with patch.object(
             Stream, "__init__", MagicMock(spec=Stream, return_value=None)
         ):
             stream = Stream.__new__(Stream)
+            stream._mainstream = MagicMock(codec=stream_codec)
             stream._config = {
                 CONFIG_STREAM_FORMAT: stream_format,
                 CONFIG_RECORDER: {
-                    CONFIG_RECORDER_CODEC: codec,
+                    CONFIG_RECORDER_CODEC: recorder_codec,
                 },
             }
             mock_logger = MagicMock()
@@ -400,25 +404,37 @@ class TestStream:
             assert result == expected_args
 
     @pytest.mark.parametrize(
-        "stream_format, expected_args",
+        "stream_format, stream_codec, expected_args",
         [
             (
+                "mjpeg",
+                None,
+                [
+                    "-force_key_frames",
+                    f"expr:gte(t,n_forced*{CAMERA_SEGMENT_DURATION})",
+                ],
+            ),
+            (
+                "rtsp",
                 "mjpeg",
                 [
                     "-force_key_frames",
                     f"expr:gte(t,n_forced*{CAMERA_SEGMENT_DURATION})",
                 ],
             ),
-            ("rtsp", []),
-            ("rtmp", []),
+            ("rtsp", "h264", []),
+            ("rtmp", "h264", []),
         ],
     )
-    def test_force_keyframe_args(self, stream_format, expected_args) -> None:
+    def test_force_keyframe_args(
+        self, stream_format, stream_codec, expected_args
+    ) -> None:
         """Test that force keyframe args are only added for MJPEG streams."""
         with patch.object(
             Stream, "__init__", MagicMock(spec=Stream, return_value=None)
         ):
             stream = Stream.__new__(Stream)
+            stream._mainstream = MagicMock(codec=stream_codec)
             stream._config = {
                 CONFIG_STREAM_FORMAT: stream_format,
             }
@@ -426,21 +442,26 @@ class TestStream:
             assert result == expected_args
 
     @pytest.mark.parametrize(
-        "recorder_codec, stream_format, expected_cmd",
+        "recorder_codec, stream_format, stream_codec, expected_cmd",
         [
-            # MJPEG with no user-set codec should auto-convert to h264
-            (UNDEFINED, "mjpeg", ["-c:v", "h264"]),
-            # Non-MJPEG with no user-set codec should copy
-            (UNDEFINED, "rtsp", ["-c:v", "copy"]),
-            (UNDEFINED, "rtmp", ["-c:v", "copy"]),
+            # MJPEG transport with no user-set codec should auto-convert to h264
+            (UNDEFINED, "mjpeg", None, ["-c:v", "h264"]),
+            # Browser-incompatible source codecs should auto-convert to h264
+            (UNDEFINED, "rtsp", "mjpeg", ["-c:v", "h264"]),
+            (UNDEFINED, "rtsp", "mpeg4", ["-c:v", "h264"]),
+            (UNDEFINED, "rtmp", "mp4v", ["-c:v", "h264"]),
+            # Browser-compatible source codecs should be copied
+            (UNDEFINED, "rtsp", "h264", ["-c:v", "copy"]),
+            (UNDEFINED, "rtmp", "hevc", ["-c:v", "copy"]),
             # User-set codec should always take precedence
-            ("libx264", "mjpeg", ["-c:v", "libx264"]),
-            ("h264_nvenc", "rtsp", ["-c:v", "h264_nvenc"]),
-            ("hevc", "rtmp", ["-c:v", "hevc"]),
+            ("libx264", "mjpeg", None, ["-c:v", "libx264"]),
+            ("h264_nvenc", "rtsp", "mjpeg", ["-c:v", "h264_nvenc"]),
+            ("hevc", "rtsp", "mpeg4", ["-c:v", "hevc"]),
+            ("copy", "rtmp", "h264", ["-c:v", "copy"]),
         ],
     )
     def test_get_encoder_codec(
-        self, recorder_codec, stream_format, expected_cmd
+        self, recorder_codec, stream_format, stream_codec, expected_cmd
     ) -> None:
         """Test that the correct encoder codec is returned."""
         with patch.object(
@@ -448,6 +469,7 @@ class TestStream:
         ):
             stream = Stream.__new__(Stream)
             stream._logger = MagicMock()
+            stream._mainstream = MagicMock(codec=stream_codec)
             stream._config = {
                 CONFIG_STREAM_FORMAT: stream_format,
                 CONFIG_RECORDER: {

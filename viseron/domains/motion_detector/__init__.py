@@ -442,24 +442,23 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
                 continue
 
             shared_frame = frame_to_scan.data.shared_frame
-            with shared_frame:
-                decoded_frame = self._get_frame_function(shared_frame).copy()
-                if self._mask:
-                    apply_mask(decoded_frame, self._mask_image)
-                preprocessed_frame = self.preprocess(decoded_frame)
+            decoded_frame = self._get_frame_function(shared_frame).copy()
+            if self._mask:
+                apply_mask(decoded_frame, self._mask_image)
+            preprocessed_frame = self.preprocess(decoded_frame)
 
-                contours = self.return_motion(preprocessed_frame)
-                self._filter_motion(shared_frame, contours)
-                self._vis.dispatch_event(
-                    EVENT_MOTION_DETECTOR_RESULT.format(
-                        camera_identifier=shared_frame.camera_identifier
-                    ),
-                    EventMotionDetectorScannerResult(
-                        camera_identifier=shared_frame.camera_identifier,
-                        contours=contours,
-                    ),
-                    store=False,
-                )
+            contours = self.return_motion(preprocessed_frame)
+            self._filter_motion(shared_frame, contours)
+            self._vis.dispatch_event(
+                EVENT_MOTION_DETECTOR_RESULT.format(
+                    camera_identifier=shared_frame.camera_identifier
+                ),
+                EventMotionDetectorScannerResult(
+                    camera_identifier=shared_frame.camera_identifier,
+                    contours=contours,
+                ),
+                store=False,
+            )
         self._logger.debug("Motion detection thread stopped")
 
     @abstractmethod

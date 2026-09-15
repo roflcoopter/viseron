@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import functools
 import inspect
 import linecache
 import logging
@@ -15,8 +16,10 @@ import sys
 import time
 import tracemalloc
 import urllib.parse
+from functools import lru_cache
 from queue import Empty, Full, Queue
 from typing import TYPE_CHECKING, Any, Literal, overload
+from zoneinfo import ZoneInfoNotFoundError
 
 import cv2
 import numpy as np
@@ -24,6 +27,7 @@ import psutil
 import slugify as unicode_slug
 import supervision as sv
 import tornado.queues as tq
+import tzlocal
 
 from viseron.const import (
     FONT,
@@ -52,6 +56,23 @@ def get_utc_offset() -> datetime.timedelta:
     return datetime.timedelta(seconds=time.localtime().tm_gmtoff)
 
 
+@functools.lru_cache(maxsize=1)
+def get_local_timezone() -> str:
+    """Return the server's IANA timezone name, detected via tzlocal."""
+    try:
+        name = getattr(tzlocal.get_localzone(), "key", None)
+    except ZoneInfoNotFoundError:
+        name = None
+
+    if not name or name == "local":
+        LOGGER.warning(
+            "Could not determine the server's timezone, defaulting to UTC. "
+            "Set recorder.schedule.timezone explicitly to override."
+        )
+        return "UTC"
+    return name
+
+
 def daterange_to_utc(
     date: str, utc_offset: datetime.timedelta
 ) -> tuple[datetime.datetime, datetime.datetime]:
@@ -77,11 +98,6 @@ def client_current_datetime(utc_offset: datetime.timedelta) -> datetime.datetime
     return utcnow() + utc_offset
 
 
-def current_system_datetime() -> datetime.datetime:
-    """Return the current system datetime."""
-    return datetime.datetime.now()
-
-
 def calculate_relative_contours(
     contours, resolution: tuple[int, int]
 ) -> list[np.ndarray]:
@@ -91,6 +107,77 @@ def calculate_relative_contours(
         relative_contours.append(np.divide(contour, resolution))
 
     return relative_contours
+
+
+@lru_cache(maxsize=1)
+def _get_motion_mask(scaled_contours: tuple[bytes, ...]) -> np.ndarray:
+    """Return a cached motion mask for scaled contours."""
+    grid_size = 1000
+    motion_mask = np.zeros((grid_size, grid_size), dtype=np.uint8)
+    contours = [
+        np.frombuffer(contour, dtype=np.int32).reshape(-1, 2)
+        for contour in scaled_contours
+    ]
+    cv2.fillPoly(motion_mask, contours, (1,))
+    return motion_mask
+
+
+def object_motion_overlap(
+    rel_bbox: tuple[float, float, float, float], rel_contours: list[np.ndarray]
+) -> float:
+    """Return the fraction of the object's relative bbox covered by motion contours.
+
+    rel_bbox: (rel_x1, rel_y1, rel_x2, rel_y2) in 0..1 relative coords.
+    rel_contours: list of numpy contour arrays in 0..1 relative coords.
+    Returns a float 0.0..1.0. Returns 0.0 if the bbox has zero area or there
+    are no contours.
+    """
+    if len(rel_contours) == 0:
+        return 0.0
+
+    coordinate_pair_length = 2
+    min_contour_ndim = 2
+    min_polygon_points = 3
+    grid_size = 1000
+    rel_x1, rel_y1, rel_x2, rel_y2 = rel_bbox
+    x1 = max(0.0, min(1.0, rel_x1))
+    y1 = max(0.0, min(1.0, rel_y1))
+    x2 = max(0.0, min(1.0, rel_x2))
+    y2 = max(0.0, min(1.0, rel_y2))
+
+    if x2 <= x1 or y2 <= y1:
+        return 0.0
+
+    x1_px = math.floor(x1 * grid_size)
+    y1_px = math.floor(y1 * grid_size)
+    x2_px = math.ceil(x2 * grid_size)
+    y2_px = math.ceil(y2 * grid_size)
+    bbox_area = (x2_px - x1_px) * (y2_px - y1_px)
+    if bbox_area <= 0:
+        return 0.0
+
+    scaled_contours = []
+    for rel_contour in rel_contours:
+        contour = np.asarray(rel_contour, dtype=np.float32)
+        if (
+            contour.size == 0
+            or contour.ndim < min_contour_ndim
+            or contour.shape[-1] != coordinate_pair_length
+        ):
+            continue
+
+        scaled = np.rint(contour.reshape(-1, 2) * grid_size).astype(np.int32)
+        np.clip(scaled, 0, grid_size - 1, out=scaled)
+        if len(scaled) >= min_polygon_points:
+            scaled_contours.append(scaled.tobytes())
+
+    if not scaled_contours:
+        return 0.0
+
+    motion_mask = _get_motion_mask(tuple(scaled_contours))
+    motion_area = np.count_nonzero(motion_mask[y1_px:y2_px, x1_px:x2_px])
+    overlap = motion_area / bbox_area
+    return float(max(0.0, min(1.0, overlap)))
 
 
 def calculate_relative_coords(
@@ -447,27 +534,29 @@ def apply_mask(frame: np.ndarray, mask_image) -> None:
 def pop_if_full(
     queue: Queue | mp.Queue | tq.Queue,
     item: Any,
+    *,
     logger: logging.Logger = LOGGER,
     name: str = "unknown",
     warn: bool = False,
     max_attempts: int = 10,
-    _attempt: int = 0,
 ) -> None:
     """If queue is full, pop item and put the new item, up to max_attempts times."""
-    try:
-        queue.put_nowait(item)
-        return
-    except (Full, tq.QueueFull):
-        if warn:
-            logger.warning(f"{name} queue is full. Removing oldest entry")
-    try:
-        queue.get_nowait()
-    except (Empty, tq.QueueEmpty):
-        pass
-    if _attempt + 1 >= max_attempts:
-        raise Full(f"{name} queue is full after {max_attempts} attempts. Giving up.")
-    time.sleep(0.001 * (_attempt + 1))
-    pop_if_full(queue, item, logger, name, warn, max_attempts, _attempt + 1)
+    for attempt in range(max(1, max_attempts)):  # Ensure at least one iteration
+        try:
+            queue.put_nowait(item)
+            return
+        except (Full, tq.QueueFull):
+            if warn:
+                logger.warning(f"{name} queue is full. Removing oldest entry")
+
+        try:
+            queue.get_nowait()
+        except (Empty, tq.QueueEmpty):
+            # Another consumer emptied the queue first, so the slot we freed is
+            # already gone. Back off before racing for it again.
+            time.sleep(0.001 * (attempt + 1))
+
+    raise Full(f"{name} queue is full after {max_attempts} attempts. Giving up.")
 
 
 def slugify(text: str) -> str:
@@ -558,6 +647,7 @@ def convert_letterboxed_bbox(
     model_width: int,
     model_height: int,
     bbox: tuple[int, int, int, int],
+    *,
     return_absolute: Literal[False] = ...,
 ) -> tuple[float, float, float, float]: ...
 
@@ -569,6 +659,7 @@ def convert_letterboxed_bbox(
     model_width: int,
     model_height: int,
     bbox: tuple[int, int, int, int],
+    *,
     return_absolute: Literal[True],
 ) -> tuple[int, int, int, int]: ...
 
@@ -579,6 +670,7 @@ def convert_letterboxed_bbox(
     model_width: int,
     model_height: int,
     bbox: tuple[int, int, int, int],
+    *,
     return_absolute: bool = False,
 ) -> tuple[float, float, float, float] | tuple[int, int, int, int]:
     """Convert boundingbox from a letterboxed image to the original image.

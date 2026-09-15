@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from viseron import Viseron
+
+EntityT = TypeVar("EntityT", bound="Entity")
 
 
 class Entity(ABC):  # noqa: B024

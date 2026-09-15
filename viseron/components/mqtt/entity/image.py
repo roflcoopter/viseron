@@ -1,4 +1,5 @@
 """MQTT image entity."""
+
 import json
 
 import cv2

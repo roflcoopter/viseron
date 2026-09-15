@@ -6,7 +6,6 @@ parameters:
       - amd64
       - amd64-cuda
       - jetson-nano
-      - rpi3
   - name: namespace
     type: string
     default: roflcoopter
@@ -22,6 +21,10 @@ parameters:
     type: number
     default: 1440
   - name: release
+    type: boolean
+    default: false
+  - name: pushToGhcr
+    displayName: "Also push to GHCR"
     type: boolean
     default: false
   - name: noCache
@@ -52,8 +55,16 @@ jobs:
             inputs:
               command: login
               containerRegistry: "Docker Hub"
+          - task: Docker@2
+            displayName: Login to GHCR
+            condition: and(succeeded(), eq('${{ parameters.pushToGhcr }}', true))
+            inputs:
+              command: login
+              containerRegistry: "GHCR"
 
           - template: cleanup.yaml
+            parameters:
+              mode: pre
 
           - script: docker run --rm --privileged tonistiigi/binfmt --install all
             displayName: Register QEMU for cross-builds
@@ -184,9 +195,55 @@ jobs:
             displayName: Push ${{ architecture }}-${{ parameters.image }} (release)
             condition: and(succeeded(), eq('${{ parameters.release }}', true))
 
+          # Mirrors images to GHCR
+          - script: |
+              set -e
+              echo tagging ghcr.io/roflcoopter/${{ architecture }}-${{ parameters.image }}:$(viseronVersion)
+              docker image tag roflcoopter/${{ architecture }}-${{ parameters.image }}:dev ghcr.io/roflcoopter/${{ architecture }}-${{ parameters.image }}:$(viseronVersion)
+              docker image push ghcr.io/roflcoopter/${{ architecture }}-${{ parameters.image }}:$(viseronVersion)
+
+              docker image tag roflcoopter/${{ architecture }}-${{ parameters.image }}:dev ghcr.io/roflcoopter/${{ architecture }}-${{ parameters.image }}:$(viseronVersion)-$(Build.SourceVersion)
+              docker image push ghcr.io/roflcoopter/${{ architecture }}-${{ parameters.image }}:$(viseronVersion)-$(Build.SourceVersion)
+
+              # Push same-repository arch tag for multi-arch manifest creation
+              docker image tag roflcoopter/${{ architecture }}-${{ parameters.image }}:dev ghcr.io/roflcoopter/${{ parameters.image }}:$(viseronVersion)-${{ architecture }}
+              docker image push ghcr.io/roflcoopter/${{ parameters.image }}:$(viseronVersion)-${{ architecture }}
+
+              now=$(date -u +"%Y%m%d%H%M%S")
+              docker image tag roflcoopter/${{ architecture }}-${{ parameters.image }}:dev ghcr.io/roflcoopter/${{ architecture }}-${{ parameters.image }}:$(viseronVersion)-$now
+              docker image push ghcr.io/roflcoopter/${{ architecture }}-${{ parameters.image }}:$(viseronVersion)-$now
+
+              docker image tag roflcoopter/${{ architecture }}-${{ parameters.image }}:dev ghcr.io/roflcoopter/${{ parameters.image }}:$(viseronVersion)-$(Build.SourceVersion)-${{ architecture }}
+              docker image push ghcr.io/roflcoopter/${{ parameters.image }}:$(viseronVersion)-$(Build.SourceVersion)-${{ architecture }}
+
+              docker image tag roflcoopter/${{ architecture }}-${{ parameters.image }}:dev ghcr.io/roflcoopter/${{ parameters.image }}:$(viseronVersion)-$now-${{ architecture }}
+              docker image push ghcr.io/roflcoopter/${{ parameters.image }}:$(viseronVersion)-$now-${{ architecture }}
+
+              if [ $(latestRelease) = true ] ; then
+                echo tagging ghcr.io/roflcoopter/${{ architecture }}-${{ parameters.image }}:latest
+                docker image tag roflcoopter/${{ architecture }}-${{ parameters.image }}:dev ghcr.io/roflcoopter/${{ architecture }}-${{ parameters.image }}:latest
+                docker image push ghcr.io/roflcoopter/${{ architecture }}-${{ parameters.image }}:latest
+
+                echo tagging ghcr.io/roflcoopter/${{ parameters.image }}:latest-${{ architecture }}
+                docker image tag roflcoopter/${{ architecture }}-${{ parameters.image }}:dev ghcr.io/roflcoopter/${{ parameters.image }}:latest-${{ architecture }}
+                docker image push ghcr.io/roflcoopter/${{ parameters.image }}:latest-${{ architecture }}
+              fi
+            displayName: Push ${{ architecture }}-${{ parameters.image }} to GHCR (release)
+            condition: and(succeeded(), eq('${{ parameters.release }}', true), eq('${{ parameters.pushToGhcr }}', true))
+
           - task: Docker@2
             displayName: Logoff Docker Hub
             condition: always()
             inputs:
               command: logout
               containerRegistry: "Docker Hub"
+          - task: Docker@2
+            displayName: Logoff GHCR
+            condition: and(always(), eq('${{ parameters.pushToGhcr }}', true))
+            inputs:
+              command: logout
+              containerRegistry: "GHCR"
+
+          - template: cleanup.yaml
+            parameters:
+              mode: post

@@ -1,12 +1,14 @@
 """Test Viseron."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
-from viseron import setup_viseron
+import pytest
+
+from viseron import Viseron, setup_viseron
 from viseron.components.nvr.const import COMPONENT as NVR_COMPONENT
 from viseron.const import LOADED
 
-from tests.common import MockCamera
+from tests.common import MockCamera, MockComponent
 
 
 def test_setup_viseron_nvr_loaded(vis, caplog):
@@ -105,3 +107,32 @@ def test_setup_viseron_cameras_missing_nvr_loaded(vis, caplog):
     mocked_setup_domains.assert_called_once()
     mocked_load_config.assert_called_once()
     caplog.clear()
+
+
+class TestAddEntity:
+    """Tests for Viseron.add_entity."""
+
+    def test_rejects_a_domain_without_an_identifier(self, vis):
+        """A domain without an identifier must not be silently dropped."""
+        MockComponent(vis, "test_comp")
+
+        with pytest.raises(ValueError, match="domain and identifier"):
+            # add_entity is mocked on MockViseron, call the real implementation
+            Viseron.add_entity(
+                vis,
+                "test_comp",
+                MagicMock(),
+                "face_recognition",  # type: ignore[call-overload]
+            )
+
+    def test_rejects_an_identifier_without_a_domain(self, vis):
+        """An identifier without a domain must not be silently dropped."""
+        MockComponent(vis, "test_comp")
+
+        with pytest.raises(ValueError, match="domain and identifier"):
+            Viseron.add_entity(
+                vis,
+                "test_comp",
+                MagicMock(),
+                identifier="cam_a",  # type: ignore[call-overload]
+            )

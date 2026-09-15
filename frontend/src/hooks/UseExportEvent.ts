@@ -17,6 +17,7 @@ export const useExportEvent = () => {
     switch (event.type) {
       case "object":
       case "face_recognition":
+      case "image_classification":
       case "license_plate_recognition":
       case "motion":
         await exportSnapshot(

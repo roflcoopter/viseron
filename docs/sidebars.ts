@@ -21,6 +21,11 @@ const sidebars: SidebarsConfig = {
           label: "Screenshots",
           href: "/docs/documentation#screenshots",
         },
+        {
+          type: "link",
+          label: "Demo",
+          href: "/docs/documentation#demo",
+        },
       ],
     },
     {
@@ -51,6 +56,26 @@ const sidebars: SidebarsConfig = {
           type: "link",
           label: "User and Group Identifiers",
           href: "/docs/documentation/installation#user-and-group-identifiers",
+        },
+        {
+          type: "link",
+          label: "Database",
+          href: "/docs/documentation/installation#database",
+        },
+        {
+          type: "link",
+          label: "Home Assistant App",
+          href: "/docs/documentation/installation#home-assistant-app",
+        },
+        {
+          type: "link",
+          label: "Kubernetes Helm Chart",
+          href: "/docs/documentation/installation#kubernetes-helm-chart",
+        },
+        {
+          type: "link",
+          label: "Unraid",
+          href: "/docs/documentation/installation#unraid",
         },
       ],
     },
@@ -160,7 +185,11 @@ const sidebars: SidebarsConfig = {
         type: "doc",
         id: "developers/frontend",
       },
-      items: ["developers/frontend/proxy"],
+      items: [
+        "developers/frontend/proxy",
+        "developers/frontend/demo",
+        "developers/frontend/screenshots",
+      ],
     },
     "developers/docker",
     "developers/documentation",

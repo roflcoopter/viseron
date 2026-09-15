@@ -34,8 +34,7 @@ type ActivityLinePropsInactive = {
   availableTimespan: boolean;
 };
 export type ActivityLineProps =
-  | ActivityLinePropsActive
-  | ActivityLinePropsInactive;
+  ActivityLinePropsActive | ActivityLinePropsInactive;
 
 export const ActivityLine = memo(
   ({ active, cameraEvent, variant, availableTimespan }: ActivityLineProps) => {

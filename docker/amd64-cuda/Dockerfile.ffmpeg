@@ -43,7 +43,6 @@ RUN buildDeps="autoconf \
   libvpl-dev \
   intel-media-va-driver-non-free \
   libva-dev \
-  libharfbuzz-dev \
   xz-utils" && \
   apt-get -yqq update && \
   apt-get install -yq --no-install-recommends ${buildDeps}
@@ -228,12 +227,44 @@ RUN  \
   DIR=/tmp/freetype && \
   mkdir -p ${DIR} && \
   cd ${DIR} && \
-  curl -sLO http://download.savannah.gnu.org/releases/freetype/freetype-${FREETYPE_VERSION}.tar.gz && \
+  curl -sfLO --retry 3 --retry-delay 2 https://downloads.sourceforge.net/project/freetype/freetype2/${FREETYPE_VERSION}/freetype-${FREETYPE_VERSION}.tar.gz && \
   echo ${FREETYPE_SHA256SUM} | sha256sum --check && \
   tar -zx --strip-components=1 -f freetype-${FREETYPE_VERSION}.tar.gz && \
   ./configure --prefix="${PREFIX}" --enable-static --disable-shared && \
   make && \
   make install && \
+  rm -rf ${DIR}
+### harfbuzz https://harfbuzz.github.io/ - needed for the drawtext filter
+ARG HARFBUZZ_VERSION
+RUN \
+  DIR=/tmp/harfbuzz && \
+  mkdir -p ${DIR} && \
+  cd ${DIR} && \
+  curl -sL https://github.com/harfbuzz/harfbuzz/archive/refs/tags/${HARFBUZZ_VERSION}.tar.gz | \
+  tar -zx --strip-components=1 && \
+  meson setup \
+  --prefix="${PREFIX}" \
+  --libdir="${PREFIX}/lib" \
+  --buildtype=release \
+  --default-library=static \
+  -Dtests=disabled \
+  -Ddocs=disabled \
+  -Dintrospection=disabled \
+  -Dbenchmark=disabled \
+  -Dutilities=disabled \
+  -Dglib=disabled \
+  -Dgobject=disabled \
+  -Dcairo=disabled \
+  -Dchafa=disabled \
+  -Dicu=disabled \
+  -Dgraphite2=disabled \
+  -Dsubset=disabled \
+  -Draster=disabled \
+  -Dvector=disabled \
+  -Dgpu=disabled \
+  build && \
+  ninja -C build && \
+  ninja -C build install && \
   rm -rf ${DIR}
 ### libvstab https://github.com/georgmartius/vid.stab
 ARG LIBVIDSTAB_VERSION
@@ -273,7 +304,7 @@ RUN  \
   cd ${DIR} && \
   curl -sLO https://www.freedesktop.org/software/fontconfig/release/fontconfig-${FONTCONFIG_VERSION}.tar.gz && \
   tar -zx --strip-components=1 -f fontconfig-${FONTCONFIG_VERSION}.tar.gz && \
-  ./configure --prefix="${PREFIX}" --enable-static --disable-shared && \
+  ./configure --prefix="${PREFIX}" --sysconfdir=/etc --localstatedir=/var --enable-static --disable-shared && \
   make && \
   make install && \
   rm -rf ${DIR}
@@ -324,7 +355,7 @@ RUN \
   DIR=/tmp/xorg-macros && \
   mkdir -p ${DIR} && \
   cd ${DIR} && \
-  curl -sLO https://www.x.org/archive//individual/util/util-macros-${XORG_MACROS_VERSION}.tar.gz && \
+  curl -sLO https://www.x.org/archive/individual/util/util-macros-${XORG_MACROS_VERSION}.tar.gz && \
   tar -zx --strip-components=1 -f util-macros-${XORG_MACROS_VERSION}.tar.gz && \
   ./configure --srcdir=${DIR} --prefix="${PREFIX}" && \
   make && \
@@ -537,8 +568,10 @@ RUN  \
   --enable-gpl \
   --enable-libaribb24 \
   --enable-libass \
-  --enable-fontconfig \
+  --enable-libfontconfig \
   --enable-libfreetype \
+  --enable-libfribidi \
+  --enable-libharfbuzz \
   --enable-libvidstab \
   --enable-libmp3lame \
   --enable-libopus \

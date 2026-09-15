@@ -1,4 +1,5 @@
 """Binary sensor that represents object detection."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

@@ -1,4 +1,5 @@
 """Tests for viseron.helpers.template."""
+
 from types import SimpleNamespace
 
 import pytest

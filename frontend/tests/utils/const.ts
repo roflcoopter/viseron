@@ -161,3 +161,27 @@ export const MOCK_SETUP_STATUS_COMPONENTS = [
     domains: [],
   },
 ];
+
+// Entities served by the mocked `get_entities` command.
+export const MOCK_ENTITIES = {
+  "binary_sensor.camera1_object_detected": {
+    entity_id: "binary_sensor.camera1_object_detected",
+    state: "off",
+    attributes: { name: "Camera 1 Object Detected", domain: "binary_sensor" },
+  },
+  "binary_sensor.camera1_motion_detected": {
+    entity_id: "binary_sensor.camera1_motion_detected",
+    state: "on",
+    attributes: { name: "Camera 1 Motion Detected", domain: "binary_sensor" },
+  },
+  "toggle.camera2_connection": {
+    entity_id: "toggle.camera2_connection",
+    state: "on",
+    attributes: { name: "Camera 2 Connection", domain: "toggle" },
+  },
+  "sensor.camera3_status": {
+    entity_id: "sensor.camera3_status",
+    state: "recording",
+    attributes: { name: "Camera 3 Status", domain: "sensor" },
+  },
+};

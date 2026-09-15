@@ -1,4 +1,5 @@
 """Base MQTT Home Assistant entity."""
+
 from __future__ import annotations
 
 import json
@@ -129,9 +130,9 @@ class HassMQTTEntity(ABC, Generic[T]):
         payload["availability"] = self.availability
         payload["enabled_by_default"] = self.enabled_by_default
         payload["name"] = self.name
-        payload[
-            "default_entity_id"
-        ] = self.default_entity_id  # Full Home Assistant entity_id
+        payload["default_entity_id"] = (
+            self.default_entity_id
+        )  # Full Home Assistant entity_id
         payload["unique_id"] = self.unique_id
         payload["state_topic"] = self.state_topic
         payload["value_template"] = "{{ value_json.state }}"

@@ -1,4 +1,5 @@
 """Test storage component."""
+
 # pylint: disable=protected-access
 from __future__ import annotations
 
@@ -23,6 +24,7 @@ from viseron.components.storage.const import (
     CONFIG_FACE_RECOGNITION,
     CONFIG_GB,
     CONFIG_HOURS,
+    CONFIG_IMAGE_CLASSIFICATION,
     CONFIG_MAX_AGE,
     CONFIG_MAX_SIZE,
     CONFIG_MB,
@@ -43,6 +45,7 @@ from viseron.components.storage.const import (
     TIER_CATEGORY_SNAPSHOTS,
     TIER_SUBCATEGORY_EVENT_CLIPS,
     TIER_SUBCATEGORY_FACE_RECOGNITION,
+    TIER_SUBCATEGORY_IMAGE_CLASSIFICATION,
     TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION,
     TIER_SUBCATEGORY_MOTION_DETECTOR,
     TIER_SUBCATEGORY_OBJECT_DETECTOR,
@@ -370,6 +373,7 @@ def fixture_storage(vis: MockViseron) -> vol.Generator[Storage, Any, None]:
 
     # Create mock classes for tier handlers
     mock_face_recognition_handler = Mock(name="SnapshotTierHandler")
+    mock_image_classification_handler = Mock(name="SnapshotTierHandler")
     mock_object_detector_handler = Mock(name="SnapshotTierHandler")
     mock_license_plate_recognition_handler = Mock(name="SnapshotTierHandler")
     mock_motion_detector_handler = Mock(name="SnapshotTierHandler")
@@ -399,6 +403,10 @@ def fixture_storage(vis: MockViseron) -> vol.Generator[Storage, Any, None]:
                 "tier_handler": mock_face_recognition_handler,
             },
             {
+                "subcategory": TIER_SUBCATEGORY_IMAGE_CLASSIFICATION,
+                "tier_handler": mock_image_classification_handler,
+            },
+            {
                 "subcategory": TIER_SUBCATEGORY_OBJECT_DETECTOR,
                 "tier_handler": mock_object_detector_handler,
             },
@@ -421,6 +429,7 @@ def fixture_storage(vis: MockViseron) -> vol.Generator[Storage, Any, None]:
         },
         TIER_CATEGORY_SNAPSHOTS: {
             TIER_SUBCATEGORY_FACE_RECOGNITION: mock_face_recognition_handler,
+            TIER_SUBCATEGORY_IMAGE_CLASSIFICATION: mock_image_classification_handler,
             TIER_SUBCATEGORY_OBJECT_DETECTOR: mock_object_detector_handler,
             TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION: (
                 mock_license_plate_recognition_handler
@@ -429,9 +438,11 @@ def fixture_storage(vis: MockViseron) -> vol.Generator[Storage, Any, None]:
         },
     }
 
-    with patch("viseron.components.storage.CleanupManager"), patch(
-        "viseron.components.storage.config._check_path_exists"
-    ), patch("viseron.components.storage.TIER_CATEGORIES", patched_categories):
+    with (
+        patch("viseron.components.storage.CleanupManager"),
+        patch("viseron.components.storage.config._check_path_exists"),
+        patch("viseron.components.storage.TIER_CATEGORIES", patched_categories),
+    ):
         config = CONFIG_SCHEMA({COMPONENT: _config})[COMPONENT]
         _storage = Storage(vis, config)
         _storage._storage_mocks = storage_mocks  # type: ignore[attr-defined]
@@ -687,6 +698,16 @@ class TestStorage:
                         },
                     ]
                 },
+                CONFIG_IMAGE_CLASSIFICATION: {
+                    CONFIG_TIERS: [
+                        {
+                            CONFIG_PATH: "/classification1/",
+                        },
+                        {
+                            CONFIG_PATH: "/classification2/",
+                        },
+                    ]
+                },
             },
         }
 
@@ -745,6 +766,37 @@ class TestStorage:
                         TIER_CATEGORY_SNAPSHOTS,
                         TIER_SUBCATEGORY_FACE_RECOGNITION,
                         custom_config[CONFIG_SNAPSHOTS][CONFIG_FACE_RECOGNITION][
+                            CONFIG_TIERS
+                        ][1],
+                        None,
+                    ),
+                ]
+            )
+
+            storage._storage_mocks[  # type: ignore[attr-defined]
+                TIER_CATEGORY_SNAPSHOTS
+            ][TIER_SUBCATEGORY_IMAGE_CLASSIFICATION].assert_has_calls(
+                [
+                    call(
+                        storage._vis,
+                        camera,
+                        0,
+                        TIER_CATEGORY_SNAPSHOTS,
+                        TIER_SUBCATEGORY_IMAGE_CLASSIFICATION,
+                        custom_config[CONFIG_SNAPSHOTS][CONFIG_IMAGE_CLASSIFICATION][
+                            CONFIG_TIERS
+                        ][0],
+                        custom_config[CONFIG_SNAPSHOTS][CONFIG_IMAGE_CLASSIFICATION][
+                            CONFIG_TIERS
+                        ][1],
+                    ),
+                    call(
+                        storage._vis,
+                        camera,
+                        1,
+                        TIER_CATEGORY_SNAPSHOTS,
+                        TIER_SUBCATEGORY_IMAGE_CLASSIFICATION,
+                        custom_config[CONFIG_SNAPSHOTS][CONFIG_IMAGE_CLASSIFICATION][
                             CONFIG_TIERS
                         ][1],
                         None,

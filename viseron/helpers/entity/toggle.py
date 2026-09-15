@@ -1,4 +1,5 @@
 """Base toggle entity class."""
+
 from __future__ import annotations
 
 from typing import Final
@@ -15,8 +16,15 @@ class ToggleEntity(Entity):
     # The following variables should NOT be overridden
     domain = DOMAIN
 
-    # These are safe to override
-    _is_on: bool | None = None
+    @property
+    def _is_on(self) -> bool | None:
+        """Return the on/off state of the toggle.
+
+        Safe to override, but only as a read-only property. Subclasses that need to
+        store the state should keep it in an attribute of their own and return it
+        from here.
+        """
+        return None
 
     @property
     def is_on(self) -> bool | None:

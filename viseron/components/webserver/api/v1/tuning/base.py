@@ -5,6 +5,14 @@ from typing import Any
 
 from ruamel.yaml.comments import CommentedMap
 
+from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.domains.object_detector.const import (
+    CONFIG_LABEL_LABEL,
+    CONFIG_LABELS,
+    CONFIG_ZONE_NAME,
+)
+from viseron.domains.post_processor.const import CONFIG_CAMERAS
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -86,17 +94,7 @@ class BaseTuningHandler:
     def _get_camera_config(
         self, camera_id: str, component: str, domain: str
     ) -> dict[str, Any] | None:
-        """
-        Get camera configuration for a specific domain.
-
-        Args:
-            camera_id: Camera identifier
-            component: Component name (e.g., 'deepstack', 'edgetpu')
-            domain: Domain name (e.g., 'object_detector', 'face_recognition')
-
-        Returns:
-            Camera config dict if found, None otherwise
-        """
+        """Get camera configuration for a specific domain."""
         # Find component config
         if component not in self.config:
             LOGGER.warning(f"Component '{component}' not found in config")
@@ -110,7 +108,7 @@ class BaseTuningHandler:
         domain_config = component_config[domain]
 
         # Special case for 'camera' domain which doesn't have 'cameras' key
-        if domain == "camera":
+        if domain == CAMERA_DOMAIN:
             if camera_id not in domain_config:
                 LOGGER.warning(
                     f"Camera '{camera_id}' not found in {component}.{domain}"
@@ -119,13 +117,30 @@ class BaseTuningHandler:
             return domain_config[camera_id]
 
         # Other domains have 'cameras' key
-        if "cameras" not in domain_config:
+        if CONFIG_CAMERAS not in domain_config:
             LOGGER.warning(f"cameras not found in {component}.{domain} config")
             return None
 
-        cameras = domain_config["cameras"]
+        cameras = domain_config[CONFIG_CAMERAS]
         if camera_id not in cameras:
             LOGGER.warning(f"Camera '{camera_id}' not found in {component}.{domain}")
+            return None
+
+        return cameras[camera_id]
+
+    def _get_direct_camera_config(
+        self, camera_id: str, component: str
+    ) -> dict[str, Any] | None:
+        """Get camera configuration for components with direct 'cameras' key."""
+        if component not in self.config:
+            LOGGER.warning(f"Component '{component}' not found in config")
+            return None
+
+        component_config = self.config[component]
+        cameras = component_config.get(CONFIG_CAMERAS, {})
+
+        if camera_id not in cameras:
+            LOGGER.warning(f"Camera '{camera_id}' not found in {component}.cameras")
             return None
 
         return cameras[camera_id]
@@ -137,14 +152,14 @@ class BaseTuningHandler:
         # Create a dict mapping label name to its config from existing labels
         existing_label_map = {}
         for label in existing_labels:
-            label_name = label.get("label")
+            label_name = label.get(CONFIG_LABEL_LABEL)
             if label_name:
                 existing_label_map[label_name] = dict(label)
 
         # Build result with only labels from request
         result_labels = []
         for new_label in new_labels:
-            label_name = new_label.get("label")
+            label_name = new_label.get(CONFIG_LABEL_LABEL)
             if not label_name:
                 continue
 
@@ -166,14 +181,14 @@ class BaseTuningHandler:
         # Create a dict mapping zone name to its config from existing zones
         existing_zone_map = {}
         for zone in existing_zones:
-            zone_name = zone.get("name")
+            zone_name = zone.get(CONFIG_ZONE_NAME)
             if zone_name:
                 existing_zone_map[zone_name] = dict(zone)
 
         # Build result with only zones from request
         result_zones = []
         for new_zone in new_zones:
-            zone_name = new_zone.get("name")
+            zone_name = new_zone.get(CONFIG_ZONE_NAME)
             if not zone_name:
                 continue
 
@@ -193,13 +208,13 @@ class BaseTuningHandler:
     ) -> None:
         """Merge new zone data into existing zone."""
         # Special handling for nested labels in zones
-        if "labels" in new_zone and "labels" in existing_zone:
-            existing_zone["labels"] = self._merge_labels(
-                existing_zone["labels"], new_zone["labels"]
+        if CONFIG_LABELS in new_zone and CONFIG_LABELS in existing_zone:
+            existing_zone[CONFIG_LABELS] = self._merge_labels(
+                existing_zone[CONFIG_LABELS], new_zone[CONFIG_LABELS]
             )
             # Update other keys except labels
             for key, value in new_zone.items():
-                if key != "labels":
+                if key != CONFIG_LABELS:
                     existing_zone[key] = value
         else:
             existing_zone.update(new_zone)

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import datetime
 import logging
-import threading
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -21,7 +20,13 @@ from viseron.components.nvr.sensor import OperationStateSensor
 from viseron.components.nvr.toggle import ManualRecordingToggle
 from viseron.components.storage.models import TriggerTypes
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
-from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.domains.camera.const import (
+    CONFIG_RECORDER,
+    CONFIG_SCHEDULE,
+    CONFIG_SCHEDULE_EVENTS,
+    DOMAIN as CAMERA_DOMAIN,
+)
+from viseron.domains.camera.schedule import resolve_timezone, schedule_active
 from viseron.domains.motion_detector import AbstractMotionDetectorScanner
 from viseron.domains.motion_detector.const import (
     EVENT_MOTION_DETECTOR_RESULT,
@@ -34,7 +39,8 @@ from viseron.domains.object_detector.const import (
 )
 from viseron.events import EventData
 from viseron.exceptions import DomainNotRegisteredError
-from viseron.helpers import utcnow
+from viseron.helpers import object_motion_overlap, utcnow
+from viseron.helpers.validators import UNDEFINED
 from viseron.viseron_types import Domain
 from viseron.watchdog.thread_watchdog import RestartableThread
 
@@ -50,8 +56,6 @@ from .const import (
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-    import numpy as np
 
     from viseron import Viseron
     from viseron.domains.camera import AbstractCamera, EventFrameBytesData
@@ -92,7 +96,7 @@ def setup(vis: Viseron, config: dict[str, Any], identifier: str) -> bool:
 class EventProcessedFrame(EventData):
     """Processed frame that is sent on EVENT_PROCESSED_FRAME_TOPIC."""
 
-    frame: np.ndarray
+    shared_frame: SharedFrame
     objects_in_fov: list[DetectedObject] | None
     motion_contours: Contours | None
 
@@ -275,7 +279,6 @@ class NVR(AbstractNVR):
         self._manual_recording: ManualRecording | None = None
         self._start_manual_recording = False
         self._kill_received = False
-        self._removal_timers: list[threading.Timer] = []
         self._operation_state: OperationState | None = None
 
         self._frame_scanners: dict[str, FrameIntervalCalculator] = {}
@@ -344,9 +347,14 @@ class NVR(AbstractNVR):
             case _ if self._object_detector and self._motion_detector:
                 self._frame_scanners[OBJECT_DETECTOR].scan = True
                 if self._motion_is_scanner:
-                    self._frame_scanners[
-                        MOTION_DETECTOR
-                    ].scan = self._motion_detector.trigger_event_recording
+                    # Motion has to be scanned when it triggers recordings, or
+                    # when a label needs motion to overlap the object, otherwise
+                    # no motion contours would ever be produced for the overlap
+                    # check.
+                    self._frame_scanners[MOTION_DETECTOR].scan = (
+                        self._motion_detector.trigger_event_recording
+                        or self._any_filter_requires_motion_overlap()
+                    )
 
             case _ if self._object_detector:
                 self._frame_scanners[OBJECT_DETECTOR].scan = True
@@ -365,6 +373,7 @@ class NVR(AbstractNVR):
                         "'require_motion' or configure a motion detector."
                     )
                     filter_obj.require_motion = False
+                filter_obj.require_motion_overlap = False
 
         self._post_processors: dict[Domain, AbstractPostProcessor] = {}
         self.set_post_processors()
@@ -490,6 +499,15 @@ class NVR(AbstractNVR):
                         ):
                             frame_scanner.domain_instance.result_failed_callback()
 
+    def _event_recording_scheduled(self) -> bool:
+        """Return if event recording is currently allowed by the schedule."""
+        schedule = self._camera.config[CONFIG_RECORDER][CONFIG_SCHEDULE]
+        if not schedule or schedule == UNDEFINED:
+            return True
+        return schedule_active(
+            schedule[CONFIG_SCHEDULE_EVENTS], resolve_timezone(schedule)
+        )
+
     def start_manual_recording(self, manual_recording: ManualRecording) -> None:
         """Start a manual recording with a set duration."""
         self._logger.debug(
@@ -542,12 +560,46 @@ class NVR(AbstractNVR):
             utcnow() - self.camera.recorder.active_recording.start_time
         ).total_seconds() > self._manual_recording.duration
 
+    def _any_filter_requires_motion_overlap(self) -> bool:
+        """Return True if any configured label requires motion to overlap objects."""
+        if not self._object_detector:
+            return False
+        return any(
+            filter_obj.require_motion_overlap
+            for filter_obj in self._object_detector.concat_labels()
+        )
+
+    def _object_has_motion_overlap(
+        self, obj: DetectedObject, filter_obj: Filter
+    ) -> bool:
+        """Return True if obj's bbox overlaps motion contours above threshold."""
+        if not filter_obj.require_motion_overlap:
+            return bool(self._motion_detector and self._motion_detector.motion_detected)
+
+        if not self._motion_detector or not self._motion_detector.motion_detected:
+            return False
+
+        motion_contours = self._motion_detector.motion_contours
+        if not motion_contours or not motion_contours.rel_contours:
+            return True
+
+        overlap = object_motion_overlap(
+            (obj.rel_x1, obj.rel_y1, obj.rel_x2, obj.rel_y2),
+            motion_contours.rel_contours,
+        )
+        return overlap >= filter_obj.motion_overlap_threshold
+
     def event_over_check_motion(
         self, obj: DetectedObject, object_filters: dict[str, Filter]
     ) -> bool:
         """Check if motion should stop the recorder."""
-        if object_filters.get(obj.label) and object_filters[obj.label].require_motion:
-            if self._motion_detector and self._motion_detector.motion_detected:
+        filter_obj = object_filters.get(obj.label)
+        if filter_obj and (
+            filter_obj.require_motion or filter_obj.require_motion_overlap
+        ):
+            if self._motion_detector and self._object_has_motion_overlap(
+                obj, filter_obj
+            ):
                 self._motion_recorder_keepalive_reached = False
                 self._motion_only_frames = 0
                 return False
@@ -626,12 +678,13 @@ class NVR(AbstractNVR):
     ) -> bool:
         """Check if object should start the recorder."""
         # Discard object if it requires motion but motion is not detected
+        filter_obj = object_filters.get(obj.label)
         if (
             obj.trigger_event_recording
-            and object_filters.get(obj.label)
-            and object_filters.get(obj.label).require_motion  # type: ignore[union-attr]
+            and filter_obj
+            and (filter_obj.require_motion or filter_obj.require_motion_overlap)
             and self._motion_detector
-            and not self._motion_detector.motion_detected
+            and not self._object_has_motion_overlap(obj, filter_obj)
         ):
             return False
 
@@ -645,6 +698,10 @@ class NVR(AbstractNVR):
 
         # Only process objects if we are not already recording
         if self._camera.is_recording:
+            return
+
+        # Only process objects if event recording is currently allowed
+        if not self._event_recording_scheduled():
             return
 
         # Only process objects if we are actively scanning for objects and the last
@@ -704,6 +761,7 @@ class NVR(AbstractNVR):
             if (
                 self._motion_detector.trigger_event_recording
                 and not self._camera.is_recording
+                and self._event_recording_scheduled()
             ):
                 self._trigger_type = TriggerTypes.MOTION
                 self._start_recorder = True
@@ -774,6 +832,7 @@ class NVR(AbstractNVR):
                 and self._object_detector
                 and not self._object_detector.scan_on_motion_only
                 and not self._motion_detector.trigger_event_recording
+                and not self._any_filter_requires_motion_overlap()
             ):
                 self._frame_scanners[MOTION_DETECTOR].scan = False
                 self._logger.info("Pausing motion detector")
@@ -817,26 +876,6 @@ class NVR(AbstractNVR):
             self._stop_recorder_at = None
             self._seconds_left = 0
 
-    def remove_frame(self, shared_frame: SharedFrame) -> None:
-        """Remove frame after a delay.
-
-        This makes sure all frames are cleaned up eventually.
-        """
-
-        def _remove() -> None:
-            self._camera.shared_frames.remove(shared_frame, self._camera)
-            self._removal_timers.remove(timer)
-
-        timer = threading.Timer(
-            2,
-            _remove,
-            args=(),
-        )
-        timer.name = f"{self!s}.remove_frame.{shared_frame.name}"
-        timer.daemon = True
-        self._removal_timers.append(timer)
-        timer.start()
-
     def run(self) -> None:
         """Frame processing loop."""
         self._logger.debug("Waiting for first frame")
@@ -862,7 +901,6 @@ class NVR(AbstractNVR):
         shared_frame = frame.data.shared_frame
         if (frame_age := time.time() - shared_frame.capture_time) > 1:
             self._logger.debug(f"Frame is {frame_age} seconds old. Discarding")
-            self.remove_frame(shared_frame)
             return
 
         self.process_frame(shared_frame)
@@ -872,9 +910,7 @@ class NVR(AbstractNVR):
                 camera_identifier=self._camera.identifier
             ),
             EventProcessedFrame(
-                frame=self._camera.shared_frames.get_decoded_frame_rgb(
-                    shared_frame
-                ).copy(),
+                shared_frame=shared_frame,
                 objects_in_fov=self._object_detector.objects_in_fov
                 if self._object_detector
                 else None,
@@ -884,7 +920,6 @@ class NVR(AbstractNVR):
             ),
             store=False,
         )
-        self.remove_frame(shared_frame)
 
     def unload(self) -> None:
         """Unload nvr."""
@@ -907,9 +942,6 @@ class NVR(AbstractNVR):
         # Stop potential recording
         if self._camera.is_recording:
             self._camera.stop_recorder()
-
-        for timer in self._removal_timers:
-            timer.cancel()
 
     @property
     def camera(self) -> AbstractCamera:

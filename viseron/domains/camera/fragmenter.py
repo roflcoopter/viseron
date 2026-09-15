@@ -11,12 +11,14 @@ import queue
 import re
 import shutil
 import subprocess as sp
+import threading
 import uuid
 from dataclasses import dataclass
 from math import ceil
 from typing import TYPE_CHECKING, Literal, TypedDict
 
 import psutil
+from apscheduler.jobstores.base import JobLookupError
 from path import Path
 
 from viseron.components.storage.const import (
@@ -42,6 +44,7 @@ from viseron.helpers.logs import LogPipe
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from apscheduler.schedulers.base import Job
     from sqlalchemy.orm import Session
 
     from viseron import Viseron
@@ -50,6 +53,7 @@ if TYPE_CHECKING:
 
 # Constants
 TIMELAPSE_FFMPEG_TIMEOUT = 10
+FRAGMENTER_DRAIN_TIMEOUT = CAMERA_SEGMENT_DURATION * 2
 
 
 def _get_open_files(path: str, process: psutil.Process) -> list[str]:
@@ -148,29 +152,54 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
         )
 
         self._worker_event = mp.Event()
+        self._drained = threading.Event()
         self.on_metadata = metadata_callback
+        # Fragmenter owns the stop so it can drain pending segments first
         super().__init__(
             vis,
             f"fragmenter.{camera.identifier}",
+            stop_on_shutdown=False,
         )
 
-    def work_input(self, item) -> None:
+    def work_input(self, item) -> dict | None:
         """Handle input commands in the child process."""
-        if item.get("cmd") == "fragment":
-            self._logger.debug(
-                f"Checking for new segments to fragment in {self.temp_segments_folder}"
-            )
-            mp4s = _get_mp4_files_to_fragment(self.temp_segments_folder)
-            for mp4 in sorted(mp4s)[:5]:
-                self._logger.debug(f"Processing {mp4}")
-                if mp4.split(".")[1] == "m4s":
-                    self._handle_m4s(mp4)
-                else:
-                    self._handle_mp4(mp4)
+        cmd = item.get("cmd")
+        if cmd not in ("fragment", "drain"):
+            return None
+
+        self._logger.debug(
+            f"Checking for new segments to fragment in {self.temp_segments_folder}"
+        )
+        mp4s = sorted(_get_mp4_files_to_fragment(self.temp_segments_folder))
+        if cmd == "fragment":
+            mp4s = mp4s[:5]
+        for mp4 in mp4s:
+            self._logger.debug(f"Processing {mp4}")
+            if mp4.split(".")[1] == "m4s":
+                self._handle_m4s(mp4)
+            else:
+                self._handle_mp4(mp4)
+
+        if cmd == "drain":
+            return {"drained": True}
+        return None
+
+    def drain(self, timeout: float) -> bool:
+        """Fragment all pending segments, blocking until done or timeout."""
+        self._drained.clear()
+        try:
+            self.input_queue.put({"cmd": "drain"}, timeout=timeout)
+        except queue.Full:
+            return False
+        return self._drained.wait(timeout)
 
     def work_output(self, item: dict | None) -> None:
         """Relay metadata from child process to main process via callback."""
         if item is None:
+            return
+
+        if item.get("drained"):
+            self._drained.set()
             return
 
         if item.get("error") == "no_space_left":
@@ -280,9 +309,11 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
             cmd = [
                 "bash",
                 "-c",
-                f"cat '{init_path}' '{segment_path}' | "
-                f"ffmpeg -skip_frame nokey -i pipe:0 -frames:v 1 "
-                f"-update true -f mjpeg '{tmp_frame_path}' -y",
+                (
+                    f"cat '{init_path}' '{segment_path}' | "
+                    f"ffmpeg -skip_frame nokey -i pipe:0 -frames:v 1 "
+                    f"-update true -f mjpeg '{tmp_frame_path}' -y"
+                ),
             ]
 
             result = sp.run(
@@ -492,29 +523,62 @@ class Fragmenter:
             logging.ERROR,
         )
 
-        # Subprocess worker for fragmentation
-        self._fragment_worker = FragmenterSubProcessWorker(
-            vis,
-            self._storage,
-            camera,
-            camera.temp_segments_folder,
-            camera.segments_folder,
-            self._on_metadata_from_worker,
-        )
-
+        self._lock = threading.Lock()
+        self._fragment_worker: FragmenterSubProcessWorker | None = None
+        self._fragment_job: Job | None = None
         self._fragment_job_id = f"fragment_{self._camera.identifier}"
-        self._fragment_job = self._vis.background_scheduler.add_job(
-            self._fragment_command,
-            "interval",
-            seconds=1,
-            id=self._fragment_job_id,
-            max_instances=1,
-            coalesce=True,
-        )
         self._event_listeners = []
         self._event_listeners.append(
             vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self._shutdown)
         )
+
+    def start(self) -> None:
+        """Start the fragmentation child process and the job that feeds it."""
+        with self._lock:
+            if self._fragment_worker is not None:
+                return
+
+            self._logger.debug("Starting fragmenter")
+            # A ChildProcessWorker cannot be restarted once stopped
+            self._fragment_worker = FragmenterSubProcessWorker(
+                self._vis,
+                self._storage,
+                self._camera,
+                self._camera.temp_segments_folder,
+                self._camera.segments_folder,
+                self._on_metadata_from_worker,
+            )
+            self._fragment_job = self._vis.background_scheduler.add_job(
+                self._fragment_command,
+                "interval",
+                seconds=1,
+                id=self._fragment_job_id,
+                max_instances=1,
+                coalesce=True,
+                replace_existing=True,
+            )
+
+    def stop(self) -> None:
+        """Stop the fragmentation child process and the job that feeds it."""
+        with self._lock:
+            if self._fragment_worker is None:
+                return
+
+            self._logger.debug("Stopping fragmenter")
+            if self._fragment_job is not None:
+                try:
+                    self._fragment_job.remove()
+                except JobLookupError:
+                    pass
+                except Exception:  # pylint: disable=broad-except
+                    self._logger.exception("Failed to remove fragment job.")
+                self._fragment_job = None
+
+            # Recordings stopped along with the camera need their last segments
+            if not self._fragment_worker.drain(timeout=FRAGMENTER_DRAIN_TIMEOUT):
+                self._logger.warning("Timed out fragmenting remaining segments")
+            self._fragment_worker.stop()
+            self._fragment_worker = None
 
     def _on_metadata_from_worker(self, item) -> None:
         """Update temporary_files_meta with metadata from subprocess."""
@@ -524,11 +588,13 @@ class Fragmenter:
 
     def _fragment_command(self) -> None:
         """Periodically send work to the subprocess."""
-        if self._camera.stopped.is_set():
+        # Local reference since stop() may clear the worker from another thread
+        worker = self._fragment_worker
+        if worker is None or self._camera.stopped.is_set():
             return
 
         try:
-            self._fragment_worker.input_queue.put({"cmd": "fragment"}, timeout=1)
+            worker.input_queue.put({"cmd": "fragment"}, timeout=1)
         except queue.Full:
             pass
 
@@ -537,16 +603,12 @@ class Fragmenter:
         self._logger.debug("Shutting down fragment thread")
         if not self._camera.stopped.is_set():
             self._camera.stopped.wait(timeout=5)
+        self.stop()
         self._log_pipe_ffmpeg.close()
 
     def unload(self) -> None:
         """Unload fragmenter."""
         self._logger.debug("Unloading fragmenter")
-        try:
-            self._fragment_job.remove()
-        except Exception:  # pylint: disable=broad-except
-            self._logger.exception("Failed to remove fragment job.")
-        self._fragment_worker.stop()
         self._shutdown()
         for unsubscribe in self._event_listeners:
             unsubscribe()

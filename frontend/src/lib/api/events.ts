@@ -100,8 +100,7 @@ type EventsMultipleVariablesWithDate = {
   >;
 };
 type EventsMultipleVariables =
-  | EventsMultipleVariablesWithTime
-  | EventsMultipleVariablesWithDate;
+  EventsMultipleVariablesWithTime | EventsMultipleVariablesWithDate;
 
 const combineEvents = (
   results: UseQueryResult<types.CameraEvents, types.APIErrorResponse>[],

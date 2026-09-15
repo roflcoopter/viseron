@@ -1,0 +1,256 @@
+[
+  {
+    "type": "map",
+    "value": [
+      {
+        "type": "map",
+        "value": [
+          {
+            "type": "map",
+            "value": [
+              {
+                "type": "map",
+                "value": [
+                  {
+                    "type": "list",
+                    "values": [
+                      {
+                        "type": "string"
+                      }
+                    ],
+                    "name": "labels",
+                    "description": "A list of labels that when detected will be sent to the post processor. Applies <b>only</b> to this specific camera.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "list",
+                    "values": [
+                      [
+                        {
+                          "type": "list",
+                          "values": [
+                            [
+                              {
+                                "type": "integer",
+                                "name": "x",
+                                "description": "X-coordinate (horizontal axis).",
+                                "required": true,
+                                "default": null
+                              },
+                              {
+                                "type": "integer",
+                                "name": "y",
+                                "description": "Y-coordinate (vertical axis).",
+                                "required": true,
+                                "default": null
+                              }
+                            ]
+                          ],
+                          "lengthMin": 3,
+                          "name": "coordinates",
+                          "description": "List of X and Y coordinates to form a polygon",
+                          "required": true,
+                          "default": null
+                        }
+                      ]
+                    ],
+                    "name": "mask",
+                    "description": "A mask is used to exclude certain areas in the image from post processing.",
+                    "optional": true,
+                    "default": []
+                  }
+                ],
+                "name": {
+                  "type": "CAMERA_IDENTIFIER"
+                },
+                "description": "Camera identifier. Valid characters are lowercase a-z, numbers and underscores.",
+                "cameraidentifier": true,
+                "default": null
+              }
+            ],
+            "name": "cameras",
+            "description": "Camera-specific configuration. All subordinate keys corresponds to the <code>camera_identifier</code> of a configured camera.",
+            "required": true,
+            "default": null
+          },
+          {
+            "type": "list",
+            "values": [
+              {
+                "type": "string"
+              }
+            ],
+            "name": "labels",
+            "description": "A list of labels that when detected will be sent to the post processor. Applies to <b>all</b> cameras defined under <code>cameras</code>.",
+            "optional": true,
+            "default": null
+          },
+          {
+            "type": "list",
+            "values": [
+              {
+                "type": "string"
+              }
+            ],
+            "name": "known_plates",
+            "description": "List of known license plates. Each plate will have its own sensor.",
+            "optional": true,
+            "default": []
+          },
+          {
+            "type": "boolean",
+            "name": "save_plates",
+            "description": "If set to <code>true</code>, detected license plates will be stored in the database, as well as having a snapshot saved.",
+            "optional": true,
+            "default": true
+          },
+          {
+            "type": "float",
+            "valueMin": 0.0,
+            "valueMax": 1.0,
+            "name": "min_confidence",
+            "description": "Minimum confidence for a license plate detection.",
+            "optional": true,
+            "default": 0.6
+          },
+          {
+            "type": "float",
+            "valueMin": 0.0,
+            "name": "expire_after",
+            "description": "Time in seconds before a plate recognition expires.",
+            "optional": true,
+            "default": 5
+          },
+          {
+            "type": "select",
+            "options": [
+              {
+                "type": "constant",
+                "value": "yolo-v9-s-608-license-plate-end2end"
+              },
+              {
+                "type": "constant",
+                "value": "yolo-v9-t-640-license-plate-end2end"
+              },
+              {
+                "type": "constant",
+                "value": "yolo-v9-t-512-license-plate-end2end"
+              },
+              {
+                "type": "constant",
+                "value": "yolo-v9-t-416-license-plate-end2end"
+              },
+              {
+                "type": "constant",
+                "value": "yolo-v9-t-384-license-plate-end2end"
+              },
+              {
+                "type": "constant",
+                "value": "yolo-v9-t-256-license-plate-end2end"
+              }
+            ],
+            "name": "detector_model",
+            "description": "Which license plate detector model to use. See <a href=#models>models</a> for more information on this.",
+            "optional": true,
+            "default": "yolo-v9-t-384-license-plate-end2end"
+          },
+          {
+            "type": "float",
+            "valueMin": 0.0,
+            "valueMax": 1.0,
+            "name": "detector_confidence",
+            "description": "Minimum confidence for the detector to consider something a license plate. This is separate from <code>min_confidence</code>, which instead filters the result of the OCR reading.",
+            "optional": true,
+            "default": 0.4
+          },
+          {
+            "type": "select",
+            "options": [
+              {
+                "type": "constant",
+                "value": "cct-s-v2-global-model"
+              },
+              {
+                "type": "constant",
+                "value": "cct-xs-v2-global-model"
+              },
+              {
+                "type": "constant",
+                "value": "cct-s-v1-global-model"
+              },
+              {
+                "type": "constant",
+                "value": "cct-xs-v1-global-model"
+              },
+              {
+                "type": "constant",
+                "value": "cct-s-relu-v1-global-model"
+              },
+              {
+                "type": "constant",
+                "value": "cct-xs-relu-v1-global-model"
+              },
+              {
+                "type": "constant",
+                "value": "argentinian-plates-cnn-model"
+              },
+              {
+                "type": "constant",
+                "value": "argentinian-plates-cnn-synth-model"
+              },
+              {
+                "type": "constant",
+                "value": "european-plates-mobile-vit-v2-model"
+              },
+              {
+                "type": "constant",
+                "value": "global-plates-mobile-vit-v2-model"
+              }
+            ],
+            "name": "ocr_model",
+            "description": "Which OCR model to use to read the characters of a detected license plate. See <a href=#models>models</a> for more information on this.",
+            "optional": true,
+            "default": "cct-xs-v2-global-model"
+          },
+          {
+            "type": "select",
+            "options": [
+              {
+                "type": "constant",
+                "value": "auto"
+              },
+              {
+                "type": "constant",
+                "value": "cpu"
+              },
+              {
+                "type": "constant",
+                "value": "cuda"
+              }
+            ],
+            "name": "device",
+            "description": "Device used to run inference on.<br><code>auto</code> lets ONNX Runtime pick the best available provider. <code>cuda</code> requires an NVIDIA GPU with CUDA/cuDNN available, and is only bundled in the <code>amd64-cuda</code> image. On all other images the CUDA provider is unavailable and inference falls back to the CPU.",
+            "optional": true,
+            "default": "auto"
+          },
+          {
+            "type": "boolean",
+            "name": "discard_unrecognized_plates",
+            "description": "The OCR model can detect a license plate-shaped region but fail to read any characters from it, returning an empty plate text. This can happen even when <code>min_confidence</code> is set high, since the model's confidence in this case does not reflect whether any characters were actually read. If <code>true</code>, these empty results are discarded instead of being reported as a detection.",
+            "optional": true,
+            "default": true
+          }
+        ],
+        "name": "license_plate_recognition",
+        "description": "License plate recognition domain config.",
+        "optional": true,
+        "default": null
+      }
+    ],
+    "name": "fastalpr",
+    "description": "fast-alpr configuration.",
+    "required": true,
+    "default": null
+  }
+]

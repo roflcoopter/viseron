@@ -8,6 +8,8 @@ const ComponentMetadata: Component = {
   image: "/img/logos/ultralytics_yolo.svg",
   tags: ["object_detector"],
   category: null,
+  path: "viseron/components/yolo",
+  issue: "ultralytics%20OR%20yolo",
 };
 
 export default ComponentMetadata;

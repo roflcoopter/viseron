@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import datetime
+import shutil
+import tempfile
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from sqlalchemy import insert
@@ -14,7 +17,12 @@ from viseron.components import Component
 from viseron.components.storage.models import Files, Recordings
 from viseron.const import LOADED
 from viseron.domain_registry import DomainState
-from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.domains.camera.const import (
+    CONFIG_CONTINUOUS_RECORDING,
+    CONFIG_RECORDER,
+    CONFIG_SCHEDULE,
+    DOMAIN as CAMERA_DOMAIN,
+)
 from viseron.domains.motion_detector import (
     AbstractMotionDetectorExternal,
     AbstractMotionDetectorScanner,
@@ -28,6 +36,27 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
     from viseron import Viseron
+
+STORAGE_PATH_TARGETS = (
+    "viseron.helpers.storage.STORAGE_PATH",
+    "viseron.components.webserver.auth.STORAGE_PATH",
+)
+
+
+@contextmanager
+def patch_storage_path() -> Generator[str]:
+    """Point storage at a temporary directory, unique per test.
+
+    STORAGE_PATH is bound at import time, so it has to be patched where it is used.
+    """
+    storage_dir = tempfile.mkdtemp()
+    try:
+        with ExitStack() as stack:
+            for target in STORAGE_PATH_TARGETS:
+                stack.enter_context(patch(target, storage_dir))
+            yield storage_dir
+    finally:
+        shutil.rmtree(storage_dir, ignore_errors=True)
 
 
 class MockComponent(Component):
@@ -171,6 +200,15 @@ class MockCamera(MagicMock):
         **kwargs,
     ):
         """Initialize the mock camera."""
+        kwargs.setdefault(
+            "config",
+            {
+                CONFIG_RECORDER: {
+                    CONFIG_CONTINUOUS_RECORDING: True,
+                    CONFIG_SCHEDULE: None,
+                }
+            },
+        )
         super().__init__(
             recorder=MagicMock(lookback=lookback),
             identifier=identifier,
@@ -272,6 +310,17 @@ class MockObjectDetector(MagicMock):
             object_filters={} if object_filters is None else object_filters,
             **kwargs,
         )
+
+        def _concat_labels():
+            """Return global filters plus all filters configured in each zone."""
+            zone_filters: list = []
+            for zone in self.zones:
+                zone_filters += list(zone.object_filters.values())
+            return list(self.object_filters.values()) + zone_filters
+
+        # Use a plain Mock (not the spec-derived child) so the dynamic
+        # side_effect does not trigger MagicMock signature introspection.
+        self.concat_labels = Mock(side_effect=_concat_labels)
 
 
 class BaseTestWithRecordings:

@@ -6,6 +6,12 @@ Viseron is a self-hosted, local only NVR and AI Computer Vision software impleme
 
 The goal of Viseron is to be easy to setup and use, while still being powerful and flexible. It is designed to be run on a local network, with no external dependencies, and no cloud services required.
 
+:::tip Need help or want to chat?
+
+Join the [Viseron Discord server](https://discord.gg/MxP5xpyvk7) to get help with your setup, share tips and follow along with development.
+
+:::
+
 ## Notable features
 
 Viserons features include, but not limited to the following:
@@ -14,6 +20,7 @@ Viserons features include, but not limited to the following:
 - Tiered storage, allowing multiple storage media with different retention policies
 - A timeline view of events
 - Built in authentication system
+- [ONVIF](https://www.onvif.org/) compatible with Profile S
 - Object detection via:
   - YOLOv3, YOLOv4 and YOLOv7 Darknet using OpenCV
   - Tensorflow via [Google Coral EdgeTPU](https://coral.ai/)
@@ -98,6 +105,10 @@ Several screenshots are taken programmatically during end-to-end tests, thus cam
 
 <img src="/img/ui/config/main.png" alt="Configuration Editor"/>
 
+### Log viewer
+
+<img src="/img/ui/logs/main.png" alt="Log viewer"/>
+
 ## How does Viseron compare to other NVR software?
 
 First of all, Viserons functionality is completely free and will always be free. There are no hidden costs or limitations.
@@ -108,3 +119,18 @@ I have never used Frigate, so I cannot give a fair comparison, but my general ad
 
 Viseron has some built-in features that Frigate does not have, such as face recognition and license plate recognition.
 Frigate on the other hand has some features that Viseron does not have, such as audio detection and object tracking.
+
+## Demo
+
+You can find a demo of the frontend interface at [this link](https://viseron-demo.pages.dev), hosted on Cloudflare Pages.
+
+:::info
+
+All data is mocked and there is no backend connected.
+
+For this reason any mutations (change config, create users etc) has no effect.
+There may also be other things that are non-functional, like live streaming.
+
+The demo is simply there for you to be able to at least see what Viseron looks like before installing.
+
+:::

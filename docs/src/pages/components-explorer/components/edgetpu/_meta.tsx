@@ -8,6 +8,8 @@ const ComponentMetadata: Component = {
   image: "/img/logos/coraltpu.png",
   tags: ["image_classification", "object_detector"],
   category: null,
+  path: "viseron/components/edgetpu",
+  issue: "edgetpu",
 };
 
 export default ComponentMetadata;

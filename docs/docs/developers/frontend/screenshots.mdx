@@ -1,0 +1,39 @@
+---
+title: Documentation screenshots
+---
+
+The UI screenshots in the documentation are generated, not captured by hand.
+`frontend/e2e/tests/docs.spec.ts` drives the app against the same
+[Mock Service Worker](/docs/developers/frontend/demo) handlers as the demo build
+and writes the PNGs into `docs/static/img/ui/`.
+
+## Regenerating them
+
+From the `frontend` directory:
+
+```shell
+npm run e2e:update-screenshots
+```
+
+Only screenshots whose content changed are rewritten. Pass a test name filter to
+regenerate a single one:
+
+```shell
+npm run e2e:update-screenshots -- -g "main view screenshot"
+```
+
+Both are also available as the **Docs: Generate Screenshots** tasks in the VS
+Code command palette.
+
+Docker must be reachable. In the dev container this comes from the
+`docker-outside-of-docker` feature in `.devcontainer/devcontainer.json`.
+
+## Why it runs in a container
+
+The script runs Playwright inside `mcr.microsoft.com/playwright`, and the
+`Check docs screenshots` CI job uses the same image.
+
+The reasoning behind this is that we need a consistent environment when
+generating the screenshots and then later comparing them. When running on a
+host directly, small subtle differences will trip up the comparisons due to
+differences in fonts etc

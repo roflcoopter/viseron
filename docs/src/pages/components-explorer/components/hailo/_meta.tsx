@@ -5,9 +5,11 @@ const ComponentMetadata: Component = {
   name: "hailo",
   description:
     "Enables high-performance object detection on edge devices using Hailo AI processors.",
-  image: "/img/logos/hailo.webp",
+  image: "/img/logos/hailo.svg",
   tags: ["object_detector"],
-  category: "new",
+  category: null,
+  path: "viseron/components/hailo",
+  issue: "hailo",
 };
 
 export default ComponentMetadata;

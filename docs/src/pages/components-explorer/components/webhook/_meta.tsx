@@ -7,7 +7,9 @@ const ComponentMetadata: Component = {
     "Sends webhooks to external services when specific events occur.",
   image: "/img/logos/webhook.svg",
   tags: ["notification"],
-  category: "new",
+  category: null,
+  path: "viseron/components/webhook",
+  issue: "webhook",
 };
 
 export default ComponentMetadata;

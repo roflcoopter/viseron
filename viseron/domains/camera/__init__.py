@@ -46,9 +46,7 @@ from viseron.helpers import (
     utcnow,
     zoom_boundingbox,
 )
-from viseron.helpers.logs import (
-    SensitiveInformationFilterTracker,
-)
+from viseron.helpers.logs import SensitiveInformationFilterTracker
 from viseron.viseron_types import SnapshotDomain
 
 from .const import (
@@ -81,6 +79,8 @@ from .shared_frames import SharedFrames
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    import numpy as np
 
     from viseron import Viseron
     from viseron.components.nvr.nvr import FrameIntervalCalculator
@@ -140,7 +140,7 @@ class AbstractCamera(AbstractDomain):
         self.stopped = Event()
         self.stopped.set()
         self.current_frame: SharedFrame | None = None
-        self.shared_frames = SharedFrames(vis)
+        self.shared_frames = SharedFrames()
         self.frame_bytes_topic = EVENT_FRAME_BYTES_TOPIC.format(
             camera_identifier=self.identifier
         )
@@ -192,6 +192,9 @@ class AbstractCamera(AbstractDomain):
         self.snapshots_face_folder: str = self._storage.get_snapshots_path(
             self, SnapshotDomain.FACE_RECOGNITION
         )
+        self.snapshots_image_classification_folder: str = (
+            self._storage.get_snapshots_path(self, SnapshotDomain.IMAGE_CLASSIFICATION)
+        )
         self.snapshots_license_plate_folder: str = self._storage.get_snapshots_path(
             self, SnapshotDomain.LICENSE_PLATE_RECOGNITION
         )
@@ -215,6 +218,8 @@ class AbstractCamera(AbstractDomain):
         if self.still_image_configured:
             self._logger.debug("Still image is configured, setting availability.")
             self.still_image_available = True
+
+        self._ptz_support: str | None = None
 
     def __post_init__(self, *args: Any, **kwargs: Any) -> None:
         """Post init hook."""
@@ -242,6 +247,7 @@ class AbstractCamera(AbstractDomain):
             "connected": self.connected,
             "live_stream_available": self.live_stream_available,
             "is_recording": self.is_recording,
+            "ptz_support": self.ptz_support,
         }
 
     def generate_token(self) -> str:
@@ -281,6 +287,7 @@ class AbstractCamera(AbstractDomain):
     def start_camera(self) -> None:
         """Start camera streaming."""
         self.stopped.clear()
+        self.fragmenter.start()
         self._start_camera()
         self._vis.dispatch_event(
             EVENT_CAMERA_STARTED.format(camera_identifier=self.identifier),
@@ -296,6 +303,7 @@ class AbstractCamera(AbstractDomain):
         self._stop_camera()
         self.still_image_available = self.still_image_configured
         self.stopped.set()
+        self.fragmenter.stop()
         self._vis.dispatch_event(
             EVENT_CAMERA_STOPPED.format(camera_identifier=self.identifier),
             EventEmptyData(),
@@ -462,6 +470,16 @@ class AbstractCamera(AbstractDomain):
         """Return camera config."""
         return self._config
 
+    @property
+    def ptz_support(self) -> str | None:
+        """Return PTZ support type."""
+        return self._ptz_support
+
+    @ptz_support.setter
+    def ptz_support(self, value: str | None) -> None:
+        """Set PTZ support."""
+        self._ptz_support = value
+
     def tier_base_path(self, tier_id: int, tier_category: str, subcategory: str) -> str:
         """Return storage tier base path."""
         return self._storage.camera_tier_handlers[self.identifier][tier_category][
@@ -518,23 +536,23 @@ class AbstractCamera(AbstractDomain):
             return self.snapshots_object_folder
         if domain is SnapshotDomain.FACE_RECOGNITION:
             return self.snapshots_face_folder
+        if domain is SnapshotDomain.IMAGE_CLASSIFICATION:
+            return self.snapshots_image_classification_folder
         if domain is SnapshotDomain.LICENSE_PLATE_RECOGNITION:
             return self.snapshots_license_plate_folder
         if domain == SnapshotDomain.MOTION_DETECTOR:
             return self.snapshots_motion_folder
         assert_never(domain)
 
-    def save_snapshot(
+    def build_snapshot_frame(
         self,
         shared_frame: SharedFrame,
-        domain: SnapshotDomain,
         zoom_coordinates: tuple[float, float, float, float] | None = None,
         detected_object: DetectedObject | None = None,
         bbox: tuple[float, float, float, float] | None = None,
         text: str | None = None,
-        subfolder: str | None = None,
-    ) -> str:
-        """Save snapshot to disk."""
+    ) -> np.ndarray:
+        """Build an annotated snapshot frame without writing it to disk."""
         decoded_frame = self.shared_frames.get_decoded_frame_rgb(shared_frame)
         snapshot_frame = decoded_frame
 
@@ -554,18 +572,52 @@ class AbstractCamera(AbstractDomain):
                 crop_correction_factor=1.2,
             )
 
+        return snapshot_frame
+
+    def write_snapshot(
+        self,
+        frame: np.ndarray,
+        domain: SnapshotDomain,
+        subfolder: str | None = None,
+        filename: str | None = None,
+    ) -> str:
+        """Write a prepared snapshot frame to disk."""
         folder = self._get_folder(domain)
 
         if subfolder:
             folder = os.path.join(folder, subfolder)
 
-        filename = f"{utcnow().strftime('%Y-%m-%d-%H-%M-%S-')}{uuid4()!s}.jpg"
+        if filename is None:
+            filename = f"{utcnow().strftime('%Y-%m-%d-%H-%M-%S-')}{uuid4()!s}.jpg"
 
         path = os.path.join(folder, filename)
         self._logger.debug(f"Saving snapshot to {path}")
         create_directory(folder)
-        cv2.imwrite(path, snapshot_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
+        cv2.imwrite(path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
         return path
+
+    def save_snapshot(
+        self,
+        shared_frame: SharedFrame,
+        domain: SnapshotDomain,
+        zoom_coordinates: tuple[float, float, float, float] | None = None,
+        detected_object: DetectedObject | None = None,
+        bbox: tuple[float, float, float, float] | None = None,
+        text: str | None = None,
+        subfolder: str | None = None,
+        filename: str | None = None,
+    ) -> str:
+        """Save snapshot to disk."""
+        snapshot_frame = self.build_snapshot_frame(
+            shared_frame,
+            zoom_coordinates=zoom_coordinates,
+            detected_object=detected_object,
+            bbox=bbox,
+            text=text,
+        )
+        return self.write_snapshot(
+            snapshot_frame, domain, subfolder=subfolder, filename=filename
+        )
 
     def unload(self) -> None:
         """Unload camera."""

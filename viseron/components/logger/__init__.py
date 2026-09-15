@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 
+from viseron.helpers.logs import refresh_child_log_levels
 from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict, Maybe
 
 from .const import (
@@ -76,6 +77,7 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
         # During reload, apply only the changes between the old and new config to avoid
         # resetting log levels unnecessarily and causing log spam.
         _apply_config_changes(vis, logger_config)
+        refresh_child_log_levels()
         return True
 
     vis.data[COMPONENT] = {}
@@ -102,6 +104,7 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
             vis, logger_config[CONFIG_LOGS], vis.data[COMPONENT][CONFIG_CAMERAS]
         )
 
+    refresh_child_log_levels()
     return True
 
 

@@ -1,4 +1,5 @@
 """Test the FixedSizeDict class."""
+
 from viseron.helpers.fixed_size_dict import FixedSizeDict
 
 

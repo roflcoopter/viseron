@@ -3,6 +3,11 @@
 import logging
 from typing import Any
 
+from viseron.domains.motion_detector.const import (
+    CONFIG_MASK,
+    DOMAIN as MOTION_DETECTOR_DOMAIN,
+)
+
 from .base import BaseTuningHandler
 
 LOGGER = logging.getLogger(__name__)
@@ -13,21 +18,23 @@ class MotionDetectorTuningHandler(BaseTuningHandler):
 
     def update(self, camera_id: str, component: str, data: dict[str, Any]) -> bool:
         """Update motion detector configuration."""
-        camera_config = self._get_camera_config(camera_id, component, "motion_detector")
+        camera_config = self._get_camera_config(
+            camera_id, component, MOTION_DETECTOR_DOMAIN
+        )
         if camera_config is None:
             return False
 
         # Update mask (always replace)
-        if "mask" in data:
-            if data["mask"]:
-                camera_config["mask"] = data["mask"]
-            elif "mask" in camera_config:
-                del camera_config["mask"]
+        if CONFIG_MASK in data:
+            if data[CONFIG_MASK]:
+                camera_config[CONFIG_MASK] = data[CONFIG_MASK]
+            elif CONFIG_MASK in camera_config:
+                del camera_config[CONFIG_MASK]
 
         # Update all other fields (miscellaneous fields)
         # Frontend should filter out internal fields before sending
         for key, value in data.items():
-            if key != "mask":
+            if key != CONFIG_MASK:
                 if value is not None:
                     # Preserve YAML tags if existing value has one
                     if key in camera_config:

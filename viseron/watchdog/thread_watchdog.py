@@ -1,4 +1,5 @@
 """Watchdog for long-running threads."""
+
 from __future__ import annotations
 
 import logging
@@ -56,8 +57,7 @@ class RestartableThread(threading.Thread):
         base_class=None,
         base_class_args=(),
         stage: str | None = VISERON_SIGNAL_SHUTDOWN,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @overload
     def __init__(
@@ -78,8 +78,7 @@ class RestartableThread(threading.Thread):
         base_class=None,
         base_class_args=(),
         stage: str | None = VISERON_SIGNAL_SHUTDOWN,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     def __init__(
         self,
@@ -234,8 +233,7 @@ class ThreadWatchDog(WatchDog):
                 registered_thread.join(timeout=5)
                 if registered_thread.is_alive():
                     LOGGER.error(
-                        "Failed to stop thread. "
-                        "Make sure poll_target ends the thread"
+                        "Failed to stop thread. Make sure poll_target ends the thread"
                     )
             elif registered_thread.is_alive():
                 continue

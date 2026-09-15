@@ -27,6 +27,39 @@ def test_viseron_process_running(host: testinfra.host.Host) -> None:
     )
 
 
+def test_viseron_wrapper_passes_interpreter_args_through(
+    host: testinfra.host.Host,
+) -> None:
+    """`viseron` must act as a plain interpreter when given arguments.
+
+    The wrapper spoofs argv[0], so Python resolves sys.executable back to it.
+    multiprocessing boots the forkserver and the resource tracker by re-execing
+    sys.executable with "-c <bootstrap>". If the wrapper swallowed those, each
+    re-exec would start a second Viseron.
+    """
+    cmd = host.run("viseron -c 'print(\"interpreter\")'")
+    assert cmd.rc == 0, (
+        f"viseron -c failed: rc={cmd.rc}\nstdout=\n{cmd.stdout}\nstderr=\n{cmd.stderr}"
+    )
+    assert cmd.stdout.strip() == "interpreter", (
+        "viseron did not behave as an interpreter; it likely booted Viseron "
+        f"instead. stdout=\n{cmd.stdout}"
+    )
+
+
+def test_sys_executable_is_usable_for_reexec(host: testinfra.host.Host) -> None:
+    """Re-execing sys.executable with -c must not boot a second Viseron."""
+    cmd = host.run(
+        "viseron -c 'import subprocess,sys;"
+        'print(subprocess.run([sys.executable,"-c","print(42)"],'
+        "capture_output=True,text=True).stdout.strip())'"
+    )
+    assert cmd.rc == 0, f"re-exec check failed: rc={cmd.rc}\nstderr=\n{cmd.stderr}"
+    assert cmd.stdout.strip() == "42", (
+        f"re-exec of sys.executable did not behave as an interpreter: {cmd.stdout}"
+    )
+
+
 def test_webserver_responds(host: testinfra.host.Host, webserver_url: str) -> None:
     """The nginx-fronted webserver should answer HTTP requests."""
     status = helpers.wait_for_http_in_container(host, webserver_url, timeout=30.0)

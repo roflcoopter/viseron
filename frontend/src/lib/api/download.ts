@@ -33,8 +33,9 @@ export const downloadFile = async (
       },
     });
 
+    const contentType = response.headers["content-type"];
     const blob = new Blob([response.data], {
-      type: response.headers["content-type"],
+      type: typeof contentType === "string" ? contentType : undefined,
     });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");

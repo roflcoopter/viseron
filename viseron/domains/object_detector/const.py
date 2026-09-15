@@ -1,4 +1,5 @@
 """Object detector domain constants."""
+
 import os
 from typing import Any, Final
 
@@ -30,6 +31,8 @@ CONFIG_LABEL_TRIGGER_EVENT_RECORDING = "trigger_event_recording"
 CONFIG_LABEL_STORE = "store"
 CONFIG_LABEL_STORE_INTERVAL = "store_interval"
 CONFIG_LABEL_REQUIRE_MOTION = "require_motion"
+CONFIG_LABEL_REQUIRE_MOTION_OVERLAP = "require_motion_overlap"
+CONFIG_LABEL_MOTION_OVERLAP_THRESHOLD = "motion_overlap_threshold"
 
 DEFAULT_LABEL_CONFIDENCE = 0.8
 DEFAULT_LABEL_HEIGHT_MIN = 0
@@ -41,6 +44,8 @@ DEFAULT_LABEL_TRIGGER_EVENT_RECORDING = True
 DEFAULT_LABEL_STORE = True
 DEFAULT_LABEL_STORE_INTERVAL = 60
 DEFAULT_LABEL_REQUIRE_MOTION = False
+DEFAULT_LABEL_REQUIRE_MOTION_OVERLAP = False
+DEFAULT_LABEL_MOTION_OVERLAP_THRESHOLD = 0.1
 
 DESC_LABEL_LABEL = "The label to track."
 DESC_LABEL_CONFIDENCE = (
@@ -76,6 +81,16 @@ DESC_LABEL_REQUIRE_MOTION = (
     "If set to <code>true</code>, the recorder will stop as soon as motion is no "
     "longer detected, even if the object still is. This is useful to avoid never "
     "ending recordings of stationary objects, such as a car on a driveway"
+)
+DESC_LABEL_REQUIRE_MOTION_OVERLAP = (
+    "If set to <code>true</code>, the detected object's bounding box has to overlap "
+    "a motion contour instead of only requiring motion somewhere in the frame. This "
+    "only has an effect when a <code>motion_detector</code> is configured. The "
+    "legacy <code>require_motion</code> setting still controls stopping recordings."
+)
+DESC_LABEL_MOTION_OVERLAP_THRESHOLD = (
+    "Minimum fraction (0-1) of the detected object's bounding box that must be "
+    "covered by motion contours for the object to be considered overlapping motion."
 )
 DESC_LABEL_STORE = (
     "If set to <code>true</code>, objects matching this filter will be stored "

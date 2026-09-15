@@ -104,7 +104,9 @@ class StreamHandler(ViseronRequestHandler):
         nvr: NVR, processed_frame: EventProcessedFrame, mjpeg_stream_config: dict
     ) -> tuple[bool, np.ndarray]:
         """Return JPG with drawn objects, zones etc."""
-        _frame = processed_frame.frame.copy()
+        _frame = nvr.camera.shared_frames.get_decoded_frame_rgb(
+            processed_frame.shared_frame
+        )
 
         if mjpeg_stream_config["width"] and mjpeg_stream_config["height"]:
             resolution = mjpeg_stream_config["width"], mjpeg_stream_config["height"]
@@ -205,7 +207,10 @@ class DynamicStreamHandler(StreamHandler):
             try:
                 processed_frame = await frame_queue.get()
                 ret, jpg = await self.run_in_executor(
-                    self.process_frame, nvr, processed_frame.data, mjpeg_stream_config
+                    self.process_frame,
+                    nvr,
+                    processed_frame.data,
+                    mjpeg_stream_config,
                 )
 
                 if ret:

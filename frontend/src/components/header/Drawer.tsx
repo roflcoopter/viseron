@@ -2,6 +2,7 @@ import {
   Book,
   Demo,
   IntrusionPrevention,
+  LogoDiscord,
   LogoGithub,
   Need,
   Roadmap,
@@ -105,6 +106,13 @@ const getDrawerItems = (
       title: "Documentation",
       icon: Book,
       path: "https://viseron.netlify.app",
+      external: true,
+    },
+    {
+      type: "link",
+      title: "Discord",
+      icon: LogoDiscord,
+      path: "https://discord.gg/MxP5xpyvk7",
       external: true,
     },
     {

@@ -8,6 +8,8 @@ import checker from "vite-plugin-checker";
 import svgr from "vite-plugin-svgr";
 import viteTsconfigPaths from "vite-tsconfig-paths";
 
+import { mockServiceWorkerPlugin } from "./vite-plugins/mockServiceWorker.ts";
+
 const proxyOptions = {
   changeOrigin: true,
   timeout: 5000,
@@ -28,6 +30,11 @@ export default defineConfig(({ mode }) => {
       }),
       viteTsconfigPaths(),
       svgr(),
+      // Only the mocked demo build ships the MSW service worker.
+      mockServiceWorkerPlugin(
+        env.VITE_MOCK_API === "true",
+        import.meta.dirname,
+      ),
       checker({
         typescript: true,
         eslint: {
@@ -36,11 +43,36 @@ export default defineConfig(({ mode }) => {
         },
       }),
     ],
+    resolve: {
+      alias: {
+        // monaco-editor 0.56 remapped its `exports` so the legacy
+        // `monaco-editor/esm/vs/*` paths no longer resolve. monaco-worker-manager
+        // (a transitive dependency of monaco-yaml) is unmaintained and still
+        // imports the old path, so map it to the current one.
+        "monaco-editor/esm/vs/editor/editor.worker.js":
+          "monaco-editor/editor/editor.worker.js",
+      },
+    },
+    optimizeDeps: {
+      // Preload monaco to avoid full page reloads during tests
+      include: [
+        "monaco-yaml/yaml.worker.js",
+        "monaco-editor/editor/editor.worker.js",
+      ],
+    },
+    legacy: {
+      // Vite 8 switched to Node-style CJS interop, so a default import of a
+      // CommonJS package now yields `module.exports` instead of its `default`
+      // property. `@jy95/material-ui-image` and `react-lazyload` are CJS-only
+      // and export via `exports.default`, so they render as objects without
+      // the pre-Vite 8 interop.
+      inconsistentCjsInterop: true,
+    },
     build: {
       rollupOptions: {
         input: {
-          main: resolve(__dirname, "index.html"),
-          404: resolve(__dirname, "404.html"),
+          main: resolve(import.meta.dirname, "index.html"),
+          404: resolve(import.meta.dirname, "404.html"),
         },
       },
     },
@@ -85,6 +117,8 @@ export default defineConfig(({ mode }) => {
       setupFiles: "tests/setupTests.ts",
       include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
       testTimeout: 30000,
+      // Disable Node's own Web Storage so jsdom owns localStorage again
+      execArgv: ["--no-experimental-webstorage"],
     },
   };
 });

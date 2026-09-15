@@ -122,23 +122,25 @@ def _ldd_check(host: Any, path: str) -> None:
     assert not missing, f"Missing libraries for {path}:\n  " + "\n  ".join(missing)
 
 
-def test_binary_libraries_resolve(host: Any, arch: str, binary: str) -> None:
+def test_binary_libraries_resolve(image_host: Any, arch: str, binary: str) -> None:
     """Each critical binary must have all of its dependencies resolvable."""
-    assert host.file(binary).exists, f"{binary} is expected in {arch} image"
-    _ldd_check(host, binary)
+    assert image_host.file(binary).exists, f"{binary} is expected in {arch} image"
+    _ldd_check(image_host, binary)
 
 
 @pytest.mark.parametrize("lib_dir", LIB_DIRS)
-def test_shared_objects_resolve(host: Any, arch: str, lib_dir: str) -> None:
+def test_shared_objects_resolve(image_host: Any, arch: str, lib_dir: str) -> None:
     """All ``*.so*`` files under each library directory must resolve.
 
     Missing libraries that match ``ARCH_OPTIONAL_SO_PATTERNS`` for the current
     architecture are silently ignored because they require hardware that is not
     present on a stock CI agent (e.g. CUDA driver).
     """
-    if not host.file(lib_dir).exists:
+    if not image_host.file(lib_dir).exists:
         pytest.skip(f"{lib_dir} not present in image")
-    find = host.run(f"find {lib_dir} -type f \\( -name '*.so' -o -name '*.so.*' \\)")
+    find = image_host.run(
+        f"find {lib_dir} -type f \\( -name '*.so' -o -name '*.so.*' \\)"
+    )
     assert find.rc == 0, find.stderr
     libs = [line for line in find.stdout.splitlines() if line]
     assert libs, f"no shared objects found under {lib_dir}"
@@ -150,7 +152,7 @@ def test_shared_objects_resolve(host: Any, arch: str, lib_dir: str) -> None:
         # Prepend the lib's own directory to LD_LIBRARY_PATH so that ldd can
         # resolve sibling libraries inside manylinux/auditwheel *.libs/ bundles.
         lib_dir = lib.rsplit("/", 1)[0]
-        cmd = host.run(
+        cmd = image_host.run(
             f"LD_LIBRARY_PATH={lib_dir}:${{LD_LIBRARY_PATH:-}} "
             f"ldd {lib} 2>&1 | grep 'not found' || true"
         )

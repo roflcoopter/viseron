@@ -542,6 +542,14 @@ A JPEG encoded image is published to this topic when a new recording starts. The
 
 A JSON formatted payload with attributes (currently empty)
 
+#### `{base_topic}/image/{camera_identifier}_latest_{domain}_snapshot/image`
+
+A JPEG encoded image is published to this topic when a post processor stores a snapshot, where `{domain}` is one of `face_recognition`, `image_classification` or `license_plate_recognition`. The image is identical to the one saved to disk, including any zoom and annotations.
+
+#### `{base_topic}/image/{camera_identifier}_latest_{domain}_snapshot/attributes`
+
+A JSON formatted payload with the path of the snapshot that was saved, the filename the latest snapshot is stored under, and when it was last updated.
+
 ### Sensor topics
 
 #### `{base_topic}/sensor/{camera_identifier}_object_detector_fps/state`
@@ -707,6 +715,7 @@ The paragraphs below show a few of the most notable ones.
 ### Cameras
 
 1. A camera entity named `camera.{camera_identifier}_latest_thumbnail` is created.
+2. A camera entity named `camera.{camera_identifier}_latest_{domain}_snapshot` is created for each configured post processor, showing its most recent snapshot.
 
 ### Sensors
 

@@ -1,4 +1,5 @@
 """Camera domain config."""
+
 import voluptuous as vol
 
 from viseron.components.storage.config import (
@@ -17,9 +18,11 @@ from viseron.components.storage.const import (
 from viseron.helpers.validators import (
     UNDEFINED,
     CoerceNoneToDict,
+    CronExpression,
     Deprecated,
     Maybe,
     Slug,
+    Timezone,
 )
 
 from .const import (
@@ -51,6 +54,12 @@ from .const import (
     CONFIG_REFRESH_INTERVAL,
     CONFIG_RETAIN,
     CONFIG_SAVE_TO_DISK,
+    CONFIG_SCHEDULE,
+    CONFIG_SCHEDULE_CONTINUOUS,
+    CONFIG_SCHEDULE_END,
+    CONFIG_SCHEDULE_EVENTS,
+    CONFIG_SCHEDULE_START,
+    CONFIG_SCHEDULE_TIMEZONE,
     CONFIG_STILL_IMAGE,
     CONFIG_STILL_IMAGE_HEIGHT,
     CONFIG_STILL_IMAGE_WIDTH,
@@ -122,6 +131,12 @@ from .const import (
     DESC_REFRESH_INTERVAL,
     DESC_RETAIN,
     DESC_SAVE_TO_DISK,
+    DESC_SCHEDULE,
+    DESC_SCHEDULE_CONTINUOUS,
+    DESC_SCHEDULE_END,
+    DESC_SCHEDULE_EVENTS,
+    DESC_SCHEDULE_START,
+    DESC_SCHEDULE_TIMEZONE,
     DESC_STILL_IMAGE,
     DESC_STILL_IMAGE_HEIGHT,
     DESC_STILL_IMAGE_WIDTH,
@@ -209,6 +224,37 @@ THUMBNAIL_SCHEMA = vol.Schema(
 )
 
 
+SCHEDULE_ENTRY_SCHEMA = vol.Schema(
+    {
+        vol.Required(
+            CONFIG_SCHEDULE_START, description=DESC_SCHEDULE_START
+        ): CronExpression(),
+        vol.Required(
+            CONFIG_SCHEDULE_END, description=DESC_SCHEDULE_END
+        ): CronExpression(),
+    }
+)
+
+RECORDING_SCHEDULE_SCHEMA = vol.Schema(
+    {
+        vol.Optional(
+            CONFIG_SCHEDULE_EVENTS,
+            default=UNDEFINED,
+            description=DESC_SCHEDULE_EVENTS,
+        ): Maybe([SCHEDULE_ENTRY_SCHEMA]),
+        vol.Optional(
+            CONFIG_SCHEDULE_CONTINUOUS,
+            default=UNDEFINED,
+            description=DESC_SCHEDULE_CONTINUOUS,
+        ): Maybe([SCHEDULE_ENTRY_SCHEMA]),
+        vol.Optional(
+            CONFIG_SCHEDULE_TIMEZONE,
+            default=UNDEFINED,
+            description=DESC_SCHEDULE_TIMEZONE,
+        ): Maybe(Timezone()),
+    }
+)
+
 RECORDER_SCHEMA = vol.Schema(
     {
         vol.Optional(
@@ -270,6 +316,11 @@ RECORDER_SCHEMA = vol.Schema(
             default=DEFAULT_CONTINUOUS_RECORDING,
             description=DESC_CONTINUOUS_RECORDING,
         ): bool,
+        vol.Optional(
+            CONFIG_SCHEDULE,
+            default=UNDEFINED,
+            description=DESC_SCHEDULE,
+        ): Maybe(RECORDING_SCHEDULE_SCHEMA),
     }
 )
 

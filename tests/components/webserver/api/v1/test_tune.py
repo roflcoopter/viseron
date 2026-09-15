@@ -1,14 +1,22 @@
 """Test the Tune API handler."""
+
 from __future__ import annotations
 
 import json
 import os
+import shutil
+import tempfile
 from unittest.mock import patch
 
 import yaml
-from filelock import FileLock
 
 from tests.components.webserver.common import TestAppBaseAuth
+
+# tune.py binds CONFIG_PATH at import time, so it has to be patched where it is used
+CONFIG_PATH_TARGET = "viseron.components.webserver.api.v1.tune.CONFIG_PATH"
+LOAD_LABELS_TARGET = (
+    "viseron.components.webserver.api.v1.tuning.labels._load_labels_from_file"
+)
 
 
 class TestTuneAPIHandler(TestAppBaseAuth):
@@ -18,13 +26,9 @@ class TestTuneAPIHandler(TestAppBaseAuth):
         """Set up test fixtures."""
         super().setUp()
 
-        # Use a test config file in the test directory
-        self.config_path = os.path.join(
-            os.path.dirname(__file__), "test_tune_config.yaml"
-        )
-        self.lock_path = f"{self.config_path}.lock"
-        self.config_lock = FileLock(self.lock_path)
-        self.config_lock.acquire()
+        # Unique config file per test so parallel workers do not share state
+        self.config_dir = tempfile.mkdtemp()
+        self.config_path = os.path.join(self.config_dir, "config.yaml")
 
         # Sample config structure in JSON
         self.sample_config = {
@@ -158,15 +162,12 @@ class TestTuneAPIHandler(TestAppBaseAuth):
 
     def tearDown(self) -> None:
         """Tear down test fixtures."""
-        # Clean up temp config file
-        if os.path.exists(self.config_path):
-            os.remove(self.config_path)
+        shutil.rmtree(self.config_dir, ignore_errors=True)
         super().tearDown()
-        self.config_lock.release()
 
     def test_get_all_camera_tune(self) -> None:
         """Test getting all camera tune settings."""
-        with patch("viseron.const.CONFIG_PATH", self.config_path):
+        with patch(CONFIG_PATH_TARGET, self.config_path):
             response = self.fetch_with_auth("/api/v1/tune", method="GET")
 
         assert response.code == 200
@@ -207,7 +208,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
 
     def test_get_camera_tune(self) -> None:
         """Test getting tune settings for a specific camera."""
-        with patch("viseron.const.CONFIG_PATH", self.config_path):
+        with patch(CONFIG_PATH_TARGET, self.config_path):
             response = self.fetch_with_auth("/api/v1/tune/camera_1", method="GET")
 
         assert response.code == 200
@@ -229,7 +230,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
 
     def test_get_camera_tune_not_found(self) -> None:
         """Test getting tune settings for a non-existent camera."""
-        with patch("viseron.const.CONFIG_PATH", self.config_path):
+        with patch(CONFIG_PATH_TARGET, self.config_path):
             response = self.fetch_with_auth(
                 "/api/v1/tune/non_existent_camera", method="GET"
             )
@@ -260,7 +261,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             },
         }
 
-        with patch("viseron.const.CONFIG_PATH", self.config_path):
+        with patch(CONFIG_PATH_TARGET, self.config_path):
             response = self.fetch_with_auth(
                 "/api/v1/tune/camera_1",
                 method="PUT",
@@ -308,7 +309,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             },
         }
 
-        with patch("viseron.const.CONFIG_PATH", self.config_path):
+        with patch(CONFIG_PATH_TARGET, self.config_path):
             response = self.fetch_with_auth(
                 "/api/v1/tune/camera_1",
                 method="PUT",
@@ -343,7 +344,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             },
         }
 
-        with patch("viseron.const.CONFIG_PATH", self.config_path):
+        with patch(CONFIG_PATH_TARGET, self.config_path):
             response = self.fetch_with_auth(
                 "/api/v1/tune/camera_1",
                 method="PUT",
@@ -377,7 +378,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             },
         }
 
-        with patch("viseron.const.CONFIG_PATH", self.config_path):
+        with patch(CONFIG_PATH_TARGET, self.config_path):
             response = self.fetch_with_auth(
                 "/api/v1/tune/camera_1",
                 method="PUT",
@@ -401,7 +402,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             "data": {"labels": ["Alice Cooper", "Bob Marley", "Charlie Brown"]},
         }
 
-        with patch("viseron.const.CONFIG_PATH", self.config_path):
+        with patch(CONFIG_PATH_TARGET, self.config_path):
             response = self.fetch_with_auth(
                 "/api/v1/tune/camera_1",
                 method="PUT",
@@ -438,7 +439,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             },
         }
 
-        with patch("viseron.const.CONFIG_PATH", self.config_path):
+        with patch(CONFIG_PATH_TARGET, self.config_path):
             response = self.fetch_with_auth(
                 "/api/v1/tune/camera_1",
                 method="PUT",
@@ -462,7 +463,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             "data": {"labels": ["DEF-9012", "GHI-3456", "JKL-7890"]},
         }
 
-        with patch("viseron.const.CONFIG_PATH", self.config_path):
+        with patch(CONFIG_PATH_TARGET, self.config_path):
             response = self.fetch_with_auth(
                 "/api/v1/tune/camera_1",
                 method="PUT",
@@ -501,7 +502,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             },
         }
 
-        with patch("viseron.const.CONFIG_PATH", self.config_path):
+        with patch(CONFIG_PATH_TARGET, self.config_path):
             response = self.fetch_with_auth(
                 "/api/v1/tune/camera_1",
                 method="PUT",
@@ -534,7 +535,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             },
         }
 
-        with patch("viseron.const.CONFIG_PATH", self.config_path):
+        with patch(CONFIG_PATH_TARGET, self.config_path):
             response = self.fetch_with_auth(
                 "/api/v1/tune/camera_1",
                 method="PUT",
@@ -561,7 +562,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             "data": {"labels": []},
         }
 
-        with patch("viseron.const.CONFIG_PATH", self.config_path):
+        with patch(CONFIG_PATH_TARGET, self.config_path):
             response = self.fetch_with_auth(
                 "/api/v1/tune/camera_1",
                 method="PUT",
@@ -585,7 +586,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             "data": {"mask": []},
         }
 
-        with patch("viseron.const.CONFIG_PATH", self.config_path):
+        with patch(CONFIG_PATH_TARGET, self.config_path):
             response = self.fetch_with_auth(
                 "/api/v1/tune/camera_1",
                 method="PUT",
@@ -612,7 +613,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             },
         }
 
-        with patch("viseron.const.CONFIG_PATH", self.config_path):
+        with patch(CONFIG_PATH_TARGET, self.config_path):
             response = self.fetch_with_auth(
                 "/api/v1/tune/camera_1",
                 method="PUT",
@@ -637,7 +638,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             "data": {},
         }
 
-        with patch("viseron.const.CONFIG_PATH", self.config_path):
+        with patch(CONFIG_PATH_TARGET, self.config_path):
             response = self.fetch_with_auth(
                 "/api/v1/tune/camera_1",
                 method="PUT",
@@ -656,7 +657,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             "data": {},
         }
 
-        with patch("viseron.const.CONFIG_PATH", self.config_path):
+        with patch(CONFIG_PATH_TARGET, self.config_path):
             response = self.fetch_with_auth(
                 "/api/v1/tune/camera_1",
                 method="PUT",
@@ -675,7 +676,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             "data": {},
         }
 
-        with patch("viseron.const.CONFIG_PATH", self.config_path):
+        with patch(CONFIG_PATH_TARGET, self.config_path):
             response = self.fetch_with_auth(
                 "/api/v1/tune/camera_1",
                 method="PUT",
@@ -689,7 +690,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
 
     def test_update_invalid_json(self) -> None:
         """Test updating with invalid JSON."""
-        with patch("viseron.const.CONFIG_PATH", self.config_path):
+        with patch(CONFIG_PATH_TARGET, self.config_path):
             response = self.fetch_with_auth(
                 "/api/v1/tune/camera_1",
                 method="PUT",
@@ -709,7 +710,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             "data": {"labels": []},
         }
 
-        with patch("viseron.const.CONFIG_PATH", self.config_path):
+        with patch(CONFIG_PATH_TARGET, self.config_path):
             response = self.fetch_with_auth(
                 "/api/v1/tune/camera_1",
                 method="PUT",
@@ -728,7 +729,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             "data": {"labels": []},
         }
 
-        with patch("viseron.const.CONFIG_PATH", self.config_path):
+        with patch(CONFIG_PATH_TARGET, self.config_path):
             response = self.fetch_with_auth(
                 "/api/v1/tune/non_existent_camera",
                 method="PUT",
@@ -741,9 +742,12 @@ class TestTuneAPIHandler(TestAppBaseAuth):
 
     def test_get_available_labels_darknet(self) -> None:
         """Test that available_labels is populated for darknet."""
-        with patch("viseron.const.CONFIG_PATH", self.config_path), patch(
-            "viseron.components.webserver.api.v1.tuning.labels._load_labels_from_file",
-            return_value=["person", "car", "dog", "cat"],
+        with (
+            patch(CONFIG_PATH_TARGET, self.config_path),
+            patch(
+                LOAD_LABELS_TARGET,
+                return_value=["person", "car", "dog", "cat"],
+            ),
         ):
             response = self.fetch_with_auth("/api/v1/tune/camera_1", method="GET")
 
@@ -770,7 +774,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             },
         }
 
-        with patch("viseron.const.CONFIG_PATH", self.config_path):
+        with patch(CONFIG_PATH_TARGET, self.config_path):
             response = self.fetch_with_auth(
                 "/api/v1/tune/camera_1",
                 method="PUT",
@@ -806,7 +810,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             },
         }
 
-        with patch("viseron.const.CONFIG_PATH", self.config_path):
+        with patch(CONFIG_PATH_TARGET, self.config_path):
             response = self.fetch_with_auth(
                 "/api/v1/tune/camera_1",
                 method="PUT",
