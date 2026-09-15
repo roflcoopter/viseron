@@ -46,6 +46,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         self._webserver = vis.data[COMPONENT]
         self._storage = vis.data[STORAGE_COMPONENT]
         self.current_user = None
+        self._refresh_token: RefreshToken | None = None
         # Manually set xsrf cookie
         self.xsrf_token  # pylint: disable=pointless-statement # noqa: B018
 
@@ -267,7 +268,13 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             LOGGER.debug("User mismatch")
             return False
 
+        self._refresh_token = refresh_token
         return True
+
+    @property
+    def refresh_token(self) -> RefreshToken | None:
+        """Return the refresh token the request was authenticated with."""
+        return self._refresh_token
 
     def _get_cameras(self) -> dict[str, AbstractCamera] | None:
         """Get all registered camera instances."""

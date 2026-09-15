@@ -119,3 +119,18 @@ I have never used Frigate, so I cannot give a fair comparison, but my general ad
 
 Viseron has some built-in features that Frigate does not have, such as face recognition and license plate recognition.
 Frigate on the other hand has some features that Viseron does not have, such as audio detection and object tracking.
+
+## Demo
+
+You can find a demo of the frontend interface at [this link](https://viseron-demo.pages.dev), hosted on Cloudflare Pages.
+
+:::info
+
+All data is mocked and there is no backend connected.
+
+For this reason any mutations (change config, create users etc) has no effect.
+There may also be other things that are non-functional, like live streaming.
+
+The demo is simply there for you to be able to at least see what Viseron looks like before installing.
+
+:::

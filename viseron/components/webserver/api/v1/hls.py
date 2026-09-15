@@ -1,5 +1,4 @@
 """API handler for vod."""
-
 from __future__ import annotations
 
 import datetime
@@ -288,6 +287,7 @@ def adjust_fragment_paths(
     """
     fragments = []
     for file in files:
+
         path: str
         if file.tier_id > 0:
             first_tier_path = camera.tier_base_path(

@@ -5,15 +5,16 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from collections.abc import Callable
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
 import tornado.websocket
 import voluptuous as vol
+from tornado.ioloop import IOLoop
 from tornado.queues import Queue
 from voluptuous.humanize import humanize_error
 
+from viseron.components.webserver.auth import SessionExpiredError
 from viseron.components.webserver.const import (
     WEBSOCKET_COMMANDS,
     WEBSOCKET_CONNECTIONS,
@@ -39,6 +40,8 @@ from .messages import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from viseron import Viseron
 
 LOGGER = logging.getLogger(__name__)
@@ -65,8 +68,18 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
         self._waiting_for_auth = True
         self._writer_task: asyncio.Task | None = None
         self._writer_exited = False
+        self._session_id: str | None = None
+        self._force_closing = False
+        # Captured here so revocations arriving on other threads can schedule
+        # work on the loop that actually serves this connection.
+        self._connection_ioloop = IOLoop.current()
 
         self.vis.data[WEBSOCKET_CONNECTIONS].append(self)
+
+    @property
+    def session_id(self) -> str | None:
+        """Return the id of the session this connection was authenticated with."""
+        return self._session_id
 
     async def _write_message(self) -> None:
         """Write messages to client."""
@@ -132,7 +145,50 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
 
         access_token = f"{message['access_token']}.{signature.decode()}"
 
-        return self.validate_access_token(access_token)
+        if not self.validate_access_token(access_token):
+            return False
+
+        if self.refresh_token is None:
+            LOGGER.debug("No refresh token bound to the connection")
+            return False
+
+        self._session_id = self.refresh_token.session_id
+        return True
+
+    def validate_session(self) -> bool:
+        """Return True if the session backing this connection is still valid.
+
+        Authentication happens once at connection time, so without this the
+        connection would outlive logout, password changes and session
+        revocation for as long as the socket stays open.
+        """
+        auth = self._webserver.auth
+        if not auth:
+            return True
+
+        if self._session_id is None:
+            return False
+
+        refresh_token = auth.get_refresh_token_by_session_id(self._session_id)
+        if refresh_token is None:
+            LOGGER.debug("Session has been revoked")
+            return False
+
+        try:
+            auth.validate_refresh_token(refresh_token)
+        except SessionExpiredError:
+            LOGGER.debug("Session has expired")
+            return False
+
+        user = auth.get_user(refresh_token.user_id)
+        if user is None or not user.enabled:
+            LOGGER.debug("User not found or disabled")
+            return False
+
+        # Re-read so role and camera assignment changes take effect without
+        # requiring a reconnect.
+        self.current_user = user
+        return True
 
     async def handle_message(self, message) -> None:
         """Handle a single incoming message."""
@@ -147,6 +203,14 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
                 auth_failed_message(
                     "Authentication failed.",
                 )
+            )
+            await self.force_close()
+            return
+
+        if not await self.run_in_executor(self.validate_session):
+            LOGGER.warning("Session is no longer valid, closing connection")
+            await self.async_send_message(
+                auth_failed_message("Session is no longer valid.")
             )
             await self.force_close()
             return
@@ -254,19 +318,48 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
             return
         await self.handle_message(message_data)
 
+    def revoke_session(self) -> None:
+        """Close the connection because its session was revoked.
+
+        Safe to call from any thread.
+        """
+        self._connection_ioloop.add_callback(self._async_revoke_session)
+
+    async def _async_revoke_session(self) -> None:
+        """Notify the client that its session is gone and close the connection."""
+        LOGGER.debug("Closing websocket for revoked session")
+        await self.async_send_message(
+            auth_failed_message("Session is no longer valid.")
+        )
+        await self.force_close()
+
+    def _deregister(self) -> None:
+        """Remove this connection from the registry of live connections."""
+        connections = self.vis.data[WEBSOCKET_CONNECTIONS]
+        if self in connections:
+            connections.remove(self)
+
     async def force_close(self) -> None:
         """Close websocket."""
+        if self._force_closing:
+            return
+        self._force_closing = True
+
         LOGGER.debug("Force close websocket")
         for unsub in self.subscriptions.values():
             unsub()
+        self.subscriptions.clear()
 
         self._message_queue.put(None)
         # Wait until queue is empty
-        while True:
-            if self._message_queue.empty() and self._writer_exited:
+        while not (self._message_queue.empty() and self._writer_exited):
+            if self._writer_task is None or self._writer_task.done():
+                # A cancelled writer will never drain the queue, so waiting for
+                # it would block forever.
                 break
             await asyncio.sleep(0.5)
-        self.vis.data[WEBSOCKET_CONNECTIONS].remove(self)
+        self._deregister()
+        self.close()
         LOGGER.debug("Force close finished")
 
     def on_close(self) -> None:
@@ -274,8 +367,9 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
         LOGGER.debug("Websocket closed")
         for unsub in self.subscriptions.values():
             unsub()
+        self.subscriptions.clear()
 
         self._message_queue.put(None)
         if self._writer_task:
             self._writer_task.cancel()
-        self.vis.data[WEBSOCKET_CONNECTIONS].remove(self)
+        self._deregister()

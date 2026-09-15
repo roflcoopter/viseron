@@ -287,6 +287,7 @@ class AbstractCamera(AbstractDomain):
     def start_camera(self) -> None:
         """Start camera streaming."""
         self.stopped.clear()
+        self.fragmenter.start()
         self._start_camera()
         self._vis.dispatch_event(
             EVENT_CAMERA_STARTED.format(camera_identifier=self.identifier),
@@ -302,6 +303,7 @@ class AbstractCamera(AbstractDomain):
         self._stop_camera()
         self.still_image_available = self.still_image_configured
         self.stopped.set()
+        self.fragmenter.stop()
         self._vis.dispatch_event(
             EVENT_CAMERA_STOPPED.format(camera_identifier=self.identifier),
             EventEmptyData(),
@@ -646,8 +648,8 @@ class FailedCamera:
         """Initialize failed camera."""
         # Local import to avoid circular import
         # pylint: disable=import-outside-toplevel
-        from viseron.components.storage.tier_handler import (
-            add_file_handler,  # noqa: PLC0415
+        from viseron.components.storage.tier_handler import (  # noqa: PLC0415
+            add_file_handler,
         )
 
         self._vis = vis
