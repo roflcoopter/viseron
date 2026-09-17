@@ -193,7 +193,7 @@ All PTZ service settings can be configured via the [Camera Tuning](/docs/documen
 
 For transparency, PTZ Control available in [Live View](/docs/documentation/configuration/live_view) uses the `ContinuousMove` operation, which is **mandatory for all ONVIF PTZ cameras**. PTZ Control in the [Telegram component](/components-explorer/components/telegram), however, will use the `RelativeMove` operation if supported by the camera, and will use `ContinuousMove` as a fallback.
 
-<ComponentTroubleshooting meta={ComponentMetadata} />
+<ComponentTroubleshooting meta={ComponentMetadata} logs={["onvif"]} />
 
 ### Known Issues
 

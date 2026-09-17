@@ -448,6 +448,7 @@ NOISY_LOGGERS: Final[dict[str, int]] = {
     "tornado.general": logging.WARNING,
     "sqlalchemy.engine": logging.WARNING,
     "watchdog.observers.inotify_buffer": logging.WARNING,
+    "onvif": logging.WARNING,
 }
 
 
