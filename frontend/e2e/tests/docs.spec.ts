@@ -116,6 +116,38 @@ test.describe("Screenshot live page", () => {
       SCREENSHOT_OPTIONS,
     );
   });
+
+  test("ptz controls screenshot", async ({ page }: { page: Page }) => {
+    // Only camera2 has PTZ support in the mocks, hover its player to reveal controls
+    await page.waitForSelector("video", { state: "visible" });
+    await page
+      .locator('[role="button"]:has(video)')
+      .nth(1)
+      .hover({ force: true });
+    await page.waitForTimeout(300);
+
+    const ptzButton = page.getByTestId("ptz-controls-button");
+    await ptzButton.click({ force: true });
+
+    // The card fades in once it has been centered in the viewport
+    const ptzCard = page.getByTestId("ptz-controls-card");
+    await expect(ptzCard).toHaveCSS("opacity", "1");
+
+    // Add a green highlight border around the PTZ button and the PTZ card
+    await Promise.all(
+      [ptzButton, ptzCard].map((element) =>
+        element.evaluate((el) => {
+          el.style.outline = "3px solid #00ff00";
+          el.style.outlineOffset = "3px";
+        }),
+      ),
+    );
+
+    await expect(page).toHaveScreenshot(
+      ["live", "ptz-controls.png"],
+      SCREENSHOT_OPTIONS,
+    );
+  });
 });
 
 test.describe("Screenshot tune page", () => {
