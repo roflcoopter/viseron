@@ -73,6 +73,10 @@ Several screenshots are taken programmatically during end-to-end tests, thus cam
 
 <img src="/img/ui/live/main.png" alt-text="Live view"/>
 
+#### PTZ controls
+
+<img src="/img/ui/live/ptz-controls.png" alt-text="Live view PTZ controls" />
+
 ### Recordings view
 
 <img src="/img/ui/recordings/main.png" alt-text="Recordings view"/>

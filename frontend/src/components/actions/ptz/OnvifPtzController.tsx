@@ -226,6 +226,7 @@ export function OnvifPtzController({
           }
         }}
         title="PTZ Controls"
+        data-testid="ptz-controls-button"
       >
         <Move />
       </CustomFab>
@@ -235,6 +236,7 @@ export function OnvifPtzController({
         <Portal>
           <Card
             ref={dragRef}
+            data-testid="ptz-controls-card"
             elevation={8}
             onMouseDown={(e) => {
               e.stopPropagation();

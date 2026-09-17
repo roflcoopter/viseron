@@ -8,7 +8,7 @@ import time
 from dataclasses import dataclass
 from queue import Empty
 from typing import TYPE_CHECKING, Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import numpy as np
 import numpy.typing as npt
@@ -16,6 +16,7 @@ import pytest
 import voluptuous as vol
 
 from viseron.components.nvr.nvr import EventScanFrames
+from viseron.components.storage.const import LATEST_SNAPSHOT_FILENAME
 from viseron.domain_registry import DomainState
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.motion_detector.const import DOMAIN as MOTION_DETECTOR_DOMAIN
@@ -67,6 +68,7 @@ from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.domains.object_detector.zone import Zone
 from viseron.events import Event
 from viseron.helpers.filter import Filter, Filters
+from viseron.viseron_types import SnapshotDomain
 
 from tests.common import MockCamera, MockComponent
 
@@ -82,6 +84,10 @@ if TYPE_CHECKING:
 
 CAMERA_IDENTIFIER = "test_camera"
 COMPONENT = "test_object_detector"
+SNAPSHOT_PATH = "/snapshots/object_detector/test_camera/snapshot.jpg"
+LATEST_SNAPSHOT_PATH = (
+    f"/snapshots/object_detector/test_camera/{LATEST_SNAPSHOT_FILENAME}"
+)
 CAMERA_RESOLUTION = (640, 480)
 
 # ============================================================================
@@ -513,14 +519,15 @@ def test_constructor_adds_entities(
     vis: MockViseron,
     base_config: dict[str, Any],
 ) -> None:
-    """Constructor calls add_entity for FoV binary sensor and FPS sensor."""
+    """Constructor calls add_entity for all object detector entities."""
     add_label_config(base_config, "person")
 
     ConcreteObjectDetector(vis, base_config, CAMERA_IDENTIFIER)
 
     # Always called: ObjectDetectedBinarySensorFoV + ObjectDetectorFPSSensor
+    # + LatestSnapshotImage
     # Called once per label: ObjectDetectedBinarySensorFoVLabel
-    assert vis.add_entity.call_count == 3
+    assert vis.add_entity.call_count == 4
 
 
 def test_constructor_builds_mask_image(
@@ -1848,6 +1855,8 @@ def test_insert_objects_skips_non_stored_objects(
     det._insert_objects(mock_shared_frame, [obj])
 
     vis.dispatch_event.assert_not_called()
+    # The latest snapshot follows the label store option as well
+    det._camera.write_snapshot.assert_not_called()
 
 
 def test_insert_objects_snapshot_and_dispatch_when_stored(
@@ -1871,10 +1880,14 @@ def test_insert_objects_snapshot_and_dispatch_when_stored(
     obj.store = True
     vis.dispatch_event.reset_mock()
 
-    with patch.object(det._camera, "save_snapshot", return_value="snap.jpg") as mock:
+    with (
+        patch.object(det, "_save_snapshot", return_value=SNAPSHOT_PATH) as mock_save,
+        patch.object(det, "_insert_object") as mock_insert_object,
+    ):
         det._insert_objects(mock_shared_frame, [obj])
 
-    mock.assert_called_once()
+    mock_save.assert_called_once_with(mock_shared_frame, obj)
+    mock_insert_object.assert_called_once_with(obj, SNAPSHOT_PATH)
     assert vis.dispatch_event.called
 
 
@@ -2059,3 +2072,69 @@ def test_unload_calls_all_listener_unsubscribes_and_stop(
     m1.assert_called_once()
     m2.assert_called_once()
     stop.assert_called_once()
+
+
+def test_latest_snapshot_entity_is_registered_for_unload(
+    vis: MockViseron,
+    base_config: dict[str, Any],
+) -> None:
+    """Test the entity is registered with the keys unload_domain_identifier uses."""
+    det = ConcreteObjectDetector(vis, base_config, CAMERA_IDENTIFIER)
+
+    assert (
+        call(
+            COMPONENT, det._latest_snapshot_entity, "object_detector", CAMERA_IDENTIFIER
+        )
+        in vis.add_entity.call_args_list
+    )
+
+
+def test_save_snapshot_writes_unique_and_latest_file(
+    vis: MockViseron,
+    base_config: dict[str, Any],
+    mock_shared_frame: SharedFrame,
+) -> None:
+    """Test that a snapshot is written twice, the second time to the latest file."""
+    det = ConcreteObjectDetector(vis, base_config, CAMERA_IDENTIFIER)
+    camera = det._camera
+    camera.write_snapshot.side_effect = [SNAPSHOT_PATH, LATEST_SNAPSHOT_PATH]
+    obj = create_detected_object("person", 0.9, 0.1, 0.2, 0.3, 0.4)
+
+    snapshot_path = det._save_snapshot(mock_shared_frame, obj)
+
+    frame = camera.build_snapshot_frame.return_value
+    camera.build_snapshot_frame.assert_called_once_with(
+        mock_shared_frame,
+        zoom_coordinates=(obj.rel_x1, obj.rel_y1, obj.rel_x2, obj.rel_y2),
+        detected_object=obj,
+    )
+    assert camera.write_snapshot.call_args_list == [
+        call(frame, SnapshotDomain.OBJECT_DETECTOR),
+        call(
+            frame,
+            SnapshotDomain.OBJECT_DETECTOR,
+            filename=LATEST_SNAPSHOT_FILENAME,
+        ),
+    ]
+    # The unique path is what gets stored in the database, not the latest path
+    assert snapshot_path == SNAPSHOT_PATH
+
+
+def test_save_snapshot_updates_entity_without_rereading_from_disk(
+    vis: MockViseron,
+    base_config: dict[str, Any],
+    mock_shared_frame: SharedFrame,
+) -> None:
+    """Test the entity is fed the in-memory frame that was written to disk."""
+    det = ConcreteObjectDetector(vis, base_config, CAMERA_IDENTIFIER)
+    frame = np.full((10, 10, 3), 7, dtype=np.uint8)
+    camera = det._camera
+    camera.build_snapshot_frame.return_value = frame
+    camera.write_snapshot.return_value = SNAPSHOT_PATH
+
+    det._save_snapshot(mock_shared_frame, create_detected_object("person", 0.9))
+
+    entity = det._latest_snapshot_entity
+    assert entity.image is not None
+    np.testing.assert_array_equal(entity.image, frame)
+    assert entity.extra_attributes["snapshot_path"] == SNAPSHOT_PATH
