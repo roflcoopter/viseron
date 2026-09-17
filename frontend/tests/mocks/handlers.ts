@@ -1,6 +1,10 @@
 import { HttpResponse, http } from "msw";
 import { getDayjs } from "tests/mocks/clock";
 
+import type {
+  PtzNodesResponse,
+  PtzPresetsResponse,
+} from "lib/api/actions/onvif/types";
 import type { LogEntry, LogsResponse } from "lib/api/logger";
 import * as types from "lib/types";
 
@@ -238,6 +242,7 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
         live_stream_available: true,
         connected: true,
         is_recording: true,
+        ptz_support: "onvif+auto",
       },
       camera3: {
         identifier: "camera3",
@@ -315,6 +320,7 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
       live_stream_available: true,
       connected: true,
       is_recording: true,
+      ptz_support: "onvif+auto",
     };
     return HttpResponse.json(camera, { status: 200 });
   }),
@@ -690,5 +696,58 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
       },
       { status: 200 },
     ),
+  ),
+  // ONVIF PTZ
+  http.get(`${API_BASE_URL}/actions/onvif/ptz/:camera_identifier/nodes`, () =>
+    HttpResponse.json(
+      {
+        nodes: [
+          {
+            token: "PTZNodeToken",
+            Name: "PTZNode",
+            HomeSupported: true,
+            MaximumNumberOfPresets: 255,
+            SupportedPTZSpaces: {
+              AbsolutePanTiltPositionSpace: [
+                { XRange: { Min: -1, Max: 1 }, YRange: { Min: -1, Max: 1 } },
+              ],
+              ContinuousPanTiltVelocitySpace: [
+                { XRange: { Min: -1, Max: 1 }, YRange: { Min: -1, Max: 1 } },
+              ],
+              ContinuousZoomVelocitySpace: [{ XRange: { Min: -1, Max: 1 } }],
+              PanTiltSpeedSpace: [{ XRange: { Min: 0, Max: 1 } }],
+              ZoomSpeedSpace: [{ XRange: { Min: 0, Max: 1 } }],
+            },
+          },
+        ],
+      } as PtzNodesResponse,
+      { status: 200 },
+    ),
+  ),
+  http.get(`${API_BASE_URL}/actions/onvif/ptz/:camera_identifier/presets`, () =>
+    HttpResponse.json(
+      {
+        presets: [
+          {
+            Name: "Driveway",
+            type: "onvif",
+            token: "1",
+            PTZPosition: { PanTilt: { x: -0.4, y: 0.1 }, Zoom: { x: 0.2 } },
+          },
+          {
+            Name: "Front door",
+            type: "onvif",
+            token: "2",
+            PTZPosition: { PanTilt: { x: 0.35, y: -0.05 }, Zoom: { x: 0 } },
+          },
+        ],
+      } as PtzPresetsResponse,
+      { status: 200 },
+    ),
+  ),
+  http.all(`${API_BASE_URL}/actions/onvif/ptz/:camera_identifier/:action`, () =>
+    HttpResponse.json({ success: true } as types.APISuccessResponse, {
+      status: 200,
+    }),
   ),
 ];
