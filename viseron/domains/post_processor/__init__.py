@@ -22,6 +22,7 @@ from viseron.domains.camera.const import (
     DOMAIN as CAMERA_DOMAIN,
     EVENT_CAMERA_EVENT_DB_OPERATION,
 )
+from viseron.domains.camera.entity.image import LatestSnapshotImage
 from viseron.domains.camera.events import EventCameraEventData
 from viseron.domains.object_detector.const import (
     EVENT_OBJECTS_IN_FOV,
@@ -44,7 +45,6 @@ from .const import (
     DESC_LABELS_LOCAL,
     DESC_MASK,
 )
-from .image import PostProcessorSnapshotImage
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -136,7 +136,7 @@ class AbstractPostProcessor(AbstractDomain):
             self._mask = generate_mask(mask_config)
             self._mask_image = generate_mask_image(self._mask, self._camera.resolution)
 
-        self._latest_snapshot_entity = PostProcessorSnapshotImage(
+        self._latest_snapshot_entity = LatestSnapshotImage(
             vis, self._camera, self.snapshot_domain
         )
         vis.add_entity(
