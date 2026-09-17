@@ -3,6 +3,7 @@ import { renderWithContext } from "tests/utils/renderWithContext";
 
 import { getVideoElement } from "components/player/utils";
 import {
+  formatBytes,
   objHasValues,
   objIsEmpty,
   removeURLParameter,
@@ -150,5 +151,23 @@ describe("removeURLParameter", () => {
     const parameter = "param3";
     const newURL = removeURLParameter(url, parameter);
     expect(newURL).toBe(url);
+  });
+});
+
+describe("formatBytes", () => {
+  test("formats bytes without decimals", () => {
+    expect(formatBytes(0)).toEqual("0 B");
+    expect(formatBytes(512)).toEqual("512 B");
+  });
+
+  test("scales to the largest fitting unit", () => {
+    expect(formatBytes(1024)).toEqual("1.0 KiB");
+    expect(formatBytes(2621440)).toEqual("2.5 MiB");
+    expect(formatBytes(1024 ** 3)).toEqual("1.0 GiB");
+    expect(formatBytes(1024 ** 4)).toEqual("1.0 TiB");
+  });
+
+  test("does not scale past the largest unit", () => {
+    expect(formatBytes(1024 ** 5)).toEqual("1024.0 TiB");
   });
 });
