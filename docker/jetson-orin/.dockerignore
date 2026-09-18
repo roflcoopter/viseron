@@ -1,0 +1,4 @@
+*
+!Dockerfile.viseron
+!input/
+!input/ffmpeg_7%3a8.0.1-nvidia_arm64.deb
