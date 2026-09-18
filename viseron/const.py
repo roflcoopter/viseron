@@ -100,6 +100,8 @@ CAMERA_INPUT_ARGS = [
     "0",
 ]
 CAMERA_SEGMENT_DURATION = 5
+# CAN-SKIP-UNTIL must be at least six target durations per the specs
+HLS_SKIP_BOUNDARY_TARGET_DURATIONS = 6
 
 
 # Environment variables

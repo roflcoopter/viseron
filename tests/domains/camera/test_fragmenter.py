@@ -20,6 +20,7 @@ from viseron.domains.camera.fragmenter import (
     _extract_extinf_number,
     _extract_program_date_time,
     generate_playlist,
+    get_skipped_segment_count,
 )
 from viseron.helpers import utcnow
 
@@ -78,6 +79,213 @@ def test_generate_playlist() -> None:
 /test/test2.mp4
 #EXT-X-ENDLIST"""
     )
+
+
+PLAYLIST_BASE_TIME = datetime.datetime(2024, 1, 1)
+
+
+def _playlist_segment(index: int, program_date_time: str) -> list[str]:
+    return [
+        f"#EXT-X-PROGRAM-DATE-TIME:2024-01-01T{program_date_time}+00:00",
+        "#EXTINF:5.0,",
+        f"/test/{index}.m4s",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("offsets", "can_skip_until", "max_skipped_segments", "end", "expected"),
+    [
+        pytest.param(
+            [0, 5, 10],
+            10,
+            0,
+            False,
+            [
+                "#EXTM3U",
+                "#EXT-X-VERSION:6",
+                "#EXT-X-MEDIA-SEQUENCE:0",
+                "#EXT-X-TARGETDURATION:5",
+                "#EXT-X-SERVER-CONTROL:CAN-SKIP-UNTIL=10",
+                "#EXT-X-INDEPENDENT-SEGMENTS",
+                '#EXT-X-MAP:URI="/test/init.mp4"',
+                *_playlist_segment(1, "00:00:00.000"),
+                *_playlist_segment(2, "00:00:05.000"),
+                *_playlist_segment(3, "00:00:10.000"),
+            ],
+            id="server_control_without_skip",
+        ),
+        pytest.param(
+            [0, 5, 10],
+            10,
+            3,
+            False,
+            [
+                "#EXTM3U",
+                "#EXT-X-VERSION:9",
+                "#EXT-X-MEDIA-SEQUENCE:0",
+                "#EXT-X-TARGETDURATION:5",
+                "#EXT-X-SERVER-CONTROL:CAN-SKIP-UNTIL=10",
+                "#EXT-X-INDEPENDENT-SEGMENTS",
+                "#EXT-X-SKIP:SKIPPED-SEGMENTS=1",
+                '#EXT-X-MAP:URI="/test/init.mp4"',
+                *_playlist_segment(2, "00:00:05.000"),
+                *_playlist_segment(3, "00:00:10.000"),
+            ],
+            id="delta_update",
+        ),
+        pytest.param(
+            [0, 20, 25],
+            10,
+            3,
+            False,
+            [
+                "#EXTM3U",
+                "#EXT-X-VERSION:9",
+                "#EXT-X-MEDIA-SEQUENCE:0",
+                "#EXT-X-TARGETDURATION:5",
+                "#EXT-X-SERVER-CONTROL:CAN-SKIP-UNTIL=10",
+                "#EXT-X-INDEPENDENT-SEGMENTS",
+                "#EXT-X-SKIP:SKIPPED-SEGMENTS=1",
+                '#EXT-X-MAP:URI="/test/init.mp4"',
+                "#EXT-X-DISCONTINUITY",
+                *_playlist_segment(2, "00:00:20.000"),
+                *_playlist_segment(3, "00:00:25.000"),
+            ],
+            id="delta_update_keeps_discontinuity_after_skipped_segment",
+        ),
+        pytest.param(
+            [0, 20, 25, 30],
+            10,
+            3,
+            False,
+            [
+                "#EXTM3U",
+                "#EXT-X-VERSION:9",
+                "#EXT-X-MEDIA-SEQUENCE:0",
+                "#EXT-X-TARGETDURATION:5",
+                "#EXT-X-SERVER-CONTROL:CAN-SKIP-UNTIL=10",
+                "#EXT-X-INDEPENDENT-SEGMENTS",
+                "#EXT-X-SKIP:SKIPPED-SEGMENTS=2",
+                '#EXT-X-MAP:URI="/test/init.mp4"',
+                *_playlist_segment(3, "00:00:25.000"),
+                *_playlist_segment(4, "00:00:30.000"),
+            ],
+            # Skipped segments remain part of the playlist, so the discontinuity
+            # sequence is not advanced and the client restores the skipped
+            # discontinuity from its previous playlist
+            id="delta_update_skips_discontinuity_in_skipped_segments",
+        ),
+        pytest.param(
+            [0, 5, 10, 15],
+            5,
+            1,
+            False,
+            [
+                "#EXTM3U",
+                "#EXT-X-VERSION:9",
+                "#EXT-X-MEDIA-SEQUENCE:0",
+                "#EXT-X-TARGETDURATION:5",
+                "#EXT-X-SERVER-CONTROL:CAN-SKIP-UNTIL=5",
+                "#EXT-X-INDEPENDENT-SEGMENTS",
+                "#EXT-X-SKIP:SKIPPED-SEGMENTS=1",
+                '#EXT-X-MAP:URI="/test/init.mp4"',
+                *_playlist_segment(2, "00:00:05.000"),
+                *_playlist_segment(3, "00:00:10.000"),
+                *_playlist_segment(4, "00:00:15.000"),
+            ],
+            id="delta_update_limited_by_max_skipped_segments",
+        ),
+        pytest.param(
+            [0, 5, 10],
+            30,
+            3,
+            False,
+            [
+                "#EXTM3U",
+                "#EXT-X-VERSION:6",
+                "#EXT-X-MEDIA-SEQUENCE:0",
+                "#EXT-X-TARGETDURATION:5",
+                "#EXT-X-SERVER-CONTROL:CAN-SKIP-UNTIL=30",
+                "#EXT-X-INDEPENDENT-SEGMENTS",
+                '#EXT-X-MAP:URI="/test/init.mp4"',
+                *_playlist_segment(1, "00:00:00.000"),
+                *_playlist_segment(2, "00:00:05.000"),
+                *_playlist_segment(3, "00:00:10.000"),
+            ],
+            id="playlist_shorter_than_skip_boundary",
+        ),
+        pytest.param(
+            [0, 5, 10],
+            10,
+            3,
+            True,
+            [
+                "#EXTM3U",
+                "#EXT-X-VERSION:6",
+                "#EXT-X-MEDIA-SEQUENCE:0",
+                "#EXT-X-TARGETDURATION:5",
+                "#EXT-X-INDEPENDENT-SEGMENTS",
+                '#EXT-X-MAP:URI="/test/init.mp4"',
+                *_playlist_segment(1, "00:00:00.000"),
+                *_playlist_segment(2, "00:00:05.000"),
+                *_playlist_segment(3, "00:00:10.000"),
+                "#EXT-X-ENDLIST",
+            ],
+            id="ended_playlist_ignores_delta_updates",
+        ),
+    ],
+)
+def test_generate_playlist_delta_update(
+    offsets: list[int],
+    can_skip_until: float,
+    max_skipped_segments: int,
+    end: bool,
+    expected: list[str],
+) -> None:
+    """Test generate_playlist with Playlist Delta Updates."""
+    fragments = [
+        Fragment(
+            f"{index}.m4s",
+            f"/test/{index}.m4s",
+            5.0,
+            PLAYLIST_BASE_TIME + datetime.timedelta(seconds=offset),
+        )
+        for index, offset in enumerate(offsets, start=1)
+    ]
+
+    playlist = generate_playlist(
+        fragments,
+        "/test/init.mp4",
+        end=end,
+        can_skip_until=can_skip_until,
+        max_skipped_segments=max_skipped_segments,
+    )
+
+    assert playlist == "\n".join(expected)
+
+
+@pytest.mark.parametrize(
+    ("durations", "skip_boundary", "expected"),
+    [
+        pytest.param([5.0] * 15, 30, 9, id="skips_segments_outside_boundary"),
+        pytest.param([5.0] * 6, 30, 0, id="playlist_equal_to_boundary"),
+        pytest.param([5.0] * 3, 30, 0, id="playlist_shorter_than_boundary"),
+        pytest.param([], 30, 0, id="empty_playlist"),
+        pytest.param(
+            [10.0, 10.0, 4.0, 6.0, 5.0, 5.0, 5.0, 5.0], 30, 2, id="uneven_durations"
+        ),
+    ],
+)
+def test_get_skipped_segment_count(
+    durations: list[float], skip_boundary: float, expected: int
+) -> None:
+    """Test that the fragments at the end of the playlist cover the skip boundary."""
+    fragments = [
+        Fragment(f"{index}.m4s", f"/test/{index}.m4s", duration, PLAYLIST_BASE_TIME)
+        for index, duration in enumerate(durations)
+    ]
+
+    assert get_skipped_segment_count(fragments, skip_boundary) == expected
 
 
 class TestFragmenter:
