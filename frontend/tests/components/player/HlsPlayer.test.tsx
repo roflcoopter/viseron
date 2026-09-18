@@ -2,6 +2,7 @@ import { act } from "@testing-library/react";
 import { renderWithContext } from "tests/utils/renderWithContext";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { useReferencePlayerStore } from "components/events/utils";
 import { HlsPlayer } from "components/player/hlsplayer/HlsPlayer";
 import * as types from "lib/types";
 
@@ -139,5 +140,82 @@ describe("HlsPlayer handler registration", () => {
     });
 
     expect(hls.startLoad).toHaveBeenCalledWith(0);
+  });
+});
+
+describe("HlsPlayer requestedTimestamp seeking", () => {
+  const FRAGMENT_DURATION = 10;
+  const PLAYLIST_START = 1_700_000_000;
+  const fragments = Array.from({ length: 10 }, (_, i) => ({
+    start: i * FRAGMENT_DURATION,
+    duration: FRAGMENT_DURATION,
+    programDateTime: (PLAYLIST_START + i * FRAGMENT_DURATION) * 1000,
+  }));
+  // Media time the player has advanced to while following the live edge
+  const LIVE_POSITION = 85;
+
+  const setupPlayingPlayer = () => {
+    act(() => {
+      useReferencePlayerStore
+        .getState()
+        .setRequestedTimestamp(PLAYLIST_START + 15);
+    });
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockReturnValue();
+
+    const view = renderWithContext(<HlsPlayer camera={mockCamera} />);
+    const hls = latestHls();
+    hls.levels = [{ details: { fragments } }];
+    act(() => {
+      hls.handlers.hlsLevelLoaded(null, { details: { fragments } });
+    });
+    const video = hls.media as HTMLVideoElement;
+    expect(video.currentTime).toBe(15);
+    video.currentTime = LIVE_POSITION;
+    return { ...view, hls, video };
+  };
+
+  it.each([
+    { id: "second render with unchanged props", camera: mockCamera },
+    {
+      id: "camera refetched with a rotated access token",
+      camera: { ...mockCamera, access_token: "rotated" },
+    },
+    {
+      id: "camera refetched with a new recording state",
+      camera: { ...mockCamera, is_recording: true },
+    },
+  ])("does not seek back to requestedTimestamp on $id", ({ camera }) => {
+    const { rerender, hls, video } = setupPlayingPlayer();
+
+    rerender(<HlsPlayer camera={camera} />);
+
+    expect(video.currentTime).toBe(LIVE_POSITION);
+    expect(hls.loadSource).toHaveBeenCalledTimes(1);
+  });
+
+  it("seeks when requestedTimestamp changes", () => {
+    const { video } = setupPlayingPlayer();
+
+    act(() => {
+      useReferencePlayerStore
+        .getState()
+        .setRequestedTimestamp(PLAYLIST_START + 42);
+    });
+
+    expect(video.currentTime).toBe(42);
+  });
+
+  it("reinitializes when requestedTimestamp is outside the playlist", () => {
+    setupPlayingPlayer();
+
+    act(() => {
+      useReferencePlayerStore
+        .getState()
+        .setRequestedTimestamp(PLAYLIST_START + 3600);
+    });
+
+    expect(hlsInstances).toHaveLength(2);
+    expect(latestHls().loadSource).toHaveBeenCalledTimes(1);
   });
 });
