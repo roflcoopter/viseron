@@ -35,6 +35,13 @@
 !/docker/jetson-nano/Dockerfile*
 !/docker/jetson-nano/pycoral-2.0.0-cp38-cp38-linux_aarch64.whl
 !/docker/jetson-nano/tflite_runtime-2.5.0.post1-cp38-cp38-linux_aarch64.whl
+!/docker/jetson-orin/
+!/docker/jetson-orin/Dockerfile.viseron
+!/docker/jetson-orin/.dockerignore
+!/docker/jetson-orin/README.md
+!/docker/jetson-orin/validate-input.sh
+!/docker/jetson-orin/build-viseron-local.sh
+/docker/jetson-orin/input/
 !/docker/rpi3
 !/docker/rpi3/Dockerfile*
 !/docker/rpi5
