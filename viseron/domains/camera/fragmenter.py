@@ -628,26 +628,25 @@ class Fragmenter:
             file_directive=True,
         )
         self._logger.debug(f"HLS Playlist for concatenation: {playlist}")
-        ffmpeg_cmd = (
-            [
-                "ffmpeg",
-                "-hide_banner",
-                "-loglevel",
-                self._camera.config[CONFIG_RECORDER][CONFIG_FFMPEG_LOGLEVEL],
-                "-f",
-                "hls",
-                "-protocol_whitelist",
-                "file,pipe,fd",
-                "-i",
-                "-",
-                "-c:v",
-                "copy",
-                "-c:a",
-                "copy",
-            ]
-            + ["-movflags", "+faststart"]
-            + [filename]
-        )
+        ffmpeg_cmd = [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            self._camera.config[CONFIG_RECORDER][CONFIG_FFMPEG_LOGLEVEL],
+            "-f",
+            "hls",
+            "-protocol_whitelist",
+            "file,pipe,fd",
+            "-i",
+            "-",
+            "-c:v",
+            "copy",
+            "-c:a",
+            "copy",
+            "-movflags",
+            "+faststart",
+            filename,
+        ]
         self._logger.debug(f"Concatenation command: {' '.join(ffmpeg_cmd)}")
         try:
             sp.run(  # type: ignore[call-overload]
@@ -687,6 +686,20 @@ def gap_in_fragments(prev_fragment: Fragment, fragment: Fragment) -> bool:
     ).total_seconds() > 1
 
 
+def get_skipped_segment_count(fragments: list[Fragment], skip_boundary: float) -> int:
+    """Get the number of fragments a Playlist Delta Update can skip.
+
+    Fragments are kept from the end of the playlist until they cover the skip
+    boundary, everything before them is skipped.
+    """
+    kept_duration = 0.0
+    for index in range(len(fragments) - 1, -1, -1):
+        if kept_duration >= skip_boundary:
+            return index + 1
+        kept_duration += fragments[index].duration
+    return 0
+
+
 def generate_playlist(
     fragments: list[Fragment],
     init_file: str,
@@ -695,11 +708,25 @@ def generate_playlist(
     *,
     end: bool = False,
     file_directive: bool = False,
+    can_skip_until: float | None = None,
+    max_skipped_segments: int = 0,
 ) -> str:
-    """Generate a playlist from a list of fragments."""
+    """Generate a playlist from a list of fragments.
+
+    If can_skip_until is set, Playlist Delta Updates are advertised, and up to
+    max_skipped_segments of the fragments older than the skip boundary are replaced
+    by EXT-X-SKIP. Both are ignored for ended playlists.
+    """
+    skipped = 0
+    if can_skip_until is not None and not end:
+        skipped = min(
+            get_skipped_segment_count(fragments, can_skip_until), max_skipped_segments
+        )
+
     playlist = []
     playlist.append("#EXTM3U")
-    playlist.append("#EXT-X-VERSION:6")
+    # EXT-X-SKIP requires compatibility version 9
+    playlist.append(f"#EXT-X-VERSION:{9 if skipped else 6}")
 
     playlist.append(f"#EXT-X-MEDIA-SEQUENCE:{media_sequence}")
     if media_sequence:
@@ -714,11 +741,16 @@ def generate_playlist(
         target_duration = CAMERA_SEGMENT_DURATION
 
     playlist.append(f"#EXT-X-TARGETDURATION:{target_duration}")
+    if can_skip_until is not None and not end:
+        playlist.append(f"#EXT-X-SERVER-CONTROL:CAN-SKIP-UNTIL={can_skip_until}")
     playlist.append("#EXT-X-INDEPENDENT-SEGMENTS")
+    if skipped:
+        playlist.append(f"#EXT-X-SKIP:SKIPPED-SEGMENTS={skipped}")
     playlist.append(f'#EXT-X-MAP:URI="{_get_file_path(init_file, file_directive)}"')
 
-    prev_fragment: Fragment | None = None
-    for fragment in fragments:
+    # Compare against the last skipped fragment so a gap right after it is kept
+    prev_fragment: Fragment | None = fragments[skipped - 1] if skipped else None
+    for fragment in fragments[skipped:]:
         if prev_fragment and gap_in_fragments(prev_fragment, fragment):
             playlist.append("#EXT-X-DISCONTINUITY")
         program_date_time = fragment.creation_time.replace(
