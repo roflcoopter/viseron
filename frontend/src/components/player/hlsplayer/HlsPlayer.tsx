@@ -26,7 +26,6 @@ import {
 } from "components/player/hlsplayer/utils";
 import { useAuthContext } from "context/AuthContext";
 import { ViseronContext } from "context/ViseronContext";
-import { useFirstRender } from "hooks/UseFirstRender";
 import { BASE_PATH } from "lib/api/client";
 import { BLANK_IMAGE } from "lib/helpers";
 import {
@@ -279,21 +278,22 @@ const useSeekToTimestamp = (
   camera: types.Camera | types.FailedCamera,
   reInitPlayer: () => void,
 ) => {
-  // Avoid running on first render to not call loadSource twice
-  const firstRender = useFirstRender();
   const { requestedTimestamp } = useReferencePlayerStore(
     useShallow((state) => ({
       requestedTimestamp: state.requestedTimestamp,
     })),
   );
+  // The effect also re-runs when other deps change, like a camera refetch,
+  // which must not snap the player back to a stale requestedTimestamp.
+  const handledTimestampRef = useRef(requestedTimestamp);
 
   useEffect(() => {
-    if (
-      !hlsRef.current ||
-      !videoRef.current ||
-      !hlsRef.current.media ||
-      firstRender
-    ) {
+    if (requestedTimestamp === handledTimestampRef.current) {
+      return;
+    }
+    handledTimestampRef.current = requestedTimestamp;
+
+    if (!hlsRef.current || !videoRef.current || !hlsRef.current.media) {
       return;
     }
 
@@ -325,7 +325,6 @@ const useSeekToTimestamp = (
     }
   }, [
     camera,
-    firstRender,
     hlsClientIdRef,
     hlsRef,
     initialProgramDateTime,
