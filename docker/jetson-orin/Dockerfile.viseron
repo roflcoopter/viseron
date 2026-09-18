@@ -1,0 +1,16 @@
+# Local-only full Viseron image. Build from this directory after the generic
+# aarch64 image has been assembled from the current source tree.
+FROM viseron-aarch64:orin-local-base
+
+COPY input/ffmpeg_7%3a8.0.1-nvidia_arm64.deb /tmp/ffmpeg.deb
+RUN echo 'a0f70349e7894b8ada4e5d8e5e9065183970d9634ee3542c822e8efa3f52f003  /tmp/ffmpeg.deb' | sha256sum -c - \
+    && test "$(dpkg-deb -f /tmp/ffmpeg.deb Package)" = ffmpeg \
+    && test "$(dpkg-deb -f /tmp/ffmpeg.deb Version)" = '7:8.0.1-nvidia' \
+    && test "$(dpkg-deb -f /tmp/ffmpeg.deb Architecture)" = arm64 \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends /tmp/ffmpeg.deb libegl1 \
+    && test "$(dpkg-query -W -f='${Version}' ffmpeg)" = '7:8.0.1-nvidia' \
+    && rm -rf /ffmpeg /var/lib/apt/lists/* /tmp/ffmpeg.deb
+
+# Keep hardware selection explicit; generic aarch64 images do not set this.
+ENV VISERON_FFMPEG_BACKEND=jetson_orin_r39
