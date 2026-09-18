@@ -7,11 +7,13 @@ import logging
 import os
 import subprocess as sp
 from dataclasses import dataclass
+from functools import cache
 from typing import TYPE_CHECKING, Any
 
 from viseron.const import (
     CAMERA_SEGMENT_DURATION,
     ENV_CUDA_SUPPORTED,
+    ENV_FFMPEG_BACKEND,
     ENV_JETSON_NANO,
     ENV_RASPBERRYPI3,
     ENV_RASPBERRYPI4,
@@ -59,13 +61,16 @@ from .const import (
     DEFAULT_FFMPEG_RECOVERABLE_ERRORS,
     DEFAULT_RECORDER_AUDIO_CODEC,
     ENV_FFMPEG_PATH,
+    FFMPEG_BACKEND_JETSON_ORIN_R39,
     FFMPEG_LOGLEVELS,
     FFPROBE_LOGLEVELS,
     FFPROBE_TIMEOUT,
     HWACCEL_CUDA_DECODER_CODEC_MAP,
     HWACCEL_JETSON_NANO_DECODER_CODEC_MAP,
+    HWACCEL_JETSON_ORIN_R39_DECODER_CODEC_MAP,
     HWACCEL_RPI3_DECODER_CODEC_MAP,
     HWACCEL_RPI4_DECODER_CODEC_MAP,
+    ORIN_RAWVIDEO_OUTPUT,
     STREAM_FORMAT_MAP,
 )
 
@@ -84,6 +89,43 @@ class StreamInformation:
     audio_codec: str | None
     url: str
     config: dict[str, Any]
+
+
+@cache
+def validate_jetson_orin_r39_ffmpeg(ffmpeg_path: str) -> None:
+    """Check the selected FFmpeg for NVIDIA decoders with NV12 output."""
+    commands = [
+        [ffmpeg_path, "-hide_banner", "-decoders"],
+        [ffmpeg_path, "-hide_banner", "-h", "decoder=h264_nvv4l2dec"],
+        [ffmpeg_path, "-hide_banner", "-h", "decoder=hevc_nvv4l2dec"],
+    ]
+    outputs = []
+    for command in commands:
+        try:
+            result = sp.run(
+                command, capture_output=True, check=False, text=True, timeout=10
+            )
+        except (OSError, sp.TimeoutExpired) as error:
+            raise RuntimeError(
+                "Unable to validate the jetson_orin_r39 FFmpeg backend"
+            ) from error
+        if result.returncode:
+            raise RuntimeError(
+                "jetson_orin_r39 FFmpeg capability check exited with "
+                f"{result.returncode}: {' '.join(command)}"
+            )
+        outputs.append(result.stdout + result.stderr)
+
+    for decoder in ("h264_nvv4l2dec", "hevc_nvv4l2dec"):
+        if decoder not in outputs[0].split():
+            raise RuntimeError(f"jetson_orin_r39 FFmpeg is missing {decoder}")
+    for decoder, output in zip(
+        ("h264_nvv4l2dec", "hevc_nvv4l2dec"), outputs[1:], strict=True
+    ):
+        if "Supported pixel formats:" not in output or "nv12" not in output:
+            raise RuntimeError(
+                f"jetson_orin_r39 FFmpeg decoder lacks NV12 output: {decoder}"
+            )
 
 
 class Stream:
@@ -111,6 +153,16 @@ class Stream:
         self._camera: Camera = camera
 
         self._ffmpeg_pipe: FFmpegPipe | None = None
+        self._ffmpeg_backend = os.getenv(ENV_FFMPEG_BACKEND)
+        if self._ffmpeg_backend == FFMPEG_BACKEND_JETSON_ORIN_R39:
+            ffmpeg_path = os.getenv(ENV_FFMPEG_PATH)
+            if not ffmpeg_path:
+                raise RuntimeError(
+                    "VISERON_FFMPEG_PATH is required for jetson_orin_r39"
+                )
+            validate_jetson_orin_r39_ffmpeg(ffmpeg_path)
+        elif self._ffmpeg_backend:
+            raise RuntimeError(f"Unsupported FFmpeg backend: {self._ffmpeg_backend}")
         self._ffprobe = FFprobe(config, camera_identifier, attempt)
 
         self._mainstream = self.get_stream_information(config)
@@ -139,8 +191,13 @@ class Stream:
             "rawvideo",
             "-pix_fmt",
             self.pixel_format,
-            "pipe:1",
+            ORIN_RAWVIDEO_OUTPUT if self.use_rawvideo_fd else "pipe:1",
         ]
+
+    @property
+    def use_rawvideo_fd(self) -> bool:
+        """Return whether this stream explicitly selected Orin rawvideo transport."""
+        return getattr(self, "_ffmpeg_backend", None) == FFMPEG_BACKEND_JETSON_ORIN_R39
 
     @property
     def alias(self) -> str:
@@ -285,9 +342,8 @@ class Stream:
             width, height, fps, codec, audio_codec, stream_url, stream_config
         )
 
-    @staticmethod
     def get_decoder_codec(
-        stream_config: dict[str, Any], stream_codec: str
+        self, stream_config: dict[str, Any], stream_codec: str
     ) -> list[str]:
         """Return decoder codec set in config or from predefined codec map."""
         if stream_config[CONFIG_CODEC] and stream_config[CONFIG_CODEC] != DEFAULT_CODEC:
@@ -296,7 +352,9 @@ class Stream:
         codec = None
         codec_map = None
         if stream_codec and stream_config[CONFIG_STREAM_FORMAT] in ["rtsp", "rtmp"]:
-            if os.getenv(ENV_RASPBERRYPI3) == "true":
+            if self.use_rawvideo_fd:
+                codec_map = HWACCEL_JETSON_ORIN_R39_DECODER_CODEC_MAP
+            elif os.getenv(ENV_RASPBERRYPI3) == "true":
                 codec_map = HWACCEL_RPI3_DECODER_CODEC_MAP
             elif os.getenv(ENV_RASPBERRYPI4) == "true":
                 codec_map = HWACCEL_RPI4_DECODER_CODEC_MAP
@@ -525,6 +583,10 @@ class Stream:
         """Return full FFmpeg command."""
         if self._substream:
             if self._config[CONFIG_SUBSTREAM][CONFIG_RAW_COMMAND]:
+                if self.use_rawvideo_fd:
+                    raise RuntimeError(
+                        "raw_command is unsupported with jetson_orin_r39"
+                    )
                 return self._config[CONFIG_SUBSTREAM][CONFIG_RAW_COMMAND].split(" ")
             stream_input_command = self.stream_command(
                 self._substream.config,
@@ -534,6 +596,10 @@ class Stream:
             camera_segment_args = []
         else:
             if self._config[CONFIG_RAW_COMMAND]:
+                if self.use_rawvideo_fd:
+                    raise RuntimeError(
+                        "raw_command is unsupported with jetson_orin_r39"
+                    )
                 return self._config[CONFIG_RAW_COMMAND].split(" ")
             stream_input_command = self.stream_command(
                 self._mainstream.config,
