@@ -40,6 +40,7 @@ class FrameReaderConfig:
     recoverable_errors: list[str]
     sensitive_strings: tuple[str, ...]
     log_level: int
+    dedicated_rawvideo_fd: bool = False
 
 
 def frame_reader_logger_name(camera_identifier: str) -> str:
@@ -70,6 +71,7 @@ def run_frame_reader(
         FFMPEG_LOGLEVELS[config.ffmpeg_loglevel],
         decoder_command=config.decoder_command,
         segment_command=config.segment_command,
+        dedicated_rawvideo_fd=config.dedicated_rawvideo_fd,
     )
 
     decode_error.clear()
