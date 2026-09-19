@@ -272,6 +272,34 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
   http.get(`${API_BASE_URL}/cameras/failed`, () =>
     HttpResponse.json({}, { status: 200 }),
   ),
+  // Cameras that have stored data but are no longer configured
+  http.get(`${API_BASE_URL}/cameras/orphaned`, () => {
+    const orphaned: types.OrphanedCameras = {
+      cameras: [
+        {
+          camera_identifier: "camera_3",
+          file_count: 12,
+          size_bytes: 2621440,
+          database_rows: 4,
+          directories: ["/segments/camera_3", "/event_clips/camera_3"],
+        },
+      ],
+    };
+    return HttpResponse.json(orphaned, { status: 200 });
+  }),
+  http.delete(
+    `${API_BASE_URL}/cameras/orphaned/:camera_identifier`,
+    ({ params }) => {
+      const orphaned: types.OrphanedCamera = {
+        camera_identifier: params.camera_identifier as string,
+        file_count: 12,
+        size_bytes: 2621440,
+        database_rows: 4,
+        directories: [],
+      };
+      return HttpResponse.json(orphaned, { status: 200 });
+    },
+  ),
   // Single camera info
   http.get(`${API_BASE_URL}/camera/camera1`, () => {
     const camera: types.Camera = {

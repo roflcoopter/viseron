@@ -25,6 +25,7 @@ const SystemEvents = lazy(() => import("pages/settings/SystemEvents"));
 const Users = lazy(() => import("pages/settings/Users"));
 const TemplateEditor = lazy(() => import("pages/settings/TemplateEditor"));
 const Logs = lazy(() => import("pages/settings/Logs"));
+const StorageCleanup = lazy(() => import("pages/settings/StorageCleanup"));
 
 function App() {
   const routes = useRoutes([
@@ -108,6 +109,10 @@ function App() {
                 {
                   path: "/settings/logs",
                   element: <Logs />,
+                },
+                {
+                  path: "/settings/storage-cleanup",
+                  element: <StorageCleanup />,
                 },
               ],
             },

@@ -175,6 +175,29 @@ The same strategy can be applied for snapshots (images of detected objects, face
 
 </details>
 
+## Orphaned cameras
+
+The automatic cleanup jobs only look at cameras that are present in your configuration.
+When you remove a camera from `config.yaml`, its recordings, snapshots, thumbnails and
+database rows are therefore left behind and no longer count towards any retention rule.
+
+To reclaim that space, go to **Settings → Storage Cleanup** in the web interface.
+It lists every camera identifier that still has data stored but is no longer configured,
+along with how many files it occupies, how much disk space they use and how many database
+rows reference it. Deleting a camera there removes its files from every tier and its rows
+from the database.
+
+:::caution
+
+Deleting an orphaned camera is permanent and cannot be undone.
+
+A camera is only ever listed once it is gone from the configuration, so a camera that
+merely fails to connect is never listed. The page also refuses to list anything while
+Viseron is in safe mode, or while any component is still setting up or has failed to set
+up, since the cameras of such a component are not known yet and would look removed.
+
+:::
+
 ## Database Migrations
 
 Viseron will sometimes require database migrations to be run when you upgrade Viseron.

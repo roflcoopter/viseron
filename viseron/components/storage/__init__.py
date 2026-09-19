@@ -285,6 +285,11 @@ class Storage:
         )
 
     @property
+    def config(self) -> dict[str, Any]:
+        """Return the storage configuration."""
+        return self._config
+
+    @property
     def camera_tier_handlers(self):
         """Return camera tier handlers."""
         return self._camera_tier_handlers
