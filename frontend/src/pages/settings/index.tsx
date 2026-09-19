@@ -1,9 +1,9 @@
 import {
   ArrowRight,
+  Clean,
   DataBlob,
   Script,
   SettingsEdit,
-  TrashCan,
   Trigger,
   UserMultiple,
 } from "@carbon/icons-react";
@@ -80,7 +80,7 @@ function Settings() {
       name: "Storage Cleanup",
       description: "Delete files left behind by removed cameras",
       path: "/settings/storage-cleanup",
-      icon: <TrashCan size={23} />,
+      icon: <Clean size={23} />,
       color: "red",
       disabled: false,
       disabledReason: null,
