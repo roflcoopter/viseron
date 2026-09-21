@@ -1,27 +1,39 @@
 """Test the TierHandler class."""
 
+from __future__ import annotations
+
+import logging
+import os
+import shutil
 import threading
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
 from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import pytest
 from numpy._typing._array_like import NDArray
 from sqlalchemy import select
+from watchdog.events import FileCreatedEvent, FileDeletedEvent
 
 from viseron import Viseron
 from viseron.components.storage import Storage
 from viseron.components.storage.const import (
     COMPONENT as STORAGE_COMPONENT,
     CONFIG_DRAIN,
+    CONFIG_PATH,
     CONFIG_RECORDER,
     LATEST_SNAPSHOT_FILENAME,
     TIER_CATEGORY_RECORDER,
     TIER_SUBCATEGORY_SEGMENTS,
 )
-from viseron.components.storage.models import Recordings
+from viseron.components.storage.models import (
+    Files,
+    FilesMeta,
+    Recordings,
+)
+from viseron.components.storage.storage_subprocess import DataItemMoveFile
 from viseron.components.storage.tier_handler import (
     EventClipTierHandler,
     SegmentsTierHandler,
@@ -30,7 +42,9 @@ from viseron.components.storage.tier_handler import (
     TierHandler,
     find_next_tier_segments,
     handle_file,
+    move_file,
 )
+from viseron.components.storage.util import EventFileCreated
 from viseron.domains.camera.const import (
     CONFIG_CONTINUOUS_RECORDING,
     CONFIG_LOOKBACK,
@@ -42,6 +56,13 @@ from viseron.helpers import utcnow
 
 from tests.common import BaseTestWithRecordings
 from tests.conftest import MockViseron
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from sqlalchemy.orm import Session, sessionmaker
+
+_TierHandlerT = TypeVar("_TierHandlerT", bound=TierHandler)
 
 
 @patch("viseron.components.storage.tier_handler.delete_file")
@@ -110,6 +131,7 @@ def test_handle_file_move(mock_move_file: Mock, vis: MockViseron) -> None:
         TIER_SUBCATEGORY_SEGMENTS,
         tier_1_file,
         tier_2_file,
+        "/tmp/tier2/",
         logger,
     )
 
@@ -805,3 +827,294 @@ def test_continuous_enabled_now_false_when_continuous_recording_disabled(
     )
 
     assert tier_handler.continuous_enabled is False
+
+
+def _make_bare_tier_handler(
+    handler_class: type[_TierHandlerT],
+    vis: MockViseron,
+    storage: Mock,
+    tier_id: int,
+    tier_path: str,
+    category: str,
+    subcategory: str,
+) -> _TierHandlerT:
+    """Build a tier handler without starting its watchdog observer."""
+    tier_handler = handler_class.__new__(handler_class)
+    tier_handler._logger = logging.getLogger(__name__)
+    tier_handler._vis = vis
+    tier_handler._storage = storage
+    tier_handler._camera = Mock(identifier="test")
+    tier_handler._tier_id = tier_id
+    tier_handler._tier = {CONFIG_PATH: tier_path}
+    tier_handler._category = category
+    tier_handler._subcategory = subcategory
+    tier_handler.check_tier = Mock()  # type: ignore[method-assign]
+    return tier_handler
+
+
+@pytest.fixture(name="db_storage")
+def fixture_db_storage(get_db_session: sessionmaker[Session]) -> Mock:
+    """Storage mock backed by the test database."""
+    storage = Mock(spec=Storage)
+    storage.get_session = get_db_session
+    storage.temporary_files_meta = {}
+    storage.pending_moves = {}
+    return storage
+
+
+def _create_file(path: str) -> str:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "wb") as file:
+        file.write(b"data")
+    return path
+
+
+def _file_keys(storage: Mock) -> dict[str, int]:
+    with storage.get_session() as session:
+        rows = session.execute(select(Files.path, Files.file_key)).all()
+    return {row.path: row.file_key for row in rows}
+
+
+def _two_tiers(
+    handler_class: type[_TierHandlerT],
+    vis: MockViseron,
+    storage: Mock,
+    tmp_path: Path,
+    category: str,
+    subcategory: str,
+) -> tuple[_TierHandlerT, _TierHandlerT]:
+    return (
+        _make_bare_tier_handler(
+            handler_class,
+            vis,
+            storage,
+            0,
+            os.path.join(tmp_path, "tier0"),
+            category,
+            subcategory,
+        ),
+        _make_bare_tier_handler(
+            handler_class,
+            vis,
+            storage,
+            1,
+            os.path.join(tmp_path, "tier1"),
+            category,
+            subcategory,
+        ),
+    )
+
+
+def _tier_file(tier_handler: TierHandler, filename: str) -> str:
+    return os.path.join(
+        tier_handler.tier[CONFIG_PATH],
+        tier_handler._category,
+        tier_handler._subcategory,
+        "test",
+        filename,
+    )
+
+
+def _start_move(
+    vis: MockViseron,
+    storage: Mock,
+    src_handler: TierHandler,
+    dst_handler: TierHandler,
+    filename: str,
+) -> tuple[str, str]:
+    """Run move_file, then replay the copy and delete done by the subprocess."""
+    src = _tier_file(src_handler, filename)
+    dst = _tier_file(dst_handler, filename)
+    move_file(
+        vis,
+        storage,
+        storage.get_session,
+        "test",
+        src_handler.tier_id,
+        src_handler._category,
+        src_handler._subcategory,
+        src,
+        dst,
+        dst_handler.tier[CONFIG_PATH],
+        logging.getLogger(__name__),
+    )
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    shutil.copy(src, dst)
+    os.remove(src)
+    return src, dst
+
+
+def _simulate_move(
+    vis: MockViseron,
+    storage: Mock,
+    src_handler: TierHandler,
+    dst_handler: TierHandler,
+    filename: str,
+    observer_order: tuple[str, str],
+) -> None:
+    """Run a move and both observers.
+
+    The source and destination observers drain separate event queues, so the
+    order in which their callbacks run is not guaranteed.
+    """
+    src, dst = _start_move(vis, storage, src_handler, dst_handler, filename)
+    observers = {
+        "created": lambda: dst_handler._on_created(FileCreatedEvent(dst)),
+        "deleted": lambda: src_handler._on_deleted(FileDeletedEvent(src)),
+    }
+    for observer in observer_order:
+        observers[observer]()
+
+
+OBSERVER_ORDERS = [
+    pytest.param(("created", "deleted"), id="created_first"),
+    pytest.param(("deleted", "created"), id="deleted_first"),
+]
+
+
+@pytest.mark.parametrize("observer_order", OBSERVER_ORDERS)
+def test_file_key_survives_move(
+    vis: MockViseron,
+    db_storage: Mock,
+    tmp_path: Path,
+    observer_order: tuple[str, str],
+) -> None:
+    """Test that the destination row inherits the file_key of the source row."""
+    tier0, tier1 = _two_tiers(
+        TierHandler,
+        vis,
+        db_storage,
+        tmp_path,
+        TIER_CATEGORY_RECORDER,
+        TIER_SUBCATEGORY_SEGMENTS,
+    )
+    src = _create_file(_tier_file(tier0, "1.m4s"))
+    tier0._on_created(FileCreatedEvent(src))
+    original_key = _file_keys(db_storage)[src]
+
+    _simulate_move(vis, db_storage, tier0, tier1, "1.m4s", observer_order)
+
+    assert _file_keys(db_storage) == {_tier_file(tier1, "1.m4s"): original_key}
+    assert db_storage.temporary_files_meta == {}
+    assert db_storage.pending_moves == {}
+
+
+def test_file_key_resolvable_before_destination_is_observed(
+    vis: MockViseron, db_storage: Mock, tmp_path: Path
+) -> None:
+    """Test that the key still resolves when the source row is deleted first.
+
+    A polled destination tier can observe the new file seconds after the source
+    tier observes the delete.
+    """
+    tier0, tier1 = _two_tiers(
+        TierHandler,
+        vis,
+        db_storage,
+        tmp_path,
+        TIER_CATEGORY_RECORDER,
+        TIER_SUBCATEGORY_SEGMENTS,
+    )
+    src = _create_file(_tier_file(tier0, "1.m4s"))
+    tier0._on_created(FileCreatedEvent(src))
+    original_key = _file_keys(db_storage)[src]
+
+    src, dst = _start_move(vis, db_storage, tier0, tier1, "1.m4s")
+    tier0._on_deleted(FileDeletedEvent(src))
+
+    assert _file_keys(db_storage) == {dst: original_key}
+
+
+@pytest.mark.parametrize("observer_order", OBSERVER_ORDERS)
+def test_move_dispatches_file_created(
+    vis: MockViseron,
+    db_storage: Mock,
+    tmp_path: Path,
+    observer_order: tuple[str, str],
+) -> None:
+    """Test that the destination still announces the file once it is observed."""
+    tier0, tier1 = _two_tiers(
+        TierHandler,
+        vis,
+        db_storage,
+        tmp_path,
+        TIER_CATEGORY_RECORDER,
+        TIER_SUBCATEGORY_SEGMENTS,
+    )
+    src = _create_file(_tier_file(tier0, "1.m4s"))
+    tier0._on_created(FileCreatedEvent(src))
+    vis.dispatch_event.reset_mock()
+
+    _simulate_move(vis, db_storage, tier0, tier1, "1.m4s", observer_order)
+
+    created_paths = [
+        call.args[1].path
+        for call in vis.dispatch_event.call_args_list
+        if isinstance(call.args[1], EventFileCreated)
+    ]
+    assert created_paths == [_tier_file(tier1, "1.m4s")]
+
+
+def test_failed_move_does_not_hand_over_row(
+    vis: MockViseron, db_storage: Mock, tmp_path: Path
+) -> None:
+    """Test that the row is not moved to the destination after a failed move."""
+    tier0, tier1 = _two_tiers(
+        TierHandler,
+        vis,
+        db_storage,
+        tmp_path,
+        TIER_CATEGORY_RECORDER,
+        TIER_SUBCATEGORY_SEGMENTS,
+    )
+    src = _create_file(_tier_file(tier0, "1.m4s"))
+    tier0._on_created(FileCreatedEvent(src))
+    dst = _tier_file(tier1, "1.m4s")
+
+    move_file(
+        vis,
+        db_storage,
+        db_storage.get_session,
+        "test",
+        0,
+        TIER_CATEGORY_RECORDER,
+        TIER_SUBCATEGORY_SEGMENTS,
+        src,
+        dst,
+        tier1.tier[CONFIG_PATH],
+        logging.getLogger(__name__),
+    )
+    callback = db_storage.tier_check_worker_send_command.call_args.kwargs["callback"]
+    callback(DataItemMoveFile(cmd="move_file", src=src, dst=dst, error="boom"))
+    # The source is later removed by something else, such as retention
+    os.remove(src)
+    tier0._on_deleted(FileDeletedEvent(src))
+
+    assert not _file_keys(db_storage)
+
+
+def test_new_files_get_distinct_file_keys(
+    vis: MockViseron, db_storage: Mock, tmp_path: Path
+) -> None:
+    """Test that new files get fresh keys, including those with fragmenter meta."""
+    tier0 = _make_bare_tier_handler(
+        TierHandler,
+        vis,
+        db_storage,
+        0,
+        os.path.join(tmp_path, "tier0"),
+        TIER_CATEGORY_RECORDER,
+        TIER_SUBCATEGORY_SEGMENTS,
+    )
+    with_meta = _create_file(_tier_file(tier0, "1.m4s"))
+    without_meta = _create_file(_tier_file(tier0, "2.m4s"))
+    db_storage.temporary_files_meta[with_meta] = FilesMeta(
+        orig_ctime=utcnow(), duration=5.0
+    )
+
+    tier0._on_created(FileCreatedEvent(with_meta))
+    tier0._on_created(FileCreatedEvent(without_meta))
+
+    keys = _file_keys(db_storage)
+    assert set(keys) == {with_meta, without_meta}
+    assert keys[with_meta] != keys[without_meta]

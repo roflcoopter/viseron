@@ -793,34 +793,15 @@ def get_available_timespans(
     files = get_time_period_fragments(
         camera_identifiers, time_from, time_to, get_session
     )
-    fragments = [
-        Fragment(
-            file.filename,
-            f"/files{file.path}",
-            file.duration,
-            file.orig_ctime,
-        )
-        for file in files
-    ]
-
-    timespans: list[Timespan] = []
-    start = None
-    end = None
-    for fragment in fragments:
-        if start is None:
-            start = fragment.creation_time.timestamp()
-        if end is None:
-            end = fragment.creation_time.timestamp() + fragment.duration
-        if fragment.creation_time.timestamp() > end + fragment.duration:
-            timespans.append(
-                {"start": int(start), "end": int(end), "duration": int(end - start)}
-            )
-            start = None
-            end = None
+    spans: list[tuple[float, float]] = []
+    for file in files:
+        file_start = file.orig_ctime.timestamp()
+        file_end = file_start + file.duration
+        if spans and file_start <= spans[-1][1] + file.duration:
+            spans[-1] = (spans[-1][0], file_end)
         else:
-            end = fragment.creation_time.timestamp() + fragment.duration
-    if start is not None and end is not None:
-        timespans.append(
-            {"start": int(start), "end": int(end), "duration": int(end - start)}
-        )
-    return timespans
+            spans.append((file_start, file_end))
+    return [
+        {"start": int(start), "end": int(end), "duration": int(end - start)}
+        for start, end in spans
+    ]

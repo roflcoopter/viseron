@@ -13,7 +13,7 @@ import voluptuous as vol
 from alembic import command, script
 from alembic.config import Config
 from alembic.migration import MigrationContext
-from sqlalchemy import text, update
+from sqlalchemy import select, text, update
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, scoped_session, sessionmaker
 
@@ -53,7 +53,14 @@ from viseron.components.storage.const import (
     TIER_SUBCATEGORY_TIMELAPSE,
 )
 from viseron.components.storage.jobs import CleanupManager
-from viseron.components.storage.models import Base, FilesMeta, Motion, Recordings
+from viseron.components.storage.models import (
+    Base,
+    Files,
+    FilesMeta,
+    Motion,
+    PendingMove,
+    Recordings,
+)
 from viseron.components.storage.storage_subprocess import TierCheckWorker
 from viseron.components.storage.tier_handler import (
     EventClipTierHandler,
@@ -276,6 +283,8 @@ class Storage:
         self._get_session: Callable[[], Session] | None = None
 
         self.temporary_files_meta: dict[str, FilesMeta] = {}
+        # Keyed by the source path
+        self.pending_moves: dict[str, PendingMove] = {}
 
         self.cleanup_manager = CleanupManager(vis, self)
         self.cleanup_manager.start()
@@ -584,7 +593,36 @@ class Storage:
     def search_file(
         self, camera_identifier: str, category: str, subcategory: str, path: str
     ) -> str | None:
-        """Search for file in tiers."""
+        """Search for a file that has been moved to another tier."""
+        with self.get_session() as session:
+            stmt = (
+                select(Files.path, Files.tier_path)
+                .where(Files.camera_identifier == camera_identifier)
+                .where(Files.category == category)
+                .where(Files.subcategory == subcategory)
+                .where(Files.filename == os.path.basename(path))
+                .order_by(Files.tier_id)
+            )
+            candidates = session.execute(stmt).all()
+
+        for candidate, tier_path in candidates:
+            # Filenames are only unique per folder, event clips are split by date
+            if (
+                candidate != path
+                and path.endswith(os.sep + os.path.relpath(candidate, tier_path))
+                and os.path.exists(candidate)
+            ):
+                LOGGER.debug(f"Found file in database: {candidate}")
+                return candidate
+
+        return self._search_file_by_tier_prefix(
+            camera_identifier, category, subcategory, path
+        )
+
+    def _search_file_by_tier_prefix(
+        self, camera_identifier: str, category: str, subcategory: str, path: str
+    ) -> str | None:
+        """Search for file by swapping its tier prefix for each succeeding tier."""
         prev_tier_handler = None
         for tier_handler in self._camera_tier_handlers[camera_identifier][category]:
             if tier_handler[subcategory].tier[CONFIG_PATH] in path:

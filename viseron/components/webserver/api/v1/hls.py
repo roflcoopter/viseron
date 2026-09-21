@@ -313,44 +313,22 @@ def update_hls_client(
     return hls_client, 0
 
 
-def adjust_fragment_paths(
-    camera: AbstractCamera | FailedCamera, subpath: str, files: list
-) -> list[Fragment]:
-    """Adjust fragment paths for multi-tier storage.
+def files_to_fragments(subpath: str, files: list) -> list[Fragment]:
+    """Create fragments that reference segments by their file key.
 
-    For tiers other than the first one, we need to alter the path to
-    point to the first tier and then provide the actual tier path as a
-    query parameter.
-    This is to not break the HLS specifications for files that are moved
-    between updates of the playlist
+    Segment URIs must not change between updates of a playlist, and the file key
+    stays the same when a segment moves to another tier.
     """
-    fragments = []
-    for file in files:
-        path: str
-        if file.tier_id > 0:
-            first_tier_path = camera.tier_base_path(
-                0, TIER_CATEGORY_RECORDER, TIER_SUBCATEGORY_SEGMENTS
-            )
-            path = file.path.replace(
-                file.tier_path,
-                first_tier_path,
-                1,
-            )
-            path += (
-                f"?first_tier_path={first_tier_path}&actual_tier_path={file.tier_path}"
-            )
-        else:
-            path = file.path
-
-        fragments.append(
-            Fragment(
-                file.filename,
-                f"{subpath}/files{path}",
-                file.duration,
-                file.orig_ctime,
-            )
+    return [
+        Fragment(
+            file.filename,
+            # file_key is converted to a hexadecimal string in the URL
+            f"{subpath}/file/{file.camera_identifier}/{file.file_key:x}",
+            file.duration,
+            file.orig_ctime,
         )
-    return fragments
+        for file in files
+    ]
 
 
 def _render_client_playlist(
@@ -406,7 +384,7 @@ def _generate_playlist(
         get_session,
         now=now,
     )
-    fragments = adjust_fragment_paths(camera, subpath, files)
+    fragments = files_to_fragments(subpath, files)
 
     end: bool = True
     # Recording has not ended yet
@@ -465,7 +443,7 @@ def _generate_playlist_time_period(
     files = get_time_period_fragments(
         [camera.identifier], start_timestamp, end_timestamp, get_session
     )
-    fragments = adjust_fragment_paths(camera, subpath, files)
+    fragments = files_to_fragments(subpath, files)
 
     init_file = _get_init_file(get_session, camera)
     if not init_file:

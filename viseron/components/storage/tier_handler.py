@@ -11,7 +11,8 @@ from queue import Queue
 from threading import Timer
 from typing import TYPE_CHECKING, Any, Literal, cast
 
-from sqlalchemy import Delete, delete, insert, select, update
+from sqlalchemy import Delete, delete, select, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from watchdog.events import (
     FileCreatedEvent,
@@ -57,11 +58,13 @@ from viseron.components.storage.const import (
     CleanupJobNames,
 )
 from viseron.components.storage.models import (
+    FILE_KEY_SEQUENCE,
     Files,
     FilesMeta,
     Motion,
     MotionContours,
     Objects,
+    PendingMove,
     PostProcessorResults,
     Recordings,
 )
@@ -208,11 +211,6 @@ class TierHandler(FileSystemEventHandler):
     def tier_id(self) -> int:
         """Return tier id."""
         return self._tier_id
-
-    @property
-    def tier_base_path(self) -> str:
-        """Return tier base path."""
-        return self._tier[CONFIG_PATH]
 
     def add_file_handler(self, path: str, pattern: str) -> None:
         """Add file handler to webserver."""
@@ -407,9 +405,11 @@ class TierHandler(FileSystemEventHandler):
 
         self._logger.debug("File created: %s", src_path)
         file_meta = self._storage.temporary_files_meta.pop(src_path, None)
-        try:
-            with self._storage.get_session() as session:
-                stmt = insert(Files).values(
+        size = os.path.getsize(src_path)
+        with self._storage.get_session() as session:
+            stmt = (
+                insert(Files)
+                .values(
                     tier_id=self._tier_id,
                     tier_path=self._tier[CONFIG_PATH],
                     camera_identifier=self._camera.identifier,
@@ -418,32 +418,36 @@ class TierHandler(FileSystemEventHandler):
                     path=src_path,
                     directory=os.path.dirname(src_path),
                     filename=os.path.basename(src_path),
-                    size=os.path.getsize(src_path),
+                    size=size,
                     orig_ctime=file_meta.orig_ctime if file_meta else utcnow(),
                     duration=file_meta.duration if file_meta else None,
+                    file_key=(
+                        file_meta.file_key
+                        if file_meta and file_meta.file_key is not None
+                        else FILE_KEY_SEQUENCE.next_value()
+                    ),
                 )
-                session.execute(stmt)
-                session.commit()
-        except IntegrityError:
-            self._logger.error(
-                "Failed to insert file %s into database, already exists", src_path
+                # The source row is handed over when its delete is observed first
+                .on_conflict_do_update(index_elements=[Files.path], set_={"size": size})
             )
-        else:
-            self._vis.dispatch_event(
-                EVENT_FILE_CREATED.format(
-                    camera_identifier=self._camera.identifier,
-                    category=self._category,
-                    subcategory=self._subcategory,
-                ),
-                EventFileCreated(
-                    camera_identifier=self._camera.identifier,
-                    category=self._category,
-                    subcategory=self._subcategory,
-                    file_name=os.path.basename(src_path),
-                    path=src_path,
-                ),
-                store=False,
-            )
+            session.execute(stmt)
+            session.commit()
+
+        self._vis.dispatch_event(
+            EVENT_FILE_CREATED.format(
+                camera_identifier=self._camera.identifier,
+                category=self._category,
+                subcategory=self._subcategory,
+            ),
+            EventFileCreated(
+                camera_identifier=self._camera.identifier,
+                category=self._category,
+                subcategory=self._subcategory,
+                file_name=os.path.basename(src_path),
+                path=src_path,
+            ),
+            store=False,
+        )
 
         self.check_tier()
 
@@ -486,7 +490,10 @@ class TierHandler(FileSystemEventHandler):
         src_path = _src_path(event)
 
         self._logger.debug("File deleted: %s", src_path)
+        pending_move = self._storage.pending_moves.pop(src_path, None)
         with self._storage.get_session() as session:
+            if pending_move:
+                _hand_over_row(session, src_path, pending_move)
             stmt = delete(Files).where(Files.path == src_path)
             session.execute(stmt)
             session.commit()
@@ -1135,6 +1142,7 @@ def handle_file(
                 curr_tier_subcategory,
                 path,
                 new_path,
+                next_tier[CONFIG_PATH],
                 logger,
             )
 
@@ -1187,6 +1195,7 @@ def move_file(
     curr_tier_subcategory: str,
     src: str,
     dst: str,
+    dst_tier_path: str,
     logger: logging.Logger,
 ) -> None:
     """Move file from src to dst.
@@ -1201,7 +1210,12 @@ def move_file(
             sel = select(Files).where(Files.path == src)
             res = session.execute(sel).scalar_one()
             storage.temporary_files_meta[dst] = FilesMeta(
-                orig_ctime=res.orig_ctime, duration=res.duration
+                orig_ctime=res.orig_ctime,
+                duration=res.duration,
+                file_key=res.file_key,
+            )
+            storage.pending_moves[src] = PendingMove(
+                dst=dst, tier_id=curr_tier_id + 1, tier_path=dst_tier_path
             )
     except NoResultFound as error:
         logger.debug(f"Failed to find metadata for {src}: {error}")
@@ -1219,6 +1233,7 @@ def move_file(
     ) -> None:
         if item.error:
             logger.error(f"Error moving file {src} to {dst}: {item.error}")
+            storage.pending_moves.pop(src, None)
             vis.dispatch_event(
                 EVENT_CHECK_TIER.format(
                     camera_identifier=camera_identifier,
@@ -1240,6 +1255,32 @@ def move_file(
         ),
         callback=_move_file_callback,
     )
+
+
+def _hand_over_row(session: Session, src: str, pending_move: PendingMove) -> None:
+    """Point the row of a moved file at its destination.
+
+    The destination observer can see the new file long after the source observer
+    sees the delete, for instance when it polls, and the file key has to resolve
+    in between. The copy has finished once the source is deleted.
+    """
+    dst_row_exists = select(Files.id).where(Files.path == pending_move.dst).exists()
+    stmt = (
+        update(Files)
+        .where(Files.path == src, ~dst_row_exists)
+        .values(
+            path=pending_move.dst,
+            directory=os.path.dirname(pending_move.dst),
+            tier_id=pending_move.tier_id,
+            tier_path=pending_move.tier_path,
+        )
+    )
+    try:
+        with session.begin_nested():
+            session.execute(stmt)
+    except IntegrityError:
+        # The destination observer inserted its row concurrently
+        pass
 
 
 def force_move_files(
