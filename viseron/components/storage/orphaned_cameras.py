@@ -329,9 +329,10 @@ def delete_orphaned_camera(
     with storage.get_session() as session:
         deleted = _build_orphaned_camera(session, tier_paths, camera_identifier)
 
+        # Let OSError propagate so a failed delete is not reported as a success
         for directory in deleted.directories:
             LOGGER.debug("Deleting orphaned camera directory %s", directory)
-            shutil.rmtree(directory, ignore_errors=True)
+            shutil.rmtree(directory)
 
         # MotionContours has no camera_identifier, it is linked through Motion
         session.execute(

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy import select
@@ -346,6 +346,40 @@ class TestDeleteOrphanedCamera:
             assert (
                 session.execute(
                     select(Files).where(Files.camera_identifier == "camera_1")
+                ).first()
+                is not None
+            )
+
+    def test_raises_on_filesystem_error(
+        self, tmp_path: Path, get_db_session: sessionmaker[Session]
+    ) -> None:
+        """Test that a directory that cannot be deleted is not a success."""
+        tier_path = str(tmp_path)
+        orphan_file = os.path.join(tier_path, "segments/camera_3/file.m4s")
+        _write_file(orphan_file)
+        with get_db_session() as session:
+            _add_file(session, tier_path, "camera_3", orphan_file)
+            session.commit()
+
+        with (
+            patch(
+                "viseron.components.storage.orphaned_cameras.shutil.rmtree",
+                side_effect=PermissionError("Permission denied"),
+            ),
+            pytest.raises(PermissionError),
+        ):
+            delete_orphaned_camera(
+                _mock_vis([]),
+                _mock_storage(tier_path, get_db_session),
+                "camera_3",
+            )
+
+        # Rows are kept so the camera is still listed and the delete can be retried
+        assert os.path.exists(orphan_file)
+        with get_db_session() as session:
+            assert (
+                session.execute(
+                    select(Files).where(Files.camera_identifier == "camera_3")
                 ).first()
                 is not None
             )
