@@ -14,7 +14,6 @@ import imutils
 import numpy as np
 import voluptuous as vol
 
-from viseron.components.nvr.nvr import OperationState
 from viseron.components.storage.models import TriggerTypes
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.components.webserver.auth import Role
@@ -296,13 +295,6 @@ class CameraAPIHandler(BaseAPIHandler):
             self.response_error(
                 HTTPStatus.BAD_REQUEST,
                 reason="Camera is off or disconnected",
-            )
-            return None
-
-        if nvr.operation_state == OperationState.IDLE:
-            self.response_error(
-                HTTPStatus.BAD_REQUEST,
-                reason="NVR is idle",
             )
             return None
 
