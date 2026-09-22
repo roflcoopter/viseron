@@ -1,5 +1,6 @@
 import {
   ArrowRight,
+  Clean,
   DataBlob,
   Script,
   SettingsEdit,
@@ -72,6 +73,15 @@ function Settings() {
       path: "/settings/logs",
       icon: <DataBlob size={23} />,
       color: "orange",
+      disabled: false,
+      disabledReason: null,
+    },
+    {
+      name: "Storage Cleanup",
+      description: "Delete files left behind by removed cameras",
+      path: "/settings/storage-cleanup",
+      icon: <Clean size={23} />,
+      color: "red",
       disabled: false,
       disabledReason: null,
     },

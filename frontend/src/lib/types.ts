@@ -236,6 +236,18 @@ export interface CamerasOrFailedCameras {
   [identifier: string]: Camera | FailedCamera;
 }
 
+export interface OrphanedCamera {
+  camera_identifier: string;
+  file_count: number;
+  size_bytes: number;
+  database_rows: number;
+  directories: string[];
+}
+
+export interface OrphanedCameras {
+  cameras: OrphanedCamera[];
+}
+
 export interface DetectedObject {
   label: string;
   confidence: number;
