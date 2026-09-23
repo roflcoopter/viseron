@@ -885,3 +885,19 @@ class TestComponentStatusDict:
         assert len(status["errors"]) == 1
         assert status["errors"][0]["message"] == "A warning"
         assert isinstance(status["domains"], list)
+
+    def test_as_status_dict_omits_domain_config(self, vis: MockViseron) -> None:
+        """Test domain config (camera credentials) is not part of the status."""
+        component = Component(vis, "viseron.components.test", "test", {})
+        vis.domain_registry.register(
+            component_name="test",
+            component_path="viseron.components.test",
+            domain="camera",
+            identifier="cam1",
+            config={"cam1": {"username": "admin", "password": "secret"}},
+        )
+
+        status = component.as_status_dict()
+        assert len(status["domains"]) == 1
+        assert "config" not in status["domains"][0]
+        assert "secret" not in str(status)
