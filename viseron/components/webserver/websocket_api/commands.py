@@ -189,10 +189,8 @@ def _event_allowed(connection: WebSocketHandler, event: Event) -> bool:
     return camera_identifier in assigned_cameras
 
 
-def _state_changed_allowed(
-    connection: WebSocketHandler, event: Event[EventStateChangedData]
-) -> bool:
-    """Return whether the connection may receive a state change.
+def _entity_allowed(connection: WebSocketHandler, entity_id: str) -> bool:
+    """Return whether the connection may see an entity.
 
     The states registry records the identifier an entity was registered under,
     which for entities belonging to a camera is the camera identifier.
@@ -201,7 +199,7 @@ def _state_changed_allowed(
     if assigned_cameras is None:
         return True
 
-    identifier = connection.vis.states.get_entity_identifier(event.data.entity_id)
+    identifier = connection.vis.states.get_entity_identifier(entity_id)
     if identifier is None:
         return True
 
@@ -214,6 +212,13 @@ def _state_changed_allowed(
         return True
 
     return identifier in assigned_cameras
+
+
+def _state_changed_allowed(
+    connection: WebSocketHandler, event: Event[EventStateChangedData]
+) -> bool:
+    """Return whether the connection may receive a state change."""
+    return _entity_allowed(connection, event.data.entity_id)
 
 
 @websocket_command({vol.Required("type"): "ping"})
@@ -439,6 +444,11 @@ async def handle_reload_config(connection: WebSocketHandler, message) -> None:
 async def get_entities(connection: WebSocketHandler, message) -> None:
     """Get all registered entities."""
     entities = await connection.run_in_executor(connection.vis.get_entities)
+    entities = {
+        entity_id: entity
+        for entity_id, entity in entities.items()
+        if _entity_allowed(connection, entity_id)
+    }
 
     await connection.async_send_message(
         result_message(message["command_id"], entities),

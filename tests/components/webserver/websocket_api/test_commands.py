@@ -10,6 +10,7 @@ from viseron.components.webserver.websocket_api.commands import (
     _camera_identifier_from_event,
     _event_allowed,
     _state_changed_allowed,
+    get_entities,
     subscribe_event,
     subscribe_states,
 )
@@ -270,3 +271,37 @@ class TestSubscribeStates:
         asyncio.run(run())
 
         connection.async_send_message.assert_not_called()
+
+
+class TestGetEntities:
+    """Tests for the get_entities command."""
+
+    @staticmethod
+    def _get_entities(connection) -> dict:
+        """Run get_entities and return the entities sent to the client."""
+        connection.run_in_executor = AsyncMock(
+            return_value={
+                "sensor.cam_a_access_token": MagicMock(),
+                "sensor.cam_b_access_token": MagicMock(),
+                "sensor.cpu": MagicMock(),
+            }
+        )
+        connection.vis.states.get_entity_identifier.side_effect = {
+            "sensor.cam_a_access_token": "cam_a",
+            "sensor.cam_b_access_token": "cam_b",
+        }.get
+
+        asyncio.run(get_entities(connection, {"type": "get_entities", "command_id": 1}))
+        return connection.async_send_message.call_args[0][0]["result"]
+
+    def test_unassigned_camera_entities_are_dropped(self) -> None:
+        """Entities of cameras outside the assignment are not returned."""
+        entities = self._get_entities(_connection(_user(Role.READ, ["cam_a"])))
+
+        assert set(entities) == {"sensor.cam_a_access_token", "sensor.cpu"}
+
+    def test_admin_gets_all_entities(self) -> None:
+        """Admins keep the previous behaviour."""
+        entities = self._get_entities(_connection(_user(Role.ADMIN, ["cam_a"])))
+
+        assert len(entities) == 3
