@@ -30,13 +30,14 @@ import { useToast } from "hooks/UseToast";
 import { useCameras } from "lib/api/cameras";
 import { BASE_PATH } from "lib/api/client";
 import { useTuneConfig, useUpdateTuneConfig } from "lib/api/tune";
+import { reloadConfig } from "lib/commands";
 
 function Tunes() {
   const { camera_identifier } = useParams<{ camera_identifier: string }>();
   const cameras = useCameras({});
   const toast = useToast();
 
-  const { setupStatus } = useContext(ViseronContext);
+  const { connection, setupStatus } = useContext(ViseronContext);
 
   const hasSetupErrors = setupStatus.components.some(
     (component) => component.errors.length > 0 || component.validation_error,
@@ -147,7 +148,32 @@ function Tunes() {
       }
 
       tuneHandlers.setIsConfigModified(false);
-      toast.success("Configuration saved successfully");
+
+      // Saving only writes config.yaml, reload so the running camera picks it up
+      if (!connection) {
+        toast.warning(
+          "Configuration saved, but not applied. Reload the config from the editor to apply it.",
+        );
+        return;
+      }
+      try {
+        const result = await reloadConfig(connection);
+        if (!result.success) {
+          toast.error(
+            "Configuration saved, but reload failed. Check the setup errors panel for details.",
+          );
+        } else if (result.restart_required) {
+          toast.warning(
+            "Configuration saved, but some changes require a restart to take effect.",
+          );
+        } else {
+          toast.success("Configuration saved and applied");
+        }
+      } catch (error) {
+        toast.error(
+          `Configuration saved, but reload failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
     },
     onError: (error) => {
       toast.error(error.message || "Failed to save configuration");
