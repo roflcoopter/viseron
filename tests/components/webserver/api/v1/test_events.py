@@ -5,12 +5,14 @@ from __future__ import annotations
 import datetime
 import json
 from typing import TYPE_CHECKING
-from unittest.mock import patch
+from unittest.mock import PropertyMock, patch
 
 import pytest
 from sqlalchemy import insert
 
 from viseron.components.storage.models import Motion, PostProcessorResults
+from viseron.components.webserver.api.handlers import BaseAPIHandler
+from viseron.components.webserver.auth import Role, User
 from viseron.domains.camera.const import CONFIG_LOOKBACK, CONFIG_RECORDER
 
 from tests.common import BaseTestWithRecordings, MockCamera
@@ -255,3 +257,30 @@ class TestEventsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
         body = json.loads(response.body)
         assert body["dates_of_interest"]["2024-06-21"]["events"] == 2
         assert body["dates_of_interest"]["2024-06-22"]["events"] == 2
+
+    def test_post_multiple_skips_unassigned_cameras(self):
+        """Test bulk endpoints do not return events for unassigned cameras."""
+        user = User(
+            name="test",
+            username="test",
+            password="test",
+            role=Role.READ,
+            assigned_cameras=["other"],
+        )
+        for endpoint, key in (
+            ("/api/v1/events/amount", "events_amount"),
+            ("/api/v1/events/dates_of_interest", "dates_of_interest"),
+        ):
+            with patch.object(
+                BaseAPIHandler, "current_user", new_callable=PropertyMock
+            ) as current_user:
+                current_user.return_value = user
+                response = self.fetch(
+                    endpoint,
+                    method="POST",
+                    body=json.dumps({"camera_identifiers": ["test"]}),
+                    headers={"X-Client-UTC-Offset": "0"},
+                )
+
+            assert response.code == 200
+            assert json.loads(response.body)[key] == {}
