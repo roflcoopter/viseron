@@ -155,7 +155,7 @@ export function MiscellaneousSection({
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Typography variant="subtitle2">Configurations</Typography>
           <Tooltip
-            title="The Viseron configuration for this component based on the camera you choose. This configuration change has no effect unless you restart Viseron or reload configuration."
+            title="The Viseron configuration for this component based on the camera you choose."
             arrow
             placement="top"
           >
