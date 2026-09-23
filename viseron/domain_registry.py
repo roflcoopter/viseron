@@ -63,7 +63,6 @@ class DomainEntry:
             "component": self.component_name,
             "domain": self.domain,
             "identifier": self.identifier,
-            "config": self.config,
             "require_domains": [
                 {"domain": r.domain, "identifier": r.identifier}
                 for r in self.require_domains

@@ -464,7 +464,6 @@ export type DomainStatus = {
   component: string;
   domain: string;
   identifier: string;
-  config: Record<string, unknown>;
   require_domains: { domain: string; identifier: string }[];
   optional_domains: { domain: string; identifier: string }[];
   state: string;
