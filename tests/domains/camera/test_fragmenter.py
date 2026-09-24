@@ -20,6 +20,7 @@ from viseron.domains.camera.fragmenter import (
     _extract_extinf_number,
     _extract_program_date_time,
     generate_playlist,
+    get_available_timespans,
     get_skipped_segment_count,
 )
 from viseron.helpers import utcnow
@@ -286,6 +287,56 @@ def test_get_skipped_segment_count(
     ]
 
     assert get_skipped_segment_count(fragments, skip_boundary) == expected
+
+
+@pytest.mark.parametrize(
+    ("segment_starts", "expected"),
+    [
+        pytest.param([], [], id="no_segments"),
+        pytest.param(
+            [0, 5, 10],
+            [{"start": 0, "end": 15, "duration": 15}],
+            id="contiguous",
+        ),
+        pytest.param(
+            [0, 5, 15],
+            [{"start": 0, "end": 20, "duration": 20}],
+            id="gap_within_one_segment_duration",
+        ),
+        pytest.param(
+            [0, 5, 10, 1000, 1005],
+            [
+                {"start": 0, "end": 15, "duration": 15},
+                {"start": 1000, "end": 1010, "duration": 10},
+            ],
+            id="gap",
+        ),
+        pytest.param(
+            [0, 5, 1000],
+            [
+                {"start": 0, "end": 10, "duration": 10},
+                {"start": 1000, "end": 1005, "duration": 5},
+            ],
+            id="single_segment_after_gap",
+        ),
+    ],
+)
+def test_get_available_timespans(
+    segment_starts: list[int], expected: list[dict[str, int]]
+) -> None:
+    """Test that segments are merged into timespans that split on gaps."""
+    segments = [
+        MagicMock(
+            orig_ctime=datetime.datetime.fromtimestamp(start, tz=datetime.timezone.utc),
+            duration=5,
+        )
+        for start in segment_starts
+    ]
+    with patch(
+        "viseron.domains.camera.fragmenter.get_time_period_fragments",
+        return_value=segments,
+    ):
+        assert get_available_timespans(MagicMock(), ["test"], 0) == expected
 
 
 class TestFragmenter:

@@ -9,6 +9,7 @@ from enum import Enum
 from typing import Literal
 
 from sqlalchemy import (
+    BigInteger,
     ColumnElement,
     DateTime,
     Float,
@@ -16,6 +17,7 @@ from sqlalchemy import (
     Integer,
     Label,
     LargeBinary,
+    Sequence,
     String,
     text,
     types,
@@ -101,6 +103,9 @@ class Base(DeclarativeBase):
     type_annotation_map = {ColumnMeta: JSONB}
 
 
+FILE_KEY_SEQUENCE = Sequence("files_file_key_seq", metadata=Base.metadata)
+
+
 class Files(Base):
     """Database model for files."""
 
@@ -116,9 +121,24 @@ class Files(Base):
             "category",
             "subcategory",
         ),
+        Index("idx_files_file_key", "file_key"),
+        Index(
+            "idx_files_name_lookup",
+            "camera_identifier",
+            "category",
+            "subcategory",
+            "filename",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    # Identifies the logical file across tier moves. Not unique: the source and
+    # destination rows carry the same key while a move is in flight.
+    file_key: Mapped[int] = mapped_column(
+        BigInteger,
+        FILE_KEY_SEQUENCE,
+        server_default=FILE_KEY_SEQUENCE.next_value(),
+    )
     tier_id: Mapped[int] = mapped_column(Integer)
     tier_path: Mapped[str] = mapped_column(String)
     camera_identifier: Mapped[str] = mapped_column(String)
@@ -149,6 +169,16 @@ class FilesMeta:
 
     orig_ctime: datetime.datetime
     duration: float
+    file_key: int | None = None
+
+
+@dataclass
+class PendingMove:
+    """Destination of a file that is being moved to another tier."""
+
+    dst: str
+    tier_id: int
+    tier_path: str
 
 
 class TriggerTypes(Enum):

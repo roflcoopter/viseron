@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, NamedTuple
 from unittest.mock import MagicMock, patch
 
 import pytest
-from sqlalchemy import delete, insert, update
+from sqlalchemy import delete, func, insert, select, update
 
 from viseron.components.storage.models import Files, Recordings
 from viseron.components.webserver.api.v1.hls import (
@@ -66,6 +66,68 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
         response_string = response.body.decode()
         assert response_string.count("#EXTINF") == 3
         assert response_string.count("#EXT-X-ENDLIST") == 1
+
+    def _fetch_recording_playlist_uris(self) -> list[str]:
+        mocked_camera = MockCamera(
+            identifier="test", config={CONFIG_RECORDER: {CONFIG_LOOKBACK: 5}}
+        )
+        with (
+            patch(
+                (
+                    "viseron.components.webserver.request_handler.ViseronRequestHandler"
+                    "._get_camera"
+                ),
+                return_value=mocked_camera,
+            ),
+            patch(
+                (
+                    "viseron.components.webserver.request_handler.ViseronRequestHandler"
+                    "._get_session"
+                ),
+                return_value=self._get_db_session(),
+            ),
+            patch(
+                "viseron.components.webserver.api.v1.hls._get_init_file",
+                return_value="/test/init.mp4",
+            ),
+        ):
+            response = self.fetch("/api/v1/hls/test/1/index.m3u8")
+        assert response.code == 200
+        playlist = response.body.decode()
+        assert '#EXT-X-MAP:URI="/files/test/init.mp4"' in playlist
+        return [
+            line for line in playlist.splitlines() if line and not line.startswith("#")
+        ]
+
+    def test_segment_uris_are_file_keys(self):
+        """Test that segment URIs are the hex file keys of the segments."""
+        with self._get_db_session() as session:
+            file_keys = session.execute(
+                select(Files.file_key).where(Files.camera_identifier == "test")
+            ).scalars()
+            expected_uris = {f"/file/test/{key:x}" for key in file_keys}
+
+        uris = self._fetch_recording_playlist_uris()
+
+        assert len(uris) == 3
+        assert set(uris) <= expected_uris
+
+    def test_segment_uris_survive_tier_move(self):
+        """Test that segment URIs do not change when the segments move tier."""
+        uris_before_move = self._fetch_recording_playlist_uris()
+        with self._get_db_session() as session:
+            session.execute(
+                update(Files)
+                .where(Files.camera_identifier == "test")
+                .values(
+                    tier_id=1,
+                    tier_path="/tier1/",
+                    path=func.replace(Files.path, "/test/", "/tier1/test/"),
+                )
+            )
+            session.commit()
+
+        assert self._fetch_recording_playlist_uris() == uris_before_move
 
     def test_get_recording_hls_playlist_gap_segments(self):
         """Test getting a recording HLS playlist with gap in segments."""
@@ -210,7 +272,22 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
                 f"?time_from={time_from}&time_to={time_to}"
             )
         assert response.code == 200
-        assert len(json.loads(response.body)["timespans"]) == 2
+        future = self._now + datetime.timedelta(hours=5)
+        # Same float arithmetic as the handler so int() truncation matches exactly
+        expected_spans = [
+            (
+                self._now.timestamp(),
+                (self._now + datetime.timedelta(seconds=70)).timestamp() + 5,
+            ),
+            (
+                future.timestamp(),
+                (future + datetime.timedelta(seconds=20)).timestamp() + 5,
+            ),
+        ]
+        assert json.loads(response.body)["timespans"] == [
+            {"start": int(start), "end": int(end), "duration": int(end - start)}
+            for start, end in expected_spans
+        ]
 
     def _get_hls_playlist_time_period(
         self,

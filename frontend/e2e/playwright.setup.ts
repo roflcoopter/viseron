@@ -33,7 +33,7 @@ test.beforeEach(async ({ page, context }) => {
 
   // Log network responses
   page.on("response", (res) => {
-    if (res.url().includes(API_BASE_URL) || res.url().includes("/files/"))
+    if (res.url().includes(API_BASE_URL) || /\/files?\//.test(res.url()))
       console.log(
         `[response] ${res.status()} ${res.url()} (${res.request().method()})`,
       );

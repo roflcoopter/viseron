@@ -76,6 +76,7 @@ from .const import (
     WEBSOCKET_COMMANDS,
     WEBSOCKET_CONNECTIONS,
 )
+from .file_key_handler import FileKeyHandler
 from .stream_handler import DynamicStreamHandler, StaticStreamHandler
 from .websocket_api import WebSocketHandler
 from .websocket_api.commands import (
@@ -303,6 +304,7 @@ def create_application(
         r".*",
         [
             (PathMatches(r"/api/.*"), APIRouter(vis, application)),
+            (r"/file/([A-Za-z0-9_]+/[0-9a-f]+)$", FileKeyHandler, {"vis": vis}),
         ],
     )
     return application
