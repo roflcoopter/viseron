@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
+from viseron.components.storage.models import TriggerTypes
 from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.const import DEFAULT_OUTPUT_FPS
 from viseron.domains.camera.shared_frames import SharedFrame
@@ -60,6 +61,29 @@ class TestCalculateOutputFps:
     ):
         """Multiple scanners -> output fps equals the highest scan fps."""
         assert _calculate_output_fps(scan_fps) == expected
+
+
+@pytest.mark.parametrize(
+    ("is_recording", "trigger_type", "expected"),
+    [
+        pytest.param(False, None, False, id="idle"),
+        pytest.param(True, TriggerTypes.MANUAL, True, id="manual"),
+        pytest.param(True, TriggerTypes.OBJECT, False, id="object_event"),
+        pytest.param(True, TriggerTypes.MOTION, False, id="motion_event"),
+    ],
+)
+def test_is_manual_recording(
+    is_recording: bool, trigger_type: TriggerTypes | None, expected: bool
+) -> None:
+    """Only a manually triggered recording counts as a manual recording."""
+    active_recording = (
+        SimpleNamespace(trigger_type=trigger_type) if trigger_type else None
+    )
+    stub = SimpleNamespace(
+        is_recording=is_recording,
+        recorder=SimpleNamespace(active_recording=active_recording),
+    )
+    assert AbstractCamera.is_manual_recording.fget(stub) is expected  # type: ignore[attr-defined]
 
 
 @pytest.mark.parametrize(

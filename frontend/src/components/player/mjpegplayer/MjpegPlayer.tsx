@@ -159,7 +159,7 @@ export function MjpegPlayer({
         onPictureInPictureToggle={handlePictureInPictureToggle}
         isPictureInPictureSupported={isPictureInPictureSupported}
         onManualRecording={camera.failed ? undefined : handleManualRecording}
-        isRecording={camera.failed ? undefined : camera.is_recording}
+        isRecording={camera.failed ? undefined : camera.is_manual_recording}
         manualRecordingLoading={manualRecordingLoading}
         extraButtons={extraButtons}
       />
