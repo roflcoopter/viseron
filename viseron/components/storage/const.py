@@ -6,12 +6,22 @@ import os
 from enum import Enum
 from typing import Any, Final
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, make_url
 
 COMPONENT: Final = "storage"
 
-DATABASE_URL = os.getenv(
-    "POSTGRES_DATABASE_URL", "postgresql://postgres@localhost/viseron"
+
+def _database_url(url: str) -> str:
+    """Pin plain postgresql:// URLs to psycopg2, the driver Viseron ships."""
+    parsed = make_url(url)
+    if parsed.drivername == "postgresql":
+        # SQLAlchemy 2.1 changed the default postgresql driver to psycopg 3
+        parsed = parsed.set(drivername="postgresql+psycopg2")
+    return parsed.render_as_string(hide_password=False)
+
+
+DATABASE_URL = _database_url(
+    os.getenv("POSTGRES_DATABASE_URL", "postgresql://postgres@localhost/viseron")
 )
 ENGINE = create_engine(
     DATABASE_URL,
