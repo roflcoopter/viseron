@@ -129,6 +129,13 @@ class Files(Base):
             "subcategory",
             "filename",
         ),
+        Index(
+            "idx_files_orig_ctime_lookup",
+            "camera_identifier",
+            "category",
+            "subcategory",
+            "orig_ctime",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -168,7 +175,7 @@ class FilesMeta:
     """
 
     orig_ctime: datetime.datetime
-    duration: float
+    duration: float | None
     file_key: int | None = None
 
 

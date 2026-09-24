@@ -795,7 +795,7 @@ async def export_timespan(connection: WebSocketHandler, message) -> None:
             "%Y-%m-%d-%H-%M-%S"
         )
         video_name = (
-            f"{camera.identifier}-{time_string}.{os.path.splitext(timespan_video)[1]}"
+            f"{camera.identifier}-{time_string}{os.path.splitext(timespan_video)[1]}"
         )
         new_path = os.path.join(DOWNLOAD_PATH, video_name)
         shutil.move(timespan_video, new_path)

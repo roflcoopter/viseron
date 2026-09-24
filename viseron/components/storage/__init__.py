@@ -21,6 +21,7 @@ from viseron.components.storage.config import (
     STORAGE_SCHEMA,
     TIER_SCHEMA_RECORDER,
     TIER_SCHEMA_SNAPSHOTS,
+    TIER_SCHEMA_TIMELAPSE,
     validate_tiers,
 )
 from viseron.components.storage.const import (
@@ -78,7 +79,8 @@ from viseron.components.storage.util import (
     get_timelapse_path,
 )
 from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_STOPPING
-from viseron.domains.camera.const import CONFIG_STORAGE, DOMAIN as CAMERA_DOMAIN
+from viseron.domains.camera.const import CONFIG_STORAGE
+from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import ComponentNotReady
 from viseron.helpers import utcnow
 from viseron.helpers.logs import StreamToLogger
@@ -830,13 +832,11 @@ def _get_tier_config(config: dict[str, Any], camera: AbstractCamera) -> dict[str
     # Handle timelapse tiers (only if timelapse is configured)
     if tier_config.get(CONFIG_TIMELAPSE):
         _timelapse_tier: dict[str, Any] = {}
-        if (
-            camera.config[CONFIG_STORAGE]
-            and camera.config[CONFIG_STORAGE][CONFIG_TIMELAPSE] != UNDEFINED
-        ):
-            _timelapse_tier = camera.config[CONFIG_STORAGE][CONFIG_TIMELAPSE][
-                CONFIG_TIERS
-            ]
+        camera_timelapse = (camera.config[CONFIG_STORAGE] or {}).get(
+            CONFIG_TIMELAPSE, UNDEFINED
+        )
+        if camera_timelapse not in (None, UNDEFINED):
+            _timelapse_tier = camera_timelapse[CONFIG_TIERS]
             tier_config[CONFIG_TIMELAPSE][CONFIG_TIERS] = _timelapse_tier
 
         if _timelapse_tier:
@@ -847,7 +847,7 @@ def _get_tier_config(config: dict[str, Any], camera: AbstractCamera) -> dict[str
             # Validate the tier schema to fill in defaults
             tier_config[CONFIG_TIMELAPSE][CONFIG_TIERS] = vol.Schema(
                 vol.All(
-                    [TIER_SCHEMA_SNAPSHOTS],
+                    [TIER_SCHEMA_TIMELAPSE],
                     vol.Length(min=1),
                 )
             )(tier_config[CONFIG_TIMELAPSE][CONFIG_TIERS])

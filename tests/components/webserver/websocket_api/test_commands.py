@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock
+import datetime
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from viseron.components.webserver.auth import Role, User
 from viseron.components.webserver.websocket_api.commands import (
     _camera_identifier_from_event,
     _event_allowed,
     _state_changed_allowed,
+    export_timespan,
     get_entities,
     subscribe_event,
     subscribe_states,
@@ -305,3 +308,44 @@ class TestGetEntities:
         entities = self._get_entities(_connection(_user(Role.ADMIN, ["cam_a"])))
 
         assert len(entities) == 3
+
+
+def test_export_timespan_filename() -> None:
+    """The exported file keeps a single dot before the extension."""
+    connection = _connection(_user())
+    connection.get_camera.return_value.identifier = "cam_a"
+    connection.get_camera.return_value.fragmenter.concatenate_fragments.return_value = (
+        "/tmp/abc.mp4"
+    )
+
+    async def _run_in_executor(func: Any, *args: Any) -> Any:
+        return func(*args)
+
+    connection.run_in_executor = _run_in_executor
+    connection.webserver.download_tokens = {}
+    start = 1723111156
+    with (
+        patch(
+            "viseron.components.webserver.websocket_api.commands."
+            "get_time_period_fragments",
+            return_value=[MagicMock()],
+        ),
+        patch("viseron.components.webserver.websocket_api.commands.shutil.move"),
+        patch("viseron.components.webserver.websocket_api.commands.create_directory"),
+    ):
+        asyncio.run(
+            export_timespan(
+                connection,
+                {
+                    "type": "export_timespan",
+                    "command_id": 1,
+                    "camera_identifier": "cam_a",
+                    "start": start,
+                    "end": start + 60,
+                },
+            )
+        )
+
+    (token,) = connection.webserver.download_tokens.values()
+    time_string = datetime.datetime.fromtimestamp(start).strftime("%Y-%m-%d-%H-%M-%S")
+    assert token.filename.endswith(f"/cam_a-{time_string}.mp4")
