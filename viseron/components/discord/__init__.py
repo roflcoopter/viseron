@@ -14,6 +14,7 @@ import voluptuous as vol
 
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import EVENT_RECORDER_COMPLETE, EVENT_RECORDER_START
+from viseron.helpers.notifications import notifications_paused
 from viseron.helpers.validators import (
     UNDEFINED,
     CameraIdentifier,
@@ -229,6 +230,8 @@ class DiscordNotifier:
         """Handle recorder start event."""
         camera = event_data.data.camera
         recording = event_data.data.recording
+        if notifications_paused(self._vis, camera.identifier):
+            return
 
         matches, label = self._matches_detection_label(
             camera.identifier, recording.objects
@@ -262,6 +265,8 @@ class DiscordNotifier:
 
     def _recorder_complete_event(self, event_data: Event[EventRecorderData]) -> None:
         """Handle recorder complete event."""
+        if notifications_paused(self._vis, event_data.data.camera.identifier):
+            return
         asyncio.run_coroutine_threadsafe(
             self._async_recorder_complete_event(event_data), self._loop
         )

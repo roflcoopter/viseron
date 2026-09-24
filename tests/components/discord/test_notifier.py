@@ -1009,3 +1009,37 @@ class TestDeduplication:
                 send_file.assert_not_called()
                 send_file_partial.assert_not_called()
                 send_message.assert_called_once()
+
+
+class TestNotificationsPaused:
+    """Tests for skipping notifications while the camera is paused."""
+
+    def test_start_event_skipped(self, notifier: NotifierMocks):
+        """No start notification is sent for a paused camera."""
+        event = make_event(make_recording([make_detected_object("person")]))
+
+        with patch(
+            "viseron.components.discord.notifications_paused", return_value=True
+        ) as paused:
+            run_recorder_start_event(notifier.notifier, event)
+
+        paused.assert_called_once_with(notifier.notifier._vis, CAMERA_ID)
+        notifier.send_message.assert_not_called()
+        notifier.send_file.assert_not_called()
+
+    def test_complete_event_skipped(self, notifier: NotifierMocks):
+        """No complete notification is scheduled for a paused camera."""
+        event = make_event(make_recording([make_detected_object("person")]))
+
+        with (
+            patch(
+                "viseron.components.discord.notifications_paused", return_value=True
+            ) as paused,
+            patch(
+                "viseron.components.discord.asyncio.run_coroutine_threadsafe"
+            ) as run_coroutine,
+        ):
+            notifier.notifier._recorder_complete_event(event)
+
+        paused.assert_called_once_with(notifier.notifier._vis, CAMERA_ID)
+        run_coroutine.assert_not_called()

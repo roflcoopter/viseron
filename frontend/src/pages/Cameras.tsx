@@ -1,3 +1,4 @@
+import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
 import Grow from "@mui/material/Grow";
@@ -5,7 +6,9 @@ import Grow from "@mui/material/Grow";
 import { CameraCard } from "components/camera/CameraCard";
 import { FailedCameraCard } from "components/camera/FailedCameraCard";
 import { NoCamerasConfigured } from "components/camera/NoCamerasConfigured";
+import { AllCamerasNotificationsButton } from "components/camera/NotificationsPause";
 import { Loading } from "components/loading/Loading";
+import { useAuthContext } from "context/AuthContext";
 import { useHasCamerasConfigured } from "hooks/UseHasCamerasConfigured";
 import { useTitle } from "hooks/UseTitle";
 import { useCameras, useCamerasFailed } from "lib/api/cameras";
@@ -16,6 +19,7 @@ function Cameras() {
   const cameras = useCameras({});
   const failedCameras = useCamerasFailed({});
   const hasCamerasConfigured = useHasCamerasConfigured();
+  const { auth, user } = useAuthContext();
 
   if (cameras.isPending || failedCameras.isPending) {
     return <Loading text="Loading Cameras" />;
@@ -34,6 +38,18 @@ function Cameras() {
 
   return (
     <Container sx={{ paddingX: { xs: 1, md: 2 }, paddingY: 0.5 }}>
+      {objHasValues<typeof cameras.data>(cameras.data) &&
+        (!auth.enabled || user?.role === "admin" || user?.role === "write") && (
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginBottom: 0.5,
+            }}
+          >
+            <AllCamerasNotificationsButton />
+          </Box>
+        )}
       <Grid container direction="row" spacing={1}>
         {failedCameras.data
           ? Object.keys(failedCameras.data)

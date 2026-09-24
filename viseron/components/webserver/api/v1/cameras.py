@@ -12,6 +12,10 @@ from viseron.components.storage.orphaned_cameras import (
     get_orphaned_cameras,
 )
 from viseron.components.webserver.api.handlers import BaseAPIHandler
+from viseron.components.webserver.api.v1.camera import (
+    NOTIFICATIONS_SCHEMA,
+    set_notifications_paused,
+)
 from viseron.components.webserver.auth import Role
 
 LOGGER = logging.getLogger(__name__)
@@ -43,6 +47,13 @@ class CamerasAPIHandler(BaseAPIHandler):
             "method": "delete_orphaned_camera_endpoint",
             "requires_role": [Role.ADMIN],
         },
+        {
+            "path_pattern": r"/cameras/notifications",
+            "supported_methods": ["POST"],
+            "method": "post_notifications_endpoint",
+            "requires_role": [Role.ADMIN, Role.WRITE],
+            "json_body_schema": NOTIFICATIONS_SCHEMA,
+        },
     ]
 
     async def get_cameras_endpoint(self) -> None:
@@ -52,6 +63,12 @@ class CamerasAPIHandler(BaseAPIHandler):
     async def get_failed_cameras_endpoint(self) -> None:
         """Return failed cameras."""
         await self.response_success(response=self._get_failed_cameras() or {})
+
+    async def post_notifications_endpoint(self) -> None:
+        """Pause or resume notifications for every camera the user can access."""
+        for camera in (self._get_cameras() or {}).values():
+            await self.run_in_executor(set_notifications_paused, camera, self.json_body)
+        await self.response_success()
 
     async def get_orphaned_cameras_endpoint(self) -> None:
         """Return stored data for cameras that are no longer configured."""

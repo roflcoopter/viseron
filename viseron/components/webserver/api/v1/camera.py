@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from datetime import timedelta
 from http import HTTPStatus
 from typing import TYPE_CHECKING
 
@@ -33,6 +34,29 @@ if TYPE_CHECKING:
     from viseron.domains.camera import AbstractCamera
 
 LOGGER = logging.getLogger(__name__)
+
+NOTIFICATIONS_SCHEMA = vol.Schema(
+    vol.Any(
+        {
+            vol.Required("action"): vol.All(vol.Lower, "pause"),
+            vol.Optional("duration"): vol.All(vol.Coerce(int), vol.Range(min=1)),
+        },
+        {
+            vol.Required("action"): vol.All(vol.Lower, "resume"),
+        },
+    )
+)
+
+
+def set_notifications_paused(camera: AbstractCamera, body: dict) -> None:
+    """Pause or resume notifications for a camera from a request body."""
+    if body["action"] == "resume":
+        camera.resume_notifications()
+        return
+    duration = body.get("duration")
+    camera.pause_notifications(
+        timedelta(seconds=duration) if duration is not None else None
+    )
 
 
 class CameraAPIHandler(BaseAPIHandler):
@@ -98,6 +122,15 @@ class CameraAPIHandler(BaseAPIHandler):
                     },
                 )
             ),
+        },
+        {
+            "requires_role": [Role.ADMIN, Role.WRITE],
+            "path_pattern": (
+                r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)/notifications"
+            ),
+            "supported_methods": ["POST"],
+            "method": "post_notifications",
+            "json_body_schema": NOTIFICATIONS_SCHEMA,
         },
     ]
 
@@ -355,3 +388,16 @@ class CameraAPIHandler(BaseAPIHandler):
             reason="Invalid action specified",
         )
         return None
+
+    async def post_notifications(self, camera_identifier: str) -> None:
+        """Pause or resume notifications for a camera."""
+        camera = self._get_camera(camera_identifier, failed=False)
+        if not camera:
+            self.response_error(
+                HTTPStatus.NOT_FOUND,
+                reason=f"Camera {camera_identifier} not found",
+            )
+            return
+
+        await self.run_in_executor(set_notifications_paused, camera, self.json_body)
+        await self.response_success()
