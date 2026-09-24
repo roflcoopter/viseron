@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import datetime
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
+from apscheduler.jobstores.base import JobLookupError
 
 from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.const import DEFAULT_OUTPUT_FPS
+from viseron.domains.camera.entity.sensor import CameraNotificationsPausedSensor
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.viseron_types import SnapshotDomain
 
@@ -214,3 +217,128 @@ class TestWriteSnapshot:
         assert first.startswith(f"{SNAPSHOTS_FOLDER}/")
         assert first.endswith(".jpg")
         assert first != second
+
+
+NOW = datetime.datetime(2026, 1, 1, 12, 0, tzinfo=datetime.timezone.utc)
+
+
+class _NotificationsStub:
+    """Carries only the camera's notification pause logic."""
+
+    notifications_paused = AbstractCamera.notifications_paused
+    notifications_paused_until = AbstractCamera.notifications_paused_until
+    pause_notifications = AbstractCamera.pause_notifications
+    resume_notifications = AbstractCamera.resume_notifications
+    _cancel_notifications_resume_job = (
+        AbstractCamera._cancel_notifications_resume_job  # noqa: SLF001
+    )
+
+    def __init__(self) -> None:
+        self._vis = MagicMock()
+        self._logger = MagicMock()
+        self._notifications_paused = False
+        self._notifications_paused_until: datetime.datetime | None = None
+        self._notifications_resume_job = None
+        self._notifications_paused_entity = MagicMock()
+
+
+def _sensor_state(camera: _NotificationsStub) -> str:
+    sensor = SimpleNamespace(_camera=camera)
+    return CameraNotificationsPausedSensor.state.fget(sensor)
+
+
+@pytest.fixture(name="utcnow")
+def fixture_utcnow():
+    """Freeze the camera domain's clock at NOW."""
+    with patch("viseron.domains.camera.utcnow", return_value=NOW) as mock_utcnow:
+        yield mock_utcnow
+
+
+@pytest.mark.usefixtures("utcnow")
+class TestNotificationsPause:
+    """Tests for pausing camera notifications."""
+
+    def test_not_paused_by_default(self) -> None:
+        """A new camera sends notifications."""
+        camera = _NotificationsStub()
+
+        assert camera.notifications_paused is False
+        assert camera.notifications_paused_until is None
+        assert _sensor_state(camera) == "off"
+
+    def test_pause_for_duration(self) -> None:
+        """A timed pause schedules its own resume."""
+        camera = _NotificationsStub()
+
+        camera.pause_notifications(datetime.timedelta(minutes=15))
+
+        until = NOW + datetime.timedelta(minutes=15)
+        assert camera.notifications_paused is True
+        assert camera.notifications_paused_until == until
+        assert _sensor_state(camera) == until.isoformat()
+        camera._vis.background_scheduler.add_job.assert_called_once_with(
+            camera.resume_notifications, "date", run_date=until
+        )
+        camera._notifications_paused_entity.set_state.assert_called_once()
+
+    def test_pause_until_resumed(self) -> None:
+        """A pause without duration lasts until resumed."""
+        camera = _NotificationsStub()
+
+        camera.pause_notifications()
+
+        assert camera.notifications_paused is True
+        assert camera.notifications_paused_until is None
+        assert _sensor_state(camera) == "on"
+        camera._vis.background_scheduler.add_job.assert_not_called()
+
+    def test_resume(self) -> None:
+        """Resuming clears the pause and cancels the resume job."""
+        camera = _NotificationsStub()
+        camera.pause_notifications(datetime.timedelta(minutes=15))
+        job = camera._vis.background_scheduler.add_job.return_value
+
+        camera.resume_notifications()
+
+        assert camera.notifications_paused is False
+        assert camera.notifications_paused_until is None
+        job.remove.assert_called_once()
+        assert camera._notifications_paused_entity.set_state.call_count == 2
+
+    def test_repause_replaces_resume_job(self) -> None:
+        """Pausing again cancels the earlier resume job."""
+        camera = _NotificationsStub()
+        first_job, second_job = MagicMock(), MagicMock()
+        camera._vis.background_scheduler.add_job.side_effect = [
+            first_job,
+            second_job,
+        ]
+
+        camera.pause_notifications(datetime.timedelta(minutes=15))
+        camera.pause_notifications(datetime.timedelta(hours=1))
+
+        first_job.remove.assert_called_once()
+        assert camera._notifications_resume_job is second_job
+        assert camera.notifications_paused_until == NOW + datetime.timedelta(hours=1)
+
+    def test_resume_after_job_ran(self) -> None:
+        """A resume job that already ran is not an error."""
+        camera = _NotificationsStub()
+        camera.pause_notifications(datetime.timedelta(minutes=15))
+        job = camera._vis.background_scheduler.add_job.return_value
+        job.remove.side_effect = JobLookupError("gone")
+
+        camera.resume_notifications()
+
+        assert camera.notifications_paused is False
+
+    def test_expired_pause_is_not_paused(self, utcnow: MagicMock) -> None:
+        """A pause past its deadline no longer applies, even before the job runs."""
+        camera = _NotificationsStub()
+        camera.pause_notifications(datetime.timedelta(minutes=15))
+
+        utcnow.return_value = NOW + datetime.timedelta(minutes=15)
+
+        assert camera.notifications_paused is False
+        assert camera.notifications_paused_until is None
+        assert _sensor_state(camera) == "off"

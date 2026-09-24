@@ -27,6 +27,7 @@ from viseron.helpers import escape_string, utcnow
 from viseron.helpers.logs import (
     SensitiveInformationFilterTracker,
 )
+from viseron.helpers.notifications import notifications_paused
 from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
 from viseron.watchdog.thread_watchdog import RestartableThread
 
@@ -185,6 +186,8 @@ class GotifyEventNotifier:
         camera = event_data.data.camera
         recording = event_data.data.recording
         camera_identifier = camera.identifier
+        if notifications_paused(self._vis, camera_identifier):
+            return
 
         # Get camera-specific configuration or fall back to global configuration
         camera_config = self._config[CONFIG_CAMERAS].get(camera_identifier, {})

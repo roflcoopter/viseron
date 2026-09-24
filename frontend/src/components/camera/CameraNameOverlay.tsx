@@ -1,4 +1,4 @@
-import { CircleFill, VideoOff } from "@carbon/icons-react";
+import { CircleFill, NotificationOff, VideoOff } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { SxProps, Theme } from "@mui/material/styles";
@@ -86,6 +86,17 @@ export function CameraNameOverlay({
         <Typography variant="uppercase" sx={cameraNameStyles}>
           {camera.name}
         </Typography>
+        {!camera.failed && camera.notifications_paused && (
+          <NotificationOff
+            size={12}
+            aria-label="Notifications paused"
+            style={{
+              color: "white",
+              marginLeft: "4px",
+              filter: "drop-shadow(rgba(0, 0, 0, 0.88) 0px 0px 2px)",
+            }}
+          />
+        )}
         {!camera.failed && <StatusIcon camera={camera as types.Camera} />}
       </Box>
       {statusText && (

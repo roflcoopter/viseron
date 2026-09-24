@@ -6,6 +6,7 @@ import logging
 import os
 import secrets
 from abc import abstractmethod
+from datetime import datetime, timedelta
 from collections import deque
 from dataclasses import dataclass
 from functools import lru_cache
@@ -15,6 +16,7 @@ from uuid import uuid4
 
 import cv2
 import imutils
+from apscheduler.jobstores.base import JobLookupError
 from sqlalchemy import or_, select
 from typing_extensions import assert_never
 
@@ -33,7 +35,10 @@ from viseron.const import TEMP_DIR
 from viseron.domain_registry import DomainEntry, DomainState
 from viseron.domains import AbstractDomain
 from viseron.domains.camera.const import DOMAIN
-from viseron.domains.camera.entity.sensor import CameraAccessTokenSensor
+from viseron.domains.camera.entity.sensor import (
+    CameraAccessTokenSensor,
+    CameraNotificationsPausedSensor,
+)
 from viseron.domains.camera.fragmenter import Fragmenter
 from viseron.domains.camera.recorder import FailedCameraRecorder
 from viseron.events import EventData, EventEmptyData
@@ -79,6 +84,8 @@ from .shared_frames import SharedFrames
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from apscheduler.job import Job
 
     import numpy as np
 
@@ -181,6 +188,16 @@ class AbstractCamera(AbstractDomain):
             self.update_token, "interval", minutes=UPDATE_TOKEN_INTERVAL_MINUTES
         )
 
+        self._notifications_paused = False
+        self._notifications_paused_until: datetime | None = None
+        self._notifications_resume_job: Job | None = None
+        self._notifications_paused_entity = vis.add_entity(
+            component,
+            CameraNotificationsPausedSensor(vis, self),
+            DOMAIN,
+            identifier=self.identifier,
+        )
+
         self._storage = vis.data[STORAGE_COMPONENT]
         self.event_clips_folder: str = self._storage.get_event_clips_path(self)
         self.segments_folder: str = self._storage.get_segments_path(self)
@@ -248,7 +265,65 @@ class AbstractCamera(AbstractDomain):
             "live_stream_available": self.live_stream_available,
             "is_recording": self.is_recording,
             "ptz_support": self.ptz_support,
+            "notifications_paused": self.notifications_paused,
+            "notifications_paused_until": (
+                self.notifications_paused_until.isoformat()
+                if self.notifications_paused_until
+                else None
+            ),
         }
+
+    @property
+    def notifications_paused(self) -> bool:
+        """Return if notifications for this camera are paused."""
+        if not self._notifications_paused:
+            return False
+        # The resume job can lag behind, so the deadline is checked directly
+        return (
+            self._notifications_paused_until is None
+            or self._notifications_paused_until > utcnow()
+        )
+
+    @property
+    def notifications_paused_until(self) -> datetime | None:
+        """Return when paused notifications resume, None if not timed."""
+        return self._notifications_paused_until if self.notifications_paused else None
+
+    def pause_notifications(self, duration: timedelta | None = None) -> None:
+        """Pause notifications, for duration or until resumed if None."""
+        self._cancel_notifications_resume_job()
+        self._notifications_paused = True
+        self._notifications_paused_until = None
+        if duration is not None:
+            self._notifications_paused_until = utcnow() + duration
+            self._notifications_resume_job = self._vis.background_scheduler.add_job(
+                self.resume_notifications,
+                "date",
+                run_date=self._notifications_paused_until,
+            )
+        self._logger.debug(
+            "Notifications paused until %s",
+            self._notifications_paused_until or "resumed",
+        )
+        self._notifications_paused_entity.set_state()
+
+    def resume_notifications(self) -> None:
+        """Resume paused notifications."""
+        self._cancel_notifications_resume_job()
+        self._notifications_paused = False
+        self._notifications_paused_until = None
+        self._logger.debug("Notifications resumed")
+        self._notifications_paused_entity.set_state()
+
+    def _cancel_notifications_resume_job(self) -> None:
+        if self._notifications_resume_job is None:
+            return
+        try:
+            self._notifications_resume_job.remove()
+        except JobLookupError:
+            # Already ran
+            pass
+        self._notifications_resume_job = None
 
     def generate_token(self) -> str:
         """Generate a new access token."""
@@ -622,6 +697,7 @@ class AbstractCamera(AbstractDomain):
             self._update_token_job.remove()
         except Exception:  # pylint: disable=broad-except
             self._logger.exception("Failed to remove update token job.")
+        self._cancel_notifications_resume_job()
         self.stop_camera()
         self.fragmenter.unload()
         self._sensitive_string_tracker.clear_sensitive_strings()

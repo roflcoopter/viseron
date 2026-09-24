@@ -34,6 +34,7 @@ from viseron.domains.camera.recorder import EventRecorderData, ManualRecording
 from viseron.exceptions import ComponentNotReady, DomainNotRegisteredError
 from viseron.helpers import escape_string
 from viseron.helpers.logs import SensitiveInformationFilterTracker
+from viseron.helpers.notifications import notifications_paused
 from viseron.helpers.validators import (
     UNDEFINED,
     CameraIdentifier,
@@ -281,6 +282,8 @@ class TelegramEventNotifier:
         return self._active_camera_identifier
 
     def _recorder_complete_event(self, event_data: Event[EventRecorderData]) -> None:
+        if notifications_paused(self._vis, event_data.data.camera.identifier):
+            return
         asyncio.run_coroutine_threadsafe(
             self._send_notifications(event_data), self._loop
         )

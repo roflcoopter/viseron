@@ -100,6 +100,8 @@ const mockCamera: types.Camera = {
   connected: true,
   live_stream_available: true,
   is_recording: false,
+  notifications_paused: false,
+  notifications_paused_until: null,
 };
 
 const latestHls = () => hlsInstances[hlsInstances.length - 1];

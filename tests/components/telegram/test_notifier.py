@@ -426,3 +426,36 @@ class TestGetEffectiveDetectionLabels:
         }
         result = notifier._get_effective_detection_labels(CAMERA_ID)
         assert result == ["camera_person"]
+
+
+class TestNotificationsPaused:
+    """Tests for skipping notifications while the camera is paused."""
+
+    def test_complete_event_skipped(self, notifier: Any):
+        """No notification is scheduled for a paused camera."""
+        event = make_event(make_recording([]))
+
+        with (
+            patch(
+                "viseron.components.telegram.notifications_paused", return_value=True
+            ) as paused,
+            patch(
+                "viseron.components.telegram.asyncio.run_coroutine_threadsafe"
+            ) as run_coroutine,
+        ):
+            notifier._recorder_complete_event(event)
+
+        paused.assert_called_once_with(notifier._vis, CAMERA_ID)
+        run_coroutine.assert_not_called()
+
+    def test_complete_event_sent_when_not_paused(self, notifier: Any):
+        """A camera that is not paused still schedules its notification."""
+        event = make_event(make_recording([]))
+
+        with patch(
+            "viseron.components.telegram.asyncio.run_coroutine_threadsafe"
+        ) as run_coroutine:
+            notifier._recorder_complete_event(event)
+
+        run_coroutine.assert_called_once()
+        run_coroutine.call_args.args[0].close()

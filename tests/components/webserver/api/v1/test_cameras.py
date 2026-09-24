@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 from unittest.mock import PropertyMock, patch
 
@@ -12,6 +13,7 @@ from viseron.components.storage.orphaned_cameras import (
 )
 from viseron.components.webserver.auth import Role, User
 
+from tests.common import MockCamera
 from tests.components.webserver.common import TestAppBaseAuth, TestAppBaseNoAuth
 
 ORPHANED_CAMERA = OrphanedCamera(
@@ -135,3 +137,78 @@ class TestCamerasApiHandlerAuth(TestAppBaseAuth):
             )
         assert response.code == 403
         mock_delete.assert_not_called()
+
+
+GET_CAMERAS = (
+    "viseron.components.webserver.request_handler.ViseronRequestHandler._get_cameras"
+)
+
+
+class TestCamerasApiHandlerNotifications(TestAppBaseAuth):
+    """Test pausing and resuming notifications for every camera."""
+
+    def _post(self, body: dict, cameras: dict | None):
+        with patch(GET_CAMERAS, return_value=cameras):
+            return self.fetch_with_auth(
+                "/api/v1/cameras/notifications",
+                method="POST",
+                body=json.dumps(body),
+            )
+
+    def test_pause_all(self):
+        """Every camera is paused for the same duration."""
+        cameras = {
+            "camera_1": MockCamera(identifier="camera_1"),
+            "camera_2": MockCamera(identifier="camera_2"),
+        }
+
+        response = self._post({"action": "pause", "duration": 3600}, cameras)
+
+        assert response.code == 200
+        for camera in cameras.values():
+            camera.pause_notifications.assert_called_once_with(
+                datetime.timedelta(hours=1)
+            )
+
+    def test_resume_all(self):
+        """Every camera is resumed."""
+        cameras = {
+            "camera_1": MockCamera(identifier="camera_1"),
+            "camera_2": MockCamera(identifier="camera_2"),
+        }
+
+        response = self._post({"action": "resume"}, cameras)
+
+        assert response.code == 200
+        for camera in cameras.values():
+            camera.resume_notifications.assert_called_once_with()
+
+    def test_no_cameras(self):
+        """Pausing with no cameras loaded succeeds and does nothing."""
+        response = self._post({"action": "pause"}, None)
+
+        assert response.code == 200
+
+    def test_read_role_forbidden(self):
+        """Read-only users cannot pause notifications."""
+        camera = MockCamera(identifier="camera_1")
+        with (
+            patch(
+                "viseron.components.webserver.request_handler.ViseronRequestHandler.current_user",  # pylint: disable=line-too-long
+                new_callable=PropertyMock,
+                return_value=User(
+                    name="Test",
+                    username="test",
+                    password="test",
+                    role=Role.READ,
+                ),
+            ),
+            patch(
+                "viseron.components.webserver.request_handler.ViseronRequestHandler.validate_access_token",  # pylint: disable=line-too-long
+                return_value=True,
+            ),
+        ):
+            response = self._post({"action": "pause"}, {"camera_1": camera})
+
+        assert response.code == 403
+        camera.pause_notifications.assert_not_called()

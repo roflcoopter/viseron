@@ -134,6 +134,7 @@ const sidebars: SidebarsConfig = {
         { type: "doc", id: "documentation/configuration/secrets" },
         { type: "doc", id: "documentation/configuration/recordings" },
         { type: "doc", id: "documentation/configuration/snapshots" },
+        { type: "doc", id: "documentation/configuration/notifications" },
         { type: "doc", id: "documentation/configuration/live_view" },
         { type: "doc", id: "documentation/configuration/motion_detection" },
         {
