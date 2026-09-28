@@ -220,6 +220,7 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
         live_stream_available: true,
         connected: true,
         is_recording: false,
+        is_manual_recording: false,
       },
       camera2: {
         identifier: "camera2",
@@ -242,6 +243,7 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
         live_stream_available: true,
         connected: true,
         is_recording: true,
+        is_manual_recording: false,
         ptz_support: "onvif+auto",
       },
       camera3: {
@@ -265,6 +267,7 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
         live_stream_available: true,
         connected: true,
         is_recording: false,
+        is_manual_recording: false,
       },
     };
     return HttpResponse.json(cameras, { status: 200 });
@@ -323,6 +326,7 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
       live_stream_available: true,
       connected: true,
       is_recording: false,
+      is_manual_recording: false,
     };
     return HttpResponse.json(camera, { status: 200 });
   }),
@@ -348,6 +352,7 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
       live_stream_available: true,
       connected: true,
       is_recording: true,
+      is_manual_recording: false,
       ptz_support: "onvif+auto",
     };
     return HttpResponse.json(camera, { status: 200 });
@@ -374,6 +379,7 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
       live_stream_available: true,
       connected: true,
       is_recording: false,
+      is_manual_recording: false,
     };
     return HttpResponse.json(camera, { status: 200 });
   }),

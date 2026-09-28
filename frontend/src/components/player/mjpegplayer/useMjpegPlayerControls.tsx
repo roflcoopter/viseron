@@ -220,7 +220,7 @@ export const useMjpegPlayerControls = (
     if (camera.failed || manualRecording.isPending) {
       return;
     }
-    if (camera.is_recording) {
+    if (camera.is_manual_recording) {
       manualRecording.mutate({ camera, action: "stop" });
     } else {
       manualRecording.mutate({ camera, action: "start" });
