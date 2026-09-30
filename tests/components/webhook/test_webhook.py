@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -224,3 +225,61 @@ class TestSchema:
             }
         )
         assert validated["ca_cert"] is None
+
+
+class TestNotificationsPaused:
+    """Tests for skipping webhooks while the event's camera is paused."""
+
+    @staticmethod
+    def _run(
+        vis: MagicMock, event: object, paused: bool
+    ) -> tuple[MagicMock, MagicMock]:
+        """Drive ``_handle_event`` and return the patched request and pause check."""
+        with (
+            patch("viseron.components.webhook.requests.request") as mock_request,
+            patch(
+                "viseron.components.webhook.render_template",
+                side_effect=[VALID_URL, ASCII_PAYLOAD],
+            ),
+            patch(
+                "viseron.components.webhook.notifications_paused",
+                return_value=paused,
+            ) as mock_paused,
+        ):
+            webhook = Webhook(vis, {"test_hook": HOOK_CONFIG})
+            webhook._handle_event(HOOK_CONFIG, event, "test_hook")
+        return mock_request, mock_paused
+
+    @pytest.mark.parametrize(
+        "event",
+        [
+            pytest.param({"camera_identifier": "cam"}, id="dict"),
+            pytest.param(SimpleNamespace(camera_identifier="cam"), id="attribute"),
+            pytest.param(
+                SimpleNamespace(camera=SimpleNamespace(identifier="cam")),
+                id="camera_object",
+            ),
+            pytest.param(
+                {"camera": SimpleNamespace(identifier="cam")}, id="dict_camera_object"
+            ),
+        ],
+    )
+    def test_paused_camera_skips_webhook(self, vis: MagicMock, event: object) -> None:
+        """A paused camera's event does not call the webhook."""
+        mock_request, mock_paused = self._run(vis, event, paused=True)
+
+        mock_paused.assert_called_once_with(vis, "cam")
+        mock_request.assert_not_called()
+
+    def test_unpaused_camera_calls_webhook(self, vis: MagicMock) -> None:
+        """A camera that is not paused still calls the webhook."""
+        mock_request, _ = self._run(vis, {"camera_identifier": "cam"}, paused=False)
+
+        mock_request.assert_called_once()
+
+    def test_event_without_camera(self, vis: MagicMock) -> None:
+        """An event without a camera is checked with no camera identifier."""
+        mock_request, mock_paused = self._run(vis, {"name": "john"}, paused=False)
+
+        mock_paused.assert_called_once_with(vis, None)
+        mock_request.assert_called_once()

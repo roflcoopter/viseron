@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 from viseron.components.nvr.nvr import OperationState
 from viseron.components.storage.models import TriggerTypes
+from viseron.components.webserver.auth import Role, User
 
 from tests.common import MockCamera
 from tests.components.webserver.common import TestAppBaseAuth
@@ -630,3 +632,127 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
             "error": "NVR for camera test not found",
             "status": 404,
         }
+
+
+GET_CAMERA = (
+    "viseron.components.webserver.request_handler.ViseronRequestHandler._get_camera"
+)
+
+
+NOW = datetime.datetime(2026, 1, 1, 12, 0, tzinfo=datetime.timezone.utc)
+
+
+class TestCameraAPIHandlerNotifications(TestAppBaseAuth):
+    """Test pausing and resuming camera notifications."""
+
+    def setUp(self) -> None:
+        """Freeze the clock at NOW."""
+        super().setUp()
+        patcher = patch("viseron.helpers.notifications.utcnow", return_value=NOW)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _post(self, body: dict, camera: MockCamera | None):
+        with patch(GET_CAMERA, return_value=camera):
+            return self.fetch_with_auth(
+                "/api/v1/camera/test/notifications",
+                method="POST",
+                body=json.dumps(body),
+            )
+
+    def test_pause_with_duration(self):
+        """A duration pauses notifications for that many seconds."""
+        camera = MockCamera(identifier="test")
+
+        response = self._post({"action": "pause", "duration": 900}, camera)
+
+        assert response.code == 200
+        camera.pause_notifications.assert_called_once_with(
+            NOW + datetime.timedelta(seconds=900)
+        )
+
+    def test_pause_until(self):
+        """An until datetime pauses notifications until then."""
+        camera = MockCamera(identifier="test")
+
+        response = self._post(
+            {"action": "pause", "until": "2026-01-01T16:00:00+02:00"}, camera
+        )
+
+        assert response.code == 200
+        camera.pause_notifications.assert_called_once_with(
+            NOW + datetime.timedelta(hours=2)
+        )
+
+    def test_pause_until_resumed(self):
+        """No duration pauses notifications until resumed."""
+        camera = MockCamera(identifier="test")
+
+        response = self._post({"action": "pause"}, camera)
+
+        assert response.code == 200
+        camera.pause_notifications.assert_called_once_with(None)
+
+    def test_resume(self):
+        """Resume clears the pause."""
+        camera = MockCamera(identifier="test")
+
+        response = self._post({"action": "resume"}, camera)
+
+        assert response.code == 200
+        camera.resume_notifications.assert_called_once_with()
+        camera.pause_notifications.assert_not_called()
+
+    def test_invalid_body(self):
+        """Invalid bodies are rejected."""
+        for body in (
+            {"action": "pause", "duration": 0},
+            {"action": "mute"},
+            {"action": "resume", "duration": 60},
+            {"action": "pause", "duration": 60, "until": "2026-01-01T13:00:00Z"},
+            {"action": "pause", "until": "2026-01-01T11:00:00Z"},
+            {"action": "pause", "until": "2026-01-01T13:00:00"},
+            {"action": "pause", "until": "tomorrow"},
+        ):
+            camera = MockCamera(identifier="test")
+
+            response = self._post(body, camera)
+
+            assert response.code == 400, body
+            camera.pause_notifications.assert_not_called()
+            camera.resume_notifications.assert_not_called()
+
+    def test_camera_not_found(self):
+        """Returns 404 when camera is missing."""
+        response = self._post({"action": "pause"}, None)
+
+        assert response.code == 404
+        assert json.loads(response.body) == {
+            "error": "Camera test not found",
+            "status": 404,
+        }
+
+    def test_non_admin_forbidden(self):
+        """Only admins can pause notifications."""
+        for role in (Role.READ, Role.WRITE):
+            camera = MockCamera(identifier="test")
+            with (
+                patch(
+                    "viseron.components.webserver.request_handler.ViseronRequestHandler.current_user",  # pylint: disable=line-too-long
+                    new_callable=PropertyMock,
+                    return_value=User(
+                        name="Test",
+                        username="test",
+                        password="test",
+                        role=role,
+                    ),
+                ),
+                patch(
+                    "viseron.components.webserver.request_handler.ViseronRequestHandler.validate_access_token",  # pylint: disable=line-too-long
+                    return_value=True,
+                ),
+            ):
+                response = self._post({"action": "pause"}, camera)
+
+            assert response.code == 403, role
+            camera.pause_notifications.assert_not_called()

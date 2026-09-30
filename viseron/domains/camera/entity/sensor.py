@@ -35,3 +35,27 @@ class CameraAccessTokenSensor(CameraSensor):
     def state(self) -> str:
         """Return the state of the sensor."""
         return self._camera.access_token
+
+
+class CameraNotificationsPausedSensor(CameraSensor):
+    """Entity that holds until when notifications for a camera are paused."""
+
+    def __init__(
+        self,
+        vis: Viseron,
+        camera: AbstractCamera,
+    ) -> None:
+        super().__init__(vis, camera)
+
+        self.object_id = f"{camera.identifier}_notifications_paused_until"
+        self.name = f"{camera.name} Notifications Paused Until"
+        self.icon = "mdi:bell-off"
+
+    @property
+    def state(self) -> str:
+        """Return the state of the sensor."""
+        if not self._camera.notifications_paused:
+            return "off"
+        if self._camera.notifications_paused_until is None:
+            return "on"
+        return self._camera.notifications_paused_until.isoformat()

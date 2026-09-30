@@ -220,6 +220,9 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
         live_stream_available: true,
         connected: true,
         is_recording: false,
+        notifications_configured: true,
+        notifications_paused: false,
+        notifications_paused_until: null,
       },
       camera2: {
         identifier: "camera2",
@@ -242,6 +245,9 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
         live_stream_available: true,
         connected: true,
         is_recording: true,
+        notifications_configured: true,
+        notifications_paused: false,
+        notifications_paused_until: null,
         ptz_support: "onvif+auto",
       },
       camera3: {
@@ -265,6 +271,9 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
         live_stream_available: true,
         connected: true,
         is_recording: false,
+        notifications_configured: true,
+        notifications_paused: false,
+        notifications_paused_until: null,
       },
     };
     return HttpResponse.json(cameras, { status: 200 });
@@ -323,6 +332,9 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
       live_stream_available: true,
       connected: true,
       is_recording: false,
+      notifications_configured: true,
+      notifications_paused: false,
+      notifications_paused_until: null,
     };
     return HttpResponse.json(camera, { status: 200 });
   }),
@@ -348,6 +360,9 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
       live_stream_available: true,
       connected: true,
       is_recording: true,
+      notifications_configured: true,
+      notifications_paused: false,
+      notifications_paused_until: null,
       ptz_support: "onvif+auto",
     };
     return HttpResponse.json(camera, { status: 200 });
@@ -374,6 +389,9 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
       live_stream_available: true,
       connected: true,
       is_recording: false,
+      notifications_configured: true,
+      notifications_paused: false,
+      notifications_paused_until: null,
     };
     return HttpResponse.json(camera, { status: 200 });
   }),

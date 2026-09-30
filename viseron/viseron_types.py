@@ -60,6 +60,7 @@ class ViseronData(TypedDict, total=False):
     websocket_connections: list[WebSocketHandler]
     download_tokens: dict[str, DownloadToken]
     public_image_tokens: dict[str, PublicImageToken]
+    notification_cameras: dict[str, set[str]]
 
     # Components
     compreface: dict[Literal["face_recognition"], CompreFaceService]
