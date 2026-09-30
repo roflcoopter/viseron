@@ -75,6 +75,22 @@ def future_datetime(value: str) -> datetime:
     return parsed
 
 
+NOTIFICATIONS_SCHEMA = vol.Schema(
+    vol.Any(
+        {
+            vol.Required("action"): vol.All(vol.Lower, "pause"),
+            vol.Exclusive("duration", "pause_end"): vol.All(
+                vol.Coerce(int), vol.Range(min=1)
+            ),
+            vol.Exclusive("until", "pause_end"): future_datetime,
+        },
+        {
+            vol.Required("action"): vol.All(vol.Lower, "resume"),
+        },
+    )
+)
+
+
 def set_notifications_paused(camera: AbstractCamera, body: dict) -> None:
     """Pause or resume notifications for a camera from a request body."""
     if body["action"] == "resume":

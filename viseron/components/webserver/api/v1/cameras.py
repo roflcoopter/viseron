@@ -5,8 +5,6 @@ from __future__ import annotations
 import logging
 from http import HTTPStatus
 
-import voluptuous as vol
-
 from viseron.components.storage.orphaned_cameras import (
     OrphanedCameraError,
     OrphanedCameraUnavailableError,
@@ -16,7 +14,7 @@ from viseron.components.storage.orphaned_cameras import (
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.components.webserver.auth import Role
 from viseron.helpers.notifications import (
-    future_datetime,
+    NOTIFICATIONS_SCHEMA,
     notifications_configured,
     set_notifications_paused,
 )
@@ -55,20 +53,7 @@ class CamerasAPIHandler(BaseAPIHandler):
             "supported_methods": ["POST"],
             "method": "post_notifications_endpoint",
             "requires_role": [Role.ADMIN],
-            "json_body_schema": vol.Schema(
-                vol.Any(
-                    {
-                        vol.Required("action"): vol.All(vol.Lower, "pause"),
-                        vol.Exclusive("duration", "pause_end"): vol.All(
-                            vol.Coerce(int), vol.Range(min=1)
-                        ),
-                        vol.Exclusive("until", "pause_end"): future_datetime,
-                    },
-                    {
-                        vol.Required("action"): vol.All(vol.Lower, "resume"),
-                    },
-                )
-            ),
+            "json_body_schema": NOTIFICATIONS_SCHEMA,
         },
     ]
 

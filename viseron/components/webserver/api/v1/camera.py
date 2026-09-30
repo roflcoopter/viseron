@@ -28,7 +28,7 @@ from viseron.domains.camera.const import (
 )
 from viseron.domains.camera.recorder import ManualRecording
 from viseron.helpers.notifications import (
-    future_datetime,
+    NOTIFICATIONS_SCHEMA,
     set_notifications_paused,
 )
 from viseron.helpers.validators import request_argument_bool
@@ -110,20 +110,7 @@ class CameraAPIHandler(BaseAPIHandler):
             ),
             "supported_methods": ["POST"],
             "method": "post_notifications",
-            "json_body_schema": vol.Schema(
-                vol.Any(
-                    {
-                        vol.Required("action"): vol.All(vol.Lower, "pause"),
-                        vol.Exclusive("duration", "pause_end"): vol.All(
-                            vol.Coerce(int), vol.Range(min=1)
-                        ),
-                        vol.Exclusive("until", "pause_end"): future_datetime,
-                    },
-                    {
-                        vol.Required("action"): vol.All(vol.Lower, "resume"),
-                    },
-                )
-            ),
+            "json_body_schema": NOTIFICATIONS_SCHEMA,
         },
     ]
 
