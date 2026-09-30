@@ -39,7 +39,10 @@ function Cameras() {
   return (
     <Container sx={{ paddingX: { xs: 1, md: 2 }, paddingY: 0.5 }}>
       {objHasValues<typeof cameras.data>(cameras.data) &&
-        (!auth.enabled || user?.role === "admin" || user?.role === "write") && (
+        Object.values(cameras.data!).some(
+          (camera) => camera.notifications_configured,
+        ) &&
+        (!auth.enabled || user?.role === "admin") && (
           <Box
             sx={{
               display: "flex",

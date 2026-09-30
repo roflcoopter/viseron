@@ -306,11 +306,10 @@ function SuccessCameraCard({
                     />
                   </Tooltip>
                 )}
-                {(!auth.enabled ||
-                  user?.role === "admin" ||
-                  user?.role === "write") && (
-                  <CameraNotificationsButton camera={camera} />
-                )}
+                {camera.notifications_configured &&
+                  (!auth.enabled || user?.role === "admin") && (
+                    <CameraNotificationsButton camera={camera} />
+                  )}
                 <Tooltip title="Uptime Status">
                   <div style={{ cursor: "pointer" }}>
                     <CameraUptime

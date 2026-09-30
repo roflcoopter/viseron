@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from http import HTTPStatus
 
+import voluptuous as vol
+
 from viseron.components.storage.orphaned_cameras import (
     OrphanedCameraError,
     OrphanedCameraUnavailableError,
@@ -12,11 +14,12 @@ from viseron.components.storage.orphaned_cameras import (
     get_orphaned_cameras,
 )
 from viseron.components.webserver.api.handlers import BaseAPIHandler
-from viseron.components.webserver.api.v1.camera import (
-    NOTIFICATIONS_SCHEMA,
+from viseron.components.webserver.auth import Role
+from viseron.helpers.notifications import (
+    future_datetime,
+    notifications_configured,
     set_notifications_paused,
 )
-from viseron.components.webserver.auth import Role
 
 LOGGER = logging.getLogger(__name__)
 
@@ -51,8 +54,21 @@ class CamerasAPIHandler(BaseAPIHandler):
             "path_pattern": r"/cameras/notifications",
             "supported_methods": ["POST"],
             "method": "post_notifications_endpoint",
-            "requires_role": [Role.ADMIN, Role.WRITE],
-            "json_body_schema": NOTIFICATIONS_SCHEMA,
+            "requires_role": [Role.ADMIN],
+            "json_body_schema": vol.Schema(
+                vol.Any(
+                    {
+                        vol.Required("action"): vol.All(vol.Lower, "pause"),
+                        vol.Exclusive("duration", "pause_end"): vol.All(
+                            vol.Coerce(int), vol.Range(min=1)
+                        ),
+                        vol.Exclusive("until", "pause_end"): future_datetime,
+                    },
+                    {
+                        vol.Required("action"): vol.All(vol.Lower, "resume"),
+                    },
+                )
+            ),
         },
     ]
 
@@ -65,8 +81,10 @@ class CamerasAPIHandler(BaseAPIHandler):
         await self.response_success(response=self._get_failed_cameras() or {})
 
     async def post_notifications_endpoint(self) -> None:
-        """Pause or resume notifications for every camera the user can access."""
+        """Pause or resume notifications for the cameras the user can access."""
         for camera in (self._get_cameras() or {}).values():
+            if not notifications_configured(self._vis, camera.identifier):
+                continue
             await self.run_in_executor(set_notifications_paused, camera, self.json_body)
         await self.response_success()
 

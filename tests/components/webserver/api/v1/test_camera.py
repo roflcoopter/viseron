@@ -639,8 +639,18 @@ GET_CAMERA = (
 )
 
 
+NOW = datetime.datetime(2026, 1, 1, 12, 0, tzinfo=datetime.timezone.utc)
+
+
 class TestCameraAPIHandlerNotifications(TestAppBaseAuth):
     """Test pausing and resuming camera notifications."""
+
+    def setUp(self) -> None:
+        """Freeze the clock at NOW."""
+        super().setUp()
+        patcher = patch("viseron.helpers.notifications.utcnow", return_value=NOW)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def _post(self, body: dict, camera: MockCamera | None):
         with patch(GET_CAMERA, return_value=camera):
@@ -658,7 +668,20 @@ class TestCameraAPIHandlerNotifications(TestAppBaseAuth):
 
         assert response.code == 200
         camera.pause_notifications.assert_called_once_with(
-            datetime.timedelta(seconds=900)
+            NOW + datetime.timedelta(seconds=900)
+        )
+
+    def test_pause_until(self):
+        """An until datetime pauses notifications until then."""
+        camera = MockCamera(identifier="test")
+
+        response = self._post(
+            {"action": "pause", "until": "2026-01-01T16:00:00+02:00"}, camera
+        )
+
+        assert response.code == 200
+        camera.pause_notifications.assert_called_once_with(
+            NOW + datetime.timedelta(hours=2)
         )
 
     def test_pause_until_resumed(self):
@@ -686,6 +709,10 @@ class TestCameraAPIHandlerNotifications(TestAppBaseAuth):
             {"action": "pause", "duration": 0},
             {"action": "mute"},
             {"action": "resume", "duration": 60},
+            {"action": "pause", "duration": 60, "until": "2026-01-01T13:00:00Z"},
+            {"action": "pause", "until": "2026-01-01T11:00:00Z"},
+            {"action": "pause", "until": "2026-01-01T13:00:00"},
+            {"action": "pause", "until": "tomorrow"},
         ):
             camera = MockCamera(identifier="test")
 
@@ -705,26 +732,27 @@ class TestCameraAPIHandlerNotifications(TestAppBaseAuth):
             "status": 404,
         }
 
-    def test_read_role_forbidden(self):
-        """Read-only users cannot pause notifications."""
-        camera = MockCamera(identifier="test")
-        with (
-            patch(
-                "viseron.components.webserver.request_handler.ViseronRequestHandler.current_user",  # pylint: disable=line-too-long
-                new_callable=PropertyMock,
-                return_value=User(
-                    name="Test",
-                    username="test",
-                    password="test",
-                    role=Role.READ,
+    def test_non_admin_forbidden(self):
+        """Only admins can pause notifications."""
+        for role in (Role.READ, Role.WRITE):
+            camera = MockCamera(identifier="test")
+            with (
+                patch(
+                    "viseron.components.webserver.request_handler.ViseronRequestHandler.current_user",  # pylint: disable=line-too-long
+                    new_callable=PropertyMock,
+                    return_value=User(
+                        name="Test",
+                        username="test",
+                        password="test",
+                        role=role,
+                    ),
                 ),
-            ),
-            patch(
-                "viseron.components.webserver.request_handler.ViseronRequestHandler.validate_access_token",  # pylint: disable=line-too-long
-                return_value=True,
-            ),
-        ):
-            response = self._post({"action": "pause"}, camera)
+                patch(
+                    "viseron.components.webserver.request_handler.ViseronRequestHandler.validate_access_token",  # pylint: disable=line-too-long
+                    return_value=True,
+                ),
+            ):
+                response = self._post({"action": "pause"}, camera)
 
-        assert response.code == 403
-        camera.pause_notifications.assert_not_called()
+            assert response.code == 403, role
+            camera.pause_notifications.assert_not_called()

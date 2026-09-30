@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from datetime import timedelta
 from http import HTTPStatus
 from typing import TYPE_CHECKING
 
@@ -28,35 +27,16 @@ from viseron.domains.camera.const import (
     CONFIG_USERNAME,
 )
 from viseron.domains.camera.recorder import ManualRecording
+from viseron.helpers.notifications import (
+    future_datetime,
+    set_notifications_paused,
+)
 from viseron.helpers.validators import request_argument_bool
 
 if TYPE_CHECKING:
     from viseron.domains.camera import AbstractCamera
 
 LOGGER = logging.getLogger(__name__)
-
-NOTIFICATIONS_SCHEMA = vol.Schema(
-    vol.Any(
-        {
-            vol.Required("action"): vol.All(vol.Lower, "pause"),
-            vol.Optional("duration"): vol.All(vol.Coerce(int), vol.Range(min=1)),
-        },
-        {
-            vol.Required("action"): vol.All(vol.Lower, "resume"),
-        },
-    )
-)
-
-
-def set_notifications_paused(camera: AbstractCamera, body: dict) -> None:
-    """Pause or resume notifications for a camera from a request body."""
-    if body["action"] == "resume":
-        camera.resume_notifications()
-        return
-    duration = body.get("duration")
-    camera.pause_notifications(
-        timedelta(seconds=duration) if duration is not None else None
-    )
 
 
 class CameraAPIHandler(BaseAPIHandler):
@@ -124,13 +104,26 @@ class CameraAPIHandler(BaseAPIHandler):
             ),
         },
         {
-            "requires_role": [Role.ADMIN, Role.WRITE],
+            "requires_role": [Role.ADMIN],
             "path_pattern": (
                 r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)/notifications"
             ),
             "supported_methods": ["POST"],
             "method": "post_notifications",
-            "json_body_schema": NOTIFICATIONS_SCHEMA,
+            "json_body_schema": vol.Schema(
+                vol.Any(
+                    {
+                        vol.Required("action"): vol.All(vol.Lower, "pause"),
+                        vol.Exclusive("duration", "pause_end"): vol.All(
+                            vol.Coerce(int), vol.Range(min=1)
+                        ),
+                        vol.Exclusive("until", "pause_end"): future_datetime,
+                    },
+                    {
+                        vol.Required("action"): vol.All(vol.Lower, "resume"),
+                    },
+                )
+            ),
         },
     ]
 

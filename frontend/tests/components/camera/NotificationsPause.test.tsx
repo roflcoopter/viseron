@@ -1,3 +1,5 @@
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { API_BASE_URL } from "tests/mocks/handlers";
@@ -30,6 +32,7 @@ const camera: types.Camera = {
   connected: true,
   live_stream_available: true,
   is_recording: false,
+  notifications_configured: true,
   notifications_paused: false,
   notifications_paused_until: null,
 };
@@ -75,6 +78,22 @@ describe("CameraNotificationsButton", () => {
     await waitFor(() =>
       expect(bodies).toEqual([{ action: "pause", duration: 3600 }]),
     );
+  });
+
+  test("opens a date and time picker for a custom pause", async () => {
+    renderWithContext(
+      <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <CameraNotificationsButton camera={camera} />
+      </LocalizationProvider>,
+    );
+
+    fireEvent.click(screen.getByTestId("camera-notifications-button"));
+    fireEvent.click(await screen.findByText("Pause until..."));
+
+    expect(
+      await screen.findByText("Pause notifications until"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pause" })).toBeDisabled();
   });
 
   test("resumes a paused camera", async () => {

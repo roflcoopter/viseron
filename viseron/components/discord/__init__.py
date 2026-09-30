@@ -14,7 +14,11 @@ import voluptuous as vol
 
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import EVENT_RECORDER_COMPLETE, EVENT_RECORDER_START
-from viseron.helpers.notifications import notifications_paused
+from viseron.helpers.notifications import (
+    notifications_paused,
+    register_notification_cameras,
+    unregister_notification_cameras,
+)
 from viseron.helpers.validators import (
     UNDEFINED,
     CameraIdentifier,
@@ -124,6 +128,7 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     component_config = config[COMPONENT]
 
     vis.data[COMPONENT] = DiscordNotifier(vis, component_config)
+    register_notification_cameras(vis, COMPONENT, component_config[CONFIG_CAMERAS])
 
     return True
 
@@ -134,6 +139,7 @@ def unload(vis: Viseron) -> None:
     if notifier:
         notifier.stop()
         del vis.data[COMPONENT]
+    unregister_notification_cameras(vis, COMPONENT)
 
 
 class DiscordNotifier:

@@ -1,10 +1,16 @@
 import { Notification, NotificationOff } from "@carbon/icons-react";
 import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
 import IconButton from "@mui/material/IconButton";
 import ListSubheader from "@mui/material/ListSubheader";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Tooltip from "@mui/material/Tooltip";
+import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
+import { Dayjs } from "dayjs";
 import { useState } from "react";
 
 import { useCameraNotifications } from "lib/api/camera";
@@ -13,7 +19,9 @@ import {
   getDayjs,
   getDayjsFromDateTimeString,
   getDisplayDateStringFromDayjs,
+  getDisplayDateTimeFormat,
   getTimeStringFromDayjs,
+  is12HourFormat,
 } from "lib/helpers/dates";
 import * as types from "lib/types";
 
@@ -42,10 +50,53 @@ export function pausedUntilText(camera: types.Camera) {
 type NotificationsPauseMenuProps = {
   anchorEl: HTMLElement | null;
   onClose: () => void;
-  onPause: (duration?: number) => void;
+  onPause: (pause: { duration?: number; until?: string }) => void;
   onResume?: () => void;
   header: string;
 };
+
+type PauseUntilDialogProps = {
+  open: boolean;
+  onClose: () => void;
+  onPause: (until: string) => void;
+};
+
+function PauseUntilDialog({ open, onClose, onPause }: PauseUntilDialogProps) {
+  const [until, setUntil] = useState<Dayjs | null>(null);
+  const valid = until !== null && until.isValid() && until.isAfter(getDayjs());
+
+  return (
+    <Dialog open={open} onClose={onClose}>
+      <DialogTitle>Pause notifications until</DialogTitle>
+      <DialogContent>
+        <DateTimePicker
+          label="Resume at"
+          value={until}
+          onChange={setUntil}
+          onAccept={setUntil}
+          disablePast
+          closeOnSelect={false}
+          ampm={is12HourFormat()}
+          format={getDisplayDateTimeFormat()}
+          sx={{ mt: 1 }}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button
+          variant="contained"
+          disabled={!valid}
+          onClick={() => {
+            onPause(until!.toISOString());
+            onClose();
+          }}
+        >
+          Pause
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
 
 function NotificationsPauseMenu({
   anchorEl,
@@ -54,31 +105,48 @@ function NotificationsPauseMenu({
   onResume,
   header,
 }: NotificationsPauseMenuProps) {
+  const [dialogOpen, setDialogOpen] = useState(false);
+
   return (
-    <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={onClose}>
-      <ListSubheader>{header}</ListSubheader>
-      {onResume && (
+    <>
+      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={onClose}>
+        <ListSubheader>{header}</ListSubheader>
+        {onResume && (
+          <MenuItem
+            onClick={() => {
+              onResume();
+              onClose();
+            }}
+          >
+            Resume notifications
+          </MenuItem>
+        )}
+        {PAUSE_DURATIONS.map(({ label, seconds }) => (
+          <MenuItem
+            key={label}
+            onClick={() => {
+              onPause({ duration: seconds });
+              onClose();
+            }}
+          >
+            {label}
+          </MenuItem>
+        ))}
         <MenuItem
           onClick={() => {
-            onResume();
+            setDialogOpen(true);
             onClose();
           }}
         >
-          Resume notifications
+          Pause until...
         </MenuItem>
-      )}
-      {PAUSE_DURATIONS.map(({ label, seconds }) => (
-        <MenuItem
-          key={label}
-          onClick={() => {
-            onPause(seconds);
-            onClose();
-          }}
-        >
-          {label}
-        </MenuItem>
-      ))}
-    </Menu>
+      </Menu>
+      <PauseUntilDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onPause={(until) => onPause({ until })}
+      />
+    </>
   );
 }
 
@@ -117,8 +185,8 @@ export function CameraNotificationsButton({
         anchorEl={anchorEl}
         onClose={() => setAnchorEl(null)}
         header={text}
-        onPause={(duration) =>
-          notifications.mutate({ camera, action: "pause", duration })
+        onPause={(pause) =>
+          notifications.mutate({ camera, action: "pause", ...pause })
         }
         onResume={
           camera.notifications_paused
@@ -149,9 +217,7 @@ export function AllCamerasNotificationsButton() {
         anchorEl={anchorEl}
         onClose={() => setAnchorEl(null)}
         header="All cameras"
-        onPause={(duration) =>
-          notifications.mutate({ action: "pause", duration })
-        }
+        onPause={(pause) => notifications.mutate({ action: "pause", ...pause })}
         onResume={() => notifications.mutate({ action: "resume" })}
       />
     </>

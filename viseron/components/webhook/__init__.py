@@ -8,7 +8,11 @@ from typing import TYPE_CHECKING, Any
 import requests
 import voluptuous as vol
 
-from viseron.helpers.notifications import notifications_paused
+from viseron.helpers.notifications import (
+    notifications_paused,
+    register_notification_cameras,
+    unregister_notification_cameras,
+)
 from viseron.helpers.template import render_template, render_template_condition
 from viseron.helpers.validators import (
     CoerceNoneToDict,
@@ -170,6 +174,15 @@ def _event_camera_identifier(event: Any) -> str | None:
 def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     """Set up the webhook component."""
     vis.data[COMPONENT] = Webhook(vis, config[COMPONENT])
+    # Camera events are named <camera_identifier>/<event>
+    register_notification_cameras(
+        vis,
+        COMPONENT,
+        (
+            hook_conf[CONFIG_TRIGGER][CONFIG_EVENT].split("/")[0]
+            for hook_conf in config[COMPONENT].values()
+        ),
+    )
     return True
 
 
@@ -178,6 +191,7 @@ def unload(vis: Viseron) -> bool:
     if COMPONENT in vis.data:
         vis.data[COMPONENT].unload()
         del vis.data[COMPONENT]
+    unregister_notification_cameras(vis, COMPONENT)
     return True
 
 

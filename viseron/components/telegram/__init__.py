@@ -34,7 +34,11 @@ from viseron.domains.camera.recorder import EventRecorderData, ManualRecording
 from viseron.exceptions import ComponentNotReady, DomainNotRegisteredError
 from viseron.helpers import escape_string
 from viseron.helpers.logs import SensitiveInformationFilterTracker
-from viseron.helpers.notifications import notifications_paused
+from viseron.helpers.notifications import (
+    notifications_paused,
+    register_notification_cameras,
+    unregister_notification_cameras,
+)
 from viseron.helpers.validators import (
     UNDEFINED,
     CameraIdentifier,
@@ -177,6 +181,7 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     if telegram_ptz:
         telegram_ptz.start()
     telegram_notifier.start()
+    register_notification_cameras(vis, COMPONENT, component_config[CONFIG_CAMERAS])
 
     return True
 
@@ -193,6 +198,7 @@ def unload(vis: Viseron) -> None:
         ptz.stop()
 
     vis.data.pop(COMPONENT, None)
+    unregister_notification_cameras(vis, COMPONENT)
 
 
 def rescale_image_cv2(image_path, max_size):

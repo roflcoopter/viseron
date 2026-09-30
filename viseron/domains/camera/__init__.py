@@ -6,8 +6,8 @@ import logging
 import os
 import secrets
 from abc import abstractmethod
-from datetime import datetime, timedelta
 from collections import deque
+from datetime import datetime
 from dataclasses import dataclass
 from functools import lru_cache
 from threading import Event, Timer
@@ -52,6 +52,7 @@ from viseron.helpers import (
     zoom_boundingbox,
 )
 from viseron.helpers.logs import SensitiveInformationFilterTracker
+from viseron.helpers.notifications import notifications_configured
 from viseron.viseron_types import SnapshotDomain
 
 from .const import (
@@ -265,6 +266,9 @@ class AbstractCamera(AbstractDomain):
             "live_stream_available": self.live_stream_available,
             "is_recording": self.is_recording,
             "ptz_support": self.ptz_support,
+            "notifications_configured": notifications_configured(
+                self._vis, self.identifier
+            ),
             "notifications_paused": self.notifications_paused,
             "notifications_paused_until": (
                 self.notifications_paused_until.isoformat()
@@ -289,17 +293,16 @@ class AbstractCamera(AbstractDomain):
         """Return when paused notifications resume, None if not timed."""
         return self._notifications_paused_until if self.notifications_paused else None
 
-    def pause_notifications(self, duration: timedelta | None = None) -> None:
-        """Pause notifications, for duration or until resumed if None."""
+    def pause_notifications(self, until: datetime | None = None) -> None:
+        """Pause notifications until a point in time, or until resumed if None."""
         self._cancel_notifications_resume_job()
         self._notifications_paused = True
-        self._notifications_paused_until = None
-        if duration is not None:
-            self._notifications_paused_until = utcnow() + duration
+        self._notifications_paused_until = until
+        if until is not None:
             self._notifications_resume_job = self._vis.background_scheduler.add_job(
                 self.resume_notifications,
                 "date",
-                run_date=self._notifications_paused_until,
+                run_date=until,
             )
         self._logger.debug(
             "Notifications paused until %s",

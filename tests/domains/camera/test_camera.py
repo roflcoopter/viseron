@@ -266,11 +266,11 @@ class TestNotificationsPause:
         assert camera.notifications_paused_until is None
         assert _sensor_state(camera) == "off"
 
-    def test_pause_for_duration(self) -> None:
+    def test_pause_until_time(self) -> None:
         """A timed pause schedules its own resume."""
         camera = _NotificationsStub()
 
-        camera.pause_notifications(datetime.timedelta(minutes=15))
+        camera.pause_notifications(NOW + datetime.timedelta(minutes=15))
 
         until = NOW + datetime.timedelta(minutes=15)
         assert camera.notifications_paused is True
@@ -282,7 +282,7 @@ class TestNotificationsPause:
         camera._notifications_paused_entity.set_state.assert_called_once()
 
     def test_pause_until_resumed(self) -> None:
-        """A pause without duration lasts until resumed."""
+        """A pause without an end lasts until resumed."""
         camera = _NotificationsStub()
 
         camera.pause_notifications()
@@ -295,7 +295,7 @@ class TestNotificationsPause:
     def test_resume(self) -> None:
         """Resuming clears the pause and cancels the resume job."""
         camera = _NotificationsStub()
-        camera.pause_notifications(datetime.timedelta(minutes=15))
+        camera.pause_notifications(NOW + datetime.timedelta(minutes=15))
         job = camera._vis.background_scheduler.add_job.return_value
 
         camera.resume_notifications()
@@ -314,8 +314,8 @@ class TestNotificationsPause:
             second_job,
         ]
 
-        camera.pause_notifications(datetime.timedelta(minutes=15))
-        camera.pause_notifications(datetime.timedelta(hours=1))
+        camera.pause_notifications(NOW + datetime.timedelta(minutes=15))
+        camera.pause_notifications(NOW + datetime.timedelta(hours=1))
 
         first_job.remove.assert_called_once()
         assert camera._notifications_resume_job is second_job
@@ -324,7 +324,7 @@ class TestNotificationsPause:
     def test_resume_after_job_ran(self) -> None:
         """A resume job that already ran is not an error."""
         camera = _NotificationsStub()
-        camera.pause_notifications(datetime.timedelta(minutes=15))
+        camera.pause_notifications(NOW + datetime.timedelta(minutes=15))
         job = camera._vis.background_scheduler.add_job.return_value
         job.remove.side_effect = JobLookupError("gone")
 
@@ -335,7 +335,7 @@ class TestNotificationsPause:
     def test_expired_pause_is_not_paused(self, utcnow: MagicMock) -> None:
         """A pause past its deadline no longer applies, even before the job runs."""
         camera = _NotificationsStub()
-        camera.pause_notifications(datetime.timedelta(minutes=15))
+        camera.pause_notifications(NOW + datetime.timedelta(minutes=15))
 
         utcnow.return_value = NOW + datetime.timedelta(minutes=15)
 

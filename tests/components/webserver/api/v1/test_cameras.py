@@ -144,8 +144,24 @@ GET_CAMERAS = (
 )
 
 
+NOW = datetime.datetime(2026, 1, 1, 12, 0, tzinfo=datetime.timezone.utc)
+
+
 class TestCamerasApiHandlerNotifications(TestAppBaseAuth):
     """Test pausing and resuming notifications for every camera."""
+
+    def setUp(self) -> None:
+        """Freeze the clock and configure notifications for every camera."""
+        super().setUp()
+        for patcher in (
+            patch("viseron.helpers.notifications.utcnow", return_value=NOW),
+            patch(
+                "viseron.components.webserver.api.v1.cameras.notifications_configured",
+                side_effect=lambda _vis, identifier: identifier != "no_notifier",
+            ),
+        ):
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def _post(self, body: dict, cameras: dict | None):
         with patch(GET_CAMERAS, return_value=cameras):
@@ -167,8 +183,22 @@ class TestCamerasApiHandlerNotifications(TestAppBaseAuth):
         assert response.code == 200
         for camera in cameras.values():
             camera.pause_notifications.assert_called_once_with(
-                datetime.timedelta(hours=1)
+                NOW + datetime.timedelta(hours=1)
             )
+
+    def test_skips_cameras_without_notifications(self):
+        """Cameras no notification component covers are left alone."""
+        configured = MockCamera(identifier="camera_1")
+        unconfigured = MockCamera(identifier="no_notifier")
+
+        response = self._post(
+            {"action": "pause"},
+            {"camera_1": configured, "no_notifier": unconfigured},
+        )
+
+        assert response.code == 200
+        configured.pause_notifications.assert_called_once_with(None)
+        unconfigured.pause_notifications.assert_not_called()
 
     def test_resume_all(self):
         """Every camera is resumed."""
@@ -189,26 +219,27 @@ class TestCamerasApiHandlerNotifications(TestAppBaseAuth):
 
         assert response.code == 200
 
-    def test_read_role_forbidden(self):
-        """Read-only users cannot pause notifications."""
-        camera = MockCamera(identifier="camera_1")
-        with (
-            patch(
-                "viseron.components.webserver.request_handler.ViseronRequestHandler.current_user",  # pylint: disable=line-too-long
-                new_callable=PropertyMock,
-                return_value=User(
-                    name="Test",
-                    username="test",
-                    password="test",
-                    role=Role.READ,
+    def test_non_admin_forbidden(self):
+        """Only admins can pause notifications."""
+        for role in (Role.READ, Role.WRITE):
+            camera = MockCamera(identifier="camera_1")
+            with (
+                patch(
+                    "viseron.components.webserver.request_handler.ViseronRequestHandler.current_user",  # pylint: disable=line-too-long
+                    new_callable=PropertyMock,
+                    return_value=User(
+                        name="Test",
+                        username="test",
+                        password="test",
+                        role=role,
+                    ),
                 ),
-            ),
-            patch(
-                "viseron.components.webserver.request_handler.ViseronRequestHandler.validate_access_token",  # pylint: disable=line-too-long
-                return_value=True,
-            ),
-        ):
-            response = self._post({"action": "pause"}, {"camera_1": camera})
+                patch(
+                    "viseron.components.webserver.request_handler.ViseronRequestHandler.validate_access_token",  # pylint: disable=line-too-long
+                    return_value=True,
+                ),
+            ):
+                response = self._post({"action": "pause"}, {"camera_1": camera})
 
-        assert response.code == 403
-        camera.pause_notifications.assert_not_called()
+            assert response.code == 403, role
+            camera.pause_notifications.assert_not_called()
