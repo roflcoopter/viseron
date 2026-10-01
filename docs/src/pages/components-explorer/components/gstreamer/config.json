@@ -1917,28 +1917,28 @@
                                 {
                                   "type": "integer",
                                   "name": "days",
-                                  "description": "Max age in days.",
+                                  "description": "Days between timelapse frame extractions.",
                                   "optional": true,
                                   "default": null
                                 },
                                 {
                                   "type": "integer",
                                   "name": "hours",
-                                  "description": "Max age in hours.",
+                                  "description": "Hours between timelapse frame extractions.",
                                   "optional": true,
                                   "default": null
                                 },
                                 {
                                   "type": "integer",
                                   "name": "minutes",
-                                  "description": "Max age in minutes.",
+                                  "description": "Minutes between timelapse frame extractions.",
                                   "optional": true,
                                   "default": null
                                 },
                                 {
                                   "type": "integer",
                                   "name": "seconds",
-                                  "description": "Seconds between checks for files to move/delete.",
+                                  "description": "Seconds between timelapse frame extractions.",
                                   "optional": true,
                                   "default": null
                                 }

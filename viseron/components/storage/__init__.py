@@ -52,6 +52,9 @@ from viseron.components.storage.const import (
     TIER_SUBCATEGORY_SEGMENTS,
     TIER_SUBCATEGORY_THUMBNAILS,
     TIER_SUBCATEGORY_TIMELAPSE,
+    TIMELAPSE_RENDER_MANAGER,
+    TIMELAPSE_SEGMENT_CACHE_PATH,
+    TIMELAPSE_SEGMENT_ENCODER,
 )
 from viseron.components.storage.jobs import CleanupManager
 from viseron.components.storage.models import (
@@ -70,6 +73,8 @@ from viseron.components.storage.tier_handler import (
     ThumbnailTierHandler,
     TimelapseTierHandler,
 )
+from viseron.components.storage.timelapse_render import TimelapseRenderManager
+from viseron.components.storage.timelapse_segments import TimelapseSegmentEncoder
 from viseron.components.storage.util import (
     RequestedFilesCount,
     get_event_clips_path,
@@ -294,6 +299,15 @@ class Storage:
         self.tier_check_worker = TierCheckWorker(
             vis, config[CONFIG_TIER_CHECK_CPU_LIMIT], config[CONFIG_TIER_CHECK_WORKERS]
         )
+
+        self._timelapse_segment_encoder = TimelapseSegmentEncoder(
+            TIMELAPSE_SEGMENT_CACHE_PATH
+        )
+        self._timelapse_render_manager = TimelapseRenderManager(
+            self._timelapse_segment_encoder
+        )
+        vis.data[TIMELAPSE_SEGMENT_ENCODER] = self._timelapse_segment_encoder
+        vis.data[TIMELAPSE_RENDER_MANAGER] = self._timelapse_render_manager
 
     @property
     def config(self) -> dict[str, Any]:
@@ -741,6 +755,8 @@ class Storage:
 
     def _shutdown(self) -> None:
         """Shutdown."""
+        self._timelapse_render_manager.stop()
+        self._timelapse_segment_encoder.stop()
         if self.engine:
             self.engine.dispose()
 
