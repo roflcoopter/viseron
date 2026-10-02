@@ -1,4 +1,4 @@
-import Hls from "hls.js";
+import Hls, { HlsConfig } from "hls.js";
 import React from "react";
 
 import { getToken } from "lib/tokens";
@@ -18,9 +18,11 @@ export const DEFAULT_HLS_CONFIG = {
 export function createHlsInstance(
   auth: types.AuthEnabledResponse,
   hlsClientIdRef: React.MutableRefObject<string>,
+  config: Partial<HlsConfig> = {},
 ): Hls {
   return new Hls({
     ...DEFAULT_HLS_CONFIG,
+    ...config,
     async xhrSetup(xhr, _url) {
       xhr.withCredentials = true;
       if (auth.enabled) {
