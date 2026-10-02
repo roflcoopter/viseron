@@ -126,6 +126,17 @@ def _extract_program_date_time(
     return None
 
 
+def _get_orig_ctime(
+    file: str, program_date_time: datetime.datetime | None
+) -> datetime.datetime:
+    """Return the creation time of a segment named <epoch>.<ext>."""
+    if program_date_time:
+        return program_date_time
+    return datetime.datetime.fromtimestamp(
+        int(file.split(".", maxsplit=1)[0]), tz=datetime.timezone.utc
+    )
+
+
 class FragmenterSubProcessWorker(ChildProcessWorker):
     """Child process worker for running fragmentation in a child process."""
 
@@ -250,7 +261,7 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
             return False
         return True
 
-    def _segment_hook_mp4box(self, file: str) -> None:
+    def _segment_hook_mp4box(self, file: str, orig_ctime: datetime.datetime) -> None:
         """Perform per fragment tasks before moving fragment to storage.
 
         Currently only used for extracting timelapse frames from fragments.
@@ -274,10 +285,10 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
         )
 
         self._extract_timelapse_frame(
-            init_path, segment_path, tmp_frame_path, frame_path
+            init_path, segment_path, tmp_frame_path, frame_path, orig_ctime
         )
 
-    def _segment_hook(self, file: str) -> None:
+    def _segment_hook(self, file: str, orig_ctime: datetime.datetime) -> None:
         """Perform per fragment tasks before moving fragment to storage.
 
         Currently only used for extracting timelapse frames from fragments.
@@ -297,11 +308,16 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
         segment_path = os.path.join(self.temp_segments_folder, file)
 
         self._extract_timelapse_frame(
-            init_path, segment_path, tmp_frame_path, frame_path
+            init_path, segment_path, tmp_frame_path, frame_path, orig_ctime
         )
 
     def _extract_timelapse_frame(
-        self, init_path: str, segment_path: str, tmp_frame_path: str, frame_path: str
+        self,
+        init_path: str,
+        segment_path: str,
+        tmp_frame_path: str,
+        frame_path: str,
+        orig_ctime: datetime.datetime,
     ) -> None:
         """Extract a timelapse frame from segment files."""
         try:
@@ -325,6 +341,7 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
             )
             if result.returncode == 0:
                 self._logger.debug(f"Timelapse: Extracted frame {tmp_frame_path}")
+                self._send_files_metadata(frame_path, orig_ctime, None)
                 shutil.move(tmp_frame_path, frame_path)
             else:
                 self._logger.warning(
@@ -346,9 +363,11 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
             except FileNotFoundError:
                 pass
 
-    def _move_to_segments_folder_mp4box(self, file: str) -> None:
+    def _move_to_segments_folder_mp4box(
+        self, file: str, orig_ctime: datetime.datetime
+    ) -> None:
         """Move fragmented mp4 created by mp4box to segments folder."""
-        self._segment_hook_mp4box(file)
+        self._segment_hook_mp4box(file, orig_ctime)
         try:
             shutil.move(
                 os.path.join(
@@ -371,9 +390,11 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
         except FileNotFoundError:
             self._logger.debug(f"{file} not found")
 
-    def _move_to_segments_folder(self, file: str) -> None:
+    def _move_to_segments_folder(
+        self, file: str, orig_ctime: datetime.datetime
+    ) -> None:
         """Move fragmented mp4 created by encoder to segments folder."""
-        self._segment_hook(file)
+        self._segment_hook(file, orig_ctime)
         try:
             shutil.move(
                 os.path.join(self.temp_segments_folder, file),
@@ -399,34 +420,16 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
                 )
                 self._worker_event.wait(timeout=1)
 
-    def _write_files_metadata(
-        self,
-        file: str,
-        extinf: float,
-        program_date_time: datetime.datetime | None = None,
+    def _send_files_metadata(
+        self, path: str, orig_ctime: datetime.datetime, duration: float | None
     ) -> None:
         """Save temporary metadata which is later used when inserting into the DB."""
-        if program_date_time:
-            orig_ctime = program_date_time
-        else:
-            orig_ctime = (
-                datetime.datetime.fromtimestamp(
-                    int(file.split(".", maxsplit=1)[0]), tz=None
-                )
-                - get_utc_offset()
-            )
-            orig_ctime = orig_ctime.replace(tzinfo=datetime.timezone.utc)
-
-        path = os.path.join(
-            self.segments_folder, file.split(".", maxsplit=1)[0] + ".m4s"
-        )
-
         self._worker_event.clear()
         self._output_queue.put(
             {
                 "path": path,
                 "orig_ctime": orig_ctime,
-                "duration": extinf,
+                "duration": duration,
             }
         )
         self._worker_event.wait(timeout=1)
@@ -460,8 +463,16 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
                     self._read_m3u8_mp4box(file), "clip_1.m4s"
                 )
                 if extinf:
-                    self._write_files_metadata(file, extinf)
-                    self._move_to_segments_folder_mp4box(file)
+                    orig_ctime = _get_orig_ctime(file, None)
+                    self._send_files_metadata(
+                        os.path.join(
+                            self.segments_folder,
+                            file.split(".", maxsplit=1)[0] + ".m4s",
+                        ),
+                        orig_ctime,
+                        extinf,
+                    )
+                    self._move_to_segments_folder_mp4box(file, orig_ctime)
                 else:
                     self._logger.error(f"Failed to get extinf for {file}")
         except Exception as err:  # pylint: disable=broad-except
@@ -482,8 +493,11 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
             extinf = _extract_extinf_number(m3u8, file)
             program_date_time = _extract_program_date_time(m3u8, file)
             if extinf:
-                self._write_files_metadata(file, extinf, program_date_time)
-                self._move_to_segments_folder(file)
+                orig_ctime = _get_orig_ctime(file, program_date_time)
+                self._send_files_metadata(
+                    os.path.join(self.segments_folder, file), orig_ctime, extinf
+                )
+                self._move_to_segments_folder(file, orig_ctime)
             else:
                 self._logger.error(f"Failed to get extinf for {file}")
                 os.remove(os.path.join(self.temp_segments_folder, file))

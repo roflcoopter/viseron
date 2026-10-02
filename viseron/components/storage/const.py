@@ -69,6 +69,21 @@ TIER_SUBCATEGORY_TIMELAPSE: Final = "timelapse"
 
 LATEST_SNAPSHOT_FILENAME: Final = "latest_snapshot.jpg"
 
+TIMELAPSE_RENDER_MANAGER: Final = "timelapse_render_manager"
+TIMELAPSE_SEGMENT_ENCODER: Final = "timelapse_segment_encoder"
+TIMELAPSE_MAX_CONCURRENT_RENDERS = 2
+TIMELAPSE_MAX_QUEUED_RENDERS = 8
+TIMELAPSE_RENDER_TIMEOUT = 1800
+TIMELAPSE_STREAM_FPS = 15
+TIMELAPSE_SEGMENT_FRAMES = 60
+TIMELAPSE_SEGMENT_CACHE_PATH = "/tmp/timelapse_segments"
+TIMELAPSE_SEGMENT_CACHE_MAX_BYTES = 256 * 1024 * 1024
+# Segments used this recently are about to be read, so they are never evicted
+TIMELAPSE_SEGMENT_CACHE_MIN_AGE = 60
+TIMELAPSE_SEGMENT_ENCODE_WORKERS = 2
+TIMELAPSE_SEGMENT_MAX_PENDING_ENCODES = 32
+TIMELAPSE_SEGMENT_ENCODE_TIMEOUT = 60
+
 
 # Storage configuration
 DESC_COMPONENT = "Storage configuration."
@@ -274,3 +289,7 @@ DESC_MAX_AGE = "Maximum age of files to keep in this tier."
 DESC_CONTINUOUS = "Retention rules for continuous recordings."
 DESC_EVENTS = "Retention rules for event recordings."
 DESC_INTERVAL = "Time interval between timelapse frame extractions."
+DESC_INTERVAL_DAYS = "Days between timelapse frame extractions."
+DESC_INTERVAL_HOURS = "Hours between timelapse frame extractions."
+DESC_INTERVAL_MINUTES = "Minutes between timelapse frame extractions."
+DESC_INTERVAL_SECONDS = "Seconds between timelapse frame extractions."

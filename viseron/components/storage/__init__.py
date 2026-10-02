@@ -21,6 +21,7 @@ from viseron.components.storage.config import (
     STORAGE_SCHEMA,
     TIER_SCHEMA_RECORDER,
     TIER_SCHEMA_SNAPSHOTS,
+    TIER_SCHEMA_TIMELAPSE,
     validate_tiers,
 )
 from viseron.components.storage.const import (
@@ -51,6 +52,9 @@ from viseron.components.storage.const import (
     TIER_SUBCATEGORY_SEGMENTS,
     TIER_SUBCATEGORY_THUMBNAILS,
     TIER_SUBCATEGORY_TIMELAPSE,
+    TIMELAPSE_RENDER_MANAGER,
+    TIMELAPSE_SEGMENT_CACHE_PATH,
+    TIMELAPSE_SEGMENT_ENCODER,
 )
 from viseron.components.storage.jobs import CleanupManager
 from viseron.components.storage.models import (
@@ -69,6 +73,8 @@ from viseron.components.storage.tier_handler import (
     ThumbnailTierHandler,
     TimelapseTierHandler,
 )
+from viseron.components.storage.timelapse_render import TimelapseRenderManager
+from viseron.components.storage.timelapse_segments import TimelapseSegmentEncoder
 from viseron.components.storage.util import (
     RequestedFilesCount,
     get_event_clips_path,
@@ -78,7 +84,8 @@ from viseron.components.storage.util import (
     get_timelapse_path,
 )
 from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_STOPPING
-from viseron.domains.camera.const import CONFIG_STORAGE, DOMAIN as CAMERA_DOMAIN
+from viseron.domains.camera.const import CONFIG_STORAGE
+from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import ComponentNotReady
 from viseron.helpers import utcnow
 from viseron.helpers.logs import StreamToLogger
@@ -292,6 +299,15 @@ class Storage:
         self.tier_check_worker = TierCheckWorker(
             vis, config[CONFIG_TIER_CHECK_CPU_LIMIT], config[CONFIG_TIER_CHECK_WORKERS]
         )
+
+        self._timelapse_segment_encoder = TimelapseSegmentEncoder(
+            TIMELAPSE_SEGMENT_CACHE_PATH
+        )
+        self._timelapse_render_manager = TimelapseRenderManager(
+            self._timelapse_segment_encoder
+        )
+        vis.data[TIMELAPSE_SEGMENT_ENCODER] = self._timelapse_segment_encoder
+        vis.data[TIMELAPSE_RENDER_MANAGER] = self._timelapse_render_manager
 
     @property
     def config(self) -> dict[str, Any]:
@@ -739,6 +755,8 @@ class Storage:
 
     def _shutdown(self) -> None:
         """Shutdown."""
+        self._timelapse_render_manager.stop()
+        self._timelapse_segment_encoder.stop()
         if self.engine:
             self.engine.dispose()
 
@@ -830,13 +848,11 @@ def _get_tier_config(config: dict[str, Any], camera: AbstractCamera) -> dict[str
     # Handle timelapse tiers (only if timelapse is configured)
     if tier_config.get(CONFIG_TIMELAPSE):
         _timelapse_tier: dict[str, Any] = {}
-        if (
-            camera.config[CONFIG_STORAGE]
-            and camera.config[CONFIG_STORAGE][CONFIG_TIMELAPSE] != UNDEFINED
-        ):
-            _timelapse_tier = camera.config[CONFIG_STORAGE][CONFIG_TIMELAPSE][
-                CONFIG_TIERS
-            ]
+        camera_timelapse = (camera.config[CONFIG_STORAGE] or {}).get(
+            CONFIG_TIMELAPSE, UNDEFINED
+        )
+        if camera_timelapse not in (None, UNDEFINED):
+            _timelapse_tier = camera_timelapse[CONFIG_TIERS]
             tier_config[CONFIG_TIMELAPSE][CONFIG_TIERS] = _timelapse_tier
 
         if _timelapse_tier:
@@ -847,7 +863,7 @@ def _get_tier_config(config: dict[str, Any], camera: AbstractCamera) -> dict[str
             # Validate the tier schema to fill in defaults
             tier_config[CONFIG_TIMELAPSE][CONFIG_TIERS] = vol.Schema(
                 vol.All(
-                    [TIER_SCHEMA_SNAPSHOTS],
+                    [TIER_SCHEMA_TIMELAPSE],
                     vol.Length(min=1),
                 )
             )(tier_config[CONFIG_TIMELAPSE][CONFIG_TIERS])

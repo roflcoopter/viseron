@@ -15,7 +15,10 @@ import pytest
 import voluptuous as vol
 from sqlalchemy import insert
 
+from tests.common import MockCamera
+from tests.conftest import MockViseron
 from viseron.components.storage import CONFIG_SCHEMA, Storage, _get_tier_config
+from viseron.components.storage.config import TIER_SCHEMA_TIMELAPSE
 from viseron.components.storage.const import (
     COMPONENT,
     CONFIG_CHECK_INTERVAL,
@@ -27,6 +30,7 @@ from viseron.components.storage.const import (
     CONFIG_GB,
     CONFIG_HOURS,
     CONFIG_IMAGE_CLASSIFICATION,
+    CONFIG_INTERVAL,
     CONFIG_MAX_AGE,
     CONFIG_MAX_SIZE,
     CONFIG_MB,
@@ -41,6 +45,7 @@ from viseron.components.storage.const import (
     CONFIG_SECONDS,
     CONFIG_SNAPSHOTS,
     CONFIG_TIERS,
+    CONFIG_TIMELAPSE,
     DEFAULT_RECORDER_TIERS,
     DEFAULT_SNAPSHOTS_TIERS,
     TIER_CATEGORY_RECORDER,
@@ -57,9 +62,6 @@ from viseron.components.storage.const import (
 from viseron.components.storage.models import Files
 from viseron.domains.camera.const import CONFIG_STORAGE
 from viseron.helpers.validators import UNDEFINED
-
-from tests.common import MockCamera
-from tests.conftest import MockViseron
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session, sessionmaker
@@ -364,6 +366,56 @@ def test_get_tier_config(config, camera_config, expected) -> None:
     """Test get_tier_config."""
     mocked_camera = MockCamera(config=camera_config)
     assert _get_tier_config(config, mocked_camera) == expected
+
+
+TIMELAPSE_TIER = TIER_SCHEMA_TIMELAPSE(
+    {CONFIG_PATH: "/timelapse/", CONFIG_INTERVAL: {CONFIG_MINUTES: 1}}
+)
+CAMERA_TIMELAPSE_TIER = {CONFIG_PATH: "/camera/", CONFIG_INTERVAL: {CONFIG_MINUTES: 5}}
+
+
+@pytest.mark.parametrize(
+    ("camera_storage", "expected_tiers"),
+    [
+        pytest.param(None, [TIMELAPSE_TIER], id="no_camera_storage"),
+        pytest.param(
+            {CONFIG_RECORDER: UNDEFINED, CONFIG_SNAPSHOTS: UNDEFINED},
+            [TIMELAPSE_TIER],
+            id="camera_storage_without_timelapse_key",
+        ),
+        pytest.param(
+            {
+                CONFIG_RECORDER: UNDEFINED,
+                CONFIG_SNAPSHOTS: UNDEFINED,
+                CONFIG_TIMELAPSE: UNDEFINED,
+            },
+            [TIMELAPSE_TIER],
+            id="camera_storage_timelapse_undefined",
+        ),
+        pytest.param(
+            {
+                CONFIG_RECORDER: UNDEFINED,
+                CONFIG_SNAPSHOTS: UNDEFINED,
+                CONFIG_TIMELAPSE: {CONFIG_TIERS: [CAMERA_TIMELAPSE_TIER]},
+            },
+            [TIER_SCHEMA_TIMELAPSE(CAMERA_TIMELAPSE_TIER)],
+            id="camera_timelapse_override",
+        ),
+    ],
+)
+def test_get_tier_config_timelapse(
+    camera_storage: dict[str, Any] | None, expected_tiers: list[dict[str, Any]]
+) -> None:
+    """Test that cameras can override the timelapse tiers."""
+    config = {**TIER_CONFIG, CONFIG_TIMELAPSE: {CONFIG_TIERS: [TIMELAPSE_TIER]}}
+    mocked_camera = MockCamera(
+        config={
+            CONFIG_RECORDER: {CONFIG_CONTINUOUS: {}, CONFIG_EVENTS: {}},
+            CONFIG_STORAGE: camera_storage,
+        }
+    )
+    tier_config = _get_tier_config(config, mocked_camera)
+    assert tier_config[CONFIG_TIMELAPSE][CONFIG_TIERS] == expected_tiers
 
 
 @pytest.fixture(name="storage", scope="function")
