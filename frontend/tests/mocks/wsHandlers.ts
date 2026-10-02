@@ -15,6 +15,66 @@ export const resetSetupStatusMock = () => {
   setupStatusMock.components = [];
 };
 
+const RENDER_STEPS = 10;
+const RENDER_STEP_INTERVAL = 300;
+const renderTimers = new Map<string, ReturnType<typeof setInterval>>();
+
+// Streams the status of a timelapse render the way the server does
+const simulateRender = (
+  client: WebSocketHandlerConnection["client"],
+  commandId: number,
+) => {
+  const key = `${client.id}-${commandId}`;
+  const status = (result: object) =>
+    client.send(
+      JSON.stringify({
+        command_id: commandId,
+        type: "subscription_result",
+        success: true,
+        result,
+      }),
+    );
+  let step = 0;
+  renderTimers.set(
+    key,
+    setInterval(() => {
+      step++;
+      if (step <= RENDER_STEPS) {
+        status({
+          status: "rendering",
+          frame: step * 100,
+          total_frames: RENDER_STEPS * 100,
+          progress: (step / RENDER_STEPS) * 100,
+        });
+        return;
+      }
+      if (step === RENDER_STEPS + 1) {
+        status({ status: "encoding" });
+        return;
+      }
+      clearInterval(renderTimers.get(key));
+      renderTimers.delete(key);
+      status({
+        status: "done",
+        filename: "demo_timelapse.mp4",
+        token: "demo-token",
+      });
+      client.send(
+        JSON.stringify({ command_id: commandId, type: "cancel_subscription" }),
+      );
+    }, RENDER_STEP_INTERVAL),
+  );
+};
+
+const cancelRender = (
+  client: WebSocketHandlerConnection["client"],
+  commandId: number,
+) => {
+  const key = `${client.id}-${commandId}`;
+  clearInterval(renderTimers.get(key));
+  renderTimers.delete(key);
+};
+
 const messageHandler = (
   client: WebSocketHandlerConnection["client"],
   event: MessageEvent<WebSocketData>,
@@ -39,10 +99,18 @@ const messageHandler = (
           },
         };
         break;
+      case "unsubscribe_event":
+        cancelRender(client, msg.subscription);
+        payload = {
+          command_id: msg.command_id,
+          type: "result",
+          success: true,
+          result: null,
+        };
+        break;
       case "subscribe_event":
       case "subscribe_states":
       case "subscribe_timespans":
-      case "unsubscribe_event":
       case "unsubscribe_states":
       case "unsubscribe_timespans":
       case "save_config":
@@ -107,6 +175,15 @@ const messageHandler = (
           success: true,
           result: { filename: "demo_export.mp4", token: "demo-token" },
         };
+        break;
+      case "render_timelapse":
+        payload = {
+          command_id: msg.command_id,
+          type: "result",
+          success: true,
+          result: null,
+        };
+        simulateRender(client, msg.command_id);
         break;
       // A missing envelope leaves the client's promise pending forever, so
       // unmocked commands still get a valid result.

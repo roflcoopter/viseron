@@ -110,6 +110,50 @@ const mockLogs = (): LogEntry[] => {
 
 export type SnapshotLoader = (cameraIdentifier: string) => Promise<ArrayBuffer>;
 
+const TIMELAPSE_CAMERAS = ["camera1", "camera2"];
+// A frame every 5 minutes for the last week
+const TIMELAPSE_INTERVAL = 300;
+const TIMELAPSE_DAYS = 7;
+
+const timelapseFrame = (
+  camera_identifier: string,
+  timestamp: number,
+): types.TimelapseFrame => ({
+  file_key: timestamp,
+  timestamp,
+  path: `/file/${camera_identifier}/${timestamp.toString(16)}`,
+});
+
+const timelapseTimestamps = (start: number, end: number) => {
+  const now = getDayjs().unix();
+  const first = Math.max(start, now - TIMELAPSE_DAYS * 86400);
+  const last = Math.min(end, now);
+  const timestamps: number[] = [];
+  for (
+    let timestamp = Math.ceil(first / TIMELAPSE_INTERVAL) * TIMELAPSE_INTERVAL;
+    timestamp <= last;
+    timestamp += TIMELAPSE_INTERVAL
+  ) {
+    timestamps.push(timestamp);
+  }
+  return timestamps;
+};
+
+const timelapseSummary = (
+  camera_identifier: string,
+): types.TimelapseCameraSummary => {
+  const now = getDayjs().unix();
+  const timestamps = timelapseTimestamps(0, now);
+  const last = timestamps[timestamps.length - 1];
+  return {
+    camera_identifier,
+    count: timestamps.length,
+    first_timestamp: timestamps[0],
+    last_timestamp: last,
+    latest_frame: timelapseFrame(camera_identifier, last),
+  };
+};
+
 export const createHandlers = (loadSnapshot: SnapshotLoader) => [
   http.get(`${API_BASE_URL}/auth/enabled`, () =>
     HttpResponse.json(
@@ -220,6 +264,7 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
         live_stream_available: true,
         connected: true,
         is_recording: false,
+        timelapse: true,
       },
       camera2: {
         identifier: "camera2",
@@ -242,6 +287,7 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
         live_stream_available: true,
         connected: true,
         is_recording: true,
+        timelapse: true,
         ptz_support: "onvif+auto",
       },
       camera3: {
@@ -265,6 +311,7 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
         live_stream_available: true,
         connected: true,
         is_recording: false,
+        timelapse: false,
       },
     };
     return HttpResponse.json(cameras, { status: 200 });
@@ -323,6 +370,7 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
       live_stream_available: true,
       connected: true,
       is_recording: false,
+      timelapse: true,
     };
     return HttpResponse.json(camera, { status: 200 });
   }),
@@ -348,6 +396,7 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
       live_stream_available: true,
       connected: true,
       is_recording: true,
+      timelapse: true,
       ptz_support: "onvif+auto",
     };
     return HttpResponse.json(camera, { status: 200 });
@@ -374,6 +423,7 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
       live_stream_available: true,
       connected: true,
       is_recording: false,
+      timelapse: false,
     };
     return HttpResponse.json(camera, { status: 200 });
   }),
@@ -776,6 +826,85 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
   http.all(`${API_BASE_URL}/actions/onvif/ptz/:camera_identifier/:action`, () =>
     HttpResponse.json({ success: true } as types.APISuccessResponse, {
       status: 200,
+    }),
+  ),
+
+  // Timelapse
+  http.get(`${API_BASE_URL}/timelapse`, () =>
+    HttpResponse.json({
+      cameras: Object.fromEntries(
+        TIMELAPSE_CAMERAS.map((camera_identifier) => [
+          camera_identifier,
+          timelapseSummary(camera_identifier),
+        ]),
+      ),
+    } as types.TimelapseSummaryResponse),
+  ),
+  http.get(
+    `${API_BASE_URL}/timelapse/:camera_identifier`,
+    ({ params, request }) => {
+      const camera_identifier = String(params.camera_identifier);
+      if (!TIMELAPSE_CAMERAS.includes(camera_identifier)) {
+        return HttpResponse.json(
+          { status: 404, error: "Not Found" },
+          { status: 404 },
+        );
+      }
+      const searchParams = new URL(request.url).searchParams;
+      const start = Number(searchParams.get("start"));
+      const end = Number(searchParams.get("end"));
+      const maxFrames = Number(searchParams.get("max_frames") ?? 1800);
+      const timestamps = timelapseTimestamps(start, end);
+      // Downsample like the backend, keeping every nth frame
+      const every = Math.ceil(timestamps.length / maxFrames);
+      const frames = timestamps
+        .filter((_timestamp, index) => index % every === 0)
+        .map((timestamp) => timelapseFrame(camera_identifier, timestamp));
+      return HttpResponse.json({
+        camera_identifier,
+        start,
+        end,
+        step: every > 1 ? every * TIMELAPSE_INTERVAL : null,
+        total: timestamps.length,
+        frames,
+        stream:
+          frames.length > 0
+            ? { fps: 15, segment_frames: 60, width: 1280, height: 720 }
+            : null,
+      } as types.TimelapseFramesResponse);
+    },
+  ),
+  http.get(
+    `${API_BASE_URL}/timelapse/:camera_identifier/dates_of_interest`,
+    () => {
+      const now = getDayjs();
+      const framesPerDay = 86400 / TIMELAPSE_INTERVAL;
+      const framesToday = Math.floor(
+        now.diff(now.startOf("day"), "second") / TIMELAPSE_INTERVAL,
+      );
+      return HttpResponse.json({
+        dates_of_interest: Object.fromEntries(
+          Array.from({ length: TIMELAPSE_DAYS + 1 }, (_, day) => [
+            now.subtract(day, "day").format("YYYY-MM-DD"),
+            { frames: day === 0 ? framesToday : framesPerDay },
+          ]),
+        ),
+      } as types.TimelapseDatesOfInterest);
+    },
+  ),
+  http.get("/file/:camera_identifier/:file_key", async ({ params }) => {
+    const buffer = await loadSnapshot(String(params.camera_identifier));
+    return HttpResponse.arrayBuffer(buffer, {
+      status: 200,
+      headers: { "Content-Type": "image/jpeg" },
+    });
+  }),
+  // Downloads of exports and rendered timelapses, nothing is actually rendered
+  http.get(`${API_BASE_URL}/download`, () =>
+    // Not empty, the browser only reports download progress for a body
+    HttpResponse.arrayBuffer(new ArrayBuffer(1024), {
+      status: 200,
+      headers: { "Content-Type": "video/mp4" },
     }),
   ),
 ];
