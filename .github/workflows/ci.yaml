@@ -418,10 +418,11 @@ jobs:
           exit 1
       - name: Install libedgetpu1 for edgetpu docs
         run: |
-          curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-          sudo add-apt-repository "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main"
+          EDGETPU_DEB=libedgetpu1-std_16.0tf2.19.1-1.ubuntu24.04_amd64.deb
+          curl -fsSL -o "/tmp/$EDGETPU_DEB" "https://github.com/feranick/libedgetpu/releases/download/16.0TF2.19.1-1/$EDGETPU_DEB"
+          echo "5010e68411e22cafb135950c7322c769d4041fa5c2d2c11eaf638500fde3f357  /tmp/$EDGETPU_DEB" | sha256sum -c -
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libedgetpu1-std python3-gi python3-gst-1.0
+          sudo apt-get install -y --no-install-recommends "/tmp/$EDGETPU_DEB" python3-gi python3-gst-1.0
       - name: Install libhailort for hailo docs
         run: |
           set -e
