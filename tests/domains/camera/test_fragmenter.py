@@ -349,6 +349,8 @@ class TestFragmenter:
         self.camera.identifier = "test_camera"
         self.camera.temp_segments_folder = tempfile.mkdtemp()
         self.camera.segments_folder = tempfile.mkdtemp()
+        self.camera.timelapse_folder = None
+        self.camera.temp_timelapse_folder = None
         self.fragmenter = Fragmenter(self.vis, self.camera)
         self.fragmenter.start()
 
@@ -362,6 +364,7 @@ class TestFragmenter:
     def test_mp4box_command(self, mock_sp_run: Mock):
         """Test mp4box command generation."""
         mock_sp_run.return_value = MagicMock()
+        self.fragmenter._fragment_worker._log_pipe = MagicMock()
         self.fragmenter._fragment_worker._mp4box_command("test.mp4")
         mock_sp_run.assert_called_once_with(
             [
@@ -440,12 +443,33 @@ def test_worker_does_not_stop_on_shutdown_signal() -> None:
         patch("viseron.helpers.child_process_worker.RestartableThread"),
         patch("viseron.helpers.child_process_worker.RestartableProcess"),
     ):
-        worker = FragmenterSubProcessWorker(
+        FragmenterSubProcessWorker(
             vis, MagicMock(), MagicMock(), "/tmp/temp", "/tmp/segments", MagicMock()
         )
-    worker._log_pipe.close()
 
     vis.register_signal_handler.assert_not_called()
+
+
+def test_worker_child_state() -> None:
+    """The forkserver child receives the worker pickled, without parent state."""
+    camera = MagicMock()
+    camera.identifier = "test_camera"
+    camera.timelapse_folder = "/timelapse/test_camera"
+    camera.temp_timelapse_folder = "/tmp/timelapse/test_camera"
+    with (
+        patch("viseron.helpers.child_process_worker.RestartableThread"),
+        patch("viseron.helpers.child_process_worker.RestartableProcess"),
+    ):
+        worker = FragmenterSubProcessWorker(
+            MagicMock(), MagicMock(), camera, "/tmp/temp", "/segments", MagicMock()
+        )
+
+    assert worker._mp_context.get_start_method() == "forkserver"
+    state = worker.__getstate__()
+    assert "_vis" not in state
+    assert "_camera" not in state
+    assert state["segments_folder"] == "/segments"
+    assert state["_timelapse_folder"] == "/timelapse/test_camera"
 
 
 class TestFragmenterLifecycle:
@@ -657,7 +681,6 @@ def test_timelapse_frame_metadata_uses_segment_orig_ctime(
         worker = FragmenterSubProcessWorker(
             MagicMock(), MagicMock(), camera, "/tmp/temp", "/segments", MagicMock()
         )
-    worker._log_pipe.close()
     worker._worker_event = MagicMock()
     order = MagicMock()
     worker._output_queue = order.output_queue

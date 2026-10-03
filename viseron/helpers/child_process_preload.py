@@ -14,6 +14,7 @@ LOGGER = logging.getLogger(__name__)
 PRELOAD_MODULES = (
     "viseron.components.ffmpeg.frame_reader",
     "viseron.components.gstreamer.gst_process",
+    "viseron.domains.camera.fragmenter",
 )
 
 
