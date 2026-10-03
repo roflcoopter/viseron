@@ -40,12 +40,12 @@ repos:
         exclude_types: [csv, json]
         exclude: ^tests/fixtures/
   - repo: https://github.com/PyCQA/flake8
-    rev: 7.3.0
+    rev: 7.4.1
     hooks:
       - id: flake8
         additional_dependencies:
-          - pycodestyle==2.14.0
-          - pyflakes==3.4.0
+          - pycodestyle==2.15.0
+          - pyflakes==4.0.0
           - flake8-docstrings==1.7.0
           - pydocstyle==6.3.0
           - flake8-comprehensions==3.17.0
@@ -53,7 +53,7 @@ repos:
           - mccabe==0.7.0
         files: ^(viseron|tests)/.+\.py$
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.5
+    rev: v0.16.9
     hooks:
       - id: ruff-check
         args: [--fix]
