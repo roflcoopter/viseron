@@ -75,15 +75,21 @@ class TestCalculateOutputFps:
 def test_is_manual_recording(
     is_recording: bool, trigger_type: TriggerTypes | None, expected: bool
 ) -> None:
-    """Only a manually triggered recording counts as a manual recording."""
+    """Only a manually triggered recording counts as a manual recording.
+
+    The frontend reads the value from as_dict, so check it is exposed there too.
+    """
     active_recording = (
         SimpleNamespace(trigger_type=trigger_type) if trigger_type else None
     )
-    stub = SimpleNamespace(
+    stub = MagicMock(
         is_recording=is_recording,
         recorder=SimpleNamespace(active_recording=active_recording),
     )
     assert AbstractCamera.is_manual_recording.fget(stub) is expected  # type: ignore[attr-defined]
+
+    stub.is_manual_recording = expected
+    assert AbstractCamera.as_dict(stub)["is_manual_recording"] is expected
 
 
 @pytest.mark.parametrize(
