@@ -1,6 +1,7 @@
 import {
   Book,
   Demo,
+  Hourglass,
   IntrusionPrevention,
   LogoDiscord,
   LogoGithub,
@@ -27,6 +28,7 @@ import ViseronLogo from "svg/viseron-logo.svg?react";
 
 import { useAuthContext } from "context/AuthContext";
 import { ViseronContext } from "context/ViseronContext";
+import { useCameras } from "lib/api/cameras";
 import * as types from "lib/types";
 
 type DrawerItemHeader = { type: "header"; title: string };
@@ -51,6 +53,7 @@ type DrawerSections = {
 const getDrawerItems = (
   auth: types.AuthEnabledResponse,
   user: types.AuthUserResponse | null,
+  timelapseEnabled: boolean,
 ): DrawerSections => {
   const topItems: Array<DrawerItemTypes> = [
     { type: "header", title: "Pages" },
@@ -79,6 +82,17 @@ const getDrawerItems = (
       icon: VideoChat,
       path: "/live",
     },
+    ...(timelapseEnabled
+      ? [
+          {
+            type: "link",
+            title: "Timelapse",
+            icon: Hourglass,
+            path: "/timelapse",
+          } as DrawerItemTypes,
+        ]
+      : []),
+
     { type: "link", title: "Entities", icon: TableSplit, path: "/entities" },
     ...(!auth.enabled || (auth.enabled && user?.role === "admin")
       ? [
@@ -295,8 +309,16 @@ export default function AppDrawer({
 }: AppDrawerProps) {
   const { auth, user } = useAuthContext();
   const location = useLocation();
+  const cameras = useCameras({});
+  const timelapseEnabled = Object.values(cameras.data ?? {}).some(
+    (camera) => camera.timelapse,
+  );
 
-  const { topItems, bottomItems } = getDrawerItems(auth, user);
+  const { topItems, bottomItems } = getDrawerItems(
+    auth,
+    user,
+    timelapseEnabled,
+  );
 
   return (
     <Drawer
