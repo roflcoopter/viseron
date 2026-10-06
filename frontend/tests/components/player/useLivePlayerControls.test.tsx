@@ -34,6 +34,7 @@ const baseCamera: types.Camera = {
   live_stream_available: true,
   is_recording: false,
   is_manual_recording: false,
+  timelapse: false,
 };
 
 const clickManualRecording = (camera: types.Camera) => {
