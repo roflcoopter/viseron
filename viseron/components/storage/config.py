@@ -87,6 +87,10 @@ from viseron.components.storage.const import (
     DESC_FACE_RECOGNITION,
     DESC_IMAGE_CLASSIFICATION,
     DESC_INTERVAL,
+    DESC_INTERVAL_DAYS,
+    DESC_INTERVAL_HOURS,
+    DESC_INTERVAL_MINUTES,
+    DESC_INTERVAL_SECONDS,
     DESC_LICENSE_PLATE_RECOGNITION,
     DESC_MAX_AGE,
     DESC_MAX_DAYS,
@@ -438,22 +442,22 @@ TIER_SCHEMA_TIMELAPSE = vol.All(
                 vol.Optional(
                     CONFIG_DAYS,
                     default=DEFAULT_DAYS,
-                    description=DESC_MAX_DAYS,
+                    description=DESC_INTERVAL_DAYS,
                 ): Maybe(vol.Coerce(int)),
                 vol.Optional(
                     CONFIG_HOURS,
                     default=DEFAULT_HOURS,
-                    description=DESC_MAX_HOURS,
+                    description=DESC_INTERVAL_HOURS,
                 ): Maybe(vol.Coerce(int)),
                 vol.Optional(
                     CONFIG_MINUTES,
                     default=DEFAULT_MINUTES,
-                    description=DESC_MAX_MINUTES,
+                    description=DESC_INTERVAL_MINUTES,
                 ): Maybe(vol.Coerce(int)),
                 vol.Optional(
                     CONFIG_SECONDS,
                     default=DEFAULT_SECONDS,
-                    description=DESC_CHECK_INTERVAL_SECONDS,
+                    description=DESC_INTERVAL_SECONDS,
                 ): Maybe(vol.Coerce(int)),
             },
         }

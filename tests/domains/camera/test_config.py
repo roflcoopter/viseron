@@ -5,7 +5,8 @@ from __future__ import annotations
 import pytest
 import voluptuous as vol
 
-from viseron.domains.camera.config import RECORDING_SCHEDULE_SCHEMA
+from viseron.components.storage.config import TIER_SCHEMA_TIMELAPSE
+from viseron.domains.camera.config import BASE_CONFIG_SCHEMA, RECORDING_SCHEDULE_SCHEMA
 from viseron.domains.camera.const import (
     CONFIG_SCHEDULE_EVENTS,
     CONFIG_SCHEDULE_TIMEZONE,
@@ -37,3 +38,23 @@ def test_invalid_timezone_override_rejected():
     """An invalid timezone override fails schema validation."""
     with pytest.raises(vol.Invalid):
         RECORDING_SCHEDULE_SCHEMA({CONFIG_SCHEDULE_TIMEZONE: "Not/AZone"})
+
+
+@pytest.mark.parametrize(
+    ("storage", "expected_timelapse"),
+    [
+        pytest.param({}, UNDEFINED, id="defaults_to_undefined"),
+        pytest.param({"timelapse": None}, None, id="accepts_none"),
+        pytest.param(
+            {"timelapse": {"tiers": [{"path": "/timelapse/"}]}},
+            {"tiers": [TIER_SCHEMA_TIMELAPSE({"path": "/timelapse/"})]},
+            id="override_tiers",
+        ),
+    ],
+)
+def test_storage_timelapse(
+    storage: dict[str, object], expected_timelapse: object
+) -> None:
+    """Cameras can override the timelapse tiers."""
+    config = BASE_CONFIG_SCHEMA({"name": "Camera", "storage": storage})
+    assert config["storage"]["timelapse"] == expected_timelapse

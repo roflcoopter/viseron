@@ -3,11 +3,13 @@ import Box from "@mui/material/Box";
 import Fab from "@mui/material/Fab";
 import Tooltip from "@mui/material/Tooltip";
 import { Dayjs } from "dayjs";
-import { memo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 
 import { CameraPickerDialog } from "components/camera/CameraPickerDialog";
+import { useFilteredCameras } from "components/camera/useCameraStore";
 import { DatePickerDialog } from "components/events/DatePickerDialog";
 import { ExportDialog } from "components/events/ExportDialog";
+import { useEventsDatesOfInterest } from "lib/api/events";
 
 type FloatingMenuProps = {
   date: Dayjs;
@@ -19,6 +21,23 @@ export const FloatingMenu = memo(({ date, setDate }: FloatingMenuProps) => {
   const [dateDialogOpen, setDateDialogOpen] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
+  const filteredCameras = useFilteredCameras();
+  const eventsDatesOfInterest = useEventsDatesOfInterest({
+    camera_identifiers: Object.keys(filteredCameras),
+    configOptions: {
+      enabled: dateDialogOpen,
+    },
+  });
+  const highlightedDays = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(eventsDatesOfInterest.data?.dates_of_interest ?? {}).map(
+          ([day, { events }]) => [day, events],
+        ),
+      ),
+    [eventsDatesOfInterest.data],
+  );
+
   return (
     <>
       <CameraPickerDialog
@@ -29,6 +48,7 @@ export const FloatingMenu = memo(({ date, setDate }: FloatingMenuProps) => {
         open={dateDialogOpen}
         setOpen={setDateDialogOpen}
         date={date}
+        highlightedDays={highlightedDays}
         onChange={(value) => {
           setDateDialogOpen(false);
           if (value) {

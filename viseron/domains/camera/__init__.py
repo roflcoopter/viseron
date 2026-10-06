@@ -247,6 +247,7 @@ class AbstractCamera(AbstractDomain):
             "live_stream_available": self.live_stream_available,
             "is_recording": self.is_recording,
             "ptz_support": self.ptz_support,
+            "timelapse": self.timelapse_folder is not None,
         }
 
     def generate_token(self) -> str:

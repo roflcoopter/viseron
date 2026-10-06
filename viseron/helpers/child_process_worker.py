@@ -18,6 +18,7 @@ from viseron.watchdog.process_watchdog import RestartableProcess
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
+    from multiprocessing.context import BaseContext
     from multiprocessing.synchronize import Event
 
     from viseron import Viseron
@@ -35,11 +36,17 @@ class ChildProcessWorker(ABC):
     """
 
     def __init__(
-        self, vis: Viseron, name: str, *, stop_on_shutdown: bool = True
+        self,
+        vis: Viseron,
+        name: str,
+        *,
+        stop_on_shutdown: bool = True,
+        mp_context: BaseContext | None = None,
     ) -> None:
         self._name = name
+        self._mp_context = mp_context or mp.get_context()
 
-        self._process_frames_proc_exit = mp.Event()
+        self._process_frames_proc_exit = self._mp_context.Event()
 
         self.input_queue: Queue[Any] = Queue(maxsize=100)
         self._input_thread = RestartableThread(
@@ -50,7 +57,7 @@ class ChildProcessWorker(ABC):
         )
         self._input_thread.start()
 
-        self._output_queue: mp.Queue = mp.Queue(maxsize=100)
+        self._output_queue: mp.Queue = self._mp_context.Queue(maxsize=100)
         self._output_thread = RestartableThread(
             target=self._process_output_queue,
             name=f"child_process.{self._name}.output_thread",
@@ -59,7 +66,7 @@ class ChildProcessWorker(ABC):
         )
         self._output_thread.start()
 
-        self._process_queue: mp.Queue = mp.Queue(maxsize=100)
+        self._process_queue: mp.Queue = self._mp_context.Queue(maxsize=100)
         self._process_frames_proc = RestartableProcess(
             name=self.child_process_name,
             create_process_method=self.create_process,
@@ -85,9 +92,9 @@ class ChildProcessWorker(ABC):
             self._process_queue.close()
         if self._output_queue:
             self._output_queue.close()
-        self._process_queue = mp.Queue(maxsize=100)
-        self._output_queue = mp.Queue(maxsize=100)
-        return mp.Process(
+        self._process_queue = self._mp_context.Queue(maxsize=100)
+        self._output_queue = self._mp_context.Queue(maxsize=100)
+        return self._mp_context.Process(  # type: ignore[attr-defined]
             target=self._process_frames,
             name=self.child_process_name,
             args=(

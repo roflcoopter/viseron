@@ -7,7 +7,7 @@ import os
 import shutil
 import tempfile
 import threading
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
 from apscheduler.jobstores.base import JobLookupError
@@ -349,6 +349,8 @@ class TestFragmenter:
         self.camera.identifier = "test_camera"
         self.camera.temp_segments_folder = tempfile.mkdtemp()
         self.camera.segments_folder = tempfile.mkdtemp()
+        self.camera.timelapse_folder = None
+        self.camera.temp_timelapse_folder = None
         self.fragmenter = Fragmenter(self.vis, self.camera)
         self.fragmenter.start()
 
@@ -362,6 +364,7 @@ class TestFragmenter:
     def test_mp4box_command(self, mock_sp_run: Mock):
         """Test mp4box command generation."""
         mock_sp_run.return_value = MagicMock()
+        self.fragmenter._fragment_worker._log_pipe = MagicMock()
         self.fragmenter._fragment_worker._mp4box_command("test.mp4")
         mock_sp_run.assert_called_once_with(
             [
@@ -388,7 +391,9 @@ class TestFragmenter:
     def test_move_to_segments_folder_mp4box(self, mock_shutil_move: Mock):
         """Test that the files are moved to the segments folder."""
         mock_shutil_move.return_value = MagicMock()
-        self.fragmenter._fragment_worker._move_to_segments_folder_mp4box("test.mp4")
+        self.fragmenter._fragment_worker._move_to_segments_folder_mp4box(
+            "test.mp4", utcnow()
+        )
         mock_shutil_move.assert_any_call(
             os.path.join(self.camera.temp_segments_folder, "test", "clip_1.m4s"),
             os.path.join(self.camera.segments_folder, "test.m4s"),
@@ -438,12 +443,33 @@ def test_worker_does_not_stop_on_shutdown_signal() -> None:
         patch("viseron.helpers.child_process_worker.RestartableThread"),
         patch("viseron.helpers.child_process_worker.RestartableProcess"),
     ):
-        worker = FragmenterSubProcessWorker(
+        FragmenterSubProcessWorker(
             vis, MagicMock(), MagicMock(), "/tmp/temp", "/tmp/segments", MagicMock()
         )
-    worker._log_pipe.close()
 
     vis.register_signal_handler.assert_not_called()
+
+
+def test_worker_child_state() -> None:
+    """The forkserver child receives the worker pickled, without parent state."""
+    camera = MagicMock()
+    camera.identifier = "test_camera"
+    camera.timelapse_folder = "/timelapse/test_camera"
+    camera.temp_timelapse_folder = "/tmp/timelapse/test_camera"
+    with (
+        patch("viseron.helpers.child_process_worker.RestartableThread"),
+        patch("viseron.helpers.child_process_worker.RestartableProcess"),
+    ):
+        worker = FragmenterSubProcessWorker(
+            MagicMock(), MagicMock(), camera, "/tmp/temp", "/segments", MagicMock()
+        )
+
+    assert worker._mp_context.get_start_method() == "forkserver"
+    state = worker.__getstate__()
+    assert "_vis" not in state
+    assert "_camera" not in state
+    assert state["segments_folder"] == "/segments"
+    assert state["_timelapse_folder"] == "/timelapse/test_camera"
 
 
 class TestFragmenterLifecycle:
@@ -618,3 +644,67 @@ def test_extract_program_date_time() -> None:
     assert date_time_tag == datetime.datetime(
         2024, 8, 8, 9, 59, 16, 199000, tzinfo=datetime.timezone.utc
     )
+
+
+@pytest.mark.parametrize(
+    ("handler", "file", "m3u8", "expected_orig_ctime"),
+    [
+        pytest.param(
+            "_handle_m4s",
+            "1723111156.m4s",
+            PLAYLIST_CONTENT,
+            datetime.datetime(
+                2024, 8, 8, 9, 59, 16, 199000, tzinfo=datetime.timezone.utc
+            ),
+            id="encoder_program_date_time",
+        ),
+        pytest.param(
+            "_handle_mp4",
+            "1723111156.mp4",
+            "#EXTINF:5.0,\nclip_1.m4s\n",
+            datetime.datetime(2024, 8, 8, 9, 59, 16, tzinfo=datetime.timezone.utc),
+            id="mp4box_filename_epoch",
+        ),
+    ],
+)
+def test_timelapse_frame_metadata_uses_segment_orig_ctime(
+    handler: str, file: str, m3u8: str, expected_orig_ctime: datetime.datetime
+) -> None:
+    """The frame is inserted with its segment's timestamp, not the DB insert time."""
+    camera = MagicMock()
+    camera.timelapse_folder = "/timelapse/test_camera"
+    camera.temp_timelapse_folder = "/tmp/timelapse/test_camera"
+    with (
+        patch("viseron.helpers.child_process_worker.RestartableThread"),
+        patch("viseron.helpers.child_process_worker.RestartableProcess"),
+    ):
+        worker = FragmenterSubProcessWorker(
+            MagicMock(), MagicMock(), camera, "/tmp/temp", "/segments", MagicMock()
+        )
+    worker._worker_event = MagicMock()
+    order = MagicMock()
+    worker._output_queue = order.output_queue
+
+    with (
+        patch.object(worker, "_read_m3u8", return_value=m3u8),
+        patch.object(worker, "_read_m3u8_mp4box", return_value=m3u8),
+        patch.object(worker, "_mp4box_command", return_value=True),
+        patch("viseron.domains.camera.fragmenter.sp.run") as mock_run,
+        patch("viseron.domains.camera.fragmenter.shutil", order.shutil),
+        patch("viseron.domains.camera.fragmenter.os.remove"),
+    ):
+        mock_run.return_value.returncode = 0
+        getattr(worker, handler)(file)
+
+    frame_path = "/timelapse/test_camera/1723111156.jpg"
+    frame_meta = call.output_queue.put(
+        {"path": frame_path, "orig_ctime": expected_orig_ctime, "duration": None}
+    )
+    assert frame_meta in order.mock_calls
+    # The metadata must be registered before the file appears in the tier
+    frame_move = call.shutil.move(
+        "/tmp/timelapse/test_camera/1723111156.jpg", frame_path
+    )
+    assert order.mock_calls.index(frame_meta) < order.mock_calls.index(frame_move)
+    segment_meta = order.output_queue.put.call_args_list[0].args[0]
+    assert segment_meta["orig_ctime"] == expected_orig_ctime

@@ -6,6 +6,7 @@ import asyncio
 import logging
 import os
 import secrets
+import shutil
 import threading
 from typing import TYPE_CHECKING, Any
 
@@ -69,6 +70,7 @@ from .const import (
     DESC_SESSION_EXPIRY,
     DESC_SUBPATH,
     DESC_WINDOW_SECONDS,
+    DOWNLOAD_PATH,
     DOWNLOAD_TOKENS,
     PUBLIC_IMAGE_TOKENS,
     PUBLIC_IMAGES_PATH,
@@ -90,6 +92,7 @@ from .websocket_api.commands import (
     handle_reload_config,
     handle_render_template,
     ping,
+    render_timelapse,
     restart_viseron,
     save_config,
     subscribe_event,
@@ -238,6 +241,7 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     webserver.register_websocket_command(export_recording)
     webserver.register_websocket_command(export_snapshot)
     webserver.register_websocket_command(export_timespan)
+    webserver.register_websocket_command(render_timelapse)
     webserver.register_websocket_command(handle_render_template)
     webserver.register_websocket_command(get_setup_status)
 
@@ -353,6 +357,9 @@ class Webserver(threading.Thread):
 
         # Clean up expired public images on startup
         self._cleanup_expired_public_images()
+
+        # Download tokens only live in memory, so any leftover download is orphaned
+        shutil.rmtree(DOWNLOAD_PATH, ignore_errors=True)
 
         self._asyncio_ioloop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._asyncio_ioloop)

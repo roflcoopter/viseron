@@ -238,3 +238,22 @@ class TestWriteSnapshot:
         assert first.startswith(f"{SNAPSHOTS_FOLDER}/")
         assert first.endswith(".jpg")
         assert first != second
+
+
+@pytest.mark.parametrize(
+    ("timelapse_folder", "expected"),
+    [
+        pytest.param("/timelapse/test_camera", True, id="enabled"),
+        pytest.param(None, False, id="disabled"),
+    ],
+)
+def test_as_dict_exposes_timelapse(
+    timelapse_folder: str | None, expected: bool
+) -> None:
+    """The frontend uses the flag to decide whether to show the timelapse page."""
+    camera = MagicMock()
+    camera.resolution = RESOLUTION
+    camera.mainstream_resolution = RESOLUTION
+    camera.timelapse_folder = timelapse_folder
+
+    assert AbstractCamera.as_dict(camera)["timelapse"] is expected

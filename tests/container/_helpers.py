@@ -191,11 +191,13 @@ def put_directory(container: Any, src: Path, dest_dir: str) -> None:
 def install_http_probe(container: Any) -> str:
     """Stream ``http_probe.py`` into ``container`` and return its path.
 
-    Uses `put_abs` so it works regardless of whether the test process
-    and the Docker daemon share a filesystem and regardless of whether the
-    target directory exists in the image.
+    Uses `put_file` so it works regardless of whether the test process
+    and the Docker daemon share a filesystem.  Not `put_abs`: its archive
+    carries a ``tmp`` directory entry that would reset ``/tmp`` from 1777 to
+    0755 and stop the ``abc`` user from writing there.
     """
-    put_abs(container, HTTP_PROBE_CONTAINER_PATH, HTTP_PROBE_SOURCE.read_bytes())
+    dest_dir, name = os.path.split(HTTP_PROBE_CONTAINER_PATH)
+    put_file(container, dest_dir, name, HTTP_PROBE_SOURCE.read_bytes())
     return HTTP_PROBE_CONTAINER_PATH
 
 
