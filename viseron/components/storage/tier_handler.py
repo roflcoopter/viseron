@@ -11,9 +11,9 @@ from queue import Queue
 from threading import Timer
 from typing import TYPE_CHECKING, Any, Literal, cast
 
-from sqlalchemy import Delete, delete, select, update
+from sqlalchemy import Delete, delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.exc import IntegrityError, NoResultFound
+from sqlalchemy.exc import NoResultFound
 from watchdog.events import (
     FileCreatedEvent,
     FileDeletedEvent,
@@ -407,6 +407,7 @@ class TierHandler(FileSystemEventHandler):
         file_meta = self._storage.temporary_files_meta.pop(src_path, None)
         size = os.path.getsize(src_path)
         with self._storage.get_session() as session:
+            _lock_path(session, src_path)
             stmt = (
                 insert(Files)
                 .values(
@@ -1257,6 +1258,16 @@ def move_file(
     )
 
 
+def _lock_path(session: Session, path: str) -> None:
+    """Serialize writers of the row for path until the transaction ends.
+
+    Without it, the NOT EXISTS guard in _hand_over_row cannot see a destination
+    row that is inserted but not yet committed, so the UPDATE waits for it and then
+    fails on files_path_key, which Postgres logs as an error.
+    """
+    session.execute(select(func.pg_advisory_xact_lock(func.hashtext(path))))
+
+
 def _hand_over_row(session: Session, src: str, pending_move: PendingMove) -> None:
     """Point the row of a moved file at its destination.
 
@@ -1264,6 +1275,7 @@ def _hand_over_row(session: Session, src: str, pending_move: PendingMove) -> Non
     sees the delete, for instance when it polls, and the file key has to resolve
     in between. The copy has finished once the source is deleted.
     """
+    _lock_path(session, pending_move.dst)
     dst_row_exists = select(Files.id).where(Files.path == pending_move.dst).exists()
     stmt = (
         update(Files)
@@ -1275,12 +1287,7 @@ def _hand_over_row(session: Session, src: str, pending_move: PendingMove) -> Non
             tier_path=pending_move.tier_path,
         )
     )
-    try:
-        with session.begin_nested():
-            session.execute(stmt)
-    except IntegrityError:
-        # The destination observer inserted its row concurrently
-        pass
+    session.execute(stmt)
 
 
 def force_move_files(

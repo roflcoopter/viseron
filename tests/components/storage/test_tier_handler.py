@@ -6,6 +6,7 @@ import logging
 import os
 import shutil
 import threading
+import time
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
@@ -14,7 +15,7 @@ from unittest.mock import MagicMock, Mock, patch
 import numpy as np
 import pytest
 from numpy._typing._array_like import NDArray
-from sqlalchemy import select
+from sqlalchemy import event, select, text
 from watchdog.events import FileCreatedEvent, FileDeletedEvent
 
 from viseron import Viseron
@@ -60,6 +61,7 @@ from tests.conftest import MockViseron
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from sqlalchemy.engine import ExceptionContext
     from sqlalchemy.orm import Session, sessionmaker
 
 _TierHandlerT = TypeVar("_TierHandlerT", bound=TierHandler)
@@ -1053,6 +1055,88 @@ def test_move_dispatches_file_created(
         if isinstance(call.args[1], EventFileCreated)
     ]
     assert created_paths == [_tier_file(tier1, "1.m4s")]
+
+
+def _wait_for_lock_waiter(storage: Mock) -> None:
+    """Block until a backend is waiting on a database lock."""
+    stmt = text(
+        "SELECT count(*) FROM pg_stat_activity "
+        "WHERE datname = current_database() AND wait_event_type = 'Lock'"
+    )
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        with storage.get_session() as session:
+            if session.execute(stmt).scalar_one():
+                return
+        time.sleep(0.01)
+    pytest.fail("No backend started waiting on a lock")
+
+
+def test_hand_over_row_concurrent_with_destination_insert(
+    vis: MockViseron, db_storage: Mock, tmp_path: Path
+) -> None:
+    """Test that the hand-over does not violate files_path_key.
+
+    The destination observer can insert its row while the source observer hands
+    over the source row. Postgres logs every unique violation, even caught ones.
+    """
+    tier0, tier1 = _two_tiers(
+        TierHandler,
+        vis,
+        db_storage,
+        tmp_path,
+        TIER_CATEGORY_RECORDER,
+        TIER_SUBCATEGORY_SEGMENTS,
+    )
+    src = _create_file(_tier_file(tier0, "1.m4s"))
+    tier0._on_created(FileCreatedEvent(src))
+    original_key = _file_keys(db_storage)[src]
+    src, dst = _start_move(vis, db_storage, tier0, tier1, "1.m4s")
+
+    db_errors: list[BaseException] = []
+
+    def on_db_error(context: ExceptionContext) -> None:
+        db_errors.append(context.original_exception)
+
+    engine = db_storage.get_session.kw["bind"]
+    event.listen(engine, "handle_error", on_db_error)
+
+    inserted = threading.Event()
+    release_commit = threading.Event()
+
+    def get_gated_session() -> Session:
+        session = db_storage.get_session()
+        commit = session.commit
+
+        def gated_commit() -> None:
+            inserted.set()
+            release_commit.wait(10)
+            commit()
+
+        session.commit = gated_commit  # type: ignore[method-assign]
+        return session
+
+    dst_storage = Mock(spec=Storage)
+    dst_storage.get_session = get_gated_session
+    dst_storage.temporary_files_meta = db_storage.temporary_files_meta
+    dst_storage.pending_moves = db_storage.pending_moves
+    tier1._storage = dst_storage
+
+    created = threading.Thread(target=tier1._on_created, args=(FileCreatedEvent(dst),))
+    deleted = threading.Thread(target=tier0._on_deleted, args=(FileDeletedEvent(src),))
+    try:
+        created.start()
+        assert inserted.wait(10)
+        deleted.start()
+        _wait_for_lock_waiter(db_storage)
+    finally:
+        release_commit.set()
+        created.join(10)
+        deleted.join(10)
+        event.remove(engine, "handle_error", on_db_error)
+
+    assert not db_errors
+    assert _file_keys(db_storage) == {dst: original_key}
 
 
 def test_failed_move_does_not_hand_over_row(
