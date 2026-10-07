@@ -5,8 +5,8 @@ from __future__ import annotations
 import datetime
 import time
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Literal
-from unittest.mock import MagicMock, Mock, patch
+from typing import TYPE_CHECKING, Any, Literal
+from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
 from sqlalchemy import insert
@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from viseron.components.storage.models import Files, Recordings, TriggerTypes
 from viseron.domains.camera import AbstractCamera
+from viseron.domains.camera.const import CONFIG_CREATE_EVENT_CLIP, CONFIG_RECORDER
 from viseron.domains.camera.recorder import (
     AbstractRecorder,
     RecorderBase,
@@ -431,6 +432,50 @@ class TestAbstractRecorder:
             "No active recording to stop"
         )
         assert recorder.active_recording is None
+
+    @pytest.mark.parametrize(
+        ("shutting_down", "expected_daemon_flags", "expected_warnings"),
+        [
+            pytest.param(False, [True], [], id="running"),
+            pytest.param(
+                True,
+                [],
+                [call("Skipping event clip creation since Viseron is shutting down")],
+                id="shutting_down",
+            ),
+        ],
+    )
+    def test_stop_event_clip_thread(
+        self,
+        vis: Viseron,
+        recorder: ConcreteTestRecorder,
+        create_recording: Callable[..., Recording],
+        shutting_down: bool,
+        expected_daemon_flags: list[bool],
+        expected_warnings: list[Any],
+    ) -> None:
+        """Event clip creation never blocks interpreter exit.
+
+        The concatenation thread must be a daemon, and it is not started during
+        shutdown since the fragmenter is stopping and the clip cannot be finished.
+        """
+        recorder._config = {CONFIG_RECORDER: {CONFIG_CREATE_EVENT_CLIP: True}}
+        with (
+            patch.object(recorder._storage, "get_session"),
+            patch.object(vis, "shutdown_event") as shutdown_event,
+            patch(
+                "viseron.domains.camera.recorder.RestartableThread"
+            ) as restartable_thread,
+        ):
+            shutdown_event.is_set.return_value = shutting_down
+            recorder.stop(create_recording())
+
+        assert [
+            thread_call.kwargs["daemon"]
+            for thread_call in restartable_thread.call_args_list
+        ] == expected_daemon_flags
+        assert recorder._logger.warning.call_args_list == expected_warnings
+        assert recorder.is_recording is False
 
     @pytest.mark.parametrize(  # start of segments relative to start of recording
         "segment_offsets, expected",

@@ -659,4 +659,6 @@ class AbstractObjectDetector(AbstractDomain):
         """Stop object detector."""
         self._kill_received = True
         self._object_detection_thread.stop()
-        self._object_detection_thread.join()
+        self._object_detection_thread.join(timeout=5)
+        if self._object_detection_thread.is_alive():
+            self._logger.warning("Object detection thread did not stop in time")
