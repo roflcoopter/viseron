@@ -121,8 +121,11 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
         return super().check_origin(origin)
 
     def send_message(self, message) -> None:
-        """Send message to client."""
-        self.ioloop.add_callback(self.async_send_message, message)
+        """Send message to client.
+
+        Safe to call from any thread.
+        """
+        self._connection_ioloop.add_callback(self.async_send_message, message)
 
     async def async_send_message(self, message) -> None:
         """Send message to client."""
