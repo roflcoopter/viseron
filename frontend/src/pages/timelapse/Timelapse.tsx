@@ -4,8 +4,10 @@ import Grid from "@mui/material/Grid";
 import Grow from "@mui/material/Grow";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import ServerDown from "svg/undraw/server_down.svg?react";
 import ViseronLogo from "svg/viseron-logo.svg?react";
 
+import { ErrorMessage } from "components/error/ErrorMessage";
 import { Loading } from "components/loading/Loading";
 import { TimelapseCameraCard } from "components/timelapse/TimelapseCameraCard";
 import { useTitle } from "hooks/UseTitle";
@@ -50,6 +52,18 @@ function Timelapse() {
 
   if (cameras.isPending || summary.isPending) {
     return <Loading text="Loading Timelapse" />;
+  }
+
+  if (cameras.isError || summary.isError) {
+    return (
+      <ErrorMessage
+        text="Error loading recordings"
+        subtext={cameras.error?.message || summary.error?.message}
+        image={
+          <ServerDown width={150} height={150} role="img" aria-label="Void" />
+        }
+      />
+    );
   }
 
   const timelapseCameras = Object.values(cameras.data ?? {})
