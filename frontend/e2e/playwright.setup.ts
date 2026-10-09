@@ -15,6 +15,8 @@ export const test = testBase.extend<Fixtures>({
       const network = defineNetworkFixture({
         context,
         handlers: [...createHandlers(nodeSnapshotLoader), ...wsHandlers],
+        // Timelapse frames are .jpg files, which are skipped by default
+        skipAssetRequests: false,
       });
 
       await network.enable();
