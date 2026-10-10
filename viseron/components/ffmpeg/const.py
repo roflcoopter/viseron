@@ -8,6 +8,8 @@ COMPONENT = "ffmpeg"
 DESC_COMPONENT = "FFmpeg Configuration."
 
 ENV_FFMPEG_PATH = "VISERON_FFMPEG_PATH"
+FFMPEG_BACKEND_JETSON_ORIN_R39 = "jetson_orin_r39"
+ORIN_RAWVIDEO_OUTPUT = "pipe:__VISERON_ORIN_RAWVIDEO_FD__"
 MAX_EMPTY_FRAMES = 10
 
 STREAM_FORMAT_MAP = {
@@ -60,6 +62,11 @@ HWACCEL_CUDA_DECODER_CODEC_MAP = {
 HWACCEL_RPI3_DECODER_CODEC_MAP = {"h264": "h264_mmal"}
 HWACCEL_RPI4_DECODER_CODEC_MAP = {"h264": "h264_v4l2m2m"}
 HWACCEL_JETSON_NANO_DECODER_CODEC_MAP = {
+    "h264": "h264_nvv4l2dec",
+    "h265": "hevc_nvv4l2dec",
+    "hevc": "hevc_nvv4l2dec",
+}
+HWACCEL_JETSON_ORIN_R39_DECODER_CODEC_MAP = {
     "h264": "h264_nvv4l2dec",
     "h265": "hevc_nvv4l2dec",
     "hevc": "hevc_nvv4l2dec",
