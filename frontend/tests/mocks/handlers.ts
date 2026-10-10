@@ -124,7 +124,14 @@ const timelapseFrame = (
   path: `/file/${camera_identifier}/${timestamp.toString(16)}`,
 });
 
-const timelapseTimestamps = (start: number, end: number) => {
+// Periods without frames, as UNIX timestamps
+export type TimelapseGap = { start: number; end: number };
+
+const timelapseTimestamps = (
+  start: number,
+  end: number,
+  gaps: TimelapseGap[] = [],
+) => {
   const now = getDayjs().unix();
   const first = Math.max(start, now - TIMELAPSE_DAYS * 86400);
   const last = Math.min(end, now);
@@ -134,7 +141,9 @@ const timelapseTimestamps = (start: number, end: number) => {
     timestamp <= last;
     timestamp += TIMELAPSE_INTERVAL
   ) {
-    timestamps.push(timestamp);
+    if (!gaps.some((gap) => timestamp >= gap.start && timestamp < gap.end)) {
+      timestamps.push(timestamp);
+    }
   }
   return timestamps;
 };
@@ -153,6 +162,42 @@ const timelapseSummary = (
     latest_frame: timelapseFrame(camera_identifier, last),
   };
 };
+
+export const timelapseFramesHandler = (gaps: TimelapseGap[] = []) =>
+  http.get(
+    `${API_BASE_URL}/timelapse/:camera_identifier`,
+    ({ params, request }) => {
+      const camera_identifier = String(params.camera_identifier);
+      if (!TIMELAPSE_CAMERAS.includes(camera_identifier)) {
+        return HttpResponse.json(
+          { status: 404, error: "Not Found" },
+          { status: 404 },
+        );
+      }
+      const searchParams = new URL(request.url).searchParams;
+      const start = Number(searchParams.get("start"));
+      const end = Number(searchParams.get("end"));
+      const maxFrames = Number(searchParams.get("max_frames") ?? 1800);
+      const timestamps = timelapseTimestamps(start, end, gaps);
+      // Downsample like the backend, keeping every nth frame
+      const every = Math.ceil(timestamps.length / maxFrames);
+      const frames = timestamps
+        .filter((_timestamp, index) => index % every === 0)
+        .map((timestamp) => timelapseFrame(camera_identifier, timestamp));
+      return HttpResponse.json({
+        camera_identifier,
+        start,
+        end,
+        step: every > 1 ? every * TIMELAPSE_INTERVAL : null,
+        total: timestamps.length,
+        frames,
+        stream:
+          frames.length > 0
+            ? { fps: 15, segment_frames: 60, width: 1280, height: 720 }
+            : null,
+      } as types.TimelapseFramesResponse);
+    },
+  );
 
 export const createHandlers = (loadSnapshot: SnapshotLoader) => [
   http.get(`${API_BASE_URL}/auth/enabled`, () =>
@@ -846,40 +891,7 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
       ),
     } as types.TimelapseSummaryResponse),
   ),
-  http.get(
-    `${API_BASE_URL}/timelapse/:camera_identifier`,
-    ({ params, request }) => {
-      const camera_identifier = String(params.camera_identifier);
-      if (!TIMELAPSE_CAMERAS.includes(camera_identifier)) {
-        return HttpResponse.json(
-          { status: 404, error: "Not Found" },
-          { status: 404 },
-        );
-      }
-      const searchParams = new URL(request.url).searchParams;
-      const start = Number(searchParams.get("start"));
-      const end = Number(searchParams.get("end"));
-      const maxFrames = Number(searchParams.get("max_frames") ?? 1800);
-      const timestamps = timelapseTimestamps(start, end);
-      // Downsample like the backend, keeping every nth frame
-      const every = Math.ceil(timestamps.length / maxFrames);
-      const frames = timestamps
-        .filter((_timestamp, index) => index % every === 0)
-        .map((timestamp) => timelapseFrame(camera_identifier, timestamp));
-      return HttpResponse.json({
-        camera_identifier,
-        start,
-        end,
-        step: every > 1 ? every * TIMELAPSE_INTERVAL : null,
-        total: timestamps.length,
-        frames,
-        stream:
-          frames.length > 0
-            ? { fps: 15, segment_frames: 60, width: 1280, height: 720 }
-            : null,
-      } as types.TimelapseFramesResponse);
-    },
-  ),
+  timelapseFramesHandler(),
   http.get(
     `${API_BASE_URL}/timelapse/:camera_identifier/dates_of_interest`,
     () => {
