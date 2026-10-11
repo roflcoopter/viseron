@@ -2,24 +2,22 @@
 
 from __future__ import annotations
 
+import datetime
 import logging
 import os
 import shutil
 import threading
 import time
 from dataclasses import dataclass
-from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
 from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import pytest
-from numpy._typing._array_like import NDArray
-from sqlalchemy import event, select, text
+from sqlalchemy import event, insert, select, text
 from watchdog.events import FileCreatedEvent, FileDeletedEvent
 
-from viseron import Viseron
-from viseron.components.storage import Storage
+from viseron.components.storage import TIER_CATEGORIES, Storage
 from viseron.components.storage.const import (
     COMPONENT as STORAGE_COMPONENT,
     CONFIG_DRAIN,
@@ -27,15 +25,25 @@ from viseron.components.storage.const import (
     CONFIG_RECORDER,
     LATEST_SNAPSHOT_FILENAME,
     TIER_CATEGORY_RECORDER,
+    TIER_CATEGORY_SNAPSHOTS,
+    TIER_SUBCATEGORY_FACE_RECOGNITION,
+    TIER_SUBCATEGORY_IMAGE_CLASSIFICATION,
+    TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION,
+    TIER_SUBCATEGORY_MOTION_DETECTOR,
+    TIER_SUBCATEGORY_OBJECT_DETECTOR,
     TIER_SUBCATEGORY_SEGMENTS,
 )
 from viseron.components.storage.models import (
     Files,
     FilesMeta,
+    Motion,
+    Objects,
+    PostProcessorResults,
     Recordings,
 )
 from viseron.components.storage.storage_subprocess import DataItemMoveFile
 from viseron.components.storage.tier_handler import (
+    SNAPSHOT_REFERENCE_MODELS,
     EventClipTierHandler,
     SegmentsTierHandler,
     SnapshotTierHandler,
@@ -56,13 +64,17 @@ from viseron.domains.camera.const import (
 from viseron.helpers import utcnow
 
 from tests.common import BaseTestWithRecordings
-from tests.conftest import MockViseron
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from numpy._typing._array_like import NDArray
     from sqlalchemy.engine import ExceptionContext
     from sqlalchemy.orm import Session, sessionmaker
+
+    from viseron import Viseron
+
+    from tests.conftest import MockViseron
 
 _TierHandlerT = TypeVar("_TierHandlerT", bound=TierHandler)
 
@@ -521,8 +533,8 @@ class TestCheckTierCallbackLifecycle:
         )
         tier_handler._storage = Mock(spec=Storage)
         # No throttling, so only the in-flight guard can suppress a request.
-        tier_handler._throttle_period = timedelta(0)
-        tier_handler._time_of_last_call = utcnow() - timedelta(hours=1)
+        tier_handler._throttle_period = datetime.timedelta(0)
+        tier_handler._time_of_last_call = utcnow() - datetime.timedelta(hours=1)
         return tier_handler
 
     def test_check_tier_sends_once_while_in_flight(self, vis: MockViseron) -> None:
@@ -1202,3 +1214,173 @@ def test_new_files_get_distinct_file_keys(
     keys = _file_keys(db_storage)
     assert set(keys) == {with_meta, without_meta}
     assert keys[with_meta] != keys[without_meta]
+
+
+SNAPSHOT_REFERENCES = [
+    pytest.param(
+        TIER_SUBCATEGORY_MOTION_DETECTOR,
+        Motion,
+        {"start_time": datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)},
+        id="motion_detector",
+    ),
+    pytest.param(
+        TIER_SUBCATEGORY_OBJECT_DETECTOR,
+        Objects,
+        {
+            "label": "person",
+            "confidence": 0.9,
+            "width": 1.0,
+            "height": 1.0,
+            "x1": 0.0,
+            "y1": 0.0,
+            "x2": 1.0,
+            "y2": 1.0,
+        },
+        id="object_detector",
+    ),
+    pytest.param(
+        TIER_SUBCATEGORY_FACE_RECOGNITION,
+        PostProcessorResults,
+        {"domain": TIER_SUBCATEGORY_FACE_RECOGNITION, "data": {}},
+        id="face_recognition",
+    ),
+    pytest.param(
+        TIER_SUBCATEGORY_IMAGE_CLASSIFICATION,
+        PostProcessorResults,
+        {"domain": TIER_SUBCATEGORY_IMAGE_CLASSIFICATION, "data": {}},
+        id="image_classification",
+    ),
+    pytest.param(
+        TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION,
+        PostProcessorResults,
+        {"domain": TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION, "data": {}},
+        id="license_plate_recognition",
+    ),
+]
+
+SnapshotModel = type[Motion] | type[Objects] | type[PostProcessorResults]
+
+
+def _create_snapshot(
+    tier_handler: SnapshotTierHandler,
+    model: SnapshotModel,
+    values: dict[str, Any],
+) -> str:
+    """Create a snapshot file with a Files row and a detector row referencing it."""
+    path = _create_file(_tier_file(tier_handler, "1.jpg"))
+    tier_handler._on_created(FileCreatedEvent(path))
+    with tier_handler._storage.get_session() as session:
+        session.execute(
+            insert(model).values(camera_identifier="test", snapshot_path=path, **values)
+        )
+        session.commit()
+    return path
+
+
+def _snapshot_paths(storage: Mock, model: SnapshotModel) -> list[str]:
+    with storage.get_session() as session:
+        return list(session.execute(select(model.snapshot_path)).scalars())
+
+
+def test_snapshot_reference_models_cover_all_snapshot_subcategories() -> None:
+    """Test that every snapshot subcategory has a model to re-point on a move."""
+    assert set(SNAPSHOT_REFERENCE_MODELS) == {
+        subcategory["subcategory"]
+        for subcategory in TIER_CATEGORIES[TIER_CATEGORY_SNAPSHOTS]
+    }
+
+
+@pytest.mark.parametrize("observer_order", OBSERVER_ORDERS)
+@pytest.mark.parametrize(("subcategory", "model", "values"), SNAPSHOT_REFERENCES)
+def test_snapshot_references_follow_move(
+    vis: MockViseron,
+    db_storage: Mock,
+    tmp_path: Path,
+    subcategory: str,
+    model: SnapshotModel,
+    values: dict[str, Any],
+    observer_order: tuple[str, str],
+) -> None:
+    """Test that detector rows are re-pointed, not deleted, when a snapshot moves."""
+    tier0, tier1 = _two_tiers(
+        SnapshotTierHandler,
+        vis,
+        db_storage,
+        tmp_path,
+        TIER_CATEGORY_SNAPSHOTS,
+        subcategory,
+    )
+    _create_snapshot(tier0, model, values)
+
+    _simulate_move(vis, db_storage, tier0, tier1, "1.jpg", observer_order)
+
+    assert _snapshot_paths(db_storage, model) == [_tier_file(tier1, "1.jpg")]
+
+
+@pytest.mark.parametrize(("subcategory", "model", "values"), SNAPSHOT_REFERENCES)
+def test_snapshot_references_deleted_with_snapshot(
+    vis: MockViseron,
+    db_storage: Mock,
+    tmp_path: Path,
+    subcategory: str,
+    model: SnapshotModel,
+    values: dict[str, Any],
+) -> None:
+    """Test that detector rows are deleted when their snapshot leaves the last tier."""
+    tier0 = _make_bare_tier_handler(
+        SnapshotTierHandler,
+        vis,
+        db_storage,
+        0,
+        os.path.join(tmp_path, "tier0"),
+        TIER_CATEGORY_SNAPSHOTS,
+        subcategory,
+    )
+    path = _create_snapshot(tier0, model, values)
+
+    os.remove(path)
+    tier0._on_deleted(FileDeletedEvent(path))
+
+    assert not _snapshot_paths(db_storage, model)
+
+
+@pytest.mark.parametrize(("subcategory", "model", "values"), SNAPSHOT_REFERENCES)
+def test_snapshot_references_untouched_on_move_failure(
+    vis: MockViseron,
+    db_storage: Mock,
+    tmp_path: Path,
+    subcategory: str,
+    model: SnapshotModel,
+    values: dict[str, Any],
+) -> None:
+    """Test that a failed move leaves detector rows pointing at the source."""
+    tier0, tier1 = _two_tiers(
+        SnapshotTierHandler,
+        vis,
+        db_storage,
+        tmp_path,
+        TIER_CATEGORY_SNAPSHOTS,
+        subcategory,
+    )
+    src = _create_snapshot(tier0, model, values)
+    dst = _tier_file(tier1, "1.jpg")
+
+    move_file(
+        vis,
+        db_storage,
+        db_storage.get_session,
+        "test",
+        0,
+        TIER_CATEGORY_SNAPSHOTS,
+        subcategory,
+        src,
+        dst,
+        tier1.tier[CONFIG_PATH],
+        logging.getLogger(__name__),
+    )
+    assert _snapshot_paths(db_storage, model) == [src]
+
+    callback = db_storage.tier_check_worker_send_command.call_args.kwargs["callback"]
+    callback(DataItemMoveFile(cmd="move_file", src=src, dst=dst, error="boom"))
+
+    assert _snapshot_paths(db_storage, model) == [src]
