@@ -886,6 +886,15 @@ class SegmentsTierHandler(TierHandler):
                 _session.commit()
 
 
+SNAPSHOT_REFERENCE_MODELS: dict[str, type[Motion | Objects | PostProcessorResults]] = {
+    TIER_SUBCATEGORY_MOTION_DETECTOR: Motion,
+    TIER_SUBCATEGORY_OBJECT_DETECTOR: Objects,
+    TIER_SUBCATEGORY_FACE_RECOGNITION: PostProcessorResults,
+    TIER_SUBCATEGORY_IMAGE_CLASSIFICATION: PostProcessorResults,
+    TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION: PostProcessorResults,
+}
+
+
 class SnapshotTierHandler(TierHandler):
     """Handle the snapshot tiers."""
 
@@ -897,6 +906,12 @@ class SnapshotTierHandler(TierHandler):
 
     def _on_deleted(self, event: FileDeletedEvent) -> None:
         src_path = _src_path(event)
+
+        pending_move = self._storage.pending_moves.get(src_path)
+        if pending_move:
+            self._follow_move(src_path, pending_move)
+            super()._on_deleted(event)
+            return
 
         stmt: Delete | ReturningDelete[tuple[int]]
         if self._subcategory == TIER_SUBCATEGORY_MOTION_DETECTOR:
@@ -936,6 +951,17 @@ class SnapshotTierHandler(TierHandler):
                 session.commit()
 
         super()._on_deleted(event)
+
+    def _follow_move(self, src_path: str, pending_move: PendingMove) -> None:
+        """Point detector rows at the new location of a snapshot that moved tier."""
+        model = SNAPSHOT_REFERENCE_MODELS[self._subcategory]
+        with self._storage.get_session() as session:
+            session.execute(
+                update(model)
+                .where(model.snapshot_path == src_path)
+                .values(snapshot_path=pending_move.dst)
+            )
+            session.commit()
 
 
 class ThumbnailTierHandler(TierHandler):
