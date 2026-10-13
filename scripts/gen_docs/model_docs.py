@@ -11,6 +11,7 @@ from pydantic.fields import FieldInfo
 
 from viseron.helpers.config_model import MapKey, deprecation_warning
 from viseron.helpers.config_types import OneOf
+from viseron.helpers.validators import UNDEFINED
 
 TYPES_MAP = {
     int: "integer",
@@ -73,8 +74,8 @@ def _default(field: FieldInfo) -> Any:
     if field.is_required():
         return None
     default = field.get_default(call_default_factory=True)
-    if isinstance(default, BaseModel):
-        # The keys of a section show their own defaults
+    if isinstance(default, (BaseModel, UNDEFINED)):
+        # The keys of a section show their own defaults, and UNDEFINED is no value
         return None
     return default
 

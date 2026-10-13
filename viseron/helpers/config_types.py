@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any, TypeAlias, TypeVar
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -14,16 +14,21 @@ from pydantic import (
     BeforeValidator,
     Field,
     GetCoreSchemaHandler,
+    SerializerFunctionWrapHandler,
     StringConstraints,
+    WrapSerializer,
 )
 from pydantic_core import CoreSchema, PydanticCustomError, core_schema
 
 from viseron.helpers import slugify
 from viseron.helpers.config_model import ConfigModel, Docs, MapKey
 from viseron.helpers.schemas import DESC_X, DESC_Y
+from viseron.helpers.validators import UNDEFINED
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+
+T = TypeVar("T")
 
 
 class OneOf:
@@ -65,6 +70,31 @@ class OneOf:
                 for option in self.options
             ],
         }
+
+
+def _serialize_undefinable(value: Any, handler: SerializerFunctionWrapHandler) -> Any:
+    return value if isinstance(value, UNDEFINED) else handler(value)
+
+
+if TYPE_CHECKING:
+    Undefinable: TypeAlias = T | UNDEFINED
+else:
+
+    class Undefinable:
+        """The type T, or UNDEFINED when the key is not set in the config.
+
+        Use it when the code has to tell a key that is not set apart from an
+        explicit null, and give the field the default UNDEFINED:
+
+            tiers: Undefinable[list[Tier] | None] = Field(default_factory=UNDEFINED)
+
+        UNDEFINED is only part of the type that type checkers see. The config is
+        validated as T, since the sentinel can not be written in a config.
+        """
+
+        def __class_getitem__(cls, item: Any) -> Any:
+            """Return item, with a serializer that lets UNDEFINED through."""
+            return Annotated[item, WrapSerializer(_serialize_undefinable)]
 
 
 def _none_to_dict(value: Any) -> Any:

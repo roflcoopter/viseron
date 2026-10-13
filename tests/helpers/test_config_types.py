@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import re
+import warnings
 from typing import Annotated, Any
 
 import pytest
-from pydantic import TypeAdapter, ValidationError
+from pydantic import Field, TypeAdapter, ValidationError
 
+from viseron.helpers.config_model import ConfigModel
 from viseron.helpers.config_types import (
     CameraIdentifier,
     Coordinates,
@@ -21,14 +23,23 @@ from viseron.helpers.config_types import (
     OneOf,
     Slug,
     Timezone,
+    Undefinable,
     Url,
 )
+from viseron.helpers.validators import UNDEFINED
 
 Level = Annotated[Lower, OneOf({"info": 20, "debug": 10})]
 NullableOption = Annotated[Any, OneOf([None, "a", 1])]
 Section = Annotated[dict[str, int], NoneToDict]
 
 TRIANGLE = [{"x": 0, "y": 0}, {"x": 10, "y": 0}, {"x": 5, "y": 5}]
+
+
+class Storage(ConfigModel):
+    """Model with a key that tells not set apart from null."""
+
+    tiers: Undefinable[list[str] | None] = Field(default_factory=UNDEFINED)
+
 
 ACCEPTED: list[tuple[str, Any, Any, Any]] = [
     ("Lower", Lower, "DEBUG", "debug"),
@@ -174,3 +185,56 @@ def test_one_of_docs() -> None:
             {"type": "constant", "value": 1},
         ],
     }
+
+
+@pytest.mark.parametrize(
+    ("config", "expected"),
+    [
+        pytest.param({}, UNDEFINED, id="not_set"),
+        pytest.param({"tiers": None}, None, id="null"),
+        pytest.param({"tiers": ["a"]}, ["a"], id="value"),
+    ],
+)
+def test_undefinable_tells_not_set_from_null(config: dict, expected: Any) -> None:
+    """A key that is not set is UNDEFINED, while an explicit null stays None."""
+    assert Storage.model_validate(config).tiers == expected
+
+
+def test_undefinable_is_an_instance_when_not_set() -> None:
+    """Typed code narrows the value with isinstance."""
+    assert isinstance(Storage().tiers, UNDEFINED)
+
+
+def test_undefinable_is_validated_as_its_type() -> None:
+    """The sentinel is not an option in the config, so errors do not mention it."""
+    with pytest.raises(ValidationError) as excinfo:
+        Storage.model_validate({"tiers": 5})
+    assert [
+        (error["loc"], error["msg"])
+        for error in excinfo.value.errors(include_url=False)
+    ] == [(("tiers",), "Input should be a valid list")]
+
+
+@pytest.mark.parametrize(
+    ("config", "expected"),
+    [
+        pytest.param({}, {"tiers": UNDEFINED}, id="not_set"),
+        pytest.param({"tiers": ["a"]}, {"tiers": ["a"]}, id="value"),
+    ],
+)
+def test_undefinable_is_dumped_without_warnings(config: dict, expected: dict) -> None:
+    """Dumping a model keeps the sentinel, and does not warn about its type."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert Storage.model_validate(config).model_dump() == expected
+
+
+@pytest.mark.filterwarnings(
+    "ignore::viseron.helpers.config_model.LegacyConfigAccessWarning"
+)
+def test_undefinable_reads_like_the_config_dict_did() -> None:
+    """Code that compares the config dict with UNDEFINED works on the model."""
+    storage = Storage()
+    assert "tiers" in storage
+    assert storage["tiers"] == UNDEFINED
+    assert storage.get("tiers", "fallback") == UNDEFINED

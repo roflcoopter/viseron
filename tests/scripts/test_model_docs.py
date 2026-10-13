@@ -17,7 +17,9 @@ from viseron.helpers.config_types import (
     NoneToDict,
     OneOf,
     Slug,
+    Undefinable,
 )
+from viseron.helpers.validators import UNDEFINED
 
 Level = Annotated[Lower, OneOf(["info", "debug"])]
 LoggerName = Annotated[str, MapKey(description="Logger name.", flag="required")]
@@ -48,6 +50,9 @@ class Options(ConfigModel):
     port: int = Field(default=554, description="Port.", ge=1, le=65535)
     codec: str | None = Field(default=None, description="Codec.")
     stream: Stream = Field(default_factory=Stream, description="Stream.")
+    tiers: Undefinable[list[Tier] | None] = Field(
+        default_factory=UNDEFINED, description="Tiers."
+    )
     retain: int | None = Field(
         default=None, description="Retain.", deprecated="Use tiers instead."
     )
@@ -118,6 +123,24 @@ def test_kinds_of_keys() -> None:
             **STREAM_MAP,
             "name": "stream",
             "description": "Stream.",
+            "optional": True,
+            "default": None,
+        },
+        {
+            "type": "list",
+            "values": [
+                [
+                    {
+                        "type": "string",
+                        "name": "path",
+                        "description": "Path.",
+                        "required": True,
+                        "default": None,
+                    }
+                ]
+            ],
+            "name": "tiers",
+            "description": "Tiers.",
             "optional": True,
             "default": None,
         },
