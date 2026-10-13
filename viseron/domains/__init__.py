@@ -12,9 +12,6 @@ from dataclasses import dataclass
 from inspect import signature
 from typing import TYPE_CHECKING, Any, Literal
 
-import voluptuous as vol
-from voluptuous.humanize import humanize_error
-
 from viseron.const import (
     DOMAIN_RETRY_INTERVAL,
     DOMAIN_RETRY_INTERVAL_MAX,
@@ -25,6 +22,7 @@ from viseron.const import (
 )
 from viseron.domain_registry import DomainEntry, DomainState
 from viseron.exceptions import DomainNotReady
+from viseron.helpers.config_validation import ConfigValidationError, validate_config
 from viseron.helpers.named_timer import NamedTimer
 
 SETUP_WITH_TRIES_PARAM_COUNT = 4
@@ -222,12 +220,11 @@ def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bo
     config = entry.config
     if hasattr(domain_module, "CONFIG_SCHEMA"):
         try:
-            config = domain_module.CONFIG_SCHEMA(config)
-        except vol.Invalid as ex:
+            config = validate_config(domain_module.CONFIG_SCHEMA, config)
+        except ConfigValidationError as ex:
             error = (
                 f"Error validating config for domain {entry.domain} and "
-                f"component {entry.component_name}: "
-                f"{humanize_error(config, ex)}"
+                f"component {entry.component_name}: {ex}"
             )
             LOGGER.exception(error)
             _handle_failed_domain(vis, entry, DomainState.FAILED, error=error)
