@@ -1285,6 +1285,53 @@ def test_filter_zones_object_outside_zone_is_excluded(
     assert obj not in detector.zones[0].objects_in_zone
 
 
+def test_filter_zones_logs_objects_in_zone(
+    vis: MockViseron,
+    base_config: dict[str, Any],
+    mock_shared_frame: SharedFrame,
+) -> None:
+    """Objects matched by a zone are logged even without top level labels."""
+    base_config[CONFIG_CAMERAS][CAMERA_IDENTIFIER][CONFIG_ZONES] = [
+        {
+            CONFIG_ZONE_NAME: "full_frame",
+            CONFIG_COORDINATES: [
+                {"x": 0, "y": 0},
+                {"x": 640, "y": 0},
+                {"x": 640, "y": 480},
+                {"x": 0, "y": 480},
+            ],
+            CONFIG_LABELS: [
+                {
+                    CONFIG_LABEL_LABEL: "person",
+                    CONFIG_LABEL_CONFIDENCE: 0.5,
+                    CONFIG_LABEL_WIDTH_MIN: 0.0,
+                    CONFIG_LABEL_WIDTH_MAX: 1.0,
+                    CONFIG_LABEL_HEIGHT_MIN: 0.0,
+                    CONFIG_LABEL_HEIGHT_MAX: 1.0,
+                    CONFIG_LABEL_TRIGGER_EVENT_RECORDING: False,
+                    CONFIG_LABEL_STORE: False,
+                    CONFIG_LABEL_STORE_INTERVAL: 60,
+                    CONFIG_LABEL_REQUIRE_MOTION: False,
+                    CONFIG_LABEL_REQUIRE_MOTION_OVERLAP: False,
+                    CONFIG_LABEL_MOTION_OVERLAP_THRESHOLD: 0.1,
+                }
+            ],
+        }
+    ]
+    detector = ConcreteObjectDetector(vis, base_config, CAMERA_IDENTIFIER)
+    detector._logger = MagicMock()
+
+    obj = create_detected_object("person", confidence=0.9)
+    other = create_detected_object("dog", confidence=0.9)
+    detector.filter_fov(mock_shared_frame, [obj, other])
+    detector.filter_zones(mock_shared_frame, [obj, other])
+
+    detector._logger.debug.assert_any_call("Objects: %s", [])
+    detector._logger.debug.assert_any_call(
+        "Objects in zone %s: %s", "full_frame", [obj.formatted]
+    )
+
+
 # ============================================================================
 # Properties Tests
 # ============================================================================
