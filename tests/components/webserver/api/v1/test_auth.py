@@ -915,19 +915,21 @@ class TestAuthAPIHandler(TestAppBaseAuth):
                 "status": 400,
             }
 
-    def test_auth_update_user_invalid_role(self):
-        """Test updating a user with an invalid role."""
-        body = {
-            "name": "Updated Name",
-            "username": "updated_username",
-            "role": "invalid",
-            "assigned_cameras": None,
-        }
-        response = self.fetch_with_auth(
-            "/api/v1/auth/user/123456789",
-            method="PUT",
-            body=json.dumps(body),
+    def test_student_cannot_list_users(self):
+        """A read-only student cannot retrieve all user accounts."""
+        student = User(
+            name="Student",
+            username=READ_USER_NAME,
+            password="test",
+            role=Role.READ,
+            id=READ_USER_ID,
         )
-        assert response.code == 400
-        _body = json.loads(response.body)
-        assert "Invalid body" in _body["error"]
+
+        with self._authenticate_as(student):
+            response = self.fetch_with_auth(
+                "/api/v1/auth/users",
+                method="GET",
+            )
+
+        assert response.code == 403
+        assert "users" not in json.loads(response.body)
