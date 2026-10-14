@@ -152,6 +152,10 @@ const config: Config = {
               href: "https://github.com/sponsors/roflcoopter",
             },
             {
+              label: "Ko-fi",
+              href: "https://ko-fi.com/jesperviseron",
+            },
+            {
               label: "Buymeacoffe",
               href: "https://www.buymeacoffee.com/roflcoopter",
             },
