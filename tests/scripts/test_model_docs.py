@@ -7,8 +7,8 @@ from typing import Annotated, Any, Literal
 
 import pytest
 from pydantic import Field, RootModel
-
 from scripts.gen_docs.model_docs import convert_model
+
 from viseron.helpers.config_model import ComponentRoot, ConfigModel, MapKey
 from viseron.helpers.config_types import (
     CameraIdentifier,
