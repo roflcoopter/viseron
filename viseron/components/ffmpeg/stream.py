@@ -197,7 +197,7 @@ class Stream:
     @property
     def use_rawvideo_fd(self) -> bool:
         """Return whether this stream explicitly selected Orin rawvideo transport."""
-        return getattr(self, "_ffmpeg_backend", None) == FFMPEG_BACKEND_JETSON_ORIN_R39
+        return self._ffmpeg_backend == FFMPEG_BACKEND_JETSON_ORIN_R39
 
     @property
     def alias(self) -> str:

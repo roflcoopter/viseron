@@ -36,21 +36,18 @@ class FFmpegPipe:
 
         self._pipe: RestartablePopen | None = None
         self._log_pipe: LogPipe | None = None
-        self._stdout_log_pipe: LogPipe | None = None
         self._rawvideo_pipe: BinaryIO | None = None
         self.segment_process: RestartablePopen | None = None
 
     def _close_log_pipe(self) -> None:
-        for attribute in ("_stdout_log_pipe", "_log_pipe"):
-            log_pipe = getattr(self, attribute)
-            if log_pipe:
-                try:
-                    log_pipe.close()
-                    if self._dedicated_rawvideo_fd:
-                        log_pipe.join(timeout=1)
-                except OSError as error:
-                    self._logger.error("Failed to close log pipe: %s", error)
-                setattr(self, attribute, None)
+        try:
+            if self._log_pipe:
+                self._log_pipe.close()
+                if self._dedicated_rawvideo_fd:
+                    self._log_pipe.join(timeout=1)
+                self._log_pipe = None
+        except OSError as error:
+            self._logger.error("Failed to close log pipe: %s", error)
 
     def _close_rawvideo_pipe(self) -> None:
         if self._rawvideo_pipe:
@@ -75,7 +72,6 @@ class FFmpegPipe:
         try:
             self._rawvideo_pipe = os.fdopen(read_fd, "rb", buffering=0)
             read_fd = -1
-            self._stdout_log_pipe = LogPipe(self._logger, self._loglevel)
             command = [*self._decoder_command[:-1], f"pipe:{write_fd}"]
             self._logger.debug("FFmpeg decoder command: %s", " ".join(command))
             process = RestartablePopen(
@@ -83,7 +79,7 @@ class FFmpegPipe:
                 name=f"viseron.camera.{self._camera_identifier}.pipe",
                 register=False,
                 stdin=sp.DEVNULL,
-                stdout=self._stdout_log_pipe,
+                stdout=sp.DEVNULL,
                 stderr=self._log_pipe,
                 pass_fds=(write_fd,),
                 start_new_session=False,
@@ -150,28 +146,31 @@ class FFmpegPipe:
             return self._pipe.poll()
         return None
 
+    def _read_rawvideo_frame(self, frame_bytes_size: int) -> bytes | None:
+        """Read one complete frame from the dedicated rawvideo pipe."""
+        if not self._rawvideo_pipe:
+            return None
+        frame = bytearray()
+        while len(frame) < frame_bytes_size:
+            chunk = self._rawvideo_pipe.read(frame_bytes_size - len(frame))
+            if not chunk:
+                if frame:
+                    self._logger.error(
+                        "Partial rawvideo frame at EOF: expected %s bytes, got %s",
+                        frame_bytes_size,
+                        len(frame),
+                    )
+                return None
+            frame.extend(chunk)
+        return bytes(frame)
+
     def read(self, frame_bytes_size: int) -> bytes | None:
         """Return a single frame from the decoder subprocess."""
         try:
-            if self._dedicated_rawvideo_fd:
-                if not self._rawvideo_pipe:
-                    return None
-                frame = bytearray()
-                while len(frame) < frame_bytes_size:
-                    chunk = self._rawvideo_pipe.read(frame_bytes_size - len(frame))
-                    if not chunk:
-                        if frame:
-                            self._logger.error(
-                                "Partial rawvideo frame at EOF: "
-                                "expected %s bytes, got %s",
-                                frame_bytes_size,
-                                len(frame),
-                            )
-                        return None
-                    frame.extend(chunk)
-                return bytes(frame)
             if self._pipe and self._pipe.stdout:
                 return self._pipe.stdout.read(frame_bytes_size)
+            if self._dedicated_rawvideo_fd:
+                return self._read_rawvideo_frame(frame_bytes_size)
         except Exception:  # pylint: disable=broad-except
             self._logger.exception("Error reading frame from pipe")
         return None

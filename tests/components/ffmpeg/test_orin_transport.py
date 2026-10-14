@@ -6,6 +6,7 @@ import logging
 import multiprocessing as mp
 import os
 import pickle
+import subprocess as sp
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -162,16 +163,14 @@ def test_read_failure_and_abnormal_exit() -> None:
     pipe._rawvideo_pipe = MagicMock()
     pipe._rawvideo_pipe.read.side_effect = OSError("broken")
     pipe._pipe = MagicMock()
+    pipe._pipe.stdout = None
     pipe._pipe.poll.return_value = 17
     assert pipe.read(6) is None
     assert pipe.poll() == 17
 
 
-def test_real_decoder_stdout_isolation_restart_and_fd_cleanup(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """Real child writes diagnostics to stdout and fragmented frames to its FD."""
-    caplog.set_level(logging.INFO, logger=LOGGER.name)
+def test_real_decoder_stdout_isolation_restart_and_fd_cleanup() -> None:
+    """Unused stdout cannot contaminate fragmented frames on the dedicated FD."""
     before = _fd_count()
     pipe = FFmpegPipe(
         "cam", LOGGER, logging.INFO, _decoder_command(), dedicated_rawvideo_fd=True
@@ -190,7 +189,6 @@ def test_real_decoder_stdout_isolation_restart_and_fd_cleanup(
         with pytest.raises(ChildProcessError):
             os.waitpid(pid, os.WNOHANG)
     assert len(fds) == 3  # Each start installed a new pipe, even if OS numbers recur.
-    assert any("diagnostic on stdout" in record.message for record in caplog.records)
 
 
 def test_partial_frame_real_child_and_exit() -> None:
@@ -235,7 +233,6 @@ def test_spawn_failure_after_segment_start_rolls_back() -> None:
     segment.terminate.assert_called_once()
     segment.communicate.assert_called_once()
     assert pipe._rawvideo_pipe is None
-    assert pipe._stdout_log_pipe is None
     assert pipe._log_pipe is None
     assert _fd_count() == before
 
@@ -250,6 +247,7 @@ def test_pass_fds_contains_only_rawvideo_writer() -> None:
         call = popen.call_args
         (write_fd,) = call.kwargs["pass_fds"]
         assert call.args[0][-1] == f"pipe:{write_fd}"
+        assert call.kwargs["stdout"] == sp.DEVNULL
         assert pipe._rawvideo_pipe is not None
         assert pipe._rawvideo_pipe.fileno() != write_fd
         with pytest.raises(OSError):
