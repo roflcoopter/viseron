@@ -21,6 +21,7 @@ path.py==12.5.0
 pillow==12.3.0
 psutil==7.2.2
 psycopg2-binary==2.9.12
+pydantic==2.14.0
 pyjwt==2.15.0
 python-debouncer==0.1.5
 python-slugify==8.0.4

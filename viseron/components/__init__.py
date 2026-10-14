@@ -13,9 +13,6 @@ from enum import Enum
 from timeit import default_timer as timer
 from typing import TYPE_CHECKING, Any, ClassVar
 
-import voluptuous as vol
-from voluptuous.humanize import humanize_error
-
 from viseron.const import (
     COMPONENT_RETRY_INTERVAL,
     COMPONENT_RETRY_INTERVAL_MAX,
@@ -34,12 +31,15 @@ from viseron.domain_registry import DomainEntry, DomainState
 from viseron.domains import unload_domain
 from viseron.events import EventData
 from viseron.exceptions import ComponentNotReady
+from viseron.helpers.config_validation import ConfigValidationError, validate_config
 from viseron.helpers.named_timer import NamedTimer
 from viseron.helpers.storage import Storage
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
     from types import ModuleType
+
+    from pydantic import BaseModel
 
     from viseron import Viseron
     from viseron.domains import OptionalDomain, RequireDomain
@@ -95,7 +95,7 @@ class ValidationResult:
     """Result of a component config validation."""
 
     success: bool
-    config: dict[str, Any] | None = None
+    config: dict[str, Any] | BaseModel | None = None
     error: str | None = None
 
 
@@ -264,10 +264,13 @@ class Component:
         if hasattr(component_module, "CONFIG_SCHEMA"):
             try:
                 return ValidationResult(
-                    success=True, config=component_module.CONFIG_SCHEMA(self._config)
+                    success=True,
+                    config=validate_config(
+                        component_module.CONFIG_SCHEMA, self._config
+                    ),
                 )
-            except vol.Invalid as ex:
-                error_msg = humanize_error(self._config, ex)
+            except ConfigValidationError as ex:
+                error_msg = str(ex)
                 LOGGER.exception(
                     f"Error validating config for component {self.name}: {error_msg}"
                 )
