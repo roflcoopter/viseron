@@ -144,12 +144,14 @@ class StreamHandler(ViseronRequestHandler):
                     frame,
                     nvr.object_detector.mask,
                 )
-            if mjpeg_stream_config["draw_objects"] and processed_frame.objects_in_fov:
-                draw_objects(
-                    frame,
-                    processed_frame.objects_in_fov,
-                    resolution=resolution,
-                )
+            if mjpeg_stream_config["draw_objects"]:
+                objects = list(processed_frame.objects_in_fov or [])
+                for zone in nvr.object_detector.zones:
+                    objects += [
+                        obj for obj in zone.objects_in_zone if obj not in objects
+                    ]
+                if objects:
+                    draw_objects(frame, objects, resolution=resolution)
 
         for domain, post_processor in nvr.post_processors.items():
             if mjpeg_stream_config["draw_post_processor_mask"] and post_processor.mask:
