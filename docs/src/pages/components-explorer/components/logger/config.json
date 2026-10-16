@@ -3,8 +3,8 @@
     "type": "map",
     "value": [
       {
-        "lower": true,
         "type": "select",
+        "lower": true,
         "options": [
           {
             "type": "constant",
@@ -36,8 +36,8 @@
         "type": "map",
         "value": [
           {
-            "lower": true,
             "type": "select",
+            "lower": true,
             "options": [
               {
                 "type": "constant",
@@ -71,14 +71,14 @@
         "name": "logs",
         "description": "Map of logger names and their log level. </br><b>Takes precedence over <code>default_level</code> config option.</b>",
         "optional": true,
-        "default": null
+        "default": {}
       },
       {
         "type": "map",
         "value": [
           {
-            "lower": true,
             "type": "select",
+            "lower": true,
             "options": [
               {
                 "type": "constant",
@@ -112,7 +112,7 @@
         "name": "cameras",
         "description": "Map of camera identifiers and their log level. </br><b>Takes precedence over <code>logs</code> and <code>default_level</code> config options.</b>",
         "optional": true,
-        "default": null
+        "default": {}
       }
     ],
     "name": "logger",
