@@ -66,6 +66,8 @@ class ConfigModel(BaseModel):
     """Base class for all config models.
 
     Unknown keys are rejected, so that a misspelled key is not silently ignored.
+    Validation errors do not show the value that was given, since their text ends
+    up in logs and the value can be a secret.
 
     A model can also be read like the config dict it replaces, with config[key],
     config.get(key), key in config, keys(), values() and items(). This keeps code
@@ -75,7 +77,7 @@ class ConfigModel(BaseModel):
     warning when no reader is left.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     @model_validator(mode="after")
     def _warn_about_deprecated_keys(self) -> Self:

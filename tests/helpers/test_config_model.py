@@ -80,6 +80,24 @@ def test_unknown_key_is_rejected(config: dict) -> None:
 
 
 @pytest.mark.parametrize(
+    ("model", "config"),
+    [
+        pytest.param(Camera, {"host": {"password": "hunter2"}}, id="model"),
+        pytest.param(
+            CameraRoot, {"ffmpeg": {"host": "h", "port": "hunter2"}}, id="root_model"
+        ),
+    ],
+)
+def test_validation_error_does_not_show_the_given_value(
+    model: type[ConfigModel], config: dict
+) -> None:
+    """The text of a validation error ends up in logs, and the value can be a secret."""
+    with pytest.raises(ValidationError) as excinfo:
+        model.model_validate(config)
+    assert "hunter2" not in str(excinfo.value)
+
+
+@pytest.mark.parametrize(
     ("config", "warning"),
     [
         pytest.param(
