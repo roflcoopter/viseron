@@ -208,7 +208,7 @@ def _count_database_rows(session: Session, camera_identifier: str) -> int:
     for table in CAMERA_TABLES:
         total += (
             session.execute(
-                select(func.count())  # pylint: disable=not-callable
+                select(func.count())
                 .select_from(table)
                 .where(table.camera_identifier == camera_identifier)
             ).scalar()
