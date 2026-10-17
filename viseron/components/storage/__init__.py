@@ -690,7 +690,6 @@ class Storage:
             ):
                 continue
             self._camera_tier_handlers[camera.identifier].setdefault(category, [])
-            # pylint: disable-next=line-too-long
             for subcategory in TIER_CATEGORIES[category]:  # type: ignore[literal-required] # noqa: E501
                 if tier_config[category].get(subcategory["subcategory"], None):
                     tiers = tier_config[category][subcategory["subcategory"]][

@@ -82,7 +82,7 @@ class UTCDateTime(types.TypeDecorator):
     comparator_factory = Comparator
 
 
-class UTCNow(expression.FunctionElement):
+class UTCNow(expression.FunctionElement):  # pylint: disable=inconsistent-mro
     """Return the current timestamp in UTC."""
 
     type = UTCDateTime()

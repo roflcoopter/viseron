@@ -218,7 +218,7 @@ def get_timelapse_frames(
     with get_session() as session:
         total, first, last = session.execute(
             select(
-                func.count(distinct(Files.file_key)),  # pylint: disable=not-callable
+                func.count(distinct(Files.file_key)),
                 func.min(Files.orig_ctime),
                 func.max(Files.orig_ctime),
             ).where(*in_range)
@@ -246,9 +246,7 @@ def get_timelapse_frames(
             bucket = func.least(
                 func.floor(
                     (
-                        func.extract(  # pylint: disable=not-callable
-                            "epoch", unique_frames.c.orig_ctime
-                        )
+                        func.extract("epoch", unique_frames.c.orig_ctime)
                         - first.timestamp()
                     )
                     / step
@@ -288,9 +286,7 @@ def get_timelapse_summary(
     aggregates = (
         select(
             Files.camera_identifier,
-            func.count(distinct(Files.file_key)).label(  # pylint: disable=not-callable
-                "frame_count"
-            ),
+            func.count(distinct(Files.file_key)).label("frame_count"),
             func.min(Files.orig_ctime).label("first"),
             func.max(Files.orig_ctime).label("last"),
         )
@@ -340,7 +336,7 @@ def get_timelapse_days(
         rows = session.execute(
             select(
                 local_date,
-                func.count(distinct(Files.file_key)),  # pylint: disable=not-callable
+                func.count(distinct(Files.file_key)),
             )
             .where(*_timelapse_filter([camera_identifier]))
             .group_by(local_date)
