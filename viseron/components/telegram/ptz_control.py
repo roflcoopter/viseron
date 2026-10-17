@@ -140,7 +140,6 @@ class TelegramPTZ:
         )
         await self._inform(update, "home", status)
 
-    # pylint: disable=unused-argument
     @limit_user_access
     async def _pan_left(self, update: Update, context: CallbackContext) -> None:
         """
@@ -159,7 +158,6 @@ class TelegramPTZ:
         )
         await self._inform(update, "pan_left", status)
 
-    # pylint: disable=unused-argument
     @limit_user_access
     async def _pan_right(self, update: Update, context: CallbackContext) -> None:
         """
@@ -178,7 +176,6 @@ class TelegramPTZ:
         )
         await self._inform(update, "pan_right", status)
 
-    # pylint: disable=unused-argument
     @limit_user_access
     async def _tilt_up(self, update: Update, context: CallbackContext) -> None:
         """
@@ -197,7 +194,6 @@ class TelegramPTZ:
         )
         await self._inform(update, "tilt_up", status)
 
-    # pylint: disable=unused-argument
     @limit_user_access
     async def _tilt_down(self, update: Update, context: CallbackContext) -> None:
         """
@@ -216,7 +212,6 @@ class TelegramPTZ:
         )
         await self._inform(update, "tilt_down", status)
 
-    # pylint: disable=unused-argument
     @limit_user_access
     async def _zoom_out(self, update: Update, context: CallbackContext) -> None:
         """
