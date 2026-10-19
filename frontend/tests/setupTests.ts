@@ -6,7 +6,7 @@ import { server } from "./mocks/server";
 
 // Start the server before all tests
 beforeAll(() => {
-  server.listen({ onUnhandledRequest: "warn" });
+  server.listen({ onUnhandledFrame: "warn" });
 });
 
 // Reset handlers after each test to avoid test interference

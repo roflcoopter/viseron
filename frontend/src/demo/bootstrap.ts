@@ -25,6 +25,6 @@ const worker = setupWorker(
 
 // Bypass keeps fonts, chunks and hashed assets flowing to the network.
 await worker.start({
-  onUnhandledRequest: "bypass",
+  onUnhandledFrame: "bypass",
   serviceWorker: { url: "./mockServiceWorker.js" },
 });
