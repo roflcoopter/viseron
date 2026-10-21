@@ -6,7 +6,7 @@ import json
 from typing import Annotated, Any, Literal
 
 import pytest
-from pydantic import Field, RootModel
+from pydantic import Field, RootModel, SecretStr
 from scripts.gen_docs.model_docs import convert_model
 
 from viseron.helpers.config_model import ComponentRoot, ConfigModel, MapKey
@@ -194,6 +194,7 @@ def test_converted_model_is_json() -> None:
     ("annotation", "expected"),
     [
         pytest.param(Stream, STREAM_MAP, id="nested_model"),
+        pytest.param(SecretStr, {"type": "string"}, id="secret"),
         pytest.param(
             Annotated[Stream, NoneToDict], STREAM_MAP, id="nested_model_with_metadata"
         ),

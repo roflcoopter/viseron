@@ -6,7 +6,7 @@ import types
 from typing import Annotated, Any, Literal, Union, get_args, get_origin
 
 import annotated_types
-from pydantic import BaseModel, RootModel
+from pydantic import BaseModel, RootModel, SecretStr
 from pydantic.fields import FieldInfo
 
 from viseron.helpers.config_model import MapKey, deprecation_warning
@@ -16,6 +16,7 @@ from viseron.helpers.validators import UNDEFINED
 TYPES_MAP = {
     int: "integer",
     str: "string",
+    SecretStr: "string",
     float: "float",
     bool: "boolean",
     list: "list",
