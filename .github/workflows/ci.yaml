@@ -314,7 +314,6 @@ jobs:
           command: |
             pre-commit run --hook-stage manual pyupgrade --all-files --show-diff-on-failure
 
-  # Run ruff, but dont fail yet since we are in the process of migrating
   run-ruff:
     name: Run ruff
     runs-on: ubuntu-24.04
@@ -343,12 +342,12 @@ jobs:
         with:
           command: |
             ruff --version
-            ruff check || true
+            ruff check
       - name: Run ruff format check
         uses: ./.github/templates/run_in_venv
         with:
           command: |
-            ruff format --check || true
+            ruff format --check
 
   run-pytest:
     name: Run pytest
