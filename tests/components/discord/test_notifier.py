@@ -1,41 +1,37 @@
-"""Tests for DiscordNotifier detection_label filtering."""
+"""Tests for the discord component."""
 
 from __future__ import annotations
 
 import asyncio
 import datetime
+from contextlib import ExitStack
 from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import ANY, MagicMock, call, mock_open, patch
 
 import pytest
 import requests
-import voluptuous as vol
 
 from viseron.components.discord import CONFIG_SCHEMA, DiscordNotifier, setup, unload
-from viseron.components.discord.const import (
-    COMPONENT,
-    CONFIG_CAMERAS,
-    CONFIG_DETECTION_LABEL,
-    CONFIG_DETECTION_LABELS,
-    CONFIG_DISCORD_WEBHOOK_URL,
-    CONFIG_MAX_VIDEO_SIZE_MB,
-    CONFIG_MAX_VIDEO_SIZE_MB_DEFAULT,
-    CONFIG_SEND_THUMBNAIL,
-    CONFIG_SEND_VIDEO,
-    DEFAULT_DETECTION_LABELS,
-)
+from viseron.components.discord.const import COMPONENT
 from viseron.components.storage.models import TriggerTypes
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import EVENT_RECORDER_COMPLETE, EVENT_RECORDER_START
 from viseron.domains.camera.recorder import EventRecorderData, Recording
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.events import Event
-from viseron.helpers.validators import UNDEFINED
+from viseron.helpers.config_validation import validate_config
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+
     from tests.conftest import MockViseron
 
+    SetUp = Callable[..., DiscordNotifier]
+    SetUpMocked = Callable[..., "NotifierMocks"]
+
 CAMERA_ID = "test_camera"
+WEBHOOK_URL = "https://discord.example.com/webhook"
+CAMERA_WEBHOOK_URL = "https://discord.camera.example.com/webhook"
 
 
 class NotifierMocks:
@@ -55,23 +51,74 @@ class NotifierMocks:
         self.send_file_partial = send_file_partial
 
 
-def make_config(
-    detection_labels: list[str] | None = None,
-    cameras: dict[str, Any] | None = None,
-    *,
-    send_thumbnail: bool = False,
-    send_video: bool = False,
-) -> dict:
-    """Build a minimal DiscordNotifier config."""
+def make_config(**keys: Any) -> dict[str, Any]:
+    """Return a config with discord set up with the given keys.
+
+    Thumbnails and videos are off unless the keys turn them on.
+    """
     return {
-        CONFIG_DISCORD_WEBHOOK_URL: "https://discord.example.com/webhook",
-        CONFIG_DETECTION_LABELS: detection_labels
-        if detection_labels is not None
-        else DEFAULT_DETECTION_LABELS,
-        CONFIG_SEND_THUMBNAIL: send_thumbnail,
-        CONFIG_SEND_VIDEO: send_video,
-        CONFIG_CAMERAS: cameras if cameras is not None else {CAMERA_ID: {}},
+        COMPONENT: {
+            "webhook_url": WEBHOOK_URL,
+            "send_detection_thumbnail": False,
+            "send_detection_video": False,
+            "cameras": {CAMERA_ID: None},
+            **keys,
+        }
     }
+
+
+@pytest.fixture(name="thread")
+def fixture_thread() -> Iterator[MagicMock]:
+    """Patch the thread of the notifier."""
+    with patch("viseron.components.discord.RestartableThread") as thread:
+        yield thread
+
+
+@pytest.fixture(name="set_up")
+def fixture_set_up(
+    vis: MockViseron,
+    thread: MagicMock,  # noqa: ARG001  # pylint: disable=unused-argument
+) -> Iterator[SetUp]:
+    """Return a function that sets up discord with the given keys."""
+    notifiers: list[DiscordNotifier] = []
+
+    def _set_up(**keys: Any) -> DiscordNotifier:
+        assert setup(vis, validate_config(CONFIG_SCHEMA, make_config(**keys)))
+        notifiers.append(vis.data[COMPONENT])
+        return vis.data[COMPONENT]
+
+    yield _set_up
+    for notifier in notifiers:
+        notifier._loop.close()
+
+
+@pytest.fixture(name="set_up_mocked")
+def fixture_set_up_mocked(set_up: SetUp) -> Iterator[SetUpMocked]:
+    """Return a function that sets up discord with the given keys and mocked sends."""
+    with ExitStack() as stack:
+
+        def _set_up_mocked(**keys: Any) -> NotifierMocks:
+            notifier = set_up(**keys)
+
+            def mock_send(method: str) -> MagicMock:
+                return stack.enter_context(
+                    patch.object(notifier, method, MagicMock(return_value=True))
+                )
+
+            return NotifierMocks(
+                notifier,
+                mock_send("_send_discord_message"),
+                mock_send("_send_discord_file"),
+                mock_send("_send_discord_file_partial"),
+            )
+
+        yield _set_up_mocked
+
+
+@pytest.fixture(name="notifier")
+def fixture_notifier(set_up_mocked: SetUpMocked) -> NotifierMocks:
+    """Return a DiscordNotifier with patched send methods."""
+    return set_up_mocked()
 
 
 def make_detected_object(label: str) -> DetectedObject:
@@ -117,26 +164,6 @@ def make_event(recording: Recording) -> Event[EventRecorderData]:
     return Event(name="test", data=event_data, timestamp=0.0)
 
 
-@pytest.fixture
-def notifier(vis: MockViseron):
-    """Return a DiscordNotifier with patched send methods."""
-    config = make_config()
-    with patch("viseron.components.discord.RestartableThread"):
-        n = DiscordNotifier(vis, config)
-    with (
-        patch.object(
-            n, "_send_discord_message", MagicMock(return_value=True)
-        ) as send_message,
-        patch.object(
-            n, "_send_discord_file", MagicMock(return_value=True)
-        ) as send_file,
-        patch.object(
-            n, "_send_discord_file_partial", MagicMock(return_value=True)
-        ) as send_file_partial,
-    ):
-        yield NotifierMocks(n, send_message, send_file, send_file_partial)
-
-
 def run_async_recorder_complete(
     notifier: DiscordNotifier, event: Event[EventRecorderData]
 ):
@@ -158,13 +185,10 @@ def run_recorder_start_event(
 class TestSetupUnload:
     """Tests for module-level setup and unload functions."""
 
-    def test_setup_stores_notifier_and_returns_true(self, vis: MockViseron):
-        """Setup stores a DiscordNotifier instance and returns True."""
-        config = {COMPONENT: make_config()}
-        with patch("viseron.components.discord.RestartableThread"):
-            result = setup(vis, config)
+    def test_setup_stores_notifier(self, set_up: SetUp, vis: MockViseron):
+        """Setup stores a DiscordNotifier instance."""
+        set_up()
 
-        assert result is True
         assert isinstance(vis.data[COMPONENT], DiscordNotifier)
 
     def test_unload_stops_notifier_and_removes_key(self, vis: MockViseron):
@@ -182,13 +206,10 @@ class TestInitEventRegistration:
     """Tests for DiscordNotifier __init__ event registration."""
 
     def test_registers_start_and_complete_events_for_each_camera(
-        self, vis: MockViseron
+        self, set_up: SetUp, vis: MockViseron
     ):
         """One start and one complete event listener is registered per camera."""
-        cameras: dict[str, Any] = {"cam_one": {}, "cam_two": {}}
-        config = make_config(cameras=cameras)
-        with patch("viseron.components.discord.RestartableThread"):
-            notifier = DiscordNotifier(vis, config)
+        notifier = set_up(cameras={"cam_one": None, "cam_two": None})
 
         assert vis.listen_event.call_count == 4
         expected_calls = [
@@ -203,38 +224,23 @@ class TestInitEventRegistration:
             VISERON_SIGNAL_SHUTDOWN, notifier.stop
         )
 
-    def test_starts_background_thread(self, vis: MockViseron):
+    def test_starts_background_thread(self, set_up: SetUp, thread: MagicMock):
         """The DiscordNotifier starts its background event-loop thread."""
-        with patch("viseron.components.discord.RestartableThread") as mock_thread:
-            notifier = DiscordNotifier(vis, make_config())
+        notifier = set_up()
 
-        mock_thread.assert_called_once_with(
+        thread.assert_called_once_with(
             name="DiscordNotifierThread", daemon=True, target=notifier.run_async
         )
-        mock_thread.return_value.start.assert_called_once()
+        thread.return_value.start.assert_called_once()
 
 
 class TestRecorderStartEvent:
     """Tests for _recorder_start_event."""
 
     @pytest.fixture
-    def start_notifier(self, vis: MockViseron):
+    def start_notifier(self, set_up_mocked: SetUpMocked) -> NotifierMocks:
         """Return a DiscordNotifier configured to send thumbnails."""
-        config = make_config(send_thumbnail=True)
-        with patch("viseron.components.discord.RestartableThread"):
-            n = DiscordNotifier(vis, config)
-        with (
-            patch.object(
-                n, "_send_discord_message", MagicMock(return_value=True)
-            ) as send_message,
-            patch.object(
-                n, "_send_discord_file", MagicMock(return_value=True)
-            ) as send_file,
-            patch.object(
-                n, "_send_discord_file_partial", MagicMock(return_value=True)
-            ) as send_file_partial,
-        ):
-            yield NotifierMocks(n, send_message, send_file, send_file_partial)
+        return set_up_mocked(send_detection_thumbnail=True)
 
     def test_sends_thumbnail_when_file_exists(self, start_notifier: NotifierMocks):
         """Start event sends thumbnail when configured and file exists."""
@@ -256,22 +262,23 @@ class TestRecorderStartEvent:
         start_notifier.send_message.assert_not_called()
 
     def test_sends_message_only_when_thumbnail_disabled(
-        self, start_notifier: NotifierMocks
+        self, set_up_mocked: SetUpMocked
     ):
         """Start event sends only a message when send_thumbnail is False."""
-        start_notifier.notifier._config[CONFIG_SEND_THUMBNAIL] = False
+        mocks = set_up_mocked(send_detection_thumbnail=False)
         recording = make_recording(
             [make_detected_object("person")],
             thumbnail_path="/path/to/thumb.jpg",
         )
         event = make_event(recording)
 
-        run_recorder_start_event(start_notifier.notifier, event)
+        with patch("viseron.components.discord.os.path.exists", return_value=True):
+            run_recorder_start_event(mocks.notifier, event)
 
-        start_notifier.send_message.assert_called_once_with(
+        mocks.send_message.assert_called_once_with(
             "Recording started on test_camera - Detected person", CAMERA_ID
         )
-        start_notifier.send_file.assert_not_called()
+        mocks.send_file.assert_not_called()
 
     def test_sends_message_only_when_thumbnail_path_is_none(
         self, start_notifier: NotifierMocks
@@ -303,7 +310,6 @@ class TestRecorderStartEvent:
 
     def test_skips_when_label_does_not_match(self, start_notifier: NotifierMocks):
         """Start event sends nothing when detected label does not match."""
-        start_notifier.notifier._config[CONFIG_DETECTION_LABELS] = ["person"]
         recording = make_recording([make_detected_object("car")])
         event = make_event(recording)
 
@@ -341,7 +347,6 @@ class TestDetectionLabelFiltering:
         """No notification when detected object does not match detection_labels."""
         recording = make_recording([make_detected_object("car")])
         event = make_event(recording)
-        notifier.notifier._config[CONFIG_DETECTION_LABELS] = ["person"]
         run_async_recorder_complete(notifier.notifier, event)
         notifier.send_message.assert_not_called()
         notifier.send_file.assert_not_called()
@@ -351,45 +356,36 @@ class TestDetectionLabelFiltering:
         recording = make_recording([])
         recording.trigger_type = TriggerTypes.MANUAL
         event = make_event(recording)
-        notifier.notifier._config[CONFIG_DETECTION_LABELS] = ["person"]
         run_async_recorder_complete(notifier.notifier, event)
         notifier.send_message.assert_called_once()
 
-    def test_camera_level_overrides_global(self, vis: MockViseron):
+    def test_camera_level_overrides_global(self, set_up_mocked: SetUpMocked):
         """Camera-level detection_labels overrides the global setting."""
-        cameras = {CAMERA_ID: {CONFIG_DETECTION_LABELS: ["car"]}}
-        config = make_config(detection_labels=["person"], cameras=cameras)
-        with patch("viseron.components.discord.RestartableThread"):
-            n = DiscordNotifier(vis, config)
-        with (
-            patch.object(
-                n, "_send_discord_message", MagicMock(return_value=True)
-            ) as send_message,
-            patch.object(
-                n, "_send_discord_file", MagicMock(return_value=True)
-            ) as send_file,
-        ):
-            # "car" matches camera-level override → should send
-            recording = make_recording([make_detected_object("car")])
-            run_async_recorder_complete(n, make_event(recording))
-            send_message.assert_called_once()
+        mocks = set_up_mocked(
+            detection_labels=["person"],
+            cameras={CAMERA_ID: {"detection_labels": ["car"]}},
+        )
 
-            send_message.reset_mock()
+        # "car" matches camera-level override → should send
+        recording = make_recording([make_detected_object("car")])
+        run_async_recorder_complete(mocks.notifier, make_event(recording))
+        mocks.send_message.assert_called_once()
 
-            # "person" matches global but NOT camera-level → should NOT send
-            recording2 = make_recording([make_detected_object("person")])
-            run_async_recorder_complete(n, make_event(recording2))
-            send_message.assert_not_called()
-            send_file.assert_not_called()
+        mocks.send_message.reset_mock()
 
-    def test_global_deprecated_comma_separated_label(self, notifier: NotifierMocks):
+        # "person" matches global but NOT camera-level → should NOT send
+        recording2 = make_recording([make_detected_object("person")])
+        run_async_recorder_complete(mocks.notifier, make_event(recording2))
+        mocks.send_message.assert_not_called()
+        mocks.send_file.assert_not_called()
+
+    def test_global_deprecated_comma_separated_label(self, set_up_mocked: SetUpMocked):
         """Deprecated comma-separated detection_label still works at global level."""
+        mocks = set_up_mocked(detection_label="person,cat")
         recording = make_recording([make_detected_object("cat")])
         event = make_event(recording)
-        notifier.notifier._config[CONFIG_DETECTION_LABELS] = None
-        notifier.notifier._config[CONFIG_DETECTION_LABEL] = "person,cat"
-        run_async_recorder_complete(notifier.notifier, event)
-        notifier.send_message.assert_called_once()
+        run_async_recorder_complete(mocks.notifier, event)
+        mocks.send_message.assert_called_once()
 
     def test_empty_objects_always_matches(self, notifier: NotifierMocks):
         """Recordings with no objects always match the configured labels."""
@@ -403,23 +399,9 @@ class TestRecorderCompleteEventVideoPaths:
     """Tests for _async_recorder_complete_event video/partial/fallback paths."""
 
     @pytest.fixture
-    def video_notifier(self, vis: MockViseron):
+    def video_notifier(self, set_up_mocked: SetUpMocked) -> NotifierMocks:
         """Return a DiscordNotifier configured to send videos."""
-        config = make_config(send_video=True)
-        with patch("viseron.components.discord.RestartableThread"):
-            n = DiscordNotifier(vis, config)
-        with (
-            patch.object(
-                n, "_send_discord_message", MagicMock(return_value=True)
-            ) as send_message,
-            patch.object(
-                n, "_send_discord_file", MagicMock(return_value=True)
-            ) as send_file,
-            patch.object(
-                n, "_send_discord_file_partial", MagicMock(return_value=True)
-            ) as send_file_partial,
-        ):
-            yield NotifierMocks(n, send_message, send_file, send_file_partial)
+        return set_up_mocked(send_detection_video=True)
 
     def test_sends_complete_video_when_under_size_limit(
         self, video_notifier: NotifierMocks
@@ -491,11 +473,10 @@ class TestRecorderCompleteEventVideoPaths:
         video_notifier.send_message.assert_not_called()
 
     def test_fallback_to_message_and_thumbnail_when_video_disabled(
-        self, video_notifier: NotifierMocks
+        self, set_up_mocked: SetUpMocked
     ):
         """Message and thumbnail are sent when video sending is disabled."""
-        video_notifier.notifier._config[CONFIG_SEND_VIDEO] = False
-        video_notifier.notifier._config[CONFIG_SEND_THUMBNAIL] = True
+        mocks = set_up_mocked(send_detection_thumbnail=True)
         recording = make_recording(
             [make_detected_object("person")],
             thumbnail_path="/path/to/thumb.jpg",
@@ -505,12 +486,12 @@ class TestRecorderCompleteEventVideoPaths:
         with patch(
             "viseron.components.discord.aiofiles.os.path.exists", return_value=True
         ):
-            run_async_recorder_complete(video_notifier.notifier, event)
+            run_async_recorder_complete(mocks.notifier, event)
 
-        video_notifier.send_message.assert_called_once_with(
+        mocks.send_message.assert_called_once_with(
             "Recording completed for test_camera - Detected person", CAMERA_ID
         )
-        video_notifier.send_file.assert_called_once_with(
+        mocks.send_file.assert_called_once_with(
             "/path/to/thumb.jpg",
             "Thumbnail for test_camera",
             "thumbnail.jpg",
@@ -518,24 +499,22 @@ class TestRecorderCompleteEventVideoPaths:
         )
 
     def test_message_only_fallback_when_video_and_thumbnail_unavailable(
-        self, video_notifier: NotifierMocks
+        self, notifier: NotifierMocks
     ):
         """Only a message is sent when neither video nor thumbnail can be sent."""
-        video_notifier.notifier._config[CONFIG_SEND_VIDEO] = False
-        video_notifier.notifier._config[CONFIG_SEND_THUMBNAIL] = False
         recording = make_recording([make_detected_object("person")])
         event = make_event(recording)
 
-        run_async_recorder_complete(video_notifier.notifier, event)
+        run_async_recorder_complete(notifier.notifier, event)
 
-        video_notifier.send_message.assert_called_once_with(
+        notifier.send_message.assert_called_once_with(
             "Recording completed for test_camera - Detected person", CAMERA_ID
         )
-        video_notifier.send_file.assert_not_called()
+        notifier.send_file.assert_not_called()
 
-    def test_fallback_when_clip_path_is_none(self, video_notifier: NotifierMocks):
+    def test_fallback_when_clip_path_is_none(self, set_up_mocked: SetUpMocked):
         """Fallback path is taken when the recording has no clip_path."""
-        video_notifier.notifier._config[CONFIG_SEND_THUMBNAIL] = True
+        mocks = set_up_mocked(send_detection_video=True, send_detection_thumbnail=True)
         recording = make_recording(
             [make_detected_object("person")],
             thumbnail_path="/path/to/thumb.jpg",
@@ -545,20 +524,19 @@ class TestRecorderCompleteEventVideoPaths:
         with patch(
             "viseron.components.discord.aiofiles.os.path.exists", return_value=True
         ):
-            run_async_recorder_complete(video_notifier.notifier, event)
+            run_async_recorder_complete(mocks.notifier, event)
 
-        video_notifier.send_message.assert_called_once()
-        video_notifier.send_file.assert_called_once_with(
+        mocks.send_message.assert_called_once()
+        mocks.send_file.assert_called_once_with(
             "/path/to/thumb.jpg",
             "Thumbnail for test_camera",
             "thumbnail.jpg",
             CAMERA_ID,
         )
-        video_notifier.send_file_partial.assert_not_called()
+        mocks.send_file_partial.assert_not_called()
 
     def test_skips_when_label_does_not_match(self, video_notifier: NotifierMocks):
         """Complete event sends nothing when detected label does not match."""
-        video_notifier.notifier._config[CONFIG_DETECTION_LABELS] = ["person"]
         recording = make_recording([make_detected_object("car")])
         event = make_event(recording)
 
@@ -593,30 +571,146 @@ class TestRecorderCompleteEventVideoPaths:
         mock_run.assert_called_once_with(fake_coro, notifier.notifier._loop)
 
 
+class TestCameraOverrides:
+    """Tests for camera keys that override the global ones."""
+
+    @pytest.mark.usefixtures("thread")
+    def test_thumbnail_and_video_are_sent_by_default(self, vis: MockViseron):
+        """Without the keys, thumbnails and videos are sent."""
+        config = {COMPONENT: {"webhook_url": WEBHOOK_URL, "cameras": {CAMERA_ID: None}}}
+        setup(vis, validate_config(CONFIG_SCHEMA, config))
+        notifier: DiscordNotifier = vis.data[COMPONENT]
+        recording = make_recording(
+            [make_detected_object("person")],
+            thumbnail_path="/path/to/thumb.jpg",
+            clip_path="/path/to/event.mp4",
+        )
+
+        with (
+            patch.object(notifier, "_send_discord_file") as send_file,
+            patch("viseron.components.discord.os.path.exists", return_value=True),
+            patch(
+                "viseron.components.discord.aiofiles.os.path.exists", return_value=True
+            ),
+            patch(
+                "viseron.components.discord.aiofiles.os.path.getsize",
+                return_value=100,
+            ),
+        ):
+            run_recorder_start_event(notifier, make_event(recording))
+            run_async_recorder_complete(notifier, make_event(recording))
+        notifier._loop.close()
+
+        assert [args[0] for args, _ in send_file.call_args_list] == [
+            "/path/to/thumb.jpg",
+            "/path/to/event.mp4",
+        ]
+
+    def test_camera_send_thumbnail_overrides_global(self, set_up_mocked: SetUpMocked):
+        """The camera's send_detection_thumbnail wins over the global one."""
+        mocks = set_up_mocked(
+            send_detection_thumbnail=False,
+            cameras={CAMERA_ID: {"send_detection_thumbnail": True}},
+        )
+        recording = make_recording(
+            [make_detected_object("person")], thumbnail_path="/path/to/thumb.jpg"
+        )
+
+        with patch("viseron.components.discord.os.path.exists", return_value=True):
+            run_recorder_start_event(mocks.notifier, make_event(recording))
+
+        mocks.send_file.assert_called_once()
+        mocks.send_message.assert_not_called()
+
+    def test_camera_send_video_overrides_global(self, set_up_mocked: SetUpMocked):
+        """The camera's send_detection_video wins over the global one."""
+        mocks = set_up_mocked(
+            send_detection_video=True,
+            cameras={CAMERA_ID: {"send_detection_video": False}},
+        )
+        recording = make_recording(
+            [make_detected_object("person")], clip_path="/path/to/event.mp4"
+        )
+
+        with patch(
+            "viseron.components.discord.aiofiles.os.path.exists", return_value=True
+        ):
+            run_async_recorder_complete(mocks.notifier, make_event(recording))
+
+        mocks.send_message.assert_called_once()
+        mocks.send_file.assert_not_called()
+        mocks.send_file_partial.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ("keys", "file_size_mb", "partial_max_mb"),
+        [
+            pytest.param({"max_video_size_mb": 50}, 10, None, id="global"),
+            pytest.param(
+                {
+                    "max_video_size_mb": 50,
+                    "cameras": {CAMERA_ID: {"max_video_size_mb": 1}},
+                },
+                2,
+                1,
+                id="camera",
+            ),
+        ],
+    )
+    def test_max_video_size(
+        self,
+        set_up_mocked: SetUpMocked,
+        keys: dict[str, Any],
+        file_size_mb: int,
+        partial_max_mb: int | None,
+    ):
+        """The camera's max_video_size_mb wins over the global one."""
+        mocks = set_up_mocked(send_detection_video=True, **keys)
+        recording = make_recording(
+            [make_detected_object("person")], clip_path="/path/to/event.mp4"
+        )
+
+        with (
+            patch(
+                "viseron.components.discord.aiofiles.os.path.exists", return_value=True
+            ),
+            patch(
+                "viseron.components.discord.aiofiles.os.path.getsize",
+                return_value=file_size_mb * 1024 * 1024,
+            ),
+        ):
+            run_async_recorder_complete(mocks.notifier, make_event(recording))
+
+        if partial_max_mb is None:
+            mocks.send_file.assert_called_once()
+            mocks.send_file_partial.assert_not_called()
+        else:
+            mocks.send_file.assert_not_called()
+            assert (
+                mocks.send_file_partial.call_args.args[3]
+                == partial_max_mb * 1024 * 1024
+            )
+
+
 class TestSendDiscordMessage:
     """Tests for _send_discord_message."""
 
-    @pytest.fixture
-    def http_notifier(self, vis: MockViseron) -> DiscordNotifier:
-        """Return a DiscordNotifier with real HTTP send methods."""
-        with patch("viseron.components.discord.RestartableThread"):
-            return DiscordNotifier(vis, make_config())
-
-    def test_success_sends_json_payload(self, http_notifier: DiscordNotifier):
+    def test_success_sends_json_payload(self, set_up: SetUp):
         """_send_discord_message posts JSON content and returns True."""
+        http_notifier = set_up()
         with patch("viseron.components.discord.requests.post") as mock_post:
             mock_post.return_value.raise_for_status = MagicMock()
             result = http_notifier._send_discord_message("Hello", CAMERA_ID)
 
         assert result is True
         mock_post.assert_called_once_with(
-            "https://discord.example.com/webhook",
+            WEBHOOK_URL,
             json={"content": "Hello"},
             timeout=30,
         )
 
-    def test_failure_returns_false(self, http_notifier: DiscordNotifier):
+    def test_failure_returns_false(self, set_up: SetUp):
         """_send_discord_message returns False when the request fails."""
+        http_notifier = set_up()
         with patch(
             "viseron.components.discord.requests.post",
             side_effect=requests.RequestException("boom"),
@@ -626,21 +720,16 @@ class TestSendDiscordMessage:
         assert result is False
         mock_post.assert_called_once()
 
-    def test_uses_camera_specific_webhook_url(self, vis: MockViseron):
+    def test_uses_camera_specific_webhook_url(self, set_up: SetUp):
         """Camera-level webhook_url overrides the global URL."""
-        camera_url = "https://discord.camera.example.com/webhook"
-        config = make_config(
-            cameras={CAMERA_ID: {CONFIG_DISCORD_WEBHOOK_URL: camera_url}}
-        )
-        with patch("viseron.components.discord.RestartableThread"):
-            notifier = DiscordNotifier(vis, config)
+        notifier = set_up(cameras={CAMERA_ID: {"webhook_url": CAMERA_WEBHOOK_URL}})
 
         with patch("viseron.components.discord.requests.post") as mock_post:
             mock_post.return_value.raise_for_status = MagicMock()
             notifier._send_discord_message("Hello", CAMERA_ID)
 
         mock_post.assert_called_once_with(
-            camera_url,
+            CAMERA_WEBHOOK_URL,
             json={"content": "Hello"},
             timeout=30,
         )
@@ -649,14 +738,9 @@ class TestSendDiscordMessage:
 class TestSendDiscordFile:
     """Tests for _send_discord_file."""
 
-    @pytest.fixture
-    def http_notifier(self, vis: MockViseron) -> DiscordNotifier:
-        """Return a DiscordNotifier with real HTTP send methods."""
-        with patch("viseron.components.discord.RestartableThread"):
-            return DiscordNotifier(vis, make_config())
-
-    def test_success_posts_file_and_content(self, http_notifier: DiscordNotifier):
+    def test_success_posts_file_and_content(self, set_up: SetUp):
         """_send_discord_file posts the file and content, returning True."""
+        http_notifier = set_up()
         with patch("viseron.components.discord.requests.post") as mock_post:
             mock_post.return_value.raise_for_status = MagicMock()
             with patch(
@@ -671,11 +755,13 @@ class TestSendDiscordFile:
         mock_file.assert_called_once_with("/path/to/file.mp4", "rb")
         mock_post.assert_called_once()
         call_args = mock_post.call_args
+        assert call_args.args[0] == WEBHOOK_URL
         assert call_args.kwargs["data"] == {"content": "caption"}
         assert call_args.kwargs["timeout"] == 60
 
-    def test_failure_returns_false(self, http_notifier: DiscordNotifier):
+    def test_failure_returns_false(self, set_up: SetUp):
         """_send_discord_file returns False when the request fails."""
+        http_notifier = set_up()
         with (
             patch(
                 "viseron.components.discord.requests.post",
@@ -690,14 +776,9 @@ class TestSendDiscordFile:
         assert result is False
         mock_post.assert_called_once()
 
-    def test_uses_camera_specific_webhook_url(self, vis: MockViseron):
+    def test_uses_camera_specific_webhook_url(self, set_up: SetUp):
         """Camera-level webhook_url overrides the global URL for file sends."""
-        camera_url = "https://discord.camera.example.com/webhook"
-        config = make_config(
-            cameras={CAMERA_ID: {CONFIG_DISCORD_WEBHOOK_URL: camera_url}}
-        )
-        with patch("viseron.components.discord.RestartableThread"):
-            notifier = DiscordNotifier(vis, config)
+        notifier = set_up(cameras={CAMERA_ID: {"webhook_url": CAMERA_WEBHOOK_URL}})
 
         with patch("viseron.components.discord.requests.post") as mock_post:
             mock_post.return_value.raise_for_status = MagicMock()
@@ -707,20 +788,15 @@ class TestSendDiscordFile:
                 )
 
         mock_post.assert_called_once()
-        assert mock_post.call_args.args[0] == camera_url
+        assert mock_post.call_args.args[0] == CAMERA_WEBHOOK_URL
 
 
 class TestSendDiscordFilePartial:
     """Tests for _send_discord_file_partial."""
 
-    @pytest.fixture
-    def http_notifier(self, vis: MockViseron) -> DiscordNotifier:
-        """Return a DiscordNotifier with real HTTP send methods."""
-        with patch("viseron.components.discord.RestartableThread"):
-            return DiscordNotifier(vis, make_config())
-
-    def test_success_reads_only_max_bytes(self, http_notifier: DiscordNotifier):
+    def test_success_reads_only_max_bytes(self, set_up: SetUp):
         """_send_discord_file_partial reads only max_bytes and returns True."""
+        http_notifier = set_up()
         max_bytes = 1024
         data = b"x" * (max_bytes + 100)
 
@@ -735,12 +811,14 @@ class TestSendDiscordFilePartial:
 
         assert result is True
         mock_file.assert_called_once_with("/path/to/file.mp4", "rb")
+        assert mock_post.call_args.args[0] == WEBHOOK_URL
         sent_file = mock_post.call_args.kwargs["files"]["file"]
         assert sent_file[1] == data[:max_bytes]
         assert len(sent_file[1]) == max_bytes
 
-    def test_failure_returns_false(self, http_notifier: DiscordNotifier):
+    def test_failure_returns_false(self, set_up: SetUp):
         """_send_discord_file_partial returns False when the request fails."""
+        http_notifier = set_up()
         with (
             patch(
                 "viseron.components.discord.requests.post",
@@ -755,201 +833,140 @@ class TestSendDiscordFilePartial:
         assert result is False
         mock_post.assert_called_once()
 
+    def test_uses_camera_specific_webhook_url(self, set_up: SetUp):
+        """Camera-level webhook_url overrides the global URL for partial sends."""
+        notifier = set_up(cameras={CAMERA_ID: {"webhook_url": CAMERA_WEBHOOK_URL}})
 
+        with patch("viseron.components.discord.requests.post") as mock_post:
+            mock_post.return_value.raise_for_status = MagicMock()
+            with patch("viseron.components.discord.open", mock_open(read_data=b"")):
+                notifier._send_discord_file_partial(
+                    "/path/to/file.mp4", "caption", "video.mp4", 4, CAMERA_ID
+                )
+
+        mock_post.assert_called_once()
+        assert mock_post.call_args.args[0] == CAMERA_WEBHOOK_URL
+
+
+@pytest.mark.filterwarnings("error::DeprecationWarning")
 class TestGetEffectiveDetectionLabels:
     """Tests for _get_effective_detection_labels."""
 
-    def test_undefined_camera_labels_falls_through_to_global(self, vis: MockViseron):
-        """UNDEFINED camera detection_labels falls through to global labels."""
-        cameras = {CAMERA_ID: {CONFIG_DETECTION_LABELS: UNDEFINED}}
-        config = make_config(detection_labels=["car"], cameras=cameras)
-        with patch("viseron.components.discord.RestartableThread"):
-            notifier = DiscordNotifier(vis, config)
+    def test_unset_camera_labels_fall_through_to_global(self, set_up: SetUp):
+        """Camera detection_labels that are not set fall through to global labels."""
+        notifier = set_up(detection_labels=["car"])
 
         labels = notifier._get_effective_detection_labels(CAMERA_ID)
 
         assert labels == ["car"]
 
-    def test_undefined_camera_labels_does_not_raise_on_notification(
-        self, vis: MockViseron
+    def test_unset_camera_labels_do_not_raise_on_notification(
+        self, set_up_mocked: SetUpMocked
     ):
-        """Detection with UNDEFINED camera labels does not raise TypeError."""
-        cameras = {CAMERA_ID: {CONFIG_DETECTION_LABELS: UNDEFINED}}
-        config = make_config(detection_labels=["person"], cameras=cameras)
-        with patch("viseron.components.discord.RestartableThread"):
-            n = DiscordNotifier(vis, config)
-        with (
-            patch.object(
-                n, "_send_discord_message", MagicMock(return_value=True)
-            ) as send_message,
-            patch.object(n, "_send_discord_file", MagicMock(return_value=True)),
-        ):
-            recording = make_recording([make_detected_object("person")])
-            run_async_recorder_complete(n, make_event(recording))
+        """Detection with unset camera labels does not raise TypeError."""
+        mocks = set_up_mocked(detection_labels=["person"])
+        recording = make_recording([make_detected_object("person")])
+        run_async_recorder_complete(mocks.notifier, make_event(recording))
 
-            send_message.assert_called_once()
+        mocks.send_message.assert_called_once()
 
-    def test_global_comma_deprecated_label_strips_empty_entries(
-        self, notifier: NotifierMocks
-    ):
+    def test_global_comma_deprecated_label_strips_empty_entries(self, set_up: SetUp):
         """Global deprecated detection_label strips empty comma-separated entries."""
-        notifier.notifier._config[CONFIG_DETECTION_LABELS] = None
-        notifier.notifier._config[CONFIG_DETECTION_LABEL] = ",person,"
+        notifier = set_up(detection_label=",person,")
 
-        labels = notifier.notifier._get_effective_detection_labels(CAMERA_ID)
+        labels = notifier._get_effective_detection_labels(CAMERA_ID)
 
         assert "" not in labels
         assert labels == ["person"]
 
-    def test_camera_comma_deprecated_label_strips_empty_entries(self, vis: MockViseron):
+    def test_camera_comma_deprecated_label_strips_empty_entries(self, set_up: SetUp):
         """Camera deprecated detection_label strips empty comma-separated entries."""
-        cameras = {CAMERA_ID: {CONFIG_DETECTION_LABEL: ",car,"}}
-        config = make_config(cameras=cameras)
-        with patch("viseron.components.discord.RestartableThread"):
-            notifier = DiscordNotifier(vis, config)
+        notifier = set_up(cameras={CAMERA_ID: {"detection_label": ",car,"}})
 
         labels = notifier._get_effective_detection_labels(CAMERA_ID)
 
         assert "" not in labels
         assert labels == ["car"]
 
-    def test_returns_default_when_no_labels_configured(self, vis: MockViseron):
+    def test_returns_default_when_no_labels_configured(self, set_up: SetUp):
         """Default detection labels are returned when no labels are configured."""
-        config = make_config()
-        config[CONFIG_DETECTION_LABEL] = None
-        config[CONFIG_DETECTION_LABELS] = []
-        config[CONFIG_CAMERAS] = {CAMERA_ID: {}}
-        with patch("viseron.components.discord.RestartableThread"):
-            notifier = DiscordNotifier(vis, config)
+        notifier = set_up(detection_labels=[])
 
         labels = notifier._get_effective_detection_labels(CAMERA_ID)
 
-        assert labels == DEFAULT_DETECTION_LABELS
+        assert labels == ["person"]
 
+    @pytest.mark.parametrize(
+        ("keys", "expected"),
+        [
+            pytest.param(
+                {"detection_label": "comma", "detection_labels": ["list"]},
+                ["comma"],
+                id="global_comma_over_global_list",
+            ),
+            pytest.param(
+                {"detection_label": "", "detection_labels": ["list"]},
+                ["list"],
+                id="global_comma_empty",
+            ),
+            pytest.param(
+                {
+                    "detection_label": "global",
+                    "cameras": {CAMERA_ID: {"detection_labels": ["camera"]}},
+                },
+                ["camera"],
+                id="camera_list_over_global_comma",
+            ),
+            pytest.param(
+                {
+                    "cameras": {
+                        CAMERA_ID: {
+                            "detection_label": "comma",
+                            "detection_labels": ["list"],
+                        }
+                    }
+                },
+                ["comma"],
+                id="camera_comma_over_camera_list",
+            ),
+            pytest.param(
+                {"cameras": {CAMERA_ID: {"detection_label": ""}}},
+                [],
+                id="camera_comma_empty",
+            ),
+            pytest.param(
+                {
+                    "detection_labels": ["global"],
+                    "cameras": {CAMERA_ID: {"detection_labels": []}},
+                },
+                ["global"],
+                id="camera_list_empty",
+            ),
+            pytest.param(
+                {
+                    "detection_labels": ["global"],
+                    "cameras": {CAMERA_ID: {"detection_labels": None}},
+                },
+                ["global"],
+                id="camera_list_null",
+            ),
+        ],
+    )
+    def test_priority(self, set_up: SetUp, keys: dict[str, Any], expected: list[str]):
+        """Camera labels win over global ones, detection_label wins per level."""
+        notifier = set_up(**keys)
 
-class TestGetCameraConfig:
-    """Tests for _get_camera_config."""
-
-    def test_returns_camera_specific_value(self, vis: MockViseron):
-        """Camera-specific config key takes precedence."""
-        cameras = {CAMERA_ID: {CONFIG_MAX_VIDEO_SIZE_MB: 25}}
-        config = make_config(cameras=cameras)
-        with patch("viseron.components.discord.RestartableThread"):
-            notifier = DiscordNotifier(vis, config)
-
-        value = notifier._get_camera_config(CAMERA_ID, CONFIG_MAX_VIDEO_SIZE_MB)
-
-        assert value == 25
-
-    def test_falls_back_to_global_value(self, vis: MockViseron):
-        """Global config is used when camera-specific key is absent."""
-        config = make_config()
-        config[CONFIG_MAX_VIDEO_SIZE_MB] = 50
-        with patch("viseron.components.discord.RestartableThread"):
-            notifier = DiscordNotifier(vis, config)
-
-        value = notifier._get_camera_config(CAMERA_ID, CONFIG_MAX_VIDEO_SIZE_MB)
-
-        assert value == 50
-
-    def test_returns_default_when_key_missing_everywhere(self, vis: MockViseron):
-        """Default is returned when key is absent at both levels."""
-        with patch("viseron.components.discord.RestartableThread"):
-            notifier = DiscordNotifier(vis, make_config())
-
-        value = notifier._get_camera_config(
-            CAMERA_ID, CONFIG_MAX_VIDEO_SIZE_MB, CONFIG_MAX_VIDEO_SIZE_MB_DEFAULT
-        )
-
-        assert value == CONFIG_MAX_VIDEO_SIZE_MB_DEFAULT
-
-
-class TestGetWebhookUrl:
-    """Tests for _get_webhook_url."""
-
-    def test_returns_camera_specific_url(self, vis: MockViseron):
-        """Camera-level webhook_url overrides the global webhook URL."""
-        camera_url = "https://discord.camera.example.com/webhook"
-        config = make_config(
-            cameras={CAMERA_ID: {CONFIG_DISCORD_WEBHOOK_URL: camera_url}}
-        )
-        with patch("viseron.components.discord.RestartableThread"):
-            notifier = DiscordNotifier(vis, config)
-
-        url = notifier._get_webhook_url(CAMERA_ID)
-
-        assert url == camera_url
-
-    def test_falls_back_to_global_url(self, vis: MockViseron):
-        """Global webhook URL is used when camera-level is absent."""
-        with patch("viseron.components.discord.RestartableThread"):
-            notifier = DiscordNotifier(vis, make_config())
-
-        url = notifier._get_webhook_url(CAMERA_ID)
-
-        assert url == "https://discord.example.com/webhook"
-
-
-class TestConfigSchema:
-    """Tests for CONFIG_SCHEMA validation."""
-
-    def test_accepts_valid_config(self):
-        """CONFIG_SCHEMA accepts a minimally valid config."""
-        config = {COMPONENT: make_config()}
-
-        result = CONFIG_SCHEMA(config)
-
-        assert result[COMPONENT][CONFIG_DISCORD_WEBHOOK_URL]
-        assert result[COMPONENT][CONFIG_CAMERAS]
-
-    def test_rejects_missing_webhook_url(self):
-        """CONFIG_SCHEMA rejects config without webhook_url."""
-        config = {COMPONENT: make_config()}
-        del config[COMPONENT][CONFIG_DISCORD_WEBHOOK_URL]
-
-        with pytest.raises(vol.error.MultipleInvalid) as exc_info:
-            CONFIG_SCHEMA(config)
-
-        assert CONFIG_DISCORD_WEBHOOK_URL in str(exc_info.value)
-
-    def test_rejects_missing_cameras(self):
-        """CONFIG_SCHEMA rejects config without cameras."""
-        config = {COMPONENT: make_config()}
-        del config[COMPONENT][CONFIG_CAMERAS]
-
-        with pytest.raises(vol.error.MultipleInvalid) as exc_info:
-            CONFIG_SCHEMA(config)
-
-        assert CONFIG_CAMERAS in str(exc_info.value)
-
-    def test_applies_defaults(self):
-        """CONFIG_SCHEMA applies default values for optional keys."""
-        config = {
-            COMPONENT: {
-                CONFIG_DISCORD_WEBHOOK_URL: "https://discord.example.com/webhook",
-                CONFIG_CAMERAS: {CAMERA_ID: {}},
-            }
-        }
-
-        result = CONFIG_SCHEMA(config)
-
-        component_config = result[COMPONENT]
-        assert component_config[CONFIG_SEND_THUMBNAIL] is True
-        assert component_config[CONFIG_SEND_VIDEO] is True
-        assert (
-            component_config[CONFIG_MAX_VIDEO_SIZE_MB]
-            == CONFIG_MAX_VIDEO_SIZE_MB_DEFAULT
-        )
-        assert component_config[CONFIG_DETECTION_LABELS] == DEFAULT_DETECTION_LABELS
+        assert notifier._get_effective_detection_labels(CAMERA_ID) == expected
 
 
 class TestStop:
     """Tests for DiscordNotifier.stop."""
 
-    def test_unsubscribes_listeners_and_stops_thread(self, vis: MockViseron):
+    def test_unsubscribes_listeners_and_stops_thread(
+        self, set_up: SetUp, thread: MagicMock
+    ):
         """Stop unsubscribes event listeners and stops the background thread."""
-        with patch("viseron.components.discord.RestartableThread") as mock_thread:
-            notifier = DiscordNotifier(vis, make_config())
+        notifier = set_up()
 
         listener_mocks = notifier._event_listeners
         assert len(listener_mocks) == 3
@@ -958,54 +975,43 @@ class TestStop:
 
         for listener in listener_mocks:
             cast("MagicMock", listener).assert_called_once()
-        mock_thread.return_value.stop.assert_called_once()
-        mock_thread.return_value.join.assert_called_once()
+        thread.return_value.stop.assert_called_once()
+        thread.return_value.join.assert_called_once()
 
 
 class TestDeduplication:
     """Tests for recording deduplication."""
 
-    def test_does_not_resend_video_for_same_recording_id(self, vis: MockViseron):
+    def test_does_not_resend_video_for_same_recording_id(
+        self, set_up_mocked: SetUpMocked
+    ):
         """Second complete event for same recording id does not resend video."""
-        config = make_config(send_video=True)
-        with patch("viseron.components.discord.RestartableThread"):
-            n = DiscordNotifier(vis, config)
+        mocks = set_up_mocked(send_detection_video=True)
+        recording = make_recording(
+            [make_detected_object("person")], clip_path="/path/to/fake.mp4"
+        )
+        event = make_event(recording)
+
         with (
-            patch.object(
-                n, "_send_discord_message", MagicMock(return_value=True)
-            ) as send_message,
-            patch.object(
-                n, "_send_discord_file", MagicMock(return_value=True)
-            ) as send_file,
-            patch.object(
-                n, "_send_discord_file_partial", MagicMock(return_value=True)
-            ) as send_file_partial,
+            patch(
+                "viseron.components.discord.aiofiles.os.path.exists",
+                return_value=True,
+            ),
+            patch(
+                "viseron.components.discord.aiofiles.os.path.getsize",
+                return_value=100,
+            ),
         ):
-            recording = make_recording(
-                [make_detected_object("person")], clip_path="/path/to/fake.mp4"
-            )
-            event = make_event(recording)
+            # First call sends the complete video
+            run_async_recorder_complete(mocks.notifier, event)
+            mocks.send_file.assert_called_once()
 
-            with (
-                patch(
-                    "viseron.components.discord.aiofiles.os.path.exists",
-                    return_value=True,
-                ),
-                patch(
-                    "viseron.components.discord.aiofiles.os.path.getsize",
-                    return_value=100,
-                ),
-            ):
-                # First call sends the complete video
-                run_async_recorder_complete(n, event)
-                send_file.assert_called_once()
+            # Reset mocks to verify second call behavior
+            mocks.send_file.reset_mock()
+            mocks.send_message.reset_mock()
 
-                # Reset mocks to verify second call behavior
-                send_file.reset_mock()
-                send_message.reset_mock()
-
-                # Second call for the same recording id should not resend video
-                run_async_recorder_complete(n, event)
-                send_file.assert_not_called()
-                send_file_partial.assert_not_called()
-                send_message.assert_called_once()
+            # Second call for the same recording id should not resend video
+            run_async_recorder_complete(mocks.notifier, event)
+            mocks.send_file.assert_not_called()
+            mocks.send_file_partial.assert_not_called()
+            mocks.send_message.assert_called_once()
