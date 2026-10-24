@@ -18,7 +18,7 @@ matplotlib==3.11.2
 numpy==1.26.4
 paho-mqtt==2.1.0
 path.py==12.5.0
-pillow==12.3.0
+pillow==13.0.0
 psutil==7.2.2
 psycopg2-binary==2.9.13
 pydantic==2.14.0
