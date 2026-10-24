@@ -8,12 +8,6 @@ from typing import Any
 from telegram import Update
 from telegram.ext import CallbackContext
 
-from viseron.components.telegram.const import (
-    CONFIG_TELEGRAM_CHAT_IDS,
-    CONFIG_TELEGRAM_LOG_IDS,
-    CONFIG_TELEGRAM_USER_IDS,
-)
-
 LOGGER = logging.getLogger(__name__)
 
 
@@ -47,8 +41,8 @@ def limit_user_access(func):
         is_private = chat_type == "private"
 
         # pylint: disable=protected-access
-        allowed_users = self._config.get(CONFIG_TELEGRAM_USER_IDS, []) or []
-        allowed_chats = self._config.get(CONFIG_TELEGRAM_CHAT_IDS, []) or []
+        allowed_users = self._config.telegram_user_ids
+        allowed_chats = self._config.telegram_chat_ids
 
         allowed = False
         if user_id is not None:
@@ -63,7 +57,7 @@ def limit_user_access(func):
 
         if update:
             # pylint: disable=protected-access
-            if self._config.get(CONFIG_TELEGRAM_LOG_IDS, False):
+            if self._config.telegram_log_ids:
                 LOGGER.warning("Access denied for user %s.", user_id or "<unknown>")
             if update.message:
                 await update.message.reply_text(
