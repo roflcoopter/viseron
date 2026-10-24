@@ -9,20 +9,21 @@ from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
-from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import CallbackContext, CommandHandler
 
-from viseron.components.onvif import ONVIF
+from viseron.components.onvif.const import COMPONENT as ONVIF_COMPONENT
 from viseron.components.telegram.utils import limit_user_access, parse_command_args
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.watchdog.thread_watchdog import RestartableThread
 
-from .const import CONFIG_ONVIF_COMPONENT
-
 if TYPE_CHECKING:
+    from telegram import Update
+
     from viseron import Viseron
+    from viseron.components.onvif import ONVIF
     from viseron.components.telegram import TelegramEventNotifier
+    from viseron.components.telegram.config import TelegramConfig
 
 LOGGER = logging.getLogger(__name__)
 
@@ -37,11 +38,13 @@ def lissajous_curve(amp_x, amp_y, f_x, f_y, delta, t):
 class TelegramPTZ:
     """TelegramPTZ class allows control of p/t/z (and other stuff) over Telegram."""
 
-    def __init__(self, vis: Viseron, config, telegram: TelegramEventNotifier) -> None:
+    def __init__(
+        self, vis: Viseron, config: TelegramConfig, telegram: TelegramEventNotifier
+    ) -> None:
         self._vis = vis
         self._config = config
         self._telegram = telegram
-        self._onvif: ONVIF = self._vis.data[CONFIG_ONVIF_COMPONENT]
+        self._onvif: ONVIF = self._vis.data[ONVIF_COMPONENT]
         self._stop_event = asyncio.Event()
         self._event_listeners = []
         self._event_listeners.append(

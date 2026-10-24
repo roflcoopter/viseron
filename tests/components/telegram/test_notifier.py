@@ -1,428 +1,478 @@
-"""Tests for TelegramEventNotifier detection_label filtering."""
+"""Tests for the telegram component."""
 
 from __future__ import annotations
 
 import asyncio
 import datetime
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, call, patch
 
 import pytest
+from telegram.constants import ParseMode
 
+from viseron.components.onvif.const import COMPONENT as ONVIF_COMPONENT
 from viseron.components.storage.models import TriggerTypes
-from viseron.components.telegram import TelegramEventNotifier
-from viseron.components.telegram.const import (
-    CONFIG_CAMERAS,
-    CONFIG_DETECTION_LABEL,
-    CONFIG_DETECTION_LABELS,
-    CONFIG_SEND_MESSAGE,
-    CONFIG_SEND_THUMBNAIL,
-    CONFIG_SEND_VIDEO,
-    CONFIG_TELEGRAM_BOT_TOKEN,
-    CONFIG_TELEGRAM_CHAT_IDS,
-    CONFIG_TELEGRAM_LOG_IDS,
-    CONFIG_TELEGRAM_USER_IDS,
-    DEFAULT_DETECTION_LABELS,
-    DEFAULT_SEND_MESSAGE,
-    DEFAULT_TELEGRAM_LOG_IDS,
-    DEFAULT_TELEGRAM_USER_IDS,
+from viseron.components.telegram import (
+    CONFIG_SCHEMA,
+    TelegramEventNotifier,
+    setup,
+    unload,
 )
+from viseron.components.telegram.const import COMPONENT, DATA_NOTIFIER, DATA_PTZ
+from viseron.components.telegram.ptz_control import TelegramPTZ
+from viseron.domains.camera.const import EVENT_RECORDER_COMPLETE
 from viseron.domains.camera.recorder import EventRecorderData, Recording
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.events import Event
-from viseron.helpers.validators import UNDEFINED
+from viseron.exceptions import ComponentNotReady
+from viseron.helpers.config_validation import validate_config
+from viseron.helpers.logs import SensitiveInformationFilter
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+    from pathlib import Path
+
     from tests.conftest import MockViseron
 
-CAMERA_ID = "test_camera"
+    SetUp = Callable[..., TelegramEventNotifier]
+
+CAMERA = "camera_one"
+TOKEN = "123456:AbCdEf"
+CHAT_ID = 1001
 
 
-def make_config(
-    detection_labels: list[str] | None = None,
-    cameras: dict | None = None,
-) -> dict:
-    """Build a minimal TelegramEventNotifier config."""
-    return {
-        CONFIG_TELEGRAM_BOT_TOKEN: "token",
-        CONFIG_TELEGRAM_CHAT_IDS: [123],
-        CONFIG_TELEGRAM_USER_IDS: DEFAULT_TELEGRAM_USER_IDS,
-        CONFIG_TELEGRAM_LOG_IDS: DEFAULT_TELEGRAM_LOG_IDS,
-        CONFIG_DETECTION_LABELS: detection_labels
-        if detection_labels is not None
-        else DEFAULT_DETECTION_LABELS,
-        CONFIG_SEND_THUMBNAIL: False,
-        CONFIG_SEND_VIDEO: False,
-        CONFIG_SEND_MESSAGE: DEFAULT_SEND_MESSAGE,
-        CONFIG_CAMERAS: cameras if cameras is not None else {CAMERA_ID: {}},
+def make_config(*, onvif: bool = False, **keys: Any) -> dict[str, Any]:
+    """Return a whole config with telegram set up with the given keys."""
+    config: dict[str, Any] = {
+        "telegram": {
+            "telegram_bot_token": TOKEN,
+            "telegram_chat_ids": [CHAT_ID],
+            "cameras": {CAMERA: None},
+            **keys,
+        }
     }
+    if onvif:
+        config[ONVIF_COMPONENT] = {"cameras": {CAMERA: {"host": "192.168.1.2"}}}
+    return config
 
 
-def make_detected_object(label: str) -> DetectedObject:
-    """Build a minimal DetectedObject with the given label."""
-    return DetectedObject(
-        label=label,
-        confidence=0.9,
-        x1=0.1,
-        y1=0.1,
-        x2=0.5,
-        y2=0.5,
-        frame_res=(1920, 1080),
-    )
-
-
-def make_recording(objects: list[DetectedObject]) -> Recording:
-    """Build a minimal Recording with the given detected objects."""
-    return Recording(
-        id=1,
-        start_time=datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc),
-        start_timestamp=0.0,
-        end_time=datetime.datetime(2025, 1, 1, 0, 0, 10, tzinfo=datetime.timezone.utc),
-        end_timestamp=10.0,
-        date="2025-01-01",
-        thumbnail=None,
-        thumbnail_path=None,
-        clip_path=None,
-        objects=objects,
-        trigger_type=TriggerTypes.OBJECT,
-    )
-
-
-def make_event(recording: Recording) -> Event[EventRecorderData]:
-    """Build an Event wrapping the given recording."""
-    camera_mock = MagicMock()
-    camera_mock.identifier = CAMERA_ID
-    event_data = EventRecorderData(camera=camera_mock, recording=recording)
-    return Event(name="test", data=event_data, timestamp=0.0)
-
-
-@pytest.fixture
-def notifier(vis: MockViseron) -> Any:
-    """Return a TelegramEventNotifier with mocked internals."""
-    config = make_config()
+@pytest.fixture(name="mocks")
+def fixture_mocks() -> Iterator[SimpleNamespace]:
+    """Patch the Telegram bot and application and the threads of the component."""
     with (
-        patch("viseron.components.telegram.Bot"),
-        patch("viseron.components.telegram.Application"),
+        patch("viseron.components.telegram.Bot") as bot_class,
+        patch("viseron.components.telegram.Application") as application,
+        patch("viseron.components.telegram.RestartableThread") as thread,
+        patch(
+            "viseron.components.telegram.ptz_control.RestartableThread"
+        ) as ptz_thread,
     ):
-        n = TelegramEventNotifier(vis, config)
-    # Replace bot with an AsyncMock so send_* calls can be awaited
-    n._bot = MagicMock()
-    n._bot.send_message = AsyncMock()
-    n._bot.send_video = AsyncMock()
-    n._bot.send_photo = AsyncMock()
-    return n
+        bot = bot_class.return_value
+        bot.send_message = AsyncMock()
+        bot.send_photo = AsyncMock()
+        bot.send_video = AsyncMock()
+        thread.return_value.is_alive.return_value = False
+        ptz_thread.return_value.is_alive.return_value = False
+        yield SimpleNamespace(
+            bot_class=bot_class,
+            bot=bot,
+            application=application,
+            ptz_thread=ptz_thread,
+        )
 
 
-def run_send_notifications(
-    notifier: TelegramEventNotifier, event: Event[EventRecorderData]
-):
-    """Run _send_notifications synchronously via a fresh event loop."""
-    loop = asyncio.new_event_loop()
-    try:
-        loop.run_until_complete(notifier._send_notifications(event))
-    finally:
-        loop.close()
+@pytest.fixture(name="set_up")
+def fixture_set_up(
+    vis: MockViseron,
+    mocks: SimpleNamespace,  # noqa: ARG001  # pylint: disable=unused-argument
+) -> Iterator[SetUp]:
+    """Return a function that sets up telegram with the given keys."""
+    notifiers: list[TelegramEventNotifier] = []
+
+    def _set_up(*, onvif: bool = False, **keys: Any) -> TelegramEventNotifier:
+        config = make_config(onvif=onvif, **keys)
+        # As at startup, vis.config is the whole config and setup gets it validated
+        vis.set_config(config)
+        assert setup(vis, validate_config(CONFIG_SCHEMA, config))
+        notifier = vis.data[COMPONENT][DATA_NOTIFIER]
+        notifiers.append(notifier)
+        return notifier
+
+    yield _set_up
+    unload(vis)
+    for notifier in notifiers:
+        notifier._loop.close()
 
 
-class TestDetectionLabelFiltering:
-    """Tests for detection_label filtering in _send_notifications."""
+def make_event(
+    labels: list[str],
+    *,
+    camera: str = CAMERA,
+    thumbnail_path: str | None = None,
+    clip_path: str | None = None,
+) -> Event[EventRecorderData]:
+    """Return a recorder complete event with objects of the given labels."""
+    camera_mock = MagicMock()
+    camera_mock.identifier = camera
+    start = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+    recording = Recording(
+        id=1,
+        start_time=start,
+        start_timestamp=start.timestamp(),
+        end_time=None,
+        end_timestamp=None,
+        date="2026-01-01",
+        thumbnail=None,
+        thumbnail_path=thumbnail_path,
+        clip_path=clip_path,
+        objects=[
+            DetectedObject(label, 0.9, 0.1, 0.1, 0.5, 0.5, frame_res=(1920, 1080))
+            for label in labels
+        ],
+        trigger_type=TriggerTypes.OBJECT if labels else TriggerTypes.MANUAL,
+    )
+    return Event(
+        name=EVENT_RECORDER_COMPLETE.format(camera_identifier=camera),
+        data=EventRecorderData(camera=camera_mock, recording=recording),
+        timestamp=0.0,
+    )
 
-    def test_sends_when_label_matches_global(self, notifier: Any):
-        """Notification sent when detected object matches global detection_labels."""
-        recording = make_recording([make_detected_object("person")])
-        event = make_event(recording)
-        notifier._config[CONFIG_SEND_MESSAGE] = True
 
-        run_send_notifications(notifier, event)
+def notify(notifier: TelegramEventNotifier, event: Event[EventRecorderData]) -> None:
+    """Let the notifier send the notifications of an event."""
+    asyncio.run(notifier._send_notifications(event))
 
-        notifier._bot.send_message.assert_awaited_once()
 
-    def test_skips_when_label_does_not_match_global(self, notifier: Any):
-        """No notification sent when detected object does not match detection_labels."""
-        recording = make_recording([make_detected_object("car")])
-        event = make_event(recording)
-        notifier._config[CONFIG_DETECTION_LABELS] = ["person"]
-        notifier._config[CONFIG_SEND_MESSAGE] = True
+def make_update(user_id: int, chat_type: str) -> MagicMock:
+    """Return a command sent by a user in a chat of the given type."""
+    update = MagicMock()
+    update.effective_user.id = user_id
+    update.effective_chat.type = chat_type
+    update.message.reply_text = AsyncMock()
+    return update
 
-        run_send_notifications(notifier, event)
 
-        notifier._bot.send_message.assert_not_awaited()
-        notifier._bot.send_video.assert_not_awaited()
-        notifier._bot.send_photo.assert_not_awaited()
+def test_listens_to_recorder_complete_of_each_camera(
+    set_up: SetUp, vis: MockViseron
+) -> None:
+    """A listener is registered for each configured camera."""
+    set_up(cameras={"camera_one": None, "camera_two": None})
+    assert vis.listen_event.call_args_list == [
+        call(EVENT_RECORDER_COMPLETE.format(camera_identifier="camera_one"), ANY),
+        call(EVENT_RECORDER_COMPLETE.format(camera_identifier="camera_two"), ANY),
+    ]
 
-    def test_sends_for_manual_recording_with_no_objects(self, notifier: Any):
-        """Notification always sent when recording has no detected objects."""
-        recording = make_recording([])
-        recording.trigger_type = TriggerTypes.MANUAL
-        event = make_event(recording)
-        notifier._config[CONFIG_DETECTION_LABELS] = ["person"]
-        notifier._config[CONFIG_SEND_MESSAGE] = True
 
-        run_send_notifications(notifier, event)
+def test_token_is_used_in_plain_text(set_up: SetUp, mocks: SimpleNamespace) -> None:
+    """The bot and the application get the token, and logs redact it."""
+    set_up()
+    mocks.bot_class.assert_called_once_with(token=TOKEN)
+    builder = mocks.application.builder.return_value
+    builder.request.return_value.token.assert_called_once_with(TOKEN)
+    assert TOKEN in SensitiveInformationFilter.sensitive_strings
 
-        notifier._bot.send_message.assert_awaited_once()
 
-    def test_comma_separated_labels_match(self, notifier: Any):
-        """Notification sent when comma-separated detection_label matches."""
-        recording = make_recording([make_detected_object("cat")])
-        event = make_event(recording)
-        notifier._config[CONFIG_DETECTION_LABELS] = None
-        notifier._config[CONFIG_DETECTION_LABEL] = "person,cat"
-        notifier._config[CONFIG_SEND_MESSAGE] = True
+def test_active_camera_is_the_first_camera(set_up: SetUp) -> None:
+    """Commands act on the first configured camera until another is selected."""
+    notifier = set_up(cameras={"camera_two": None, "camera_one": None})
+    assert notifier.active_camera_identifier == "camera_two"
 
-        run_send_notifications(notifier, event)
 
-        notifier._bot.send_message.assert_awaited_once()
+def test_no_cameras(set_up: SetUp, vis: MockViseron) -> None:
+    """Without cameras nothing is listened to, and commands have no camera."""
+    notifier = set_up(cameras={}, telegram_user_ids=[5])
+    vis.listen_event.assert_not_called()
+    update = make_update(5, "group")
+    asyncio.run(notifier._which_cam(update, MagicMock()))
+    update.message.reply_text.assert_awaited_once_with("No camera selected.")
 
-    def test_comma_separated_labels_no_match(self, notifier: Any):
-        """No notification when comma-separated detection_label has no match."""
-        recording = make_recording([make_detected_object("car")])
-        event = make_event(recording)
-        notifier._config[CONFIG_DETECTION_LABELS] = None
-        notifier._config[CONFIG_DETECTION_LABEL] = "person,cat"
-        notifier._config[CONFIG_SEND_MESSAGE] = True
 
-        run_send_notifications(notifier, event)
+@pytest.mark.filterwarnings("error::DeprecationWarning")
+@pytest.mark.parametrize(
+    ("keys", "expected"),
+    [
+        pytest.param({}, ["person"], id="default"),
+        pytest.param(
+            {"detection_labels": ["person", "dog"]}, ["person", "dog"], id="global_list"
+        ),
+        pytest.param({"detection_labels": []}, ["person"], id="global_list_empty"),
+        pytest.param(
+            {"detection_label": "person,dog,cat"},
+            ["person", "dog", "cat"],
+            id="global_comma",
+        ),
+        pytest.param(
+            {"detection_label": " person , dog , cat "},
+            ["person", "dog", "cat"],
+            id="global_comma_whitespace",
+        ),
+        pytest.param(
+            {"detection_label": "person,,dog,,,cat"},
+            ["person", "dog", "cat"],
+            id="global_comma_empty_entries",
+        ),
+        pytest.param(
+            {"detection_label": "global_comma", "detection_labels": ["global_list"]},
+            ["global_comma"],
+            id="global_comma_over_global_list",
+        ),
+        pytest.param(
+            {"detection_label": "", "detection_labels": ["global_list"]},
+            ["global_list"],
+            id="global_comma_empty",
+        ),
+        pytest.param(
+            {
+                "detection_labels": ["global"],
+                "cameras": {CAMERA: {"detection_labels": ["camera"]}},
+            },
+            ["camera"],
+            id="camera_list_over_global_list",
+        ),
+        pytest.param(
+            {
+                "detection_label": "global_a,global_b",
+                "cameras": {CAMERA: {"detection_labels": ["camera"]}},
+            },
+            ["camera"],
+            id="camera_list_over_global_comma",
+        ),
+        pytest.param(
+            {
+                "detection_labels": ["global"],
+                "cameras": {CAMERA: {"detection_label": "camera_a,camera_b"}},
+            },
+            ["camera_a", "camera_b"],
+            id="camera_comma_over_global_list",
+        ),
+        pytest.param(
+            {
+                "detection_label": "global",
+                "cameras": {CAMERA: {"detection_label": "camera"}},
+            },
+            ["camera"],
+            id="camera_comma_over_global_comma",
+        ),
+        pytest.param(
+            {
+                "cameras": {
+                    CAMERA: {"detection_label": "comma", "detection_labels": ["list"]}
+                }
+            },
+            ["comma"],
+            id="camera_comma_over_camera_list",
+        ),
+        pytest.param(
+            {"cameras": {CAMERA: {"detection_label": ""}}}, [], id="camera_comma_empty"
+        ),
+        pytest.param(
+            {
+                "detection_labels": ["global"],
+                "cameras": {CAMERA: {"detection_labels": []}},
+            },
+            ["global"],
+            id="camera_list_empty",
+        ),
+        pytest.param(
+            {
+                "detection_labels": ["global"],
+                "cameras": {CAMERA: {"detection_labels": None}},
+            },
+            ["global"],
+            id="camera_list_null",
+        ),
+        pytest.param(
+            {"detection_labels": ["global"], "cameras": {CAMERA: None}},
+            ["global"],
+            id="camera_not_set",
+        ),
+    ],
+)
+def test_detection_labels(
+    set_up: SetUp, keys: dict[str, Any], expected: list[str]
+) -> None:
+    """The camera's labels win over the global ones, detection_label wins per level."""
+    assert set_up(**keys)._get_effective_detection_labels(CAMERA) == expected
 
-        notifier._bot.send_message.assert_not_awaited()
 
-    def test_camera_level_comma_separated_overrides_global(self, notifier: Any):
-        """Camera-level comma-separated labels override global labels."""
-        recording = make_recording([make_detected_object("dog")])
-        event = make_event(recording)
-        notifier._config[CONFIG_DETECTION_LABELS] = ["person"]
-        notifier._config[CONFIG_CAMERAS][CAMERA_ID] = {
-            CONFIG_DETECTION_LABEL: "dog,cat"
+def test_detection_labels_of_unknown_camera(set_up: SetUp) -> None:
+    """A camera that is not configured gets the global labels."""
+    notifier = set_up(detection_labels=["global"])
+    assert notifier._get_effective_detection_labels("unknown_camera") == ["global"]
+
+
+@pytest.mark.parametrize(
+    ("labels", "sent"),
+    [
+        pytest.param(["car", "person"], True, id="match"),
+        pytest.param(["car"], False, id="no_match"),
+        pytest.param([], True, id="no_objects"),
+    ],
+)
+def test_notifies_for_matching_objects(
+    set_up: SetUp, mocks: SimpleNamespace, labels: list[str], sent: bool
+) -> None:
+    """Only recordings with an object of a configured label, or none, notify."""
+    notify(set_up(), make_event(labels))
+    assert mocks.bot.send_message.await_count == (1 if sent else 0)
+
+
+def test_cameras_have_their_own_labels(set_up: SetUp, mocks: SimpleNamespace) -> None:
+    """Each camera is filtered by its own labels."""
+    notifier = set_up(
+        cameras={
+            "camera_one": {"detection_labels": ["person"]},
+            "camera_two": {"detection_labels": ["car"]},
         }
-        notifier._config[CONFIG_SEND_MESSAGE] = True
-
-        run_send_notifications(notifier, event)
-
-        notifier._bot.send_message.assert_awaited_once()
-
-    def test_camera_level_list_overrides_global(self, notifier: Any):
-        """Camera-level list labels override global labels."""
-        recording = make_recording([make_detected_object("dog")])
-        event = make_event(recording)
-        notifier._config[CONFIG_DETECTION_LABELS] = ["person"]
-        notifier._config[CONFIG_CAMERAS][CAMERA_ID] = {
-            CONFIG_DETECTION_LABELS: ["dog", "cat"]
-        }
-        notifier._config[CONFIG_SEND_MESSAGE] = True
-
-        run_send_notifications(notifier, event)
-
-        notifier._bot.send_message.assert_awaited_once()
-
-    def test_camera_comma_separated_overrides_camera_list(self, notifier: Any):
-        """Camera-level comma-separated labels have higher priority than list."""
-        recording = make_recording([make_detected_object("bird")])
-        event = make_event(recording)
-        notifier._config[CONFIG_CAMERAS][CAMERA_ID] = {
-            CONFIG_DETECTION_LABEL: "bird",
-            CONFIG_DETECTION_LABELS: ["person"],
-        }
-        notifier._config[CONFIG_SEND_MESSAGE] = True
-
-        run_send_notifications(notifier, event)
-
-        notifier._bot.send_message.assert_awaited_once()
-
-    def test_multiple_cameras_independent_configs(self, notifier: Any):
-        """Multiple cameras can have independent label configurations."""
-        camera2_id = "camera_2"
-        notifier._config[CONFIG_CAMERAS] = {
-            CAMERA_ID: {CONFIG_DETECTION_LABELS: ["person"]},
-            camera2_id: {CONFIG_DETECTION_LABELS: ["car"]},
-        }
-
-        # Test camera 1 with person
-        recording = make_recording([make_detected_object("person")])
-        event_cam1 = make_event(recording)
-        event_cam1.data.camera.identifier = CAMERA_ID  # type: ignore[misc]
-        notifier._config[CONFIG_SEND_MESSAGE] = True
-
-        run_send_notifications(notifier, event_cam1)
-        notifier._bot.send_message.assert_awaited_once()
-
-        notifier._bot.send_message.reset_mock()
-
-        # Test camera 1 with car (should not send)
-        recording2 = make_recording([make_detected_object("car")])
-        event_cam1_car = make_event(recording2)
-        event_cam1_car.data.camera.identifier = CAMERA_ID  # type: ignore[misc]
-
-        run_send_notifications(notifier, event_cam1_car)
-        notifier._bot.send_message.assert_not_awaited()
+    )
+    notify(notifier, make_event(["person"], camera="camera_two"))
+    mocks.bot.send_message.assert_not_awaited()
+    notify(notifier, make_event(["car"], camera="camera_two"))
+    mocks.bot.send_message.assert_awaited_once()
 
 
-class TestGetEffectiveDetectionLabels:
-    """Unit tests for _get_effective_detection_labels method."""
+def test_message_is_sent_to_each_chat(set_up: SetUp, mocks: SimpleNamespace) -> None:
+    """By default a text message goes to each chat, and nothing else is sent."""
+    notify(set_up(telegram_chat_ids=[1, 2]), make_event(["person"]))
+    assert mocks.bot.send_message.await_args_list == [
+        call(chat_id=1, text=f"Event from {CAMERA}"),
+        call(chat_id=2, text=f"Event from {CAMERA}"),
+    ]
+    mocks.bot.send_photo.assert_not_awaited()
+    mocks.bot.send_video.assert_not_awaited()
 
-    @pytest.fixture
-    def notifier(self, vis: MockViseron) -> Any:
-        """Return a TelegramEventNotifier with mocked internals."""
-        config = make_config()
-        with (
-            patch("viseron.components.telegram.Bot"),
-            patch("viseron.components.telegram.Application"),
-        ):
-            return TelegramEventNotifier(vis, config)
 
-    def test_returns_default_when_no_config(self, notifier: Any):
-        """Returns DEFAULT_DETECTION_LABELS when no config is set."""
-        result = notifier._get_effective_detection_labels(CAMERA_ID)
-        assert result == DEFAULT_DETECTION_LABELS
+def test_message_can_be_turned_off(set_up: SetUp, mocks: SimpleNamespace) -> None:
+    """No text message is sent when send_detection_message is off."""
+    notify(set_up(send_detection_message=False), make_event(["person"]))
+    mocks.bot.send_message.assert_not_awaited()
 
-    def test_global_list_config(self, notifier: Any):
-        """Returns global CONFIG_DETECTION_LABELS when set."""
-        notifier._config[CONFIG_DETECTION_LABELS] = ["person", "dog"]
-        result = notifier._get_effective_detection_labels(CAMERA_ID)
-        assert result == ["person", "dog"]
 
-    def test_global_comma_separated_config(self, notifier: Any):
-        """Parses and returns global CONFIG_DETECTION_LABEL (comma-separated)."""
-        notifier._config[CONFIG_DETECTION_LABELS] = None
-        notifier._config[CONFIG_DETECTION_LABEL] = "person,dog,cat"
-        result = notifier._get_effective_detection_labels(CAMERA_ID)
-        assert result == ["person", "dog", "cat"]
+def test_thumbnail_is_sent(
+    set_up: SetUp, mocks: SimpleNamespace, tmp_path: Path
+) -> None:
+    """The thumbnail is sent when send_detection_thumbnail is on."""
+    thumbnail = tmp_path / "thumbnail.jpg"
+    thumbnail.write_bytes(b"jpg")
+    notify(
+        set_up(send_detection_thumbnail=True),
+        make_event(["person"], thumbnail_path=str(thumbnail)),
+    )
+    mocks.bot.send_photo.assert_awaited_once_with(
+        chat_id=CHAT_ID, photo=ANY, caption=f"Thumbnail for {CAMERA}"
+    )
+    mocks.bot.send_photo.await_args.kwargs["photo"].close()
 
-    def test_comma_separated_with_whitespace(self, notifier: Any):
-        """Trims whitespace from comma-separated labels."""
-        notifier._config[CONFIG_DETECTION_LABELS] = None
-        notifier._config[CONFIG_DETECTION_LABEL] = " person , dog , cat "
-        result = notifier._get_effective_detection_labels(CAMERA_ID)
-        assert result == ["person", "dog", "cat"]
 
-    def test_comma_separated_with_empty_entries(self, notifier: Any):
-        """Removes empty entries from comma-separated labels."""
-        notifier._config[CONFIG_DETECTION_LABELS] = None
-        notifier._config[CONFIG_DETECTION_LABEL] = "person,,dog,,,cat"
-        result = notifier._get_effective_detection_labels(CAMERA_ID)
-        assert result == ["person", "dog", "cat"]
+def test_video_is_sent(set_up: SetUp, mocks: SimpleNamespace, tmp_path: Path) -> None:
+    """The clip is sent when send_detection_video is on."""
+    clip = tmp_path / "clip.mp4"
+    clip.write_bytes(b"mp4")
+    notify(
+        set_up(send_detection_video=True),
+        make_event(["person"], clip_path=str(clip)),
+    )
+    mocks.bot.send_video.assert_awaited_once_with(
+        chat_id=CHAT_ID,
+        thumbnail=None,
+        video=ANY,
+        caption=f"{CAMERA} detected a person",
+    )
 
-    def test_camera_level_list_overrides_global_list(self, notifier: Any):
-        """Camera-level CONFIG_DETECTION_LABELS overrides global list."""
-        notifier._config[CONFIG_DETECTION_LABELS] = ["global_person"]
-        notifier._config[CONFIG_CAMERAS][CAMERA_ID] = {
-            CONFIG_DETECTION_LABELS: ["camera_person"]
-        }
-        result = notifier._get_effective_detection_labels(CAMERA_ID)
-        assert result == ["camera_person"]
 
-    def test_camera_level_list_overrides_global_comma_separated(self, notifier: Any):
-        """Camera-level CONFIG_DETECTION_LABELS overrides global comma-separated."""
-        notifier._config[CONFIG_DETECTION_LABELS] = None
-        notifier._config[CONFIG_DETECTION_LABEL] = "global_person,global_dog"
-        notifier._config[CONFIG_CAMERAS][CAMERA_ID] = {
-            CONFIG_DETECTION_LABELS: ["camera_person"]
-        }
-        result = notifier._get_effective_detection_labels(CAMERA_ID)
-        assert result == ["camera_person"]
+@pytest.mark.parametrize(
+    ("keys", "chat_type", "allowed"),
+    [
+        pytest.param({"telegram_user_ids": [5]}, "group", True, id="listed_user"),
+        pytest.param({"telegram_chat_ids": [5]}, "private", True, id="private_chat"),
+        pytest.param({"telegram_chat_ids": [5]}, "group", False, id="group_chat"),
+        pytest.param({}, "private", False, id="unknown_user"),
+    ],
+)
+def test_access_to_commands(
+    set_up: SetUp, keys: dict[str, Any], chat_type: str, allowed: bool
+) -> None:
+    """Listed users, and chat ids in private chats, may use commands."""
+    update = make_update(5, chat_type)
+    asyncio.run(set_up(**keys)._which_cam(update, MagicMock()))
+    if allowed:
+        update.message.reply_text.assert_awaited_once_with(
+            f"Active camera: <b>{CAMERA}</b>", parse_mode=ParseMode.HTML
+        )
+    else:
+        update.message.reply_text.assert_awaited_once_with(
+            text="Access denied for user 5."
+        )
 
-    def test_camera_comma_separated_overrides_global_list(self, notifier: Any):
-        """Camera-level CONFIG_DETECTION_LABEL overrides global list."""
-        notifier._config[CONFIG_DETECTION_LABELS] = ["global_person"]
-        notifier._config[CONFIG_CAMERAS][CAMERA_ID] = {
-            CONFIG_DETECTION_LABEL: "camera_person,camera_dog"
-        }
-        result = notifier._get_effective_detection_labels(CAMERA_ID)
-        assert result == ["camera_person", "camera_dog"]
 
-    def test_camera_comma_separated_overrides_global_comma_separated(
-        self, notifier: Any
-    ):
-        """Camera-level CONFIG_DETECTION_LABEL overrides global comma-separated."""
-        notifier._config[CONFIG_DETECTION_LABELS] = None
-        notifier._config[CONFIG_DETECTION_LABEL] = "global_person,global_dog"
-        notifier._config[CONFIG_CAMERAS][CAMERA_ID] = {
-            CONFIG_DETECTION_LABEL: "camera_person"
-        }
-        result = notifier._get_effective_detection_labels(CAMERA_ID)
-        assert result == ["camera_person"]
+@pytest.mark.parametrize(
+    ("keys", "logged"),
+    [
+        pytest.param({}, False, id="default"),
+        pytest.param({"telegram_log_ids": True}, True, id="log_ids"),
+    ],
+)
+def test_denied_user_is_logged(
+    set_up: SetUp,
+    caplog: pytest.LogCaptureFixture,
+    keys: dict[str, Any],
+    logged: bool,
+) -> None:
+    """The id of a denied user is logged only when telegram_log_ids is on."""
+    asyncio.run(set_up(**keys)._which_cam(make_update(5, "group"), MagicMock()))
+    assert ("Access denied for user 5." in caplog.text) is logged
 
-    def test_camera_comma_separated_has_priority_over_camera_list(self, notifier: Any):
-        """Camera-level CONFIG_DETECTION_LABEL > CONFIG_DETECTION_LABELS."""
-        notifier._config[CONFIG_CAMERAS][CAMERA_ID] = {
-            CONFIG_DETECTION_LABEL: "comma_label",
-            CONFIG_DETECTION_LABELS: ["list_label"],
-        }
-        result = notifier._get_effective_detection_labels(CAMERA_ID)
-        assert result == ["comma_label"]
 
-    def test_undefined_camera_list_falls_back_to_global(self, notifier: Any):
-        """Undefined camera CONFIG_DETECTION_LABELS falls back to global."""
-        notifier._config[CONFIG_DETECTION_LABELS] = ["global_person"]
-        notifier._config[CONFIG_CAMERAS][CAMERA_ID] = {
-            CONFIG_DETECTION_LABELS: UNDEFINED
-        }
-        result = notifier._get_effective_detection_labels(CAMERA_ID)
-        assert result == ["global_person"]
+def test_no_ptz_without_onvif(set_up: SetUp, vis: MockViseron) -> None:
+    """The PTZ controller is not started when onvif is not configured."""
+    set_up()
+    assert vis.data[COMPONENT][DATA_PTZ] is None
 
-    def test_empty_camera_config_uses_global(self, notifier: Any):
-        """Empty camera config falls back to global config."""
-        notifier._config[CONFIG_DETECTION_LABELS] = ["global_person"]
-        notifier._config[CONFIG_CAMERAS][CAMERA_ID] = {}
-        result = notifier._get_effective_detection_labels(CAMERA_ID)
-        assert result == ["global_person"]
 
-    def test_unknown_camera_uses_global(self, notifier: Any):
-        """Unknown camera identifier uses global config."""
-        notifier._config[CONFIG_DETECTION_LABELS] = ["global_person"]
-        result = notifier._get_effective_detection_labels("unknown_camera")
-        assert result == ["global_person"]
+@pytest.mark.usefixtures("mocks")
+def test_waits_for_onvif(vis: MockViseron) -> None:
+    """Setup is retried while a configured onvif component is not loaded."""
+    config = make_config(onvif=True)
+    vis.set_config(config)
+    with pytest.raises(ComponentNotReady):
+        setup(vis, validate_config(CONFIG_SCHEMA, config))
 
-    def test_priority_order_all_levels(self, notifier: Any):
-        """Test priority order.
 
-        Correct priority order: camera_comma > camera_list > global_comma > global_list.
-        """
-        global_list = ["global_list"]
-        global_comma = "global_comma"
-        camera_list = ["camera_list"]
-        camera_comma = "camera_comma"
+def test_ptz_is_started_with_onvif(
+    set_up: SetUp, vis: MockViseron, mocks: SimpleNamespace
+) -> None:
+    """The PTZ controller is started when onvif is configured and loaded."""
+    vis.data[ONVIF_COMPONENT] = MagicMock()
+    notifier = set_up(onvif=True)
+    ptz = vis.data[COMPONENT][DATA_PTZ]
+    assert isinstance(ptz, TelegramPTZ)
+    assert ptz._telegram is notifier
+    mocks.ptz_thread.return_value.start.assert_called_once()
 
-        # Test 1: Only global list
-        notifier._config[CONFIG_DETECTION_LABELS] = global_list
-        notifier._config[CONFIG_DETECTION_LABEL] = None
-        notifier._config[CONFIG_CAMERAS][CAMERA_ID] = {}
-        assert notifier._get_effective_detection_labels(CAMERA_ID) == global_list
 
-        # Test 2: Global comma overrides global list
-        notifier._config[CONFIG_DETECTION_LABELS] = global_list
-        notifier._config[CONFIG_DETECTION_LABEL] = global_comma
-        notifier._config[CONFIG_CAMERAS][CAMERA_ID] = {}
-        assert notifier._get_effective_detection_labels(CAMERA_ID) == [global_comma]
-
-        # Test 3: Camera list overrides both global
-        notifier._config[CONFIG_DETECTION_LABELS] = global_list
-        notifier._config[CONFIG_DETECTION_LABEL] = global_comma
-        notifier._config[CONFIG_CAMERAS][CAMERA_ID] = {
-            CONFIG_DETECTION_LABELS: camera_list
-        }
-        assert notifier._get_effective_detection_labels(CAMERA_ID) == camera_list
-
-        # Test 4: Camera comma overrides everything
-        notifier._config[CONFIG_DETECTION_LABELS] = global_list
-        notifier._config[CONFIG_DETECTION_LABEL] = global_comma
-        notifier._config[CONFIG_CAMERAS][CAMERA_ID] = {
-            CONFIG_DETECTION_LABELS: camera_list,
-            CONFIG_DETECTION_LABEL: camera_comma,
-        }
-        assert notifier._get_effective_detection_labels(CAMERA_ID) == [camera_comma]
-
-    def test_single_item_comma_separated(self, notifier: Any):
-        """Handles single item in comma-separated string."""
-        notifier._config[CONFIG_DETECTION_LABELS] = None
-        notifier._config[CONFIG_DETECTION_LABEL] = "person"
-        result = notifier._get_effective_detection_labels(CAMERA_ID)
-        assert result == ["person"]
-
-    def test_camera_single_item_comma_separated(self, notifier: Any):
-        """Handles single item in camera-level comma-separated string."""
-        notifier._config[CONFIG_DETECTION_LABELS] = ["global"]
-        notifier._config[CONFIG_CAMERAS][CAMERA_ID] = {
-            CONFIG_DETECTION_LABEL: "camera_person"
-        }
-        result = notifier._get_effective_detection_labels(CAMERA_ID)
-        assert result == ["camera_person"]
+@pytest.mark.parametrize(
+    ("keys", "allowed"),
+    [
+        pytest.param({"telegram_user_ids": [5]}, True, id="listed_user"),
+        pytest.param({}, False, id="unknown_user"),
+    ],
+)
+def test_access_to_ptz_commands(
+    set_up: SetUp, vis: MockViseron, keys: dict[str, Any], allowed: bool
+) -> None:
+    """PTZ commands check access against the telegram config."""
+    onvif = MagicMock()
+    onvif.get_ptz_service.return_value.goto_home_position = AsyncMock(return_value=True)
+    vis.data[ONVIF_COMPONENT] = onvif
+    set_up(onvif=True, **keys)
+    update = make_update(5, "group")
+    asyncio.run(vis.data[COMPONENT][DATA_PTZ]._home(update, MagicMock()))
+    if allowed:
+        update.message.reply_text.assert_awaited_once_with(
+            f"<b>HOME</b> executed for {CAMERA}", parse_mode=ParseMode.HTML
+        )
+    else:
+        update.message.reply_text.assert_awaited_once_with(
+            text="Access denied for user 5."
+        )
