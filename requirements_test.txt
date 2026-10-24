@@ -1,5 +1,5 @@
 coverage===7.16.2
-filelock==4.1.0
+filelock==4.2.1
 pre-commit==4.6.2
 pylint==4.1.2
 pylint-strict-informational==0.1
