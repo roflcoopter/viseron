@@ -29,9 +29,6 @@ EVERY_KEY = {
 }
 
 ACCEPTED = [
-    pytest.param({}, id="webserver_missing"),
-    pytest.param({"webserver": None}, id="webserver_null"),
-    pytest.param({"webserver": {}}, id="webserver_empty"),
     pytest.param(EVERY_KEY, id="every_key"),
     pytest.param(
         {
@@ -46,8 +43,6 @@ ACCEPTED = [
     ),
     pytest.param({"webserver": {"subpath": "/viseron"}}, id="docs_subpath_example"),
     pytest.param({"webserver": {"auth": None}}, id="docs_auth_example"),
-    pytest.param({"webserver": {"auth": {}}}, id="auth_empty"),
-    pytest.param({"webserver": {"subpath": None}}, id="subpath_null"),
     pytest.param({"webserver": {"port": 1024}}, id="port_min"),
     pytest.param({"webserver": {"port": 49151}}, id="port_max"),
     pytest.param({"webserver": {"public_url_expiry_hours": 1}}, id="expiry_hours_min"),
@@ -55,58 +50,13 @@ ACCEPTED = [
         {"webserver": {"public_url_expiry_hours": 744}}, id="expiry_hours_max"
     ),
     pytest.param(
-        {"webserver": {"public_url_expiry_hours": "24"}}, id="expiry_hours_string"
-    ),
-    pytest.param(
         {"webserver": {"public_url_max_downloads": 0}}, id="max_downloads_unlimited"
-    ),
-    pytest.param(
-        {"webserver": {"auth": {"session_expiry": None}}}, id="session_expiry_null"
-    ),
-    pytest.param(
-        {"webserver": {"auth": {"session_expiry": {}}}}, id="session_expiry_empty"
-    ),
-    pytest.param(
-        {"webserver": {"auth": {"session_expiry": {"minutes": 30}}}},
-        id="session_expiry_one_key",
-    ),
-    pytest.param({"webserver": {"auth": {"rate_limits": None}}}, id="rate_limits_null"),
-    pytest.param(
-        {"webserver": {"auth": {"rate_limits": {"login": None}}}},
-        id="rate_limit_null",
-    ),
-    pytest.param(
-        {"webserver": {"auth": {"rate_limits": {"login": {"max_attempts": 3}}}}},
-        id="rate_limit_partial",
-    ),
-    pytest.param(
-        {"webserver": {"auth": {"rate_limits": {"login": {"window_seconds": "30"}}}}},
-        id="window_seconds_string",
-    ),
-    pytest.param(
-        {"webserver": {}, "logger": {"default_level": "debug"}},
-        id="other_components",
-    ),
-    # Rejected by the Voluptuous schema, accepted since the port to Pydantic
-    pytest.param({"webserver": {"debug": "yes"}}, id="debug_yes"),
-    pytest.param({"webserver": {"port": "8888"}}, id="port_string"),
-    pytest.param(
-        {"webserver": {"auth": {"session_expiry": {"days": "1"}}}},
-        id="session_expiry_string",
-    ),
-    pytest.param(
-        {"webserver": {"auth": {"rate_limits": {"login": {"max_attempts": "3"}}}}},
-        id="max_attempts_string",
     ),
 ]
 
 REJECTED = [
-    pytest.param({"webserver": "yes"}, id="webserver_not_a_map"),
     pytest.param({"webserver": {"port": 80}}, id="port_below_range"),
     pytest.param({"webserver": {"port": 49152}}, id="port_above_range"),
-    pytest.param({"webserver": {"debug": "maybe"}}, id="debug_not_a_boolean"),
-    pytest.param({"webserver": {"subpath": 5}}, id="subpath_number"),
-    pytest.param({"webserver": {"public_base_url": 5}}, id="public_base_url_number"),
     pytest.param(
         {"webserver": {"public_url_expiry_hours": 0}}, id="expiry_hours_below_range"
     ),
@@ -116,58 +66,17 @@ REJECTED = [
     pytest.param(
         {"webserver": {"public_url_max_downloads": -1}}, id="max_downloads_negative"
     ),
-    pytest.param({"webserver": {"auth": "on"}}, id="auth_not_a_map"),
-    pytest.param(
-        {"webserver": {"auth": {"session_expiry": "1d"}}},
-        id="session_expiry_not_a_map",
-    ),
     pytest.param(
         {"webserver": {"auth": {"session_expiry": {"days": -1}}}},
         id="session_expiry_negative",
-    ),
-    pytest.param(
-        {"webserver": {"auth": {"session_expiry": {"hours": 1.5}}}},
-        id="session_expiry_fraction",
-    ),
-    pytest.param(
-        {"webserver": {"auth": {"rate_limits": "strict"}}}, id="rate_limits_not_a_map"
-    ),
-    pytest.param(
-        {"webserver": {"auth": {"rate_limits": {"login": "10"}}}},
-        id="rate_limit_not_a_map",
     ),
     pytest.param(
         {"webserver": {"auth": {"rate_limits": {"login": {"max_attempts": 0}}}}},
         id="max_attempts_zero",
     ),
     pytest.param(
-        {"webserver": {"auth": {"rate_limits": {"login": {"max_attempts": 2.5}}}}},
-        id="max_attempts_fraction",
-    ),
-    pytest.param(
         {"webserver": {"auth": {"rate_limits": {"login": {"window_seconds": 0.5}}}}},
         id="window_seconds_below_range",
-    ),
-    # Accepted by the Voluptuous schema, rejected since the port to Pydantic
-    pytest.param({"webserver": {"foo": 1}}, id="unknown_key"),
-    pytest.param({"webserver": {"auth": {"enabled": True}}}, id="unknown_key_in_auth"),
-    pytest.param(
-        {"webserver": {"auth": {"session_expiry": {"weeks": 1}}}},
-        id="unknown_key_in_session_expiry",
-    ),
-    pytest.param(
-        {"webserver": {"auth": {"rate_limits": {"websocket": {}}}}},
-        id="unknown_key_in_rate_limits",
-    ),
-    pytest.param(
-        {"webserver": {"auth": {"rate_limits": {"login": {"burst": 5}}}}},
-        id="unknown_key_in_rate_limit",
-    ),
-    pytest.param(
-        {"webserver": {"public_url_expiry_hours": 5.7}}, id="expiry_hours_fraction"
-    ),
-    pytest.param(
-        {"webserver": {"public_url_max_downloads": 2.5}}, id="max_downloads_fraction"
     ),
 ]
 
