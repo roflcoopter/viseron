@@ -25,6 +25,10 @@ Getting started is easy! You simply spin up a Docker container and edit the conf
 
 Head over to the [documentation](https://viseron.netlify.app) and follow the instructions on how to get started.
 
+# One-click deploy
+
+[![Deploy on RepoCloud](https://d16t0pc4846x52.cloudfront.net/deploylobe.svg)](https://repocloud.io/details/Viseron/)
+
 # Components
 
 Viserons functionality is enabled by [components](https://viseron.netlify.app/docs/documentation/configuration#components).
