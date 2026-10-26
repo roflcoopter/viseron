@@ -1,4 +1,4 @@
-import { Page, expect, test } from "@playwright/test";
+import { Locator, Page, expect, test } from "@playwright/test";
 
 // The app awaits worker.start() before rendering, so its own requests are
 // always mocked. A raw fetch issued from the test can still outrun the service
@@ -76,4 +76,32 @@ test("renders the mocked snapshots on the camera cards", async ({
       ),
     )
     .toEqual([true, true, true]);
+});
+
+const currentTime = (video: Locator) =>
+  video.evaluate((element: HTMLVideoElement) => element.currentTime);
+
+test("plays a mocked recording", async ({ page }: { page: Page }) => {
+  await page.goto("/#/recordings", { waitUntil: "domcontentloaded" });
+
+  await page.getByTestId("player-play-pause-button").first().click();
+
+  // currentTime only advances once the browser has decoded the segments.
+  await expect
+    .poll(() => currentTime(page.locator("video").first()))
+    .toBeGreaterThan(0);
+});
+
+test("plays the mocked events timeline", async ({ page }: { page: Page }) => {
+  const timestamp = Math.floor(Date.now() / 1000);
+  await page.goto(`/#/events?tab=timeline&timestamp=${timestamp}`, {
+    waitUntil: "domcontentloaded",
+  });
+  const video = page.locator("video").first();
+
+  // The player seeks to the requested timestamp before it starts playing.
+  await expect.poll(() => currentTime(video)).toBeGreaterThan(0);
+  const start = await currentTime(video);
+
+  await expect.poll(() => currentTime(video)).toBeGreaterThan(start + 5);
 });

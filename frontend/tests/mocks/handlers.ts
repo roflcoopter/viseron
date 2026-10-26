@@ -1,205 +1,48 @@
 import { HttpResponse, http } from "msw";
 import { getDayjs } from "tests/mocks/clock";
+import {
+  type VideoLoader,
+  recordingPlaylistResponse,
+  timePeriodPlaylistResponse,
+} from "tests/mocks/helpers/hls";
+import { mockLogs } from "tests/mocks/helpers/logs";
+import {
+  type TimelapseGap,
+  timelapseDatesOfInterestResponse,
+  timelapseFramesResponse,
+  timelapseSummaryResponse,
+} from "tests/mocks/helpers/timelapse";
 
 import type {
   PtzNodesResponse,
   PtzPresetsResponse,
 } from "lib/api/actions/onvif/types";
-import type { LogEntry, LogsResponse } from "lib/api/logger";
+import type { LogsResponse } from "lib/api/logger";
 import * as types from "lib/types";
 
 export const API_BASE_URL = "/api/v1";
 
-const MOCK_LOG_LINES: {
-  level: LogEntry["level"];
-  name: string;
-  message: string;
-}[] = [
-  {
-    level: "info",
-    name: "viseron.components",
-    message: "Setting up component ffmpeg",
-  },
-  {
-    level: "debug",
-    name: "viseron.components.ffmpeg.camera.camera1",
-    message:
-      "FFmpeg command: ffmpeg -hide_banner -loglevel error -rtsp_transport tcp " +
-      "-i rtsp://***:***@192.168.1.10:554/Streaming/Channels/101",
-  },
-  {
-    level: "info",
-    name: "viseron.components.ffmpeg.camera.camera1",
-    message: "Camera 1 connected, resolution 1920x1080 @ 20 FPS",
-  },
-  {
-    level: "info",
-    name: "viseron.components.darknet",
-    message: "Using CUDA backend for object detection",
-  },
-  {
-    level: "warning",
-    name: "viseron.components.ffmpeg.camera.camera2",
-    message: "Timeout waiting for frame, restarting camera",
-  },
-  {
-    level: "info",
-    name: "viseron.domains.motion_detector.camera2",
-    message: "Motion detected, max area 0.14",
-  },
-  {
-    level: "debug",
-    name: "viseron.components.darknet.object_detector.camera2",
-    message: "Objects detected: person 0.91, car 0.63",
-  },
-  {
-    level: "info",
-    name: "viseron.domains.camera.recorder.camera2",
-    message: "Starting recorder for camera2, trigger type object",
-  },
-  {
-    level: "error",
-    name: "viseron.components.ffmpeg.camera.camera3",
-    message: "Error starting camera: Connection refused",
-  },
-  {
-    level: "critical",
-    name: "viseron.components",
-    message: "Failed to setup component edgetpu, entering safe mode",
-  },
-  {
-    level: "debug",
-    name: "viseron.components.storage.tier_handler",
-    message:
-      "Moving /segments/camera2/1717430400.m4s to /segments_cold/camera2",
-  },
-  {
-    level: "info",
-    name: "viseron.components.storage.tier_handler",
-    message: "Tier /segments is 82% full, running cleanup",
-  },
-  {
-    level: "info",
-    name: "viseron.domains.camera.recorder.camera2",
-    message: "Stopping recorder for camera2, recording id 1043",
-  },
-  {
-    level: "info",
-    name: "viseron.components.webserver",
-    message: "Starting webserver on port 8888",
-  },
-];
-
-// Build a log feed by repeating the sample lines, newest last, one second apart
-const mockLogs = (): LogEntry[] => {
-  const start = getDayjs().subtract(MOCK_LOG_LINES.length * 4, "second");
-  return Array.from({ length: MOCK_LOG_LINES.length * 4 }, (_, index) => {
-    const line = MOCK_LOG_LINES[index % MOCK_LOG_LINES.length];
-    const timestamp = start.add(index, "second");
-    return {
-      id: `${timestamp.valueOf()}_${line.level}_${line.name}_${index}`,
-      timestamp: timestamp.format("YYYY-MM-DD HH:mm:ss.SSS"),
-      timestamp_unix_ms: timestamp.valueOf(),
-      level: line.level,
-      name: line.name,
-      message: line.message,
-      raw: `${timestamp.format("YYYY-MM-DD HH:mm:ss.SSS")} [${line.level?.toUpperCase()}] [${line.name}] - ${line.message}`,
-    };
-  });
-};
-
 export type SnapshotLoader = (cameraIdentifier: string) => Promise<ArrayBuffer>;
-
-const TIMELAPSE_CAMERAS = ["camera1", "camera2"];
-// A frame every 5 minutes for the last week
-const TIMELAPSE_INTERVAL = 300;
-const TIMELAPSE_DAYS = 7;
-
-const timelapseFrame = (
-  camera_identifier: string,
-  timestamp: number,
-): types.TimelapseFrame => ({
-  file_key: timestamp,
-  timestamp,
-  path: `/file/${camera_identifier}/${timestamp.toString(16)}`,
-});
-
-// Periods without frames, as UNIX timestamps
-export type TimelapseGap = { start: number; end: number };
-
-const timelapseTimestamps = (
-  start: number,
-  end: number,
-  gaps: TimelapseGap[] = [],
-) => {
-  const now = getDayjs().unix();
-  const first = Math.max(start, now - TIMELAPSE_DAYS * 86400);
-  const last = Math.min(end, now);
-  const timestamps: number[] = [];
-  for (
-    let timestamp = Math.ceil(first / TIMELAPSE_INTERVAL) * TIMELAPSE_INTERVAL;
-    timestamp <= last;
-    timestamp += TIMELAPSE_INTERVAL
-  ) {
-    if (!gaps.some((gap) => timestamp >= gap.start && timestamp < gap.end)) {
-      timestamps.push(timestamp);
-    }
-  }
-  return timestamps;
-};
-
-const timelapseSummary = (
-  camera_identifier: string,
-): types.TimelapseCameraSummary => {
-  const now = getDayjs().unix();
-  const timestamps = timelapseTimestamps(0, now);
-  const last = timestamps[timestamps.length - 1];
-  return {
-    camera_identifier,
-    count: timestamps.length,
-    first_timestamp: timestamps[0],
-    last_timestamp: last,
-    latest_frame: timelapseFrame(camera_identifier, last),
-  };
-};
 
 export const timelapseFramesHandler = (gaps: TimelapseGap[] = []) =>
   http.get(
     `${API_BASE_URL}/timelapse/:camera_identifier`,
     ({ params, request }) => {
-      const camera_identifier = String(params.camera_identifier);
-      if (!TIMELAPSE_CAMERAS.includes(camera_identifier)) {
-        return HttpResponse.json(
-          { status: 404, error: "Not Found" },
-          { status: 404 },
-        );
-      }
       const searchParams = new URL(request.url).searchParams;
-      const start = Number(searchParams.get("start"));
-      const end = Number(searchParams.get("end"));
-      const maxFrames = Number(searchParams.get("max_frames") ?? 1800);
-      const timestamps = timelapseTimestamps(start, end, gaps);
-      // Downsample like the backend, keeping every nth frame
-      const every = Math.ceil(timestamps.length / maxFrames);
-      const frames = timestamps
-        .filter((_timestamp, index) => index % every === 0)
-        .map((timestamp) => timelapseFrame(camera_identifier, timestamp));
-      return HttpResponse.json({
-        camera_identifier,
-        start,
-        end,
-        step: every > 1 ? every * TIMELAPSE_INTERVAL : null,
-        total: timestamps.length,
-        frames,
-        stream:
-          frames.length > 0
-            ? { fps: 15, segment_frames: 60, width: 1280, height: 720 }
-            : null,
-      } as types.TimelapseFramesResponse);
+      return timelapseFramesResponse(
+        String(params.camera_identifier),
+        Number(searchParams.get("start")),
+        Number(searchParams.get("end")),
+        Number(searchParams.get("max_frames") ?? 1800),
+        gaps,
+      );
     },
   );
 
-export const createHandlers = (loadSnapshot: SnapshotLoader) => [
+export const createHandlers = (
+  loadSnapshot: SnapshotLoader,
+  loadVideo: VideoLoader,
+) => [
   http.get(`${API_BASE_URL}/auth/enabled`, () =>
     HttpResponse.json(
       { enabled: true, onboarding_complete: true },
@@ -580,6 +423,35 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
     HttpResponse.json({}, { status: 200 }),
   ),
 
+  http.get(`${API_BASE_URL}/events/:camera_identifier`, () =>
+    HttpResponse.json<types.CameraEvents>({ events: [] }, { status: 200 }),
+  ),
+
+  http.get(
+    `${API_BASE_URL}/hls/:camera_identifier/index.m3u8`,
+    ({ params, request }) =>
+      timePeriodPlaylistResponse(
+        loadVideo,
+        String(params.camera_identifier),
+        Number(new URL(request.url).searchParams.get("start_timestamp")),
+      ),
+  ),
+  http.get(
+    `${API_BASE_URL}/hls/:camera_identifier/:recording_id/index.m3u8`,
+    ({ params }) =>
+      recordingPlaylistResponse(loadVideo, String(params.camera_identifier)),
+  ),
+
+  http.get("/files/segments/:camera/:file", async ({ params }) =>
+    HttpResponse.arrayBuffer(
+      await loadVideo.load(`${String(params.camera)}/${String(params.file)}`),
+      {
+        status: 200,
+        headers: { "Content-Type": "video/mp4" },
+      },
+    ),
+  ),
+
   // Profile
   http.get(`${API_BASE_URL}/profile/available_timezones`, () =>
     HttpResponse.json(
@@ -881,34 +753,11 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
   ),
 
   // Timelapse
-  http.get(`${API_BASE_URL}/timelapse`, () =>
-    HttpResponse.json({
-      cameras: Object.fromEntries(
-        TIMELAPSE_CAMERAS.map((camera_identifier) => [
-          camera_identifier,
-          timelapseSummary(camera_identifier),
-        ]),
-      ),
-    } as types.TimelapseSummaryResponse),
-  ),
+  http.get(`${API_BASE_URL}/timelapse`, () => timelapseSummaryResponse()),
   timelapseFramesHandler(),
   http.get(
     `${API_BASE_URL}/timelapse/:camera_identifier/dates_of_interest`,
-    () => {
-      const now = getDayjs();
-      const framesPerDay = 86400 / TIMELAPSE_INTERVAL;
-      const framesToday = Math.floor(
-        now.diff(now.startOf("day"), "second") / TIMELAPSE_INTERVAL,
-      );
-      return HttpResponse.json({
-        dates_of_interest: Object.fromEntries(
-          Array.from({ length: TIMELAPSE_DAYS + 1 }, (_, day) => [
-            now.subtract(day, "day").format("YYYY-MM-DD"),
-            { frames: day === 0 ? framesToday : framesPerDay },
-          ]),
-        ),
-      } as types.TimelapseDatesOfInterest);
-    },
+    () => timelapseDatesOfInterestResponse(),
   ),
   http.get("/file/:camera_identifier/:file_key", async ({ params }) => {
     const buffer = await loadSnapshot(String(params.camera_identifier));
