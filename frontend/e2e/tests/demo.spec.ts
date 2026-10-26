@@ -78,6 +78,20 @@ test("renders the mocked snapshots on the camera cards", async ({
     .toEqual([true, true, true]);
 });
 
+test("renders the mocked thumbnails on the recording cards", async ({
+  page,
+}: {
+  page: Page;
+}) => {
+  // A poster has no load state to poll, so check the response it requested.
+  const thumbnail = page.waitForResponse(/\/files\/tier1\/thumbnails\//);
+  await page.goto("/#/recordings", { waitUntil: "domcontentloaded" });
+
+  const response = await thumbnail;
+  expect(response.status()).toBe(200);
+  expect(response.headers()["content-type"]).toBe("image/jpeg");
+});
+
 const currentTime = (video: Locator) =>
   video.evaluate((element: HTMLVideoElement) => element.currentTime);
 

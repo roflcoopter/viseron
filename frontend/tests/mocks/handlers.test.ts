@@ -43,6 +43,17 @@ describe("createHandlers", () => {
     expect(loadSnapshot).toHaveBeenCalledWith("camera1");
   });
 
+  it("serves recording thumbnails from the camera snapshot", async () => {
+    const loadSnapshot = stubLoader();
+    server.use(...createHandlers(loadSnapshot, nodeVideoLoader));
+
+    const response = await fetch(url("/files/tier1/thumbnails/camera2/4.jpg"));
+
+    expect(response.headers.get("Content-Type")).toBe("image/jpeg");
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(STUB_BYTES);
+    expect(loadSnapshot).toHaveBeenCalledWith("camera2");
+  });
+
   it("serves video segments from the injected loader", async () => {
     const loadVideo = stubLoader();
     server.use(

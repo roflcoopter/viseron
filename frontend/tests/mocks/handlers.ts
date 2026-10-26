@@ -442,6 +442,13 @@ export const createHandlers = (
       recordingPlaylistResponse(loadVideo, String(params.camera_identifier)),
   ),
 
+  // Recording thumbnails reuse the camera snapshot
+  http.get("/files/:tier/thumbnails/:camera/:file", async ({ params }) =>
+    HttpResponse.arrayBuffer(await loadSnapshot(String(params.camera)), {
+      status: 200,
+      headers: { "Content-Type": "image/jpeg" },
+    }),
+  ),
   http.get("/files/segments/:camera/:file", async ({ params }) =>
     HttpResponse.arrayBuffer(
       await loadVideo.load(`${String(params.camera)}/${String(params.file)}`),
