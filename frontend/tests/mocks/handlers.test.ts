@@ -4,6 +4,8 @@ import { nodeVideoLoader } from "tests/mocks/nodeVideoLoader";
 import { server } from "tests/mocks/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import * as types from "lib/types";
+
 const STUB_BYTES = new Uint8Array([1, 2, 3, 4]);
 const JPEG_MAGIC = new Uint8Array([0xff, 0xd8, 0xff]);
 
@@ -165,6 +167,88 @@ describe("hls playlists", () => {
     );
 
     expect(segmentSequence(await response.text())).toBe("0 1 2");
+  });
+});
+
+describe("events", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  const fetchEvents = async (query: string) =>
+    (
+      (await (
+        await fetch(url(`${API_BASE_URL}/events/camera1?${query}`))
+      ).json()) as types.CameraEvents
+    ).events;
+
+  it("populates a day with events that have finished by now", async () => {
+    vi.stubEnv("PLAYWRIGHT_FIXED_TIME", FIXED_TIME);
+
+    const events = await fetchEvents("date=2026-09-20");
+    const motion = events.filter((event) => event.type === "motion");
+
+    // Every 30 minutes from 00:05 until 17:35
+    expect(motion).toHaveLength(36);
+    expect(new Set(events.map((event) => event.type))).toEqual(
+      new Set([
+        "motion",
+        "recording",
+        "object",
+        "face_recognition",
+        "license_plate_recognition",
+        "image_classification",
+      ]),
+    );
+    expect(
+      events.every(
+        (event) =>
+          event.created_at_timestamp >= NOW - 18 * 3600 &&
+          event.created_at_timestamp < NOW,
+      ),
+    ).toBe(true);
+  });
+
+  it("filters by time range and stops after a week", async () => {
+    vi.stubEnv("PLAYWRIGHT_FIXED_TIME", FIXED_TIME);
+
+    const events = await fetchEvents(`time_from=${NOW - 3600}&time_to=${NOW}`);
+
+    // The 17:05 and 17:35 events
+    expect(events.filter((event) => event.type === "motion")).toHaveLength(2);
+    expect(await fetchEvents("date=2026-09-01")).toEqual([]);
+  });
+
+  it("counts the events per day for the requested cameras", async () => {
+    vi.stubEnv("PLAYWRIGHT_FIXED_TIME", FIXED_TIME);
+
+    const response = await fetch(
+      url(`${API_BASE_URL}/events/dates_of_interest`),
+      {
+        method: "POST",
+        body: JSON.stringify({ camera_identifiers: ["camera1"] }),
+      },
+    );
+    const { dates_of_interest } =
+      (await response.json()) as types.EventsDatesOfInterest;
+
+    expect(dates_of_interest["2026-09-20"]).toEqual({
+      events: (await fetchEvents("date=2026-09-20")).length,
+      timespan_available: true,
+    });
+    expect(Object.keys(dates_of_interest)).toHaveLength(8);
+  });
+
+  it("serves event snapshots from the camera snapshot", async () => {
+    const loadSnapshot = stubLoader();
+    server.use(...createHandlers(loadSnapshot, nodeVideoLoader));
+
+    const response = await fetch(
+      url("/files/tier1/snapshots/camera3/object-5.jpg"),
+    );
+
+    expect(response.headers.get("Content-Type")).toBe("image/jpeg");
+    expect(loadSnapshot).toHaveBeenCalledWith("camera3");
   });
 });
 

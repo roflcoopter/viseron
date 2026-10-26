@@ -92,6 +92,40 @@ test("renders the mocked thumbnails on the recording cards", async ({
   expect(response.headers()["content-type"]).toBe("image/jpeg");
 });
 
+// naturalWidth is only non-zero once the browser has decoded the response
+const loadedImages = (images: Locator) =>
+  images.evaluateAll<number, void, HTMLImageElement>(
+    (elements) =>
+      elements.filter((image) => image.complete && image.naturalWidth > 0)
+        .length,
+  );
+
+test("lists the mocked events", async ({ page }: { page: Page }) => {
+  await page.goto("/#/events?tab=events", { waitUntil: "domcontentloaded" });
+
+  await expect
+    .poll(() => loadedImages(page.locator('img[src*="/files/tier1/"]')))
+    .toBeGreaterThan(0);
+});
+
+test("renders the mocked events on the timeline", async ({
+  page,
+}: {
+  page: Page;
+}) => {
+  await page.goto("/#/events?tab=timeline", { waitUntil: "domcontentloaded" });
+
+  await expect(page.getByRole("tab", { name: "Timeline" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect
+    .poll(() =>
+      loadedImages(page.locator('img[src*="/files/tier1/snapshots/"]')),
+    )
+    .toBeGreaterThan(0);
+});
+
 const currentTime = (video: Locator) =>
   video.evaluate((element: HTMLVideoElement) => element.currentTime);
 

@@ -1,6 +1,10 @@
 import { HttpResponse, http } from "msw";
 import { getDayjs } from "tests/mocks/clock";
 import {
+  cameraEventsResponse,
+  eventsDatesOfInterestResponse,
+} from "tests/mocks/helpers/events";
+import {
   type VideoLoader,
   recordingPlaylistResponse,
   timePeriodPlaylistResponse,
@@ -423,8 +427,17 @@ export const createHandlers = (
     HttpResponse.json({}, { status: 200 }),
   ),
 
-  http.get(`${API_BASE_URL}/events/:camera_identifier`, () =>
-    HttpResponse.json<types.CameraEvents>({ events: [] }, { status: 200 }),
+  http.get(`${API_BASE_URL}/events/:camera_identifier`, ({ params, request }) =>
+    cameraEventsResponse(
+      String(params.camera_identifier),
+      new URL(request.url).searchParams,
+    ),
+  ),
+  http.post(`${API_BASE_URL}/events/dates_of_interest`, async ({ request }) =>
+    eventsDatesOfInterestResponse(
+      ((await request.json()) as { camera_identifiers: string[] })
+        .camera_identifiers,
+    ),
   ),
 
   http.get(
@@ -442,8 +455,8 @@ export const createHandlers = (
       recordingPlaylistResponse(loadVideo, String(params.camera_identifier)),
   ),
 
-  // Recording thumbnails reuse the camera snapshot
-  http.get("/files/:tier/thumbnails/:camera/:file", async ({ params }) =>
+  // Recording thumbnails and event snapshots reuse the camera snapshot
+  http.get("/files/:tier/:category/:camera/:file", async ({ params }) =>
     HttpResponse.arrayBuffer(await loadSnapshot(String(params.camera)), {
       status: 200,
       headers: { "Content-Type": "image/jpeg" },
