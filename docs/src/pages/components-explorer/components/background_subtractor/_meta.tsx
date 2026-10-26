@@ -9,7 +9,8 @@ const ComponentMetadata: Component = {
   tags: ["motion_detector"],
   category: null,
   path: "viseron/components/background_subtractor",
-  issue: 'background_subtractor OR label:"component: background_subtractor" OR label:"domain: motion_detector"',
+  issue:
+    'background_subtractor OR label:"component: background_subtractor" OR label:"domain: motion_detector"',
 };
 
 export default ComponentMetadata;

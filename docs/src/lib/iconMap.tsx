@@ -4,11 +4,11 @@ import {
   Chip,
   ConnectionSignal,
   FaceActivated,
-  WatsonHealth3DMprToggle,
-  VisualRecognition,
   Movement,
   Notification,
   Video,
+  VisualRecognition,
+  WatsonHealth3DMprToggle,
   WirelessCheckout,
 } from "@carbon/icons-react";
 import type { CarbonIconType } from "@carbon/icons-react";
