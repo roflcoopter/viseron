@@ -16,7 +16,7 @@ pytest-testinfra==10.2.2
 docker==7.2.0
 vulture==2.16
 
-# The following libraries has to be kept in sync with .pre-commit-config.yaml
+# Used by the local hooks in .pre-commit-config.yaml
 ruff==0.17.0
 autoflake==2.4.0
 codespell==2.4.3
