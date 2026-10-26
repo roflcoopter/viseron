@@ -35,6 +35,8 @@ from .request_handler import ViseronRequestHandler
 LOGGER = logging.getLogger(__name__)
 
 BOUNDARY = "jpgboundary"
+CONTENT_TYPE_MULTIPART = f"multipart/x-mixed-replace; boundary={BOUNDARY}"
+CONTENT_TYPE_OCTET_STREAM = "application/octet-stream"
 MAX_CAMERA_LOOKUP_TRIES = 60
 
 if TYPE_CHECKING:
@@ -85,8 +87,15 @@ class StreamHandler(ViseronRequestHandler):
             "no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0",
         )
         self.set_header("Connection", "close")
+        accepted = [
+            media_range.split(";")[0].strip().lower()
+            for media_range in self.request.headers.get("Accept", "").split(",")
+        ]
         self.set_header(
-            "Content-Type", f"multipart/x-mixed-replace; boundary={BOUNDARY}"
+            "Content-Type",
+            CONTENT_TYPE_OCTET_STREAM
+            if CONTENT_TYPE_OCTET_STREAM in accepted
+            else CONTENT_TYPE_MULTIPART,
         )
         self.set_header("Pragma", "no-cache")
 

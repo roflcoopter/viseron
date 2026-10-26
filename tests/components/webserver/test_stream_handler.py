@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
+from tornado.httputil import HTTPHeaders
 
 from viseron.components.webserver.stream_handler import StreamHandler
 from viseron.domains.camera.config import MJPEG_STREAM_SCHEMA
@@ -53,3 +54,28 @@ def test_process_frame_draws_objects(
         assert draw.call_args.args[1] == [objects[name] for name in expected]
         assert draw.call_args.kwargs == {"resolution": (2, 2)}
         assert processed_frame.objects_in_fov == [objects[name] for name in in_fov]
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        pytest.param(
+            {}, "multipart/x-mixed-replace; boundary=jpgboundary", id="no_accept"
+        ),
+        pytest.param(
+            {"Accept": "application/octet-stream"},
+            "application/octet-stream",
+            id="frontend_fetch",
+        ),
+    ],
+)
+def test_set_stream_headers_content_type(
+    headers: dict[str, str], expected: str
+) -> None:
+    """Multipart is the default, octet-stream is served when explicitly accepted."""
+    handler = MagicMock()
+    handler.request.headers = HTTPHeaders(headers)
+
+    StreamHandler._set_stream_headers(handler)
+
+    handler.set_header.assert_any_call("Content-Type", expected)

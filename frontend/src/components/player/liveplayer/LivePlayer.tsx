@@ -171,14 +171,17 @@ export function LivePlayer({
       style={{
         position: isFullscreen ? "fixed" : "relative",
         top: isFullscreen ? 0 : "auto",
+        right: isFullscreen ? 0 : "auto",
+        bottom: isFullscreen ? 0 : "auto",
         left: isFullscreen ? 0 : "auto",
-        width: isFullscreen ? "100vw" : "100%",
-        height: isFullscreen ? "100vh" : "100%",
+        width: isFullscreen ? "auto" : "100%",
+        height: isFullscreen ? "auto" : "100%",
         zIndex: isFullscreen ? 8000 : "auto",
         backgroundColor: isFullscreen
           ? theme.palette.background.default
           : "transparent",
         overflow: "hidden",
+        touchAction: isFullscreen ? "none" : "auto",
         cursor: isZoomPanDisabled ? "default" : cursor,
       }}
       onMouseEnter={canHover ? handleMouseEnter : undefined}
@@ -213,6 +216,7 @@ export function LivePlayer({
         isMuted={isMuted}
         isFullscreen={isFullscreen}
         onFullscreenToggle={handleFullscreenToggle}
+        isFullscreenSupported
         onPictureInPictureToggle={handlePictureInPictureToggle}
         isPictureInPictureSupported={isPictureInPictureSupported}
         onManualRecording={camera.failed ? undefined : handleManualRecording}
