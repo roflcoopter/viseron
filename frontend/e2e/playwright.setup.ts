@@ -3,6 +3,7 @@ import { Page, expect, test as testBase } from "@playwright/test";
 import { FIXED_TIME } from "e2e/const";
 import { API_BASE_URL, createHandlers } from "tests/mocks/handlers";
 import { nodeSnapshotLoader } from "tests/mocks/nodeSnapshotLoader";
+import { nodeVideoLoader } from "tests/mocks/nodeVideoLoader";
 import { wsHandlers } from "tests/mocks/wsHandlers";
 
 interface Fixtures {
@@ -14,7 +15,10 @@ export const test = testBase.extend<Fixtures>({
     async ({ context }, use) => {
       const network = defineNetworkFixture({
         context,
-        handlers: [...createHandlers(nodeSnapshotLoader), ...wsHandlers],
+        handlers: [
+          ...createHandlers(nodeSnapshotLoader, nodeVideoLoader),
+          ...wsHandlers,
+        ],
         // Timelapse frames are .jpg files, which are skipped by default
         skipAssetRequests: false,
       });

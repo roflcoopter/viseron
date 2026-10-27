@@ -34,6 +34,8 @@ first requests the app makes are already intercepted. The bootstrap:
   WebSocket handlers from `tests/mocks/wsHandlers.ts`.
 - Serves camera snapshots from the JPEG fixtures in `tests/mocks/fixtures/`, via
   `src/demo/snapshotLoader.ts`.
+- Serves HLS segments from the fragmented MP4 fixtures in
+  `tests/mocks/fixtures/video/`, via `src/demo/videoLoader.ts`.
 
 Unhandled requests are bypassed, so fonts, chunks and hashed assets still load
 from the network.
@@ -45,6 +47,18 @@ WebSocket API is intercepted in the page itself by patching the global
 `WebSocket`.
 
 :::
+
+## Video fixtures
+
+Both HLS players, on the Recordings and Events pages, play a fragmented MP4 per
+camera on a loop, so every camera appears to have footage
+around the clock. Unknown cameras fall back to `camera1`'s footage.
+
+The clips are low res to keep the whole set around 1 MB. Every fragment starts on a
+keyframe, so a loop can restart at any of them.
+
+The playlists in `tests/mocks/helpers/hls.ts` insert an `#EXT-X-DISCONTINUITY`
+before every loop, since the fragments' media timestamps restart there.
 
 ## The service worker script
 

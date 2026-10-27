@@ -1,4 +1,4 @@
-import { Page, expect, test } from "@playwright/test";
+import { Locator, Page, expect, test } from "@playwright/test";
 
 // The app awaits worker.start() before rendering, so its own requests are
 // always mocked. A raw fetch issued from the test can still outrun the service
@@ -76,4 +76,80 @@ test("renders the mocked snapshots on the camera cards", async ({
       ),
     )
     .toEqual([true, true, true]);
+});
+
+test("renders the mocked thumbnails on the recording cards", async ({
+  page,
+}: {
+  page: Page;
+}) => {
+  // A poster has no load state to poll, so check the response it requested.
+  const thumbnail = page.waitForResponse(/\/files\/tier1\/thumbnails\//);
+  await page.goto("/#/recordings", { waitUntil: "domcontentloaded" });
+
+  const response = await thumbnail;
+  expect(response.status()).toBe(200);
+  expect(response.headers()["content-type"]).toBe("image/jpeg");
+});
+
+// naturalWidth is only non-zero once the browser has decoded the response
+const loadedImages = (images: Locator) =>
+  images.evaluateAll<number, void, HTMLImageElement>(
+    (elements) =>
+      elements.filter((image) => image.complete && image.naturalWidth > 0)
+        .length,
+  );
+
+test("lists the mocked events", async ({ page }: { page: Page }) => {
+  await page.goto("/#/events?tab=events", { waitUntil: "domcontentloaded" });
+
+  await expect
+    .poll(() => loadedImages(page.locator('img[src*="/files/tier1/"]')))
+    .toBeGreaterThan(0);
+});
+
+test("renders the mocked events on the timeline", async ({
+  page,
+}: {
+  page: Page;
+}) => {
+  await page.goto("/#/events?tab=timeline", { waitUntil: "domcontentloaded" });
+
+  await expect(page.getByRole("tab", { name: "Timeline" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect
+    .poll(() =>
+      loadedImages(page.locator('img[src*="/files/tier1/snapshots/"]')),
+    )
+    .toBeGreaterThan(0);
+});
+
+const currentTime = (video: Locator) =>
+  video.evaluate((element: HTMLVideoElement) => element.currentTime);
+
+test("plays a mocked recording", async ({ page }: { page: Page }) => {
+  await page.goto("/#/recordings", { waitUntil: "domcontentloaded" });
+
+  await page.getByTestId("player-play-pause-button").first().click();
+
+  // currentTime only advances once the browser has decoded the segments.
+  await expect
+    .poll(() => currentTime(page.locator("video").first()))
+    .toBeGreaterThan(0);
+});
+
+test("plays the mocked events timeline", async ({ page }: { page: Page }) => {
+  const timestamp = Math.floor(Date.now() / 1000);
+  await page.goto(`/#/events?tab=timeline&timestamp=${timestamp}`, {
+    waitUntil: "domcontentloaded",
+  });
+  const video = page.locator("video").first();
+
+  // The player seeks to the requested timestamp before it starts playing.
+  await expect.poll(() => currentTime(video)).toBeGreaterThan(0);
+  const start = await currentTime(video);
+
+  await expect.poll(() => currentTime(video)).toBeGreaterThan(start + 5);
 });

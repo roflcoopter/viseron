@@ -2,7 +2,10 @@ import dayjs, { Dayjs } from "dayjs";
 import timezone from "dayjs/plugin/timezone.js";
 import utc from "dayjs/plugin/utc.js";
 
-import { getDayjs as getRealDayjs } from "lib/helpers/dates";
+import {
+  getDayjs as getRealDayjs,
+  getDayjsFromDateString as getRealDayjsFromDateString,
+} from "lib/helpers/dates";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -22,4 +25,8 @@ function fixedTime(): string | undefined {
 export function getDayjs(): Dayjs {
   const fixed = fixedTime();
   return fixed ? dayjs(fixed).tz("UTC") : getRealDayjs();
+}
+
+export function getDayjsFromDateString(date: string): Dayjs {
+  return fixedTime() ? dayjs.tz(date, "UTC") : getRealDayjsFromDateString(date);
 }
