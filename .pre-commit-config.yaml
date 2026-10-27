@@ -115,3 +115,18 @@ repos:
           '
         pass_filenames: false
         always_run: true
+
+      - id: format-frontend
+        name: format (frontend)
+        entry: npm --prefix frontend run format
+        language: system
+        pass_filenames: false
+        files: ^frontend/src/.+\.(js|jsx|ts|tsx|json)$
+
+      - id: format-docs
+        name: format (docs)
+        entry: npm --prefix docs run format
+        language: system
+        pass_filenames: false
+        files: ^docs/src/.+\.(js|jsx|ts|tsx|json|mdx)$
+
