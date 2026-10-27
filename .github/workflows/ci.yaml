@@ -370,11 +370,7 @@ jobs:
           docker compose ${{ env.DOCKER_COMPOSE_CI_FILES }} build amd64-viseron-tests
       - name: Run pytest
         run: |
-          if docker compose ${{ env.DOCKER_COMPOSE_CI_FILES }} up --no-build amd64-viseron-tests; then
-            exit 0
-          else
-            exit 1
-          fi
+          docker compose ${{ env.DOCKER_COMPOSE_CI_FILES }} up --no-build --exit-code-from amd64-viseron-tests amd64-viseron-tests
       - name: Copy .coverage to host
         run: |
           docker cp amd64-viseron-tests:/src/coverage.xml coverage.xml
