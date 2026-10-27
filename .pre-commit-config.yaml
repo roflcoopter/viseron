@@ -2,16 +2,8 @@ default_language_version:
   python: python3
 
 repos:
-  - repo: https://github.com/asottile/pyupgrade
-    rev: v3.21.2
-    hooks:
-      - id: pyupgrade
-        args:
-          - --py38-plus
-          - --keep-runtime-typing
-        files: ^(viseron|tests)/.+\.py$
   - repo: https://github.com/cdce8p/python-typing-update
-    rev: v0.8.1
+    rev: v0.9.0
     hooks:
       # Run `python-typing-update` hook manually:
       # pre-commit run --hook-stage manual python-typing-update --all-files
@@ -22,46 +14,68 @@ repos:
           - --force
           - --keep-updates
         files: ^(viseron|tests)/.+\.py$
-  - repo: https://github.com/PyCQA/autoflake
-    rev: v2.4.0
+
+  # Python tools run from the active environment so it matches whatever is in
+  # requirements_test.txt
+  - repo: local
     hooks:
+      - id: pyupgrade
+        name: pyupgrade
+        entry: pyupgrade
+        language: system
+        types: [python]
+        args:
+          - --py38-plus
+          - --keep-runtime-typing
+        files: ^(viseron|tests)/.+\.py$
+
       - id: autoflake
+        name: autoflake
+        entry: autoflake
+        language: system
+        types: [python]
+        require_serial: true
         args:
           - --in-place
           - --remove-all-unused-imports
         files: ^(viseron|tests)/.+\.py$
-  - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.3
-    hooks:
+
       - id: codespell
+        name: codespell
+        entry: codespell
+        language: system
+        types: [text]
         args:
           - --skip="./.*,*.csv,*.json"
           - --quiet-level=2
         exclude_types: [csv, json]
         exclude: ^tests/fixtures/
-  - repo: https://github.com/PyCQA/flake8
-    rev: 7.3.0
-    hooks:
+
       - id: flake8
-        additional_dependencies:
-          - pycodestyle==2.14.0
-          - pyflakes==3.4.0
-          - flake8-docstrings==1.7.0
-          - pydocstyle==6.3.0
-          - flake8-comprehensions==3.17.0
-          - flake8-noqa==1.5.0
-          - mccabe==0.7.0
+        name: flake8
+        entry: flake8
+        language: system
+        types: [python]
+        require_serial: true
         files: ^(viseron|tests)/.+\.py$
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.5
-    hooks:
+
       - id: ruff-check
+        name: ruff check
+        entry: ruff check --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
         args: [--fix]
         files: ^(viseron|tests|scripts)/.+\.py$
+
       - id: ruff-format
+        name: ruff format
+        entry: ruff format --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
         files: ^(viseron|tests|scripts)/.+\.py$
-  - repo: local
-    hooks:
+
       - id: pylint
         name: pylint
         entry: pylint
@@ -73,6 +87,7 @@ repos:
             "--rcfile=.pylintrc", # Link to your config file
           ]
         files: ^(viseron|tests)/.+\.py$
+
       - id: mypy
         name: mypy
         entry: mypy
@@ -80,6 +95,7 @@ repos:
         types: [python]
         files: ^(viseron)/.+\.py$
         require_serial: true
+
       - id: generate_docs
         description: Check if docs needs to be regenerated
         name: generate_docs
@@ -87,6 +103,7 @@ repos:
         entry: python3 -m scripts.gen_docs -a
         pass_filenames: false
         always_run: true
+
       - id: check_config_json
         description: 'Fail if any config.json contains "description": null'
         name: check docs config.json

@@ -11,6 +11,7 @@ from collections.abc import Mapping
 
 import typing_extensions
 import voluptuous as vol
+from pydantic import BaseModel
 
 # Hardcode the config dir to /config, as it is overridden in the Devcontainer
 os.environ["VISERON_CONFIG_DIR"] = "/config"
@@ -41,6 +42,7 @@ from .const import (
     EXCLUDED_COMPONENTS,
     META_CONTENTS,
 )
+from .model_docs import convert_model
 
 TYPES_MAP = {
     int: "integer",
@@ -276,6 +278,13 @@ def convert(schema, custom_convert=None):  # noqa: C901
     # return {"type": "unsupported", "value": "unable_to_convert"}
 
 
+def convert_schema(schema, custom_convert=None):
+    """Convert a CONFIG_SCHEMA that is either a Pydantic model or a voluptuous schema."""
+    if isinstance(schema, type) and issubclass(schema, BaseModel):
+        return convert_model(schema)
+    return convert(schema, custom_convert=custom_convert)
+
+
 def import_domain(component, domain):
     """Return if domain is supported by component."""
     try:
@@ -377,13 +386,13 @@ def import_component(component):
         if config_module and hasattr(config_module, "custom_convert"):
             custom_convert = config_module.custom_convert
 
-        component_config = convert(
+        component_config = convert_schema(
             component_module.CONFIG_SCHEMA, custom_convert=custom_convert
         )
 
         for domain, domain_module in supported_domains.items():
             if hasattr(domain_module, "CONFIG_SCHEMA"):
-                domain_config = convert(
+                domain_config = convert_schema(
                     domain_module.CONFIG_SCHEMA, custom_convert=custom_convert
                 )
                 for index, _domain in enumerate(component_config[0]["value"]):

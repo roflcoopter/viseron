@@ -7,10 +7,9 @@ import logging
 import os
 from collections import defaultdict
 from textwrap import dedent
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import cv2
-import voluptuous as vol
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.error import TelegramError
@@ -22,6 +21,7 @@ from telegram.ext import (
 )
 from telegram.request import HTTPXRequest
 
+from viseron.components.onvif.const import COMPONENT as ONVIF_COMPONENT
 from viseron.components.storage.models import TriggerTypes
 from viseron.components.telegram.ptz_control import TelegramPTZ
 from viseron.components.telegram.utils import limit_user_access
@@ -34,49 +34,11 @@ from viseron.domains.camera.recorder import EventRecorderData, ManualRecording
 from viseron.exceptions import ComponentNotReady, DomainNotRegisteredError
 from viseron.helpers import escape_string
 from viseron.helpers.logs import SensitiveInformationFilterTracker
-from viseron.helpers.validators import (
-    UNDEFINED,
-    CameraIdentifier,
-    CoerceNoneToDict,
-    Deprecated,
-    Maybe,
-)
 from viseron.viseron_types import Domain
 from viseron.watchdog.thread_watchdog import RestartableThread
 
-from .const import (
-    COMPONENT,
-    CONFIG_CAMERAS,
-    CONFIG_DETECTION_LABEL,
-    CONFIG_DETECTION_LABELS,
-    CONFIG_ONVIF_COMPONENT,
-    CONFIG_SEND_MESSAGE,
-    CONFIG_SEND_THUMBNAIL,
-    CONFIG_SEND_VIDEO,
-    CONFIG_TELEGRAM_BOT_TOKEN,
-    CONFIG_TELEGRAM_CHAT_IDS,
-    CONFIG_TELEGRAM_LOG_IDS,
-    CONFIG_TELEGRAM_USER_IDS,
-    DATA_NOTIFIER,
-    DATA_PTZ,
-    DEFAULT_DETECTION_LABELS,
-    DEFAULT_SEND_MESSAGE,
-    DEFAULT_SEND_THUMBNAIL,
-    DEFAULT_SEND_VIDEO,
-    DEFAULT_TELEGRAM_LOG_IDS,
-    DEFAULT_TELEGRAM_USER_IDS,
-    DESC_CAMERAS,
-    DESC_COMPONENT,
-    DESC_DETECTION_LABEL,
-    DESC_DETECTION_LABELS,
-    DESC_SEND_MESSAGE,
-    DESC_SEND_THUMBNAIL,
-    DESC_SEND_VIDEO,
-    DESC_TELEGRAM_BOT_TOKEN,
-    DESC_TELEGRAM_CHAT_IDS,
-    DESC_TELEGRAM_LOG_IDS,
-    DESC_TELEGRAM_USER_IDS,
-)
+from .config import TelegramCameraConfig, TelegramConfig, TelegramRoot
+from .const import COMPONENT, DATA_NOTIFIER, DATA_PTZ, DEFAULT_DETECTION_LABELS
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
@@ -84,88 +46,26 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
-CAMERA_SCHEMA = vol.Schema(
-    {
-        Deprecated(
-            CONFIG_DETECTION_LABEL,
-            description=DESC_DETECTION_LABEL,
-        ): str,
-        vol.Optional(
-            CONFIG_DETECTION_LABELS,
-            description=DESC_DETECTION_LABELS,
-            default=UNDEFINED,
-        ): Maybe([str]),
-    },
-    extra=vol.ALLOW_EXTRA,
-)
-
-CONFIG_SCHEMA: vol.Schema = vol.Schema(
-    {
-        vol.Required(COMPONENT, description=DESC_COMPONENT): {
-            vol.Required(
-                CONFIG_TELEGRAM_BOT_TOKEN, description=DESC_TELEGRAM_BOT_TOKEN
-            ): str,
-            vol.Required(
-                CONFIG_TELEGRAM_CHAT_IDS, description=DESC_TELEGRAM_CHAT_IDS
-            ): [int],
-            vol.Optional(
-                CONFIG_TELEGRAM_USER_IDS,
-                description=DESC_TELEGRAM_USER_IDS,
-                default=DEFAULT_TELEGRAM_USER_IDS,
-            ): [int],
-            Deprecated(
-                CONFIG_DETECTION_LABEL,
-                description=DESC_DETECTION_LABEL,
-            ): str,
-            vol.Optional(
-                CONFIG_DETECTION_LABELS,
-                description=DESC_DETECTION_LABELS,
-                default=DEFAULT_DETECTION_LABELS,
-            ): [str],
-            vol.Optional(
-                CONFIG_SEND_THUMBNAIL,
-                description=DESC_SEND_THUMBNAIL,
-                default=DEFAULT_SEND_THUMBNAIL,
-            ): bool,
-            vol.Optional(
-                CONFIG_SEND_VIDEO,
-                description=DESC_SEND_VIDEO,
-                default=DEFAULT_SEND_VIDEO,
-            ): bool,
-            vol.Optional(
-                CONFIG_SEND_MESSAGE,
-                description=DESC_SEND_MESSAGE,
-                default=DEFAULT_SEND_MESSAGE,
-            ): bool,
-            vol.Optional(
-                CONFIG_TELEGRAM_LOG_IDS,
-                description=DESC_TELEGRAM_LOG_IDS,
-                default=DEFAULT_TELEGRAM_LOG_IDS,
-            ): bool,
-            vol.Required(CONFIG_CAMERAS, description=DESC_CAMERAS): {
-                CameraIdentifier(): vol.All(CoerceNoneToDict(), CAMERA_SCHEMA),
-            },
-        }
-    },
-    extra=vol.ALLOW_EXTRA,
-)
+CONFIG_SCHEMA = TelegramRoot
 
 
-def setup(vis: Viseron, config: dict[str, Any]) -> bool:
+def setup(vis: Viseron, config: TelegramRoot) -> bool:
     """Set up the telegram component."""
-    component_config = config[COMPONENT]
+    component_config = config.telegram
     vis.data[COMPONENT] = {}
 
-    if config.get(CONFIG_ONVIF_COMPONENT) and not vis.data.get(CONFIG_ONVIF_COMPONENT):
-        raise ComponentNotReady(
-            f"ONVIF component '{CONFIG_ONVIF_COMPONENT}' not ready yet"
-        )
+    # The onvif key is not part of TelegramRoot, so it is read from the whole
+    # config. On reload vis.config is updated after setup, so it does not show
+    # onvif being added or removed in the same reload.
+    onvif_configured = bool(vis.config.get(ONVIF_COMPONENT))
+    if onvif_configured and not vis.data.get(ONVIF_COMPONENT):
+        raise ComponentNotReady(f"ONVIF component '{ONVIF_COMPONENT}' not ready yet")
 
     telegram_notifier = TelegramEventNotifier(vis, component_config)
 
     telegram_ptz = None
     # Check if ONVIF component is loaded and ready
-    if not config.get(CONFIG_ONVIF_COMPONENT):
+    if not onvif_configured:
         LOGGER.info("No ONVIF component. Won't start Telegram PTZ Controller.")
     else:
         telegram_ptz = TelegramPTZ(vis, component_config, telegram_notifier)
@@ -223,7 +123,7 @@ class TelegramEventNotifier:
     This class sends notifications to a Telegram chat when an event occurs.
     """
 
-    def __init__(self, vis: Viseron, config: dict[str, Any]) -> None:
+    def __init__(self, vis: Viseron, config: TelegramConfig) -> None:
         request = HTTPXRequest(
             connect_timeout=60,
             read_timeout=60,
@@ -234,25 +134,17 @@ class TelegramEventNotifier:
         self._vis = vis
         self._config = config
         self._sensitive_string_tracker = SensitiveInformationFilterTracker()
-        self._sensitive_string_tracker.add_sensitive_string(
-            self._config[CONFIG_TELEGRAM_BOT_TOKEN]
-        )
-        self._sensitive_string_tracker.add_sensitive_string(
-            escape_string(self._config[CONFIG_TELEGRAM_BOT_TOKEN])
-        )
-        self._bot_token = self._config[CONFIG_TELEGRAM_BOT_TOKEN]
-        self._chat_ids = self._config[CONFIG_TELEGRAM_CHAT_IDS]
+        bot_token = config.telegram_bot_token.get_secret_value()
+        self._sensitive_string_tracker.add_sensitive_string(bot_token)
+        self._sensitive_string_tracker.add_sensitive_string(escape_string(bot_token))
+        self._chat_ids = config.telegram_chat_ids
         self._loop = asyncio.new_event_loop()
-        self._bot = Bot(token=self._bot_token)
-        self._app = (
-            Application.builder().request(request).token(self._bot_token).build()
-        )
+        self._bot = Bot(token=bot_token)
+        self._app = Application.builder().request(request).token(bot_token).build()
         self._stop_event = asyncio.Event()
-        self._active_camera_identifier: str = (
-            list(self._config[CONFIG_CAMERAS].keys())[0] or ""
-        )
+        self._active_camera_identifier: str = next(iter(config.cameras), "")
         self._event_listeners = []
-        for camera_identifier in self._config[CONFIG_CAMERAS]:
+        for camera_identifier in config.cameras:
             self._event_listeners.append(
                 self._vis.listen_event(
                     EVENT_RECORDER_COMPLETE.format(camera_identifier=camera_identifier),
@@ -287,27 +179,29 @@ class TelegramEventNotifier:
 
     def _get_effective_detection_labels(self, camera_identifier: str) -> list[str]:
         """Return the list of allowed detection labels for a camera."""
-        camera_config = self._config[CONFIG_CAMERAS].get(camera_identifier, {})
+        camera_config = self._config.cameras.get(
+            camera_identifier, TelegramCameraConfig()
+        )
+        # The deprecated keys are read from __dict__, as reading the attribute of a
+        # deprecated field emits a DeprecationWarning
 
         # Camera-level deprecated key (comma-separated string)
-        camera_label_str = camera_config.get(CONFIG_DETECTION_LABEL)
+        camera_label_str: str | None = camera_config.__dict__["detection_label"]
         if camera_label_str is not None:
             return [lbl.strip() for lbl in camera_label_str.split(",") if lbl.strip()]
 
         # Camera-level new key
-        camera_labels = camera_config.get(CONFIG_DETECTION_LABELS)
-        if camera_labels and camera_labels != UNDEFINED:
-            return camera_labels
+        if camera_config.detection_labels:
+            return camera_config.detection_labels
 
         # Global deprecated key (comma-separated string)
-        global_label_str = self._config.get(CONFIG_DETECTION_LABEL)
+        global_label_str: str | None = self._config.__dict__["detection_label"]
         if global_label_str:
             return [lbl.strip() for lbl in global_label_str.split(",") if lbl.strip()]
 
         # Global new key
-        global_labels = self._config.get(CONFIG_DETECTION_LABELS)
-        if global_labels:
-            return global_labels
+        if self._config.detection_labels:
+            return self._config.detection_labels
 
         return DEFAULT_DETECTION_LABELS
 
@@ -343,7 +237,7 @@ class TelegramEventNotifier:
             )
 
         file = event_data.data.recording.clip_path
-        if file and os.path.exists(file) and self._config[CONFIG_SEND_VIDEO]:
+        if file and os.path.exists(file) and self._config.send_detection_video:
             caption = f"{event_data.data.camera.identifier}"
             if matching_object is not None:
                 caption += f" detected a {matching_object.label}"
@@ -368,7 +262,7 @@ class TelegramEventNotifier:
         if (
             event_data.data.recording.thumbnail_path
             and os.path.exists(event_data.data.recording.thumbnail_path)
-            and self._config[CONFIG_SEND_THUMBNAIL]
+            and self._config.send_detection_thumbnail
         ):
             for chat_id in self._chat_ids:
                 await self._bot.send_photo(
@@ -376,7 +270,7 @@ class TelegramEventNotifier:
                     photo=open(event_data.data.recording.thumbnail_path, "rb"),
                     caption=f"Thumbnail for {event_data.data.camera.identifier}",
                 )
-        if self._config[CONFIG_SEND_MESSAGE]:
+        if self._config.send_detection_message:
             for chat_id in self._chat_ids:
                 await self._bot.send_message(
                     chat_id=chat_id,

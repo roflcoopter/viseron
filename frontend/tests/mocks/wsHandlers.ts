@@ -1,5 +1,8 @@
 import { WebSocketData, WebSocketHandlerConnection, ws } from "msw";
+import { getDayjs, getDayjsFromDateString } from "tests/mocks/clock";
 import { DEFAULT_YAML_CONFIG, MOCK_ENTITIES } from "tests/utils/const";
+
+import * as types from "lib/types";
 
 // Catch all ws connections
 const socket = ws.link(/ws(s)?:\/\/[^/]+\/?.*/);
@@ -75,6 +78,19 @@ const cancelRender = (
   renderTimers.delete(key);
 };
 
+// Every camera has footage around the clock like the HLS API handlers
+const availableTimespans = (
+  date: string | null,
+): types.HlsAvailableTimespan[] => {
+  if (!date) {
+    return [];
+  }
+  const day = getDayjsFromDateString(date);
+  const start = day.unix();
+  const end = Math.min(getDayjs().unix(), day.add(1, "day").unix());
+  return end > start ? [{ start, end, duration: end - start }] : [];
+};
+
 const messageHandler = (
   client: WebSocketHandlerConnection["client"],
   event: MessageEvent<WebSocketData>,
@@ -110,7 +126,6 @@ const messageHandler = (
         break;
       case "subscribe_event":
       case "subscribe_states":
-      case "subscribe_timespans":
       case "unsubscribe_states":
       case "unsubscribe_timespans":
       case "save_config":
@@ -121,6 +136,23 @@ const messageHandler = (
           type: "result",
           success: true,
           result: null,
+        };
+        break;
+      case "subscribe_timespans":
+        // Acknowledge the sub directly
+        client.send(
+          JSON.stringify({
+            command_id: msg.command_id,
+            type: "result",
+            success: true,
+            result: null,
+          }),
+        );
+        payload = {
+          command_id: msg.command_id,
+          type: "subscription_result",
+          success: true,
+          result: { timespans: availableTimespans(msg.date) },
         };
         break;
       case "get_cameras":

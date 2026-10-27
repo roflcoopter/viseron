@@ -291,7 +291,7 @@ class OrphanedDatabaseFilesCleanup(BaseCleanupJob):
         with self._storage.get_session() as session:
             count = session.execute(
                 select(
-                    func.count(),  # pylint: disable=not-callable
+                    func.count(),
                 ).select_from(Files)
             ).scalar()
 
@@ -671,7 +671,7 @@ class OrphanedRecordingsCleanup(BaseCleanupJob):
 
         with self._storage.get_session() as session:
             count = session.execute(
-                select(func.count())  # pylint: disable=not-callable
+                select(func.count())
                 .select_from(Recordings)
                 .where(Recordings.end_time.is_not(None))
             ).scalar()

@@ -23,11 +23,6 @@ import jwt
 from viseron.components.webserver.const import (
     ACCESS_TOKEN_EXPIRATION,
     AUTH_STORAGE_KEY,
-    CONFIG_AUTH,
-    CONFIG_DAYS,
-    CONFIG_HOURS,
-    CONFIG_MINUTES,
-    CONFIG_SESSION_EXPIRY,
     ONBOARDING_STORAGE_KEY,
 )
 from viseron.const import STORAGE_PATH
@@ -39,6 +34,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from viseron import Viseron
+    from viseron.components.webserver.config import AuthConfig
 
 LOGGER = logging.getLogger(__name__)
 
@@ -257,7 +253,7 @@ def token_response(
 class Auth:
     """Users."""
 
-    def __init__(self, vis: Viseron, config: dict[str, Any]) -> None:
+    def __init__(self, vis: Viseron, config: AuthConfig) -> None:
         self._vis = vis
         self._config = config
         self._users: dict[str, User] | None = None
@@ -334,17 +330,15 @@ class Auth:
 
     @property
     def session_expiry(self) -> datetime.timedelta | None:
-        """Return session expiry."""
-        if not self._config[CONFIG_AUTH][CONFIG_SESSION_EXPIRY]:
+        """Return session expiry, None if sessions do not expire."""
+        expiry = self._config.session_expiry
+        if expiry is None:
             return None
-
-        return datetime.timedelta(
-            days=self._config[CONFIG_AUTH][CONFIG_SESSION_EXPIRY].get(CONFIG_DAYS, 0),
-            hours=self._config[CONFIG_AUTH][CONFIG_SESSION_EXPIRY].get(CONFIG_HOURS, 0),
-            minutes=self._config[CONFIG_AUTH][CONFIG_SESSION_EXPIRY].get(
-                CONFIG_MINUTES, 0
-            ),
+        session_expiry = datetime.timedelta(
+            days=expiry.days, hours=expiry.hours, minutes=expiry.minutes
         )
+        # An expiry of zero, like an empty session_expiry, means no expiry
+        return session_expiry or None
 
     def get_users(self) -> dict[str, User]:
         """Get all users."""

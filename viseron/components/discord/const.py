@@ -5,16 +5,8 @@ from typing import Final
 COMPONENT: Final = "discord"
 DESC_COMPONENT = "Discord webhook to send notifications."
 
-CONFIG_DISCORD_WEBHOOK_URL = "webhook_url"
-CONFIG_CAMERAS = "cameras"
-CONFIG_DETECTION_LABEL = "detection_label"
-CONFIG_DETECTION_LABELS = "detection_labels"
-CONFIG_SEND_THUMBNAIL = "send_detection_thumbnail"
-CONFIG_SEND_VIDEO = "send_detection_video"
-CONFIG_MAX_VIDEO_SIZE_MB = "max_video_size_mb"
-CONFIG_MAX_VIDEO_SIZE_MB_DEFAULT = 8
-
 DEFAULT_DETECTION_LABELS = ["person"]
+DEFAULT_MAX_VIDEO_SIZE_MB = 8
 
 DESC_DISCORD_WEBHOOK_URL = "Discord webhook URL. Can be overridden per camera."
 DESC_DETECTION_LABEL = "Deprecated. Use detection_labels instead."

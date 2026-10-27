@@ -72,6 +72,8 @@
 !/tests/domains/**
 !/tests/helpers
 !/tests/helpers/**
+!/tests/scripts
+!/tests/scripts/**
 !/tests/watchdog
 !/tests/watchdog/**
 

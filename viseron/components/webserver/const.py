@@ -24,20 +24,10 @@ TIMELAPSE_STREAM_MAX_WIDTH = 1280
 TIMELAPSE_MAX_STREAM_DIMENSION = 4096
 PUBLIC_IMAGES_PATH = f"{CONFIG_DIR}/public_images"
 
-# CONFIG_SCHEMA constants
-CONFIG_PORT = "port"
-CONFIG_DEBUG = "debug"
-CONFIG_PUBLIC_BASE_URL = "public_base_url"
-CONFIG_PUBLIC_URL_EXPIRY_HOURS = "public_url_expiry_hours"
-CONFIG_PUBLIC_URL_MAX_DOWNLOADS = "public_url_max_downloads"
-
-DEFAULT_COMPONENT: Final = None
+# Config constants
 DEFAULT_DEBUG = False
 DEFAULT_PUBLIC_URL_EXPIRY_HOURS = 24
 DEFAULT_PUBLIC_URL_MAX_DOWNLOADS = 0
-
-CONFIG_SUBPATH = "subpath"
-DEFAULT_SUBPATH: Final = None
 
 DESC_COMPONENT = "Webserver configuration."
 
@@ -62,23 +52,15 @@ DESC_SUBPATH = (
     "(e.g. '/viseron')."
 )
 
-# Auth constants
-CONFIG_AUTH = "auth"
-CONFIG_SESSION_EXPIRY = "session_expiry"
-CONFIG_DAYS = "days"
-CONFIG_HOURS = "hours"
-CONFIG_MINUTES = "minutes"
-CONFIG_RATE_LIMITS = "rate_limits"
+# Auth config constants
 CONFIG_RATE_LIMIT_LOGIN = "login"
 CONFIG_RATE_LIMIT_TOKEN = "token"  # noqa: S105
 CONFIG_RATE_LIMIT_ONBOARDING = "onboarding"
-CONFIG_MAX_ATTEMPTS = "max_attempts"
-CONFIG_WINDOW_SECONDS = "window_seconds"
 
-DEFAULT_SESSION_EXPIRY: Final = None
-DEFAULT_RATE_LIMIT_LOGIN: Final = {"max_attempts": 10, "window_seconds": 60}
-DEFAULT_RATE_LIMIT_TOKEN: Final = {"max_attempts": 30, "window_seconds": 60}
-DEFAULT_RATE_LIMIT_ONBOARDING: Final = {"max_attempts": 5, "window_seconds": 60}
+DEFAULT_RATE_LIMIT_WINDOW_SECONDS: Final = 60.0
+DEFAULT_RATE_LIMIT_LOGIN_MAX_ATTEMPTS: Final = 10
+DEFAULT_RATE_LIMIT_TOKEN_MAX_ATTEMPTS: Final = 30
+DEFAULT_RATE_LIMIT_ONBOARDING_MAX_ATTEMPTS: Final = 5
 
 DESC_AUTH = "Authentication configuration."
 DESC_SESSION_EXPIRY = (

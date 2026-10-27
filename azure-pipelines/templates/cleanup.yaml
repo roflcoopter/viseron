@@ -58,6 +58,8 @@ steps:
 
       echo "Free before cleanup: $(free_gb)GB"
 
+      # Smoke test containers keep running if the step is killed before teardown
+      docker ps --all --quiet --filter name=viseron-smoke | xargs -r docker rm --force || true
       docker container prune --force || true
       docker volume prune --force || true
 

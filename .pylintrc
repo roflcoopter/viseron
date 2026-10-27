@@ -314,7 +314,8 @@ good-names=i,
            gb,
            Run,
            _,
-           T
+           T,
+           CONFIG_SCHEMA
 
 # Include a hint for the correct naming format with invalid-name
 include-naming-hint=no

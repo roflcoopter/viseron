@@ -8,7 +8,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
@@ -30,6 +30,7 @@ from viseron.components.webserver.auth import (
     UserExistsError,
     token_response,
 )
+from viseron.components.webserver.config import AuthConfig, SessionExpiry
 
 from tests.common import patch_storage_path
 
@@ -38,7 +39,7 @@ if TYPE_CHECKING:
 
     from tests.conftest import MockViseron
 
-WEBSERVER_CONFIG: dict[str, Any] = {"auth": {"session_expiry": None}}
+AUTH_CONFIG = AuthConfig()
 
 
 class TestAuth:
@@ -48,7 +49,7 @@ class TestAuth:
         """Set up tests."""
         self._storage_stack = ExitStack()
         self._storage_stack.enter_context(patch_storage_path())
-        self.auth = Auth(vis, WEBSERVER_CONFIG)
+        self.auth = Auth(vis, AUTH_CONFIG)
 
     def teardown_method(self):
         """Teardown tests."""
@@ -73,7 +74,7 @@ class TestAuth:
         """Test that the password hash survives a save-and-reload cycle."""
         user = self.auth.add_user("Test", "test", "test", Role.ADMIN)
 
-        auth2 = Auth(vis, WEBSERVER_CONFIG)
+        auth2 = Auth(vis, AUTH_CONFIG)
         assert auth2.users[user.id].password == user.password
         assert auth2.validate_user("test", "test").id == user.id
 
@@ -473,7 +474,7 @@ class TestAuth:
 
     def test_rotate_refresh_token_expired_session_revokes(self):
         """An expired session is revoked rather than rotated."""
-        config: dict[str, Any] = {"auth": {"session_expiry": {"hours": 1}}}
+        config = AuthConfig(session_expiry=SessionExpiry(hours=1))
         auth = Auth(self.auth._vis, config)
 
         user = auth.add_user("Test", "test", "test", Role.ADMIN)
@@ -683,7 +684,7 @@ class TestAuth:
         assert refresh_token.token != refresh_token2.token
         assert refresh_token.jwt_key != refresh_token2.jwt_key
 
-        auth2 = Auth(vis, WEBSERVER_CONFIG)
+        auth2 = Auth(vis, AUTH_CONFIG)
         assert len(auth2.users.values()) == 2
         assert len(auth2.refresh_tokens.values()) == 2
         for user in auth2.users.values():
@@ -716,13 +717,29 @@ class TestAuth:
                 == self.auth.refresh_tokens[refresh_token.id].created_at
             )
 
-    def test_session_expiry(self, vis: MockViseron):
-        """Test session expiry."""
-        assert self.auth.session_expiry is None
-        config = WEBSERVER_CONFIG.copy()
-        config["auth"]["session_expiry"] = {"days": 1}
-        auth = Auth(vis, config)
-        assert auth.session_expiry == timedelta(days=1)
+    @pytest.mark.parametrize(
+        ("session_expiry", "expected"),
+        [
+            pytest.param(None, None, id="not_set"),
+            pytest.param(SessionExpiry(days=1), timedelta(days=1), id="days"),
+            pytest.param(
+                SessionExpiry(days=1, hours=2, minutes=3),
+                timedelta(days=1, hours=2, minutes=3),
+                id="every_key",
+            ),
+            pytest.param(SessionExpiry(), None, id="empty"),
+            pytest.param(SessionExpiry(days=0), None, id="zero"),
+        ],
+    )
+    def test_session_expiry(
+        self,
+        vis: MockViseron,
+        session_expiry: SessionExpiry | None,
+        expected: timedelta | None,
+    ):
+        """Test session expiry, where zero means that sessions do not expire."""
+        auth = Auth(vis, AuthConfig(session_expiry=session_expiry))
+        assert auth.session_expiry == expected
 
     def test_token_response(self):
         """Test token response."""
@@ -744,7 +761,7 @@ class TestAccessToken:
         """Set up tests."""
         self._storage_stack = ExitStack()
         self._storage_stack.enter_context(patch_storage_path())
-        self.auth = Auth(vis, WEBSERVER_CONFIG)
+        self.auth = Auth(vis, AUTH_CONFIG)
 
     def teardown_method(self):
         """Teardown tests."""
@@ -855,7 +872,7 @@ class TestAccessToken:
         user = self.auth.add_user("Test", "test", "test", Role.ADMIN)
         _pat, raw_token = self.auth.create_access_token(user.id, "Persistent")
 
-        auth2 = Auth(vis, WEBSERVER_CONFIG)
+        auth2 = Auth(vis, AUTH_CONFIG)
         found = auth2.validate_access_token_pat(raw_token)
         assert found is not None
 
