@@ -9,7 +9,7 @@ import os
 import pickle
 import subprocess as sp
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import psutil
 import pytest
@@ -206,6 +206,63 @@ class TestChildProcessTarget:
 
         assert result["session_leader"] is True
         assert result["frozen_objects"] > 0
+
+    def test_create_args_method_restart(self) -> None:
+        """A restarted child must not reuse the args the old child was given.
+
+        A killed child can leave a queue locked, so a restart must be able to hand
+        the new child fresh ones.
+        """
+        ctx = mp.get_context("forkserver")
+        queues: list[mp.Queue] = []
+
+        def create_args() -> tuple[mp.Queue]:
+            queues.append(ctx.Queue())
+            return (queues[-1],)
+
+        process = RestartableProcess(
+            target=_report_child_setup,
+            create_args_method=create_args,
+            name="create_args_child",
+            register=False,
+            context="forkserver",
+        )
+        process.start()
+        try:
+            assert queues[0].get(timeout=120)["session_leader"] is True
+            process.restart(timeout=30)
+            assert queues[1].get(timeout=120)["session_leader"] is True
+        finally:
+            process.join(timeout=30)
+            process.kill()
+
+        assert len(queues) == 2
+
+    @pytest.mark.parametrize(
+        ("args", "kwargs", "match"),
+        [
+            pytest.param((1,), {}, "args", id="args"),
+            pytest.param(
+                (),
+                {"create_process_method": lambda: mp.Process(target=_wait_forever)},
+                "create_process_method",
+                id="create_process_method",
+            ),
+        ],
+    )
+    def test_create_args_method_conflicts(
+        self, args: tuple[int, ...], kwargs: dict[str, Any], match: str
+    ) -> None:
+        """create_args_method would clash with or be ignored by these options."""
+        with pytest.raises(ValueError, match=match):
+            RestartableProcess(
+                *args,
+                target=_wait_forever,
+                create_args_method=lambda: (),
+                name="create_args_conflict",
+                register=False,
+                **kwargs,
+            )
 
 
 CHILD_LOGGER = "test_child_logger"
