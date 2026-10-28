@@ -45,3 +45,5 @@ watchdog==6.0.0
 python-telegram-bot==22.8
 onvif-python==0.4.4
 ultralytics==8.4.182; platform_machine == "x86_64" or platform_machine == "aarch64"
+torch==2.14.1; platform_machine == "x86_64" or platform_machine == "aarch64" # Pulled in by ultralytics
+torchvision==0.29.1; platform_machine == "x86_64" or platform_machine == "aarch64"
