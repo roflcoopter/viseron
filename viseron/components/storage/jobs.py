@@ -4,18 +4,20 @@ from __future__ import annotations
 
 import datetime
 import logging
-import multiprocessing as mp
 import os
 import threading
 import time
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
 import setproctitle
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import and_, delete, exists, func, select
+from sqlalchemy.orm import sessionmaker
 
 from viseron.components.storage.const import (
+    ENGINE,
     TIER_CATEGORY_RECORDER,
     TIER_SUBCATEGORY_SEGMENTS,
     CleanupJobNames,
@@ -32,11 +34,18 @@ from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import DomainNotRegisteredError
 from viseron.helpers import utcnow
+from viseron.helpers.child_process_context import (
+    CHILD_PROCESS_START_METHOD,
+    get_child_process_context,
+)
+from viseron.helpers.logs import SensitiveInformationFilter, enable_child_logging
 from viseron.viseron_types import SnapshotDomain
 from viseron.watchdog.process_watchdog import RestartableProcess
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
+    from multiprocessing.synchronize import Event
+
     from apscheduler.triggers.interval import IntervalTrigger
     from sqlalchemy import CursorResult
     from sqlalchemy.orm import Session
@@ -52,62 +61,31 @@ LOG_THROTTLE_SECONDS = 5
 BATCH_SIZE = 100
 
 
-class BaseCleanupJob(ABC):
-    """Base class for cleanup jobs."""
+@dataclass(frozen=True)
+class CleanupJobConfig:
+    """Everything a cleanup job child process needs, as plain picklable data."""
 
-    def __init__(
-        self, vis: Viseron, storage: Storage, interval_trigger: IntervalTrigger
-    ) -> None:
-        self._vis = vis
-        self._storage = storage
-        self._interval_trigger = interval_trigger
+    name: str
+    paths: list[str]
+    ignored_files: frozenset[str]
+    sensitive_strings: tuple[str, ...]
+    log_level: int
 
+
+class CleanupJobRunner:
+    """State of a cleanup job running inside the child process."""
+
+    def __init__(self, config: CleanupJobConfig, kill_event: Event) -> None:
+        self.name = config.name
+        self.paths = config.paths
+        self.ignored_files = config.ignored_files
+        self.kill_event = kill_event
+        self._session_maker = sessionmaker(bind=ENGINE)
         self._last_log_time = 0.0
-        self.kill_event = mp.Event()
-        self.run_lock = threading.Lock()
-        self.running = False
 
-    def _get_cameras(self) -> dict[str, AbstractCamera] | None:
-        """Get list of registered camera identifiers."""
-        try:
-            return self._vis.get_registered_identifiers(CAMERA_DOMAIN)
-        except DomainNotRegisteredError:
-            return None
-
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """Name of the cleanup job."""
-
-    @property
-    def interval_trigger(self) -> IntervalTrigger:
-        """Return the trigger interval for the cleanup job."""
-        return self._interval_trigger
-
-    @abstractmethod
-    def _run(self) -> None:
-        """Run the cleanup job."""
-
-    def _wrapped_run(self) -> None:
-        setproctitle.setproctitle(f"viseron_{self.name}")
-        self._storage.engine.dispose(close=False)
-        self._run()
-
-    def run(self) -> None:
-        """Run the cleanup job using multiprocessing."""
-        with self.run_lock:
-            if self.running:
-                return
-            self.running = True
-
-        process = RestartableProcess(
-            name=self.name, target=self._wrapped_run, daemon=True, register=False
-        )
-        process.start()
-        process.join()
-
-        with self.run_lock:
-            self.running = False
+    def get_session(self) -> Session:
+        """Get a new sqlalchemy session."""
+        return self._session_maker()
 
     def log_progress(self, message: str) -> None:
         """Log progress of the cleanup job.
@@ -120,11 +98,116 @@ class BaseCleanupJob(ABC):
             self._last_log_time = now
 
 
+def run_cleanup_job(
+    job: type[BaseCleanupJob], config: CleanupJobConfig, kill_event: Event
+) -> None:
+    """Entrypoint of the cleanup job child process."""
+    setproctitle.setproctitle(f"viseron_{config.name}")
+    enable_child_logging(config.sensitive_strings, config.log_level)
+    job.work(CleanupJobRunner(config, kill_event))
+
+
+class BaseCleanupJob(ABC):
+    """Base class for cleanup jobs.
+
+    The work of a job runs in a child process created with the forkserver start method
+    to reduce memory usage. Anything the work needs from the running Viseron instance
+    is resolved into a CleanupJobConfig before the child process is started.
+    """
+
+    def __init__(
+        self, vis: Viseron, storage: Storage, interval_trigger: IntervalTrigger
+    ) -> None:
+        self._vis = vis
+        self._storage = storage
+        self._interval_trigger = interval_trigger
+
+        self.kill_event = get_child_process_context().Event()
+        self.run_lock = threading.Lock()
+        self.running = False
+
+    def _get_cameras(self) -> dict[str, AbstractCamera] | None:
+        """Get list of registered camera identifiers."""
+        try:
+            return self._vis.get_registered_identifiers(CAMERA_DOMAIN)
+        except DomainNotRegisteredError:
+            return None
+
+    def _get_all_paths(self) -> list[str]:
+        """Return the storage paths of all cameras, across all tiers."""
+        cameras = self._get_cameras() or {}
+        paths = []
+        for camera in cameras.values():
+            paths += self._storage.get_event_clips_path(camera, all_tiers=True)
+            paths += self._storage.get_segments_path(camera, all_tiers=True)
+            paths += self._storage.get_thumbnails_path(camera, all_tiers=True)
+            if timelapse_path := self._storage.get_timelapse_path(
+                camera, all_tiers=True
+            ):
+                paths += timelapse_path
+
+            for domain in SnapshotDomain:
+                paths += self._storage.get_snapshots_path(
+                    camera, domain, all_tiers=True
+                )
+        return paths
+
+    def _get_paths(self) -> list[str]:
+        """Return the storage paths the job processes."""
+        return []
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Name of the cleanup job."""
+
+    @property
+    def interval_trigger(self) -> IntervalTrigger:
+        """Return the trigger interval for the cleanup job."""
+        return self._interval_trigger
+
+    @staticmethod
+    @abstractmethod
+    def work(runner: CleanupJobRunner) -> None:
+        """Run the cleanup job inside the child process."""
+
+    def run(self) -> None:
+        """Run the cleanup job in a child process."""
+        with self.run_lock:
+            if self.running:
+                return
+            self.running = True
+
+        process_config = CleanupJobConfig(
+            name=self.name,
+            paths=self._get_paths(),
+            ignored_files=frozenset(self._storage.ignored_files),
+            sensitive_strings=tuple(SensitiveInformationFilter.sensitive_strings),
+            log_level=logging.getLogger().level,
+        )
+        process = RestartableProcess(
+            name=self.name,
+            target=run_cleanup_job,
+            args=(type(self), process_config, self.kill_event),
+            daemon=True,
+            register=False,
+            context=CHILD_PROCESS_START_METHOD,
+            child_logger_names=(LOGGER.name,),
+        )
+        process.start()
+        process.join()
+        process.stop()
+
+        with self.run_lock:
+            self.running = False
+
+
 class BaseTableCleanupJob(BaseCleanupJob):
     """Base class for database table cleanup jobs that use batch processing."""
 
+    @staticmethod
     def batch_delete_orphaned(
-        self,
+        runner: CleanupJobRunner,
         session: Session,
         table: type[PostProcessorResults | Motion | Objects],
         path_column: Any,
@@ -144,7 +227,7 @@ class BaseTableCleanupJob(BaseCleanupJob):
         cutoff_time = utcnow() - datetime.timedelta(minutes=5)
 
         while True:
-            if self.kill_event.is_set():
+            if runner.kill_event.is_set():
                 break
 
             # Get next batch of records that need checking
@@ -178,12 +261,14 @@ class BaseTableCleanupJob(BaseCleanupJob):
             )
             session.commit()
             total_deleted += result.rowcount
-            self.log_progress(f"{self.name} deleted {result.rowcount} records in batch")
+            runner.log_progress(
+                f"{runner.name} deleted {result.rowcount} records in batch"
+            )
             time.sleep(1)
 
         LOGGER.debug(
             "%s deleted %d total records, took %s",
-            self.name,
+            runner.name,
             total_deleted,
             time.time() - now,
         )
@@ -201,48 +286,37 @@ class OrphanedFilesCleanup(BaseCleanupJob):
         """Return job name."""
         return CleanupJobNames.ORPHANED_FILES.value
 
-    def _run(self) -> None:
+    def _get_paths(self) -> list[str]:
+        """Return the storage paths the job processes."""
+        return self._get_all_paths()
+
+    @staticmethod
+    def work(runner: CleanupJobRunner) -> None:
         """Run the job."""
         now = time.time()
-        LOGGER.debug("Running %s", self.name)
+        LOGGER.debug("Running %s", runner.name)
         deleted_count = 0
-        cameras = self._get_cameras()
-        if not cameras:
+        if not runner.paths:
             return
 
-        paths = []
-        for camera in cameras.values():
-            paths += self._storage.get_event_clips_path(camera, all_tiers=True)
-            paths += self._storage.get_segments_path(camera, all_tiers=True)
-            paths += self._storage.get_thumbnails_path(camera, all_tiers=True)
-            if timelapse_path := self._storage.get_timelapse_path(
-                camera, all_tiers=True
-            ):
-                paths += timelapse_path
-
-            for domain in SnapshotDomain:
-                paths += self._storage.get_snapshots_path(
-                    camera, domain, all_tiers=True
-                )
-
         total_files_processed = 0
-        with self._storage.get_session() as session:
-            for path in paths:
-                if self.kill_event.is_set():
+        with runner.get_session() as session:
+            for path in runner.paths:
+                if runner.kill_event.is_set():
                     break
-                LOGGER.debug("%s checking %s", self.name, path)
+                LOGGER.debug("%s checking %s", runner.name, path)
                 for root, _, files in os.walk(path):
-                    if self.kill_event.is_set():
+                    if runner.kill_event.is_set():
                         break
 
                     files_processed = 0
                     for file in files:
-                        if self.kill_event.is_set():
+                        if runner.kill_event.is_set():
                             break
 
                         total_files_processed += 1
                         files_processed += 1
-                        if file in self._storage.ignored_files:
+                        if file in runner.ignored_files:
                             continue
                         file_path = os.path.join(root, file)
                         file_exists = session.execute(
@@ -250,22 +324,22 @@ class OrphanedFilesCleanup(BaseCleanupJob):
                         ).first()
                         if not file_exists and os.path.exists(file_path):
                             os.remove(file_path)
-                            LOGGER.debug("%s deleted %s", self.name, file_path)
+                            LOGGER.debug("%s deleted %s", runner.name, file_path)
                             deleted_count += 1
-                        self.log_progress(
-                            f"{self.name} processed {files_processed}/{len(files)} "
+                        runner.log_progress(
+                            f"{runner.name} processed {files_processed}/{len(files)} "
                             f"files in {root}",
                         )
                         if total_files_processed % 100 == 0:
                             time.sleep(1)
                     LOGGER.debug(
-                        f"{self.name} processed {files_processed}/{len(files)} "
+                        f"{runner.name} processed {files_processed}/{len(files)} "
                         f"files in {root}",
                     )
 
         LOGGER.debug(
             "%s deleted %d/%d processed files, took %s",
-            self.name,
+            runner.name,
             deleted_count,
             total_files_processed,
             time.time() - now,
@@ -280,15 +354,16 @@ class OrphanedDatabaseFilesCleanup(BaseCleanupJob):
         """Return job name."""
         return CleanupJobNames.ORPHANED_DB_FILES.value
 
-    def _run(self) -> None:
+    @staticmethod
+    def work(runner: CleanupJobRunner) -> None:
         """Run the job."""
         now = time.time()
-        LOGGER.debug("Running %s", self.name)
+        LOGGER.debug("Running %s", runner.name)
         total_deleted = 0
         last_id = 0
         total_files_processed = 0
 
-        with self._storage.get_session() as session:
+        with runner.get_session() as session:
             count = session.execute(
                 select(
                     func.count(),
@@ -296,7 +371,7 @@ class OrphanedDatabaseFilesCleanup(BaseCleanupJob):
             ).scalar()
 
             while True:
-                if self.kill_event.is_set():
+                if runner.kill_event.is_set():
                     break
 
                 # Get next batch of files to check
@@ -329,16 +404,16 @@ class OrphanedDatabaseFilesCleanup(BaseCleanupJob):
                     session.commit()
                     total_deleted += result.rowcount
                     LOGGER.debug(
-                        "%s deleted %d rows in batch", self.name, result.rowcount
+                        "%s deleted %d rows in batch", runner.name, result.rowcount
                     )
                 total_files_processed += len(files)
-                self.log_progress(
-                    f"{self.name} processed {total_files_processed}/{count} files"
+                runner.log_progress(
+                    f"{runner.name} processed {total_files_processed}/{count} files"
                 )
 
         LOGGER.debug(
             "%s deleted %d total database records for non-existent files, took %s",
-            self.name,
+            runner.name,
             total_deleted,
             time.time() - now,
         )
@@ -356,9 +431,11 @@ class ZeroSizeFilesCleanup(BaseCleanupJob):
         """Return job name."""
         return CleanupJobNames.ZERO_SIZE_FILES.value
 
-    def _run(self) -> None:
+    @staticmethod
+    def work(runner: CleanupJobRunner) -> None:
+        """Run the job."""
         now = time.time()
-        LOGGER.debug("Running %s", self.name)
+        LOGGER.debug("Running %s", runner.name)
         processed = 0
         updated = 0
         deleted = 0
@@ -367,9 +444,9 @@ class ZeroSizeFilesCleanup(BaseCleanupJob):
         # Only consider files older than 5 minutes
         cutoff_time = utcnow() - datetime.timedelta(minutes=5)
 
-        with self._storage.get_session() as session:
+        with runner.get_session() as session:
             while True:
-                if self.kill_event.is_set():
+                if runner.kill_event.is_set():
                     break
 
                 batch = (
@@ -396,7 +473,7 @@ class ZeroSizeFilesCleanup(BaseCleanupJob):
 
                 to_delete_ids: list[int] = []
                 for file_row in batch:
-                    if self.kill_event.is_set():
+                    if runner.kill_event.is_set():
                         break
                     processed += 1
                     path = file_row.path
@@ -421,7 +498,7 @@ class ZeroSizeFilesCleanup(BaseCleanupJob):
 
         LOGGER.debug(
             "%s processed %d files, updated %d sizes, deleted %d records, took %s",
-            self.name,
+            runner.name,
             processed,
             updated,
             deleted,
@@ -442,36 +519,27 @@ class EmptyFoldersCleanup(BaseCleanupJob):
         """Return job name."""
         return CleanupJobNames.EMPTY_FOLDERS.value
 
-    def _run(self) -> None:
+    def _get_paths(self) -> list[str]:
+        """Return the storage paths the job processes."""
+        return self._get_all_paths()
+
+    @staticmethod
+    def work(runner: CleanupJobRunner) -> None:
         """Run the job."""
         now = time.time()
-        LOGGER.debug("Running %s", self.name)
+        LOGGER.debug("Running %s", runner.name)
         deleted_count = 0
         processed_count = 0
-        cameras = self._get_cameras()
-        if not cameras:
+        if not runner.paths:
             return
 
-        paths = []
-        for camera in cameras.values():
-            paths += self._storage.get_event_clips_path(camera, all_tiers=True)
-            paths += self._storage.get_segments_path(camera, all_tiers=True)
-            paths += self._storage.get_thumbnails_path(camera, all_tiers=True)
-            if timelapse_path := self._storage.get_timelapse_path(
-                camera, all_tiers=True
-            ):
-                paths += timelapse_path
-
-            for domain in SnapshotDomain:
-                paths += self._storage.get_snapshots_path(
-                    camera, domain, all_tiers=True
-                )
-
-        for path in paths:
+        for path in runner.paths:
             time.sleep(1)
             for root, dirs, files in os.walk(path, topdown=False):
                 processed_count += 1
-                self.log_progress(f"{self.name} processed {processed_count} folders")
+                runner.log_progress(
+                    f"{runner.name} processed {processed_count} folders"
+                )
                 if root == path:
                     continue
                 if not dirs and not files:
@@ -481,7 +549,7 @@ class EmptyFoldersCleanup(BaseCleanupJob):
 
         LOGGER.debug(
             "%s deleted %d empty folders, took %s",
-            self.name,
+            runner.name,
             deleted_count,
             time.time() - now,
         )
@@ -495,23 +563,27 @@ class OrphanedThumbnailsCleanup(BaseCleanupJob):
         """Return job name."""
         return CleanupJobNames.ORPHANED_THUMBNAILS.value
 
-    def _run(self) -> None:
-        """Run the job."""
-        now = time.time()
-        LOGGER.debug("Running %s", self.name)
-        deleted_count = 0
-        total_files_processed = 0
-
-        cameras = self._get_cameras()
-        if not cameras:
-            return
-
+    def _get_paths(self) -> list[str]:
+        """Return the storage paths the job processes."""
+        cameras = self._get_cameras() or {}
         paths = []
         for camera in cameras.values():
             paths += self._storage.get_thumbnails_path(camera, all_tiers=True)
+        return paths
 
-        with self._storage.get_session() as session:
-            for thumbnails_path in paths:
+    @staticmethod
+    def work(runner: CleanupJobRunner) -> None:
+        """Run the job."""
+        now = time.time()
+        LOGGER.debug("Running %s", runner.name)
+        deleted_count = 0
+        total_files_processed = 0
+
+        if not runner.paths:
+            return
+
+        with runner.get_session() as session:
+            for thumbnails_path in runner.paths:
                 files_processed = 0
                 if not os.path.exists(thumbnails_path):
                     continue
@@ -521,12 +593,12 @@ class OrphanedThumbnailsCleanup(BaseCleanupJob):
                     files_to_check.extend(
                         os.path.join(root, f)
                         for f in files
-                        if f not in self._storage.ignored_files
+                        if f not in runner.ignored_files
                     )
 
                 # Process files in batches
                 for i in range(0, len(files_to_check), BATCH_SIZE):
-                    if self.kill_event.is_set():
+                    if runner.kill_event.is_set():
                         break
 
                     batch = files_to_check[i : i + BATCH_SIZE]
@@ -549,21 +621,21 @@ class OrphanedThumbnailsCleanup(BaseCleanupJob):
                         total_files_processed += 1
                         files_processed += 1
 
-                    self.log_progress(
-                        f"{self.name} processed "
+                    runner.log_progress(
+                        f"{runner.name} processed "
                         f"{files_processed}/{len(files_to_check)} "
                         f"files in {thumbnails_path}"
                     )
                     time.sleep(1)
                 LOGGER.debug(
-                    f"{self.name} processed "
+                    f"{runner.name} processed "
                     f"{files_processed}/{len(files_to_check)} "
                     f"files in {thumbnails_path}"
                 )
 
         LOGGER.debug(
             "%s deleted %d/%d orphaned thumbnails, took %s",
-            self.name,
+            runner.name,
             deleted_count,
             total_files_processed,
             time.time() - now,
@@ -578,23 +650,27 @@ class OrphanedEventClipsCleanup(BaseCleanupJob):
         """Return job name."""
         return CleanupJobNames.ORPHANED_EVENT_CLIPS.value
 
-    def _run(self) -> None:
-        """Run the job."""
-        now = time.time()
-        LOGGER.debug("Running %s", self.name)
-        deleted_count = 0
-        total_files_processed = 0
-
-        cameras = self._get_cameras()
-        if not cameras:
-            return
-
+    def _get_paths(self) -> list[str]:
+        """Return the storage paths the job processes."""
+        cameras = self._get_cameras() or {}
         paths = []
         for camera in cameras.values():
             paths += self._storage.get_event_clips_path(camera, all_tiers=True)
+        return paths
 
-        with self._storage.get_session() as session:
-            for event_clips_path in paths:
+    @staticmethod
+    def work(runner: CleanupJobRunner) -> None:
+        """Run the job."""
+        now = time.time()
+        LOGGER.debug("Running %s", runner.name)
+        deleted_count = 0
+        total_files_processed = 0
+
+        if not runner.paths:
+            return
+
+        with runner.get_session() as session:
+            for event_clips_path in runner.paths:
                 files_processed = 0
                 if not os.path.exists(event_clips_path):
                     continue
@@ -605,12 +681,12 @@ class OrphanedEventClipsCleanup(BaseCleanupJob):
                     files_to_check.extend(
                         os.path.join(root, f)
                         for f in files
-                        if f not in self._storage.ignored_files
+                        if f not in runner.ignored_files
                     )
 
                 # Process files in batches
                 for i in range(0, len(files_to_check), BATCH_SIZE):
-                    if self.kill_event.is_set():
+                    if runner.kill_event.is_set():
                         break
 
                     batch = files_to_check[i : i + BATCH_SIZE]
@@ -633,21 +709,21 @@ class OrphanedEventClipsCleanup(BaseCleanupJob):
                         total_files_processed += 1
                         files_processed += 1
 
-                    self.log_progress(
-                        f"{self.name} processed "
+                    runner.log_progress(
+                        f"{runner.name} processed "
                         f"{files_processed}/{len(files_to_check)} "
                         f"files in {event_clips_path}"
                     )
                     time.sleep(1)
                 LOGGER.debug(
-                    f"{self.name} processed "
+                    f"{runner.name} processed "
                     f"{files_processed}/{len(files_to_check)} "
                     f"files in {event_clips_path}"
                 )
 
         LOGGER.debug(
             "%s deleted %d/%d orphaned clips, took %s",
-            self.name,
+            runner.name,
             deleted_count,
             total_files_processed,
             time.time() - now,
@@ -662,14 +738,15 @@ class OrphanedRecordingsCleanup(BaseCleanupJob):
         """Return job name."""
         return CleanupJobNames.ORPHANED_RECORDINGS.value
 
-    def _run(self) -> None:
+    @staticmethod
+    def work(runner: CleanupJobRunner) -> None:
         """Run the job."""
         now = time.time()
-        LOGGER.debug("Running %s", self.name)
+        LOGGER.debug("Running %s", runner.name)
         total_deleted = 0
         total_processed = 0
 
-        with self._storage.get_session() as session:
+        with runner.get_session() as session:
             count = session.execute(
                 select(func.count())
                 .select_from(Recordings)
@@ -681,7 +758,7 @@ class OrphanedRecordingsCleanup(BaseCleanupJob):
 
             last_id = 0
             while True:
-                if self.kill_event.is_set():
+                if runner.kill_event.is_set():
                     break
 
                 # Get next batch of recordings
@@ -703,7 +780,7 @@ class OrphanedRecordingsCleanup(BaseCleanupJob):
                 # Find orphaned recordings
                 to_delete = []
                 for recording in batch:
-                    if self.kill_event.is_set():
+                    if runner.kill_event.is_set():
                         break
                     has_segments = session.execute(
                         select(1)
@@ -737,14 +814,14 @@ class OrphanedRecordingsCleanup(BaseCleanupJob):
                     total_deleted += result.rowcount
 
                 total_processed += len(batch)
-                self.log_progress(
-                    f"{self.name} processed {total_processed}/{count} recordings"
+                runner.log_progress(
+                    f"{runner.name} processed {total_processed}/{count} recordings"
                 )
                 time.sleep(1)
 
         LOGGER.debug(
             "%s deleted %d/%d orphaned recordings, took %s",
-            self.name,
+            runner.name,
             total_deleted,
             total_processed,
             time.time() - now,
@@ -764,12 +841,16 @@ class OrphanedPostProcessorResultsCleanup(BaseTableCleanupJob):
         """Return job name."""
         return CleanupJobNames.ORPHANED_POSTPROCESSOR_RESULTS.value
 
-    def _run(self) -> None:
+    @staticmethod
+    def work(runner: CleanupJobRunner) -> None:
         """Run the job."""
-        LOGGER.debug("Running %s", self.name)
-        with self._storage.get_session() as session:
-            self.batch_delete_orphaned(
-                session, PostProcessorResults, PostProcessorResults.snapshot_path
+        LOGGER.debug("Running %s", runner.name)
+        with runner.get_session() as session:
+            BaseTableCleanupJob.batch_delete_orphaned(
+                runner,
+                session,
+                PostProcessorResults,
+                PostProcessorResults.snapshot_path,
             )
 
 
@@ -786,11 +867,14 @@ class OrphanedObjectsCleanup(BaseTableCleanupJob):
         """Return job name."""
         return CleanupJobNames.ORPHANED_OBJECTS.value
 
-    def _run(self) -> None:
+    @staticmethod
+    def work(runner: CleanupJobRunner) -> None:
         """Run the job."""
-        LOGGER.debug("Running %s", self.name)
-        with self._storage.get_session() as session:
-            self.batch_delete_orphaned(session, Objects, Objects.snapshot_path)
+        LOGGER.debug("Running %s", runner.name)
+        with runner.get_session() as session:
+            BaseTableCleanupJob.batch_delete_orphaned(
+                runner, session, Objects, Objects.snapshot_path
+            )
 
 
 class OrphanedMotionCleanup(BaseTableCleanupJob):
@@ -806,11 +890,14 @@ class OrphanedMotionCleanup(BaseTableCleanupJob):
         """Return job name."""
         return CleanupJobNames.ORPHANED_MOTION.value
 
-    def _run(self) -> None:
+    @staticmethod
+    def work(runner: CleanupJobRunner) -> None:
         """Run the job."""
-        LOGGER.debug("Running %s", self.name)
-        with self._storage.get_session() as session:
-            self.batch_delete_orphaned(session, Motion, Motion.snapshot_path)
+        LOGGER.debug("Running %s", runner.name)
+        with runner.get_session() as session:
+            BaseTableCleanupJob.batch_delete_orphaned(
+                runner, session, Motion, Motion.snapshot_path
+            )
 
 
 class OldEventsCleanup(BaseCleanupJob):
@@ -825,11 +912,12 @@ class OldEventsCleanup(BaseCleanupJob):
         """Return job name."""
         return CleanupJobNames.OLD_EVENTS.value
 
-    def _run(self) -> None:
+    @staticmethod
+    def work(runner: CleanupJobRunner) -> None:
         """Run the job."""
         now = time.time()
-        LOGGER.debug("Running %s", self.name)
-        with self._storage.get_session() as session:
+        LOGGER.debug("Running %s", runner.name)
+        with runner.get_session() as session:
             stmt = delete(Events).where(
                 Events.created_at < utcnow() - datetime.timedelta(days=7)
             )
@@ -837,7 +925,7 @@ class OldEventsCleanup(BaseCleanupJob):
             session.commit()
             LOGGER.debug(
                 "%s deleted %d old events, took %s",
-                self.name,
+                runner.name,
                 result.rowcount,
                 time.time() - now,
             )
