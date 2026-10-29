@@ -3,22 +3,17 @@
 from __future__ import annotations
 
 import datetime
-import errno
 import logging
 import os
 import queue
-import re
-import shutil
 import subprocess as sp
 import threading
 import uuid
 from dataclasses import dataclass
 from math import ceil
-from typing import TYPE_CHECKING, Any, Literal, TypedDict
+from typing import TYPE_CHECKING, Literal, TypedDict
 
-import psutil
 from apscheduler.jobstores.base import JobLookupError
-from path import Path
 
 from viseron.components.storage.const import (
     COMPONENT as STORAGE_COMPONENT,
@@ -30,20 +25,12 @@ from viseron.components.storage.const import (
 from viseron.components.storage.models import FilesMeta
 from viseron.components.storage.queries import get_time_period_fragments
 from viseron.const import CAMERA_SEGMENT_DURATION, TEMP_DIR, VISERON_SIGNAL_SHUTDOWN
-from viseron.domains.camera.const import (
-    CONFIG_FFMPEG_LOGLEVEL,
-    CONFIG_RECORDER,
-    MP4BOX_PATH,
-)
+from viseron.domains.camera.const import CONFIG_FFMPEG_LOGLEVEL, CONFIG_RECORDER
+from viseron.domains.camera.fragmenter_process import FragmenterWork
 from viseron.events import EventEmptyData
-from viseron.helpers import get_utc_offset
 from viseron.helpers.child_process_context import get_child_process_context
 from viseron.helpers.child_process_worker import ChildProcessWorker
-from viseron.helpers.logs import (
-    LogPipe,
-    SensitiveInformationFilter,
-    enable_child_logging,
-)
+from viseron.helpers.logs import LogPipe
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -55,100 +42,11 @@ if TYPE_CHECKING:
     from viseron.components.storage import Storage
     from viseron.domains.camera import AbstractCamera
 
-# Constants
-TIMELAPSE_FFMPEG_TIMEOUT = 10
 FRAGMENTER_DRAIN_TIMEOUT = CAMERA_SEGMENT_DURATION * 2
-
-
-def _get_open_files(path: str, process: psutil.Process) -> list[str]:
-    """Get open files for a process."""
-    files = []
-    try:
-        open_files = process.open_files()
-        for file in open_files:
-            if file.path.startswith(f"{path}/"):
-                files.append(file.path.split("/")[-1])
-    except psutil.Error:
-        pass
-    return files
-
-
-def _get_mp4_files_to_fragment(path: str) -> list[str]:
-    """Get mp4 files that are not in use by ffmpeg/gstreamer."""
-    mp4_files = [
-        file for file in Path(path).walkfiles() if file.endswith((".mp4", ".m4s"))
-    ]
-    files_in_use = ["init.mp4"]
-    for process in psutil.process_iter():
-        try:
-            process_name = process.name()
-            if any(pattern in process_name for pattern in ["ffmpeg", "gstreamer"]):
-                files_in_use.extend(_get_open_files(path, process))
-        except psutil.Error:
-            pass
-    return [str(f.name) for f in mp4_files if str(f.name) not in files_in_use]
-
-
-def _extract_extinf_number(playlist_content: str, file: str) -> float | None:
-    """Extract the EXTINF number from a HLS playlist."""
-    # Escape special regex characters in the file name
-    escaped_file = re.escape(file)
-
-    # Simplified pattern
-    pattern = rf"#EXTINF:(\d+(?:\.\d+)?)[^\n]*\n(?:(?!#EXTINF)[^\n]*\n)*{escaped_file}"
-
-    match = re.search(pattern, playlist_content)
-
-    if match:
-        # Extract the duration number from the match
-        return float(match.group(1))
-    return None
-
-
-def _extract_program_date_time(
-    playlist_content: str, file: str
-) -> datetime.datetime | None:
-    """Extract the EXT-X-PROGRAM-DATE-TIME number from a HLS playlist."""
-    escaped_file = re.escape(file)
-    pattern = (
-        r"#EXT-X-PROGRAM-DATE-TIME:"
-        rf"([^\n]+)\n(?:(?!#EXT-X-PROGRAM-DATE-TIME)[^\n]*\n)*{escaped_file}"
-    )
-
-    match = re.search(pattern, playlist_content)
-
-    try:
-        if match:
-            # Remove timezone information since fromisoformat does not support it
-            no_tz = re.sub(r"\+[0-9]{4}$", "", match.group(1))
-            # Adjust according to local timezone
-            return (datetime.datetime.fromisoformat(no_tz) - get_utc_offset()).replace(
-                tzinfo=datetime.timezone.utc
-            )
-    except ValueError:
-        pass
-    return None
-
-
-def _get_orig_ctime(
-    file: str, program_date_time: datetime.datetime | None
-) -> datetime.datetime:
-    """Return the creation time of a segment named <epoch>.<ext>."""
-    if program_date_time:
-        return program_date_time
-    return datetime.datetime.fromtimestamp(
-        int(file.split(".", maxsplit=1)[0]), tz=datetime.timezone.utc
-    )
 
 
 class FragmenterSubProcessWorker(ChildProcessWorker):
     """Child process worker for running fragmentation in a child process."""
-
-    # Only set in the child process, see __getstate__ and process_initialization
-    _log_pipe: LogPipe
-    _log_levels: dict[str, int]
-    _root_log_level: int
-    _sensitive_strings: tuple[str, ...]
 
     def __init__(
         self,
@@ -159,86 +57,26 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
         segments_folder: str,
         metadata_callback: Callable[[dict], None],
     ) -> None:
-        self._logger = logging.getLogger(
-            f"{self.__module__}.subprocess.{camera.identifier}"
-        )
-        self._mp4box_logger = logging.getLogger(
-            f"{self.__module__}.{camera.identifier}.mp4box"
-        )
         self._vis = vis
         self._storage = storage
         self._camera = camera
-        self.temp_segments_folder = temp_segments_folder
-        self.segments_folder = segments_folder
-        self._timelapse_folder = camera.timelapse_folder
-        self._temp_timelapse_folder = camera.temp_timelapse_folder
-
-        mp_context = get_child_process_context()
-        self._worker_event = mp_context.Event()
+        self._worker_event = get_child_process_context().Event()
         self._drained = threading.Event()
         self.on_metadata = metadata_callback
         # Fragmenter owns the stop so it can drain pending segments first
         super().__init__(
             vis,
             f"fragmenter.{camera.identifier}",
+            FragmenterWork(
+                camera.identifier,
+                temp_segments_folder,
+                segments_folder,
+                camera.timelapse_folder,
+                camera.temp_timelapse_folder,
+                self._worker_event,
+            ),
             stop_on_shutdown=False,
-            mp_context=mp_context,
         )
-
-    def __getstate__(self) -> dict[str, Any]:
-        """Return the state needed by the child process.
-
-        The child is started with the forkserver start method, which pickles this
-        worker along with the bound target. Anything tied to the running Viseron
-        instance is left out.
-        """
-        return {
-            "_name": self._name,
-            "_logger": self._logger,
-            "_mp4box_logger": self._mp4box_logger,
-            "_log_levels": {
-                self._logger.name: self._logger.getEffectiveLevel(),
-                self._mp4box_logger.name: self._mp4box_logger.getEffectiveLevel(),
-            },
-            "_root_log_level": logging.getLogger().level,
-            "_sensitive_strings": tuple(SensitiveInformationFilter.sensitive_strings),
-            "temp_segments_folder": self.temp_segments_folder,
-            "segments_folder": self.segments_folder,
-            "_timelapse_folder": self._timelapse_folder,
-            "_temp_timelapse_folder": self._temp_timelapse_folder,
-            "_worker_event": self._worker_event,
-            "_output_queue": self._output_queue,
-        }
-
-    def process_initialization(self) -> None:
-        """Set up logging inside the child process."""
-        enable_child_logging(self._sensitive_strings, self._root_log_level)
-        for name, level in self._log_levels.items():
-            logging.getLogger(name).setLevel(level)
-        self._log_pipe = LogPipe(self._mp4box_logger, logging.DEBUG)
-
-    def work_input(self, item) -> dict | None:
-        """Handle input commands in the child process."""
-        cmd = item.get("cmd")
-        if cmd not in ("fragment", "drain"):
-            return None
-
-        self._logger.debug(
-            f"Checking for new segments to fragment in {self.temp_segments_folder}"
-        )
-        mp4s = sorted(_get_mp4_files_to_fragment(self.temp_segments_folder))
-        if cmd == "fragment":
-            mp4s = mp4s[:5]
-        for mp4 in mp4s:
-            self._logger.debug(f"Processing {mp4}")
-            if mp4.split(".")[1] == "m4s":
-                self._handle_m4s(mp4)
-            else:
-                self._handle_mp4(mp4)
-
-        if cmd == "drain":
-            return {"drained": True}
-        return None
 
     def drain(self, timeout: float) -> bool:
         """Fragment all pending segments, blocking until done or timeout."""
@@ -275,274 +113,6 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
             self.on_metadata(item)
 
         self._worker_event.set()
-
-    def _mp4box_command(self, file: str) -> bool:
-        """Create fragmented fmp4 from mp4 using MP4Box."""
-        outdir = os.path.join(self.temp_segments_folder, file.split(".", maxsplit=1)[0])
-        os.makedirs(outdir, exist_ok=True)
-        try:
-            sp.run(  # type: ignore[call-overload]
-                [
-                    MP4BOX_PATH,
-                    "-logs",
-                    "dash@error:ncl",
-                    "-noprog",
-                    "-dash",
-                    "10000",
-                    "-rap",
-                    "-frag-rap",
-                    "-segment-name",
-                    "clip_",
-                    "-out",
-                    os.path.join(outdir, "master.m3u8"),
-                    os.path.join(self.temp_segments_folder, file),
-                ],
-                stdout=self._log_pipe,
-                stderr=self._log_pipe,
-                check=True,
-            )
-        except sp.CalledProcessError as err:
-            self._logger.error("MP4Box command failed", exc_info=err)
-            return False
-        return True
-
-    def _segment_hook_mp4box(self, file: str, orig_ctime: datetime.datetime) -> None:
-        """Perform per fragment tasks before moving fragment to storage.
-
-        Currently only used for extracting timelapse frames from fragments.
-        """
-        if self._timelapse_folder is None or self._temp_timelapse_folder is None:
-            return
-
-        frame_filename = os.path.splitext(os.path.basename(file))[0] + ".jpg"
-        tmp_frame_path = os.path.join(self._temp_timelapse_folder, frame_filename)
-        frame_path = os.path.join(self._timelapse_folder, frame_filename)
-        init_path = os.path.join(
-            self.temp_segments_folder, file.split(".", maxsplit=1)[0], "clip_init.mp4"
-        )
-        segment_path = os.path.join(
-            self.temp_segments_folder, file.split(".", maxsplit=1)[0], "clip_1.m4s"
-        )
-
-        self._extract_timelapse_frame(
-            init_path, segment_path, tmp_frame_path, frame_path, orig_ctime
-        )
-
-    def _segment_hook(self, file: str, orig_ctime: datetime.datetime) -> None:
-        """Perform per fragment tasks before moving fragment to storage.
-
-        Currently only used for extracting timelapse frames from fragments.
-        """
-        if self._timelapse_folder is None or self._temp_timelapse_folder is None:
-            return
-
-        frame_filename = os.path.splitext(os.path.basename(file))[0] + ".jpg"
-        tmp_frame_path = os.path.join(self._temp_timelapse_folder, frame_filename)
-        frame_path = os.path.join(self._timelapse_folder, frame_filename)
-        init_path = os.path.join(self.temp_segments_folder, "init.mp4")
-        segment_path = os.path.join(self.temp_segments_folder, file)
-
-        self._extract_timelapse_frame(
-            init_path, segment_path, tmp_frame_path, frame_path, orig_ctime
-        )
-
-    def _extract_timelapse_frame(
-        self,
-        init_path: str,
-        segment_path: str,
-        tmp_frame_path: str,
-        frame_path: str,
-        orig_ctime: datetime.datetime,
-    ) -> None:
-        """Extract a timelapse frame from segment files."""
-        try:
-            # Run ffmpeg command to extract first keyframe of the segment
-            cmd = [
-                "bash",
-                "-c",
-                (
-                    f"cat '{init_path}' '{segment_path}' | "
-                    f"ffmpeg -skip_frame nokey -i pipe:0 -frames:v 1 "
-                    f"-update true -f mjpeg '{tmp_frame_path}' -y"
-                ),
-            ]
-
-            result = sp.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=TIMELAPSE_FFMPEG_TIMEOUT,
-                check=False,
-            )
-            if result.returncode == 0:
-                self._logger.debug(f"Timelapse: Extracted frame {tmp_frame_path}")
-                self._send_files_metadata(frame_path, orig_ctime, None)
-                shutil.move(tmp_frame_path, frame_path)
-            else:
-                self._logger.warning(
-                    f"Timelapse: Failed to extract frame {frame_path}: {result.stderr}"
-                )
-                os.remove(tmp_frame_path)
-
-        except FileNotFoundError:
-            self._logger.debug(f"{tmp_frame_path} not found")
-
-        except (OSError, sp.TimeoutExpired, sp.SubprocessError) as error:
-            self._logger.error(
-                f"Timelapse: Error extracting frame {frame_path}: {error}"
-            )
-
-        finally:
-            try:
-                os.remove(tmp_frame_path)
-            except FileNotFoundError:
-                pass
-
-    def _move_to_segments_folder_mp4box(
-        self, file: str, orig_ctime: datetime.datetime
-    ) -> None:
-        """Move fragmented mp4 created by mp4box to segments folder."""
-        self._segment_hook_mp4box(file, orig_ctime)
-        try:
-            shutil.move(
-                os.path.join(
-                    self.temp_segments_folder,
-                    file.split(".", maxsplit=1)[0],
-                    "clip_1.m4s",
-                ),
-                os.path.join(
-                    self.segments_folder, file.split(".", maxsplit=1)[0] + ".m4s"
-                ),
-            )
-            shutil.move(
-                os.path.join(
-                    self.temp_segments_folder,
-                    file.split(".", maxsplit=1)[0],
-                    "clip_init.mp4",
-                ),
-                os.path.join(self.segments_folder, "init.mp4"),
-            )
-        except FileNotFoundError:
-            self._logger.debug(f"{file} not found")
-
-    def _move_to_segments_folder(
-        self, file: str, orig_ctime: datetime.datetime
-    ) -> None:
-        """Move fragmented mp4 created by encoder to segments folder."""
-        self._segment_hook(file, orig_ctime)
-        try:
-            shutil.move(
-                os.path.join(self.temp_segments_folder, file),
-                os.path.join(self.segments_folder, file),
-            )
-            shutil.copy(
-                os.path.join(self.temp_segments_folder, "init.mp4"),
-                os.path.join(self.segments_folder, "init.mp4"),
-            )
-        except FileNotFoundError:
-            self._logger.debug(f"{file} not found", exc_info=True)
-        except OSError as err:
-            if err.errno == errno.ENOSPC:
-                self._logger.error(
-                    "No space left on device, trigger tier check",
-                    exc_info=err,
-                )
-                self._worker_event.clear()
-                self._output_queue.put(
-                    {
-                        "error": "no_space_left",
-                    }
-                )
-                self._worker_event.wait(timeout=1)
-
-    def _send_files_metadata(
-        self, path: str, orig_ctime: datetime.datetime, duration: float | None
-    ) -> None:
-        """Save temporary metadata which is later used when inserting into the DB."""
-        self._worker_event.clear()
-        self._output_queue.put(
-            {
-                "path": path,
-                "orig_ctime": orig_ctime,
-                "duration": duration,
-            }
-        )
-        self._worker_event.wait(timeout=1)
-
-    def _read_m3u8_mp4box(self, file: str) -> str:
-        """Read m3u8 file created by MP4Box."""
-        return open(
-            os.path.join(
-                self.temp_segments_folder,
-                file.split(".", maxsplit=1)[0],
-                "master_1.m3u8",
-            ),
-            encoding="utf-8",
-        ).read()
-
-    def _read_m3u8(self) -> str:
-        """Read m3u8 file created by encoder."""
-        return open(
-            os.path.join(
-                self.temp_segments_folder,
-                "index.m3u8",
-            ),
-            encoding="utf-8",
-        ).read()
-
-    def _handle_mp4(self, file: str) -> None:
-        """Handle mp4 files."""
-        try:
-            if self._mp4box_command(file):
-                extinf = _extract_extinf_number(
-                    self._read_m3u8_mp4box(file), "clip_1.m4s"
-                )
-                if extinf:
-                    orig_ctime = _get_orig_ctime(file, None)
-                    self._send_files_metadata(
-                        os.path.join(
-                            self.segments_folder,
-                            file.split(".", maxsplit=1)[0] + ".m4s",
-                        ),
-                        orig_ctime,
-                        extinf,
-                    )
-                    self._move_to_segments_folder_mp4box(file, orig_ctime)
-                else:
-                    self._logger.error(f"Failed to get extinf for {file}")
-        except Exception as err:  # pylint: disable=broad-except
-            self._logger.error(f"Failed to fragment {file}", exc_info=err)
-
-        try:
-            os.remove(os.path.join(self.temp_segments_folder, file))
-            shutil.rmtree(
-                os.path.join(self.temp_segments_folder, file.split(".", maxsplit=1)[0]),
-            )
-        except FileNotFoundError as err:
-            self._logger.error("Failed to delete broken fragment", exc_info=err)
-
-    def _handle_m4s(self, file: str) -> None:
-        """Handle m4s (fragmented mp4) files."""
-        try:
-            m3u8 = self._read_m3u8()
-            extinf = _extract_extinf_number(m3u8, file)
-            program_date_time = _extract_program_date_time(m3u8, file)
-            if extinf:
-                orig_ctime = _get_orig_ctime(file, program_date_time)
-                self._send_files_metadata(
-                    os.path.join(self.segments_folder, file), orig_ctime, extinf
-                )
-                self._move_to_segments_folder(file, orig_ctime)
-            else:
-                self._logger.error(f"Failed to get extinf for {file}")
-                os.remove(os.path.join(self.temp_segments_folder, file))
-        except Exception as err:  # pylint: disable=broad-except
-            self._logger.error(f"Failed to process m4s file {file}", exc_info=err)
-        finally:
-            try:
-                os.remove(os.path.join(self.temp_segments_folder, file))
-            except FileNotFoundError:
-                pass
 
 
 class Fragmenter:

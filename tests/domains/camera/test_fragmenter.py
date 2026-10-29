@@ -12,18 +12,26 @@ from unittest.mock import MagicMock, Mock, call, patch
 import pytest
 from apscheduler.jobstores.base import JobLookupError
 
+from viseron.domains.camera import fragmenter
 from viseron.domains.camera.const import MP4BOX_PATH
 from viseron.domains.camera.fragmenter import (
     Fragment,
     Fragmenter,
     FragmenterSubProcessWorker,
-    _extract_extinf_number,
-    _extract_program_date_time,
     generate_playlist,
     get_available_timespans,
     get_skipped_segment_count,
 )
+from viseron.domains.camera.fragmenter_process import (
+    FragmenterWork,
+    _extract_extinf_number,
+    _extract_program_date_time,
+    fragmenter_logger_names,
+)
 from viseron.helpers import utcnow
+from viseron.helpers.child_process_context import get_child_process_context
+
+from tests.common import pickle_for_child_process
 
 PLAYLIST_CONTENT = """#EXTM3U
 #EXT-X-VERSION:7
@@ -339,33 +347,53 @@ def test_get_available_timespans(
         assert get_available_timespans(MagicMock(), ["test"], 0) == expected
 
 
-class TestFragmenter:
-    """Tests for Fragmenter."""
+def _fragmenter_work(temp_segments_folder: str, segments_folder: str) -> FragmenterWork:
+    return FragmenterWork(
+        "test_camera",
+        temp_segments_folder,
+        segments_folder,
+        None,
+        None,
+        get_child_process_context().Event(),
+    )
 
-    def setup_method(self):
+
+def test_fragmenter_work_is_picklable() -> None:
+    """The work crosses a forkserver boundary, so it must pickle."""
+    restored = pickle_for_child_process(
+        _fragmenter_work("/tmp/temp_segments", "/tmp/segments")
+    )
+    assert restored.temp_segments_folder == "/tmp/temp_segments"
+    assert restored.segments_folder == "/tmp/segments"
+
+
+def test_fragmenter_logger_names_match_the_fragmenter_module() -> None:
+    """Log levels configured for the fragmenter module must reach the child."""
+    for logger_name in fragmenter_logger_names("test_camera"):
+        assert logger_name.startswith(f"{fragmenter.__name__}.")
+
+
+class TestFragmenterWork:
+    """Tests for FragmenterWork."""
+
+    def setup_method(self) -> None:
         """Set up test method."""
-        self.vis = MagicMock()
-        self.camera = MagicMock()
-        self.camera.identifier = "test_camera"
-        self.camera.temp_segments_folder = tempfile.mkdtemp()
-        self.camera.segments_folder = tempfile.mkdtemp()
-        self.camera.timelapse_folder = None
-        self.camera.temp_timelapse_folder = None
-        self.fragmenter = Fragmenter(self.vis, self.camera)
-        self.fragmenter.start()
+        self.temp_segments_folder = tempfile.mkdtemp()
+        self.segments_folder = tempfile.mkdtemp()
+        self.work = _fragmenter_work(self.temp_segments_folder, self.segments_folder)
+        self.work.initialize()
 
-    def teardown_method(self):
+    def teardown_method(self) -> None:
         """Tear down test method."""
-        self.fragmenter.unload()
-        shutil.rmtree(self.camera.temp_segments_folder)
-        shutil.rmtree(self.camera.segments_folder)
+        self.work._log_pipe.close()
+        shutil.rmtree(self.temp_segments_folder)
+        shutil.rmtree(self.segments_folder)
 
-    @patch("viseron.domains.camera.fragmenter.sp.run")
-    def test_mp4box_command(self, mock_sp_run: Mock):
+    @patch("viseron.domains.camera.fragmenter_process.sp.run")
+    def test_mp4box_command(self, mock_sp_run: Mock) -> None:
         """Test mp4box command generation."""
         mock_sp_run.return_value = MagicMock()
-        self.fragmenter._fragment_worker._log_pipe = MagicMock()
-        self.fragmenter._fragment_worker._mp4box_command("test.mp4")
+        self.work._mp4box_command("test.mp4")
         mock_sp_run.assert_called_once_with(
             [
                 MP4BOX_PATH,
@@ -379,31 +407,51 @@ class TestFragmenter:
                 "-segment-name",
                 "clip_",
                 "-out",
-                os.path.join(self.camera.temp_segments_folder, "test", "master.m3u8"),
-                os.path.join(self.camera.temp_segments_folder, "test.mp4"),
+                os.path.join(self.temp_segments_folder, "test", "master.m3u8"),
+                os.path.join(self.temp_segments_folder, "test.mp4"),
             ],
-            stdout=self.fragmenter._fragment_worker._log_pipe,
-            stderr=self.fragmenter._fragment_worker._log_pipe,
+            stdout=self.work._log_pipe,
+            stderr=self.work._log_pipe,
             check=True,
         )
 
-    @patch("viseron.domains.camera.fragmenter.shutil.move")
-    def test_move_to_segments_folder_mp4box(self, mock_shutil_move: Mock):
+    @patch("viseron.domains.camera.fragmenter_process.shutil.move")
+    def test_move_to_segments_folder_mp4box(self, mock_shutil_move: Mock) -> None:
         """Test that the files are moved to the segments folder."""
         mock_shutil_move.return_value = MagicMock()
-        self.fragmenter._fragment_worker._move_to_segments_folder_mp4box(
-            "test.mp4", utcnow()
-        )
+        self.work._move_to_segments_folder_mp4box("test.mp4", utcnow())
         mock_shutil_move.assert_any_call(
-            os.path.join(self.camera.temp_segments_folder, "test", "clip_1.m4s"),
-            os.path.join(self.camera.segments_folder, "test.m4s"),
+            os.path.join(self.temp_segments_folder, "test", "clip_1.m4s"),
+            os.path.join(self.segments_folder, "test.m4s"),
         )
 
         mock_shutil_move.assert_any_call(
-            os.path.join(self.camera.temp_segments_folder, "test", "clip_init.mp4"),
-            os.path.join(self.camera.segments_folder, "init.mp4"),
+            os.path.join(self.temp_segments_folder, "test", "clip_init.mp4"),
+            os.path.join(self.segments_folder, "init.mp4"),
         )
         assert mock_shutil_move.call_count == 2
+
+
+class TestFragmenter:
+    """Tests for Fragmenter."""
+
+    def setup_method(self) -> None:
+        """Set up test method."""
+        self.vis = MagicMock()
+        self.camera = MagicMock()
+        self.camera.identifier = "test_camera"
+        self.camera.temp_segments_folder = tempfile.mkdtemp()
+        self.camera.segments_folder = tempfile.mkdtemp()
+        self.camera.timelapse_folder = None
+        self.camera.temp_timelapse_folder = None
+        self.fragmenter = Fragmenter(self.vis, self.camera)
+        self.fragmenter.start()
+
+    def teardown_method(self) -> None:
+        """Tear down test method."""
+        self.fragmenter.unload()
+        shutil.rmtree(self.camera.temp_segments_folder)
+        shutil.rmtree(self.camera.segments_folder)
 
     def test_drain_waits_for_child_process(self) -> None:
         """Drain returns once the child process has replied."""
@@ -418,21 +466,21 @@ class TestFragmenter:
         pytest.param("unknown", 0, None, id="unknown_cmd"),
     ],
 )
-def test_worker_work_input(
+def test_work_input(
     cmd: str, expected_handled: int, expected_result: dict | None
 ) -> None:
     """Drain fragments every pending segment and replies when done."""
-    worker = MagicMock()
+    work = MagicMock()
     files = [f"{i}.m4s" for i in range(7)]
 
     with patch(
-        "viseron.domains.camera.fragmenter._get_mp4_files_to_fragment",
+        "viseron.domains.camera.fragmenter_process._get_mp4_files_to_fragment",
         return_value=files,
     ):
-        result = FragmenterSubProcessWorker.work_input(worker, {"cmd": cmd})
+        result = FragmenterWork.work_input(work, {"cmd": cmd})
 
     assert result == expected_result
-    assert worker._handle_m4s.call_count == expected_handled
+    assert work._handle_m4s.call_count == expected_handled
 
 
 def test_worker_does_not_stop_on_shutdown_signal() -> None:
@@ -451,7 +499,7 @@ def test_worker_does_not_stop_on_shutdown_signal() -> None:
 
 
 def test_worker_child_state() -> None:
-    """The forkserver child receives the worker pickled, without parent state."""
+    """The forkserver child receives the work pickled, without parent state."""
     camera = MagicMock()
     camera.identifier = "test_camera"
     camera.timelapse_folder = "/timelapse/test_camera"
@@ -465,11 +513,9 @@ def test_worker_child_state() -> None:
         )
 
     assert worker._mp_context.get_start_method() == "forkserver"
-    state = worker.__getstate__()
-    assert "_vis" not in state
-    assert "_camera" not in state
-    assert state["segments_folder"] == "/segments"
-    assert state["_timelapse_folder"] == "/timelapse/test_camera"
+    work = pickle_for_child_process(worker._work)
+    assert work.segments_folder == "/segments"
+    assert work._timelapse_folder == "/timelapse/test_camera"
 
 
 class TestFragmenterLifecycle:
@@ -671,30 +717,27 @@ def test_timelapse_frame_metadata_uses_segment_orig_ctime(
     handler: str, file: str, m3u8: str, expected_orig_ctime: datetime.datetime
 ) -> None:
     """The frame is inserted with its segment's timestamp, not the DB insert time."""
-    camera = MagicMock()
-    camera.timelapse_folder = "/timelapse/test_camera"
-    camera.temp_timelapse_folder = "/tmp/timelapse/test_camera"
-    with (
-        patch("viseron.helpers.child_process_worker.RestartableThread"),
-        patch("viseron.helpers.child_process_worker.RestartableProcess"),
-    ):
-        worker = FragmenterSubProcessWorker(
-            MagicMock(), MagicMock(), camera, "/tmp/temp", "/segments", MagicMock()
-        )
-    worker._worker_event = MagicMock()
+    work = FragmenterWork(
+        "test_camera",
+        "/tmp/temp",
+        "/segments",
+        "/timelapse/test_camera",
+        "/tmp/timelapse/test_camera",
+        MagicMock(),
+    )
     order = MagicMock()
-    worker._output_queue = order.output_queue
+    work.output_queue = order.output_queue
 
     with (
-        patch.object(worker, "_read_m3u8", return_value=m3u8),
-        patch.object(worker, "_read_m3u8_mp4box", return_value=m3u8),
-        patch.object(worker, "_mp4box_command", return_value=True),
-        patch("viseron.domains.camera.fragmenter.sp.run") as mock_run,
-        patch("viseron.domains.camera.fragmenter.shutil", order.shutil),
-        patch("viseron.domains.camera.fragmenter.os.remove"),
+        patch.object(work, "_read_m3u8", return_value=m3u8),
+        patch.object(work, "_read_m3u8_mp4box", return_value=m3u8),
+        patch.object(work, "_mp4box_command", return_value=True),
+        patch("viseron.domains.camera.fragmenter_process.sp.run") as mock_run,
+        patch("viseron.domains.camera.fragmenter_process.shutil", order.shutil),
+        patch("viseron.domains.camera.fragmenter_process.os.remove"),
     ):
         mock_run.return_value.returncode = 0
-        getattr(worker, handler)(file)
+        getattr(work, handler)(file)
 
     frame_path = "/timelapse/test_camera/1723111156.jpg"
     frame_meta = call.output_queue.put(
