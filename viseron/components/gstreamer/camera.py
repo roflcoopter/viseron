@@ -301,6 +301,7 @@ class Camera(AbstractCamera):
         self._thread_stuck = False
         self.resolution = None
         self.decode_error = Event()
+        self._restart_delay = DEFAULT_RESTART_DELAY
 
         if cv2.ocl.haveOpenCL():
             cv2.ocl.setUseOpenCL(True)
