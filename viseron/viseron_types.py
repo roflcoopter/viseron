@@ -24,8 +24,10 @@ if TYPE_CHECKING:
     from viseron.components.logger.logger_types import LoggerViseronData
     from viseron.components.mqtt import MQTT
     from viseron.components.nvr.nvr import NVR
-    from viseron.components.ptz import PTZ
+    from viseron.components.onvif import ONVIF
     from viseron.components.storage import Storage
+    from viseron.components.storage.timelapse_render import TimelapseRenderManager
+    from viseron.components.storage.timelapse_segments import TimelapseSegmentEncoder
     from viseron.components.telegram.telegram_types import TelegramViseronData
     from viseron.components.webhook import Webhook
     from viseron.components.webserver import Webserver
@@ -51,6 +53,8 @@ class ViseronData(TypedDict, total=False):
     data_stream: DataStream
     logger: LoggerViseronData
     storage: Storage
+    timelapse_render_manager: TimelapseRenderManager
+    timelapse_segment_encoder: TimelapseSegmentEncoder
     webserver: Webserver
     websocket_commands: dict[
         str, tuple[Callable[[WebSocketHandler, dict], Awaitable[None]], vol.Schema]
@@ -71,9 +75,9 @@ class ViseronData(TypedDict, total=False):
     hailo: dict[Literal["object_detector"], Hailo8Detector]
     mqtt: MQTT
     nvr: dict[str, NVR]
+    onvif: ONVIF
     telegram: TelegramViseronData
     webhook: Webhook
-    ptz: PTZ
 
 
 SupportedDomains = Literal[

@@ -27,6 +27,7 @@ from viseron.const import (
     LOGGING_COMPONENTS,
 )
 from viseron.exceptions import ComponentNotReady
+from viseron.helpers.config_model import ComponentRoot, ConfigModel
 
 from tests.common import MockComponent, MockComponentModule
 
@@ -34,6 +35,18 @@ if TYPE_CHECKING:
     from types import ModuleType
 
     from tests.conftest import MockViseron
+
+
+class ModelConfig(ConfigModel):
+    """Config model used as part of a CONFIG_SCHEMA in the tests."""
+
+    port: int = 554
+
+
+class ModelRoot(ComponentRoot):
+    """Root model used as CONFIG_SCHEMA in the tests."""
+
+    test_comp: ModelConfig
 
 
 class TestSetupComponents:
@@ -282,6 +295,44 @@ class TestComponentConfigValidation:
         assert result.error is not None
         assert "Unexpected error" in result.error
         assert "Unknown error calling test_comp CONFIG_SCHEMA" in caplog.text
+
+    def test_validate_config_model(self, vis: MockViseron) -> None:
+        """Test validation with a Pydantic model as CONFIG_SCHEMA."""
+        mock_module = MockComponentModule(config_schema=ModelRoot)
+        component = Component(
+            vis, "test_path", "test_comp", {"test_comp": {}, "other": {"key": "value"}}
+        )
+
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_module
+        ):
+            result = component.validate_component_config()
+
+        assert result.success is True
+        assert result.config == ModelRoot(test_comp=ModelConfig(port=554))
+        assert result.error is None
+
+    def test_validate_config_model_invalid(
+        self, vis: MockViseron, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test validation with a Pydantic model that rejects the config."""
+        mock_module = MockComponentModule(config_schema=ModelRoot)
+        component = Component(
+            vis, "test_path", "test_comp", {"test_comp": {"port": "abc"}}
+        )
+
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_module
+        ):
+            result = component.validate_component_config()
+
+        assert result.success is False
+        assert result.error == (
+            "test_comp.port: Input should be a valid integer, unable to parse "
+            "string as an integer"
+        )
+        assert "Error validating config for component test_comp" in caplog.text
+        assert [error.message for error in component.errors] == [result.error]
 
 
 class TestComponentSetup:
@@ -885,3 +936,19 @@ class TestComponentStatusDict:
         assert len(status["errors"]) == 1
         assert status["errors"][0]["message"] == "A warning"
         assert isinstance(status["domains"], list)
+
+    def test_as_status_dict_omits_domain_config(self, vis: MockViseron) -> None:
+        """Test domain config (camera credentials) is not part of the status."""
+        component = Component(vis, "viseron.components.test", "test", {})
+        vis.domain_registry.register(
+            component_name="test",
+            component_path="viseron.components.test",
+            domain="camera",
+            identifier="cam1",
+            config={"cam1": {"username": "admin", "password": "secret"}},
+        )
+
+        status = component.as_status_dict()
+        assert len(status["domains"]) == 1
+        assert "config" not in status["domains"][0]
+        assert "secret" not in str(status)

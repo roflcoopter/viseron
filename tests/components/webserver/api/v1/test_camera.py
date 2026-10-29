@@ -38,11 +38,16 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
     """Test manual recording start/stop flows."""
 
     def _build_camera_and_nvr(
-        self, *, is_recording: bool, connected: bool = True
+        self,
+        *,
+        is_recording: bool,
+        connected: bool = True,
+        is_on: bool = True,
     ) -> tuple[MockCamera, MagicMock]:
         camera = MockCamera(identifier="test")
         camera.is_recording = is_recording
         camera.connected = connected
+        camera.is_on = is_on
         camera.recorder.active_recording = (
             MagicMock(trigger_type=TriggerTypes.MANUAL) if is_recording else None
         )
@@ -229,8 +234,11 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
         }
 
     def test_manual_recording_camera_off(self):
-        """Returns 400 when camera is off."""
-        camera, nvr = self._build_camera_and_nvr(is_recording=False, connected=False)
+        """Returns 400 when a connected camera is powered off."""
+        camera, nvr = self._build_camera_and_nvr(
+            is_recording=False, connected=True, is_on=False
+        )
+        nvr.start_manual_recording = MagicMock()
 
         with (
             patch(
@@ -253,6 +261,38 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
             "error": "Camera is off or disconnected",
             "status": 400,
         }
+        assert nvr.start_manual_recording.call_count == 0
+        assert nvr.camera.is_recording is False
+
+    def test_manual_recording_camera_disconnected(self):
+        """Returns 400 when a powered-on camera is disconnected."""
+        camera, nvr = self._build_camera_and_nvr(
+            is_recording=False, connected=False, is_on=True
+        )
+        nvr.start_manual_recording = MagicMock()
+
+        with (
+            patch(
+                (
+                    "viseron.components.webserver.request_handler."
+                    "ViseronRequestHandler._get_camera"
+                ),
+                return_value=camera,
+            ),
+            patch.object(self.vis, "get_registered_domain", return_value=nvr),
+        ):
+            response = self.fetch_with_auth(
+                "/api/v1/camera/test/manual_recording",
+                method="POST",
+                body=json.dumps({"action": "start"}),
+            )
+
+        assert response.code == 400
+        assert json.loads(response.body) == {
+            "error": "Camera is off or disconnected",
+            "status": 400,
+        }
+        assert nvr.start_manual_recording.call_count == 0
         assert nvr.camera.is_recording is False
 
     def test_manual_recording_nvr_not_found(self):
@@ -281,10 +321,20 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
             "status": 404,
         }
 
-    def test_manual_recording_nvr_is_idle(self):
-        """Returns 400 when camera is off."""
-        camera, nvr = self._build_camera_and_nvr(is_recording=False)
+    def test_manual_recording_start_when_idle(self):
+        """Idle NVR accepts manual start once recording becomes active."""
+        camera, nvr = self._build_camera_and_nvr(
+            is_recording=False, connected=True, is_on=True
+        )
         nvr.operation_state = OperationState.IDLE
+
+        def start_manual_recording(_: ManualRecording) -> None:
+            nvr.camera.is_recording = True
+            nvr.camera.recorder.active_recording = MagicMock(
+                trigger_type=TriggerTypes.MANUAL
+            )
+
+        nvr.start_manual_recording = MagicMock(side_effect=start_manual_recording)
 
         with (
             patch(
@@ -295,18 +345,67 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
                 return_value=camera,
             ),
             patch.object(self.vis, "get_registered_domain", return_value=nvr),
+            patch(
+                "viseron.components.webserver.api.v1.camera.asyncio.sleep",
+                new=_fast_sleep,
+            ),
+            patch(
+                "viseron.components.webserver.api.v1.camera.time.time",
+                new=_ticking_time(),
+            ),
         ):
             response = self.fetch_with_auth(
                 "/api/v1/camera/test/manual_recording",
                 method="POST",
-                body=json.dumps({"action": "start"}),
+                body=json.dumps({"action": "start", "duration": 5}),
             )
 
-        assert response.code == 400
+        assert response.code == 200
+        assert json.loads(response.body) == {"success": True}
+        assert nvr.start_manual_recording.call_count == 1
+        assert nvr.start_manual_recording.call_args.args[0].duration == 5
+        assert nvr.camera.is_recording is True
+        assert nvr.camera.recorder.active_recording.trigger_type == TriggerTypes.MANUAL
+
+    def test_manual_recording_start_timeout_when_idle(self):
+        """Idle NVR start times out when recording never becomes active."""
+        camera, nvr = self._build_camera_and_nvr(
+            is_recording=False, connected=True, is_on=True
+        )
+        nvr.operation_state = OperationState.IDLE
+        nvr.start_manual_recording = MagicMock()
+
+        with (
+            patch(
+                (
+                    "viseron.components.webserver.request_handler."
+                    "ViseronRequestHandler._get_camera"
+                ),
+                return_value=camera,
+            ),
+            patch.object(self.vis, "get_registered_domain", return_value=nvr),
+            patch(
+                "viseron.components.webserver.api.v1.camera.asyncio.sleep",
+                new=_fast_sleep,
+            ),
+            patch(
+                "viseron.components.webserver.api.v1.camera.time.time",
+                new=_ticking_time(),
+            ),
+        ):
+            response = self.fetch_with_auth(
+                "/api/v1/camera/test/manual_recording",
+                method="POST",
+                body=json.dumps({"action": "start", "duration": 5}),
+            )
+
+        assert response.code == 500
         assert json.loads(response.body) == {
-            "error": "NVR is idle",
-            "status": 400,
+            "error": "Failed to start manual recording",
+            "status": 500,
         }
+        assert nvr.start_manual_recording.call_count == 1
+        assert nvr.start_manual_recording.call_args.args[0].duration == 5
         assert nvr.camera.is_recording is False
 
     def test_manual_recording_invalid_body(self):

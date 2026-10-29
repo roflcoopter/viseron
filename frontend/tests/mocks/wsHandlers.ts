@@ -1,6 +1,8 @@
-import { WebSocketClientConnectionProtocol } from "@mswjs/interceptors/WebSocket";
-import { WebSocketData, ws } from "msw";
-import { DEFAULT_YAML_CONFIG } from "tests/utils/const";
+import { WebSocketData, WebSocketHandlerConnection, ws } from "msw";
+import { getDayjs, getDayjsFromDateString } from "tests/mocks/clock";
+import { DEFAULT_YAML_CONFIG, MOCK_ENTITIES } from "tests/utils/const";
+
+import * as types from "lib/types";
 
 // Catch all ws connections
 const socket = ws.link(/ws(s)?:\/\/[^/]+\/?.*/);
@@ -16,8 +18,81 @@ export const resetSetupStatusMock = () => {
   setupStatusMock.components = [];
 };
 
+const RENDER_STEPS = 10;
+const RENDER_STEP_INTERVAL = 300;
+const renderTimers = new Map<string, ReturnType<typeof setInterval>>();
+
+// Streams the status of a timelapse render the way the server does
+const simulateRender = (
+  client: WebSocketHandlerConnection["client"],
+  commandId: number,
+) => {
+  const key = `${client.id}-${commandId}`;
+  const status = (result: object) =>
+    client.send(
+      JSON.stringify({
+        command_id: commandId,
+        type: "subscription_result",
+        success: true,
+        result,
+      }),
+    );
+  let step = 0;
+  renderTimers.set(
+    key,
+    setInterval(() => {
+      step++;
+      if (step <= RENDER_STEPS) {
+        status({
+          status: "rendering",
+          frame: step * 100,
+          total_frames: RENDER_STEPS * 100,
+          progress: (step / RENDER_STEPS) * 100,
+        });
+        return;
+      }
+      if (step === RENDER_STEPS + 1) {
+        status({ status: "encoding" });
+        return;
+      }
+      clearInterval(renderTimers.get(key));
+      renderTimers.delete(key);
+      status({
+        status: "done",
+        filename: "demo_timelapse.mp4",
+        token: "demo-token",
+      });
+      client.send(
+        JSON.stringify({ command_id: commandId, type: "cancel_subscription" }),
+      );
+    }, RENDER_STEP_INTERVAL),
+  );
+};
+
+const cancelRender = (
+  client: WebSocketHandlerConnection["client"],
+  commandId: number,
+) => {
+  const key = `${client.id}-${commandId}`;
+  clearInterval(renderTimers.get(key));
+  renderTimers.delete(key);
+};
+
+// Every camera has footage around the clock like the HLS API handlers
+const availableTimespans = (
+  date: string | null,
+): types.HlsAvailableTimespan[] => {
+  if (!date) {
+    return [];
+  }
+  const day = getDayjsFromDateString(date);
+  const start = day.unix();
+  const end = Math.min(getDayjs().unix(), day.add(1, "day").unix());
+  return end > start ? [{ start, end, duration: end - start }] : [];
+};
+
 const messageHandler = (
-  client: WebSocketClientConnectionProtocol,
+  client: WebSocketHandlerConnection["client"],
   event: MessageEvent<WebSocketData>,
 ) => {
   console.debug("Intercepted message from the client", event.data);
@@ -27,10 +102,21 @@ const messageHandler = (
     const type = (msg as any)?.type || (msg as any)?.command;
     switch (type) {
       case "ping":
-        payload = { type: "pong" };
+        payload = { command_id: msg.command_id, type: "pong" };
         break;
-      case "subscribe_event":
-        console.debug("Mock subscribe_event:", msg.event_type);
+      case "auth":
+        payload = {
+          type: "auth_ok",
+          message: "Authenticated.",
+          system_information: {
+            version: "demo",
+            git_commit: "abcdefg",
+            safe_mode: false,
+          },
+        };
+        break;
+      case "unsubscribe_event":
+        cancelRender(client, msg.subscription);
         payload = {
           command_id: msg.command_id,
           type: "result",
@@ -38,8 +124,52 @@ const messageHandler = (
           result: null,
         };
         break;
+      case "subscribe_event":
+      case "subscribe_states":
+      case "unsubscribe_states":
+      case "unsubscribe_timespans":
+      case "save_config":
+      case "reload_config":
+      case "restart_viseron":
+        payload = {
+          command_id: msg.command_id,
+          type: "result",
+          success: true,
+          result: null,
+        };
+        break;
+      case "subscribe_timespans":
+        // Acknowledge the sub directly
+        client.send(
+          JSON.stringify({
+            command_id: msg.command_id,
+            type: "result",
+            success: true,
+            result: null,
+          }),
+        );
+        payload = {
+          command_id: msg.command_id,
+          type: "subscription_result",
+          success: true,
+          result: { timespans: availableTimespans(msg.date) },
+        };
+        break;
       case "get_cameras":
-        payload = { cameras: [] };
+        payload = {
+          command_id: msg.command_id,
+          type: "result",
+          success: true,
+          result: { cameras: {} },
+        };
+        break;
+      case "get_entities":
+        payload = {
+          command_id: msg.command_id,
+          type: "result",
+          success: true,
+          result: MOCK_ENTITIES,
+        };
         break;
       case "get_setup_status":
         console.debug("Mock get_setup_status");
@@ -60,9 +190,43 @@ const messageHandler = (
           result: { config: DEFAULT_YAML_CONFIG },
         };
         break;
+      case "render_template":
+        payload = {
+          command_id: msg.command_id,
+          type: "result",
+          success: true,
+          result: { rendered: msg.template },
+        };
+        break;
+      case "export_recording":
+      case "export_snapshot":
+      case "export_timespan":
+        payload = {
+          command_id: msg.command_id,
+          type: "result",
+          success: true,
+          result: { filename: "demo_export.mp4", token: "demo-token" },
+        };
+        break;
+      case "render_timelapse":
+        payload = {
+          command_id: msg.command_id,
+          type: "result",
+          success: true,
+          result: null,
+        };
+        simulateRender(client, msg.command_id);
+        break;
+      // A missing envelope leaves the client's promise pending forever, so
+      // unmocked commands still get a valid result.
       default:
         console.warn("wsHandlers.ts: Unknown WS message type:", type);
-        payload = { command_id: msg.command_id, ok: true, type };
+        payload = {
+          command_id: msg.command_id,
+          type: "result",
+          success: true,
+          result: null,
+        };
     }
   } catch {
     throw new Error("Failed to parse WS message");

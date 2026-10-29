@@ -1,4 +1,5 @@
 """CodeProject.AI constants."""
+
 from typing import Final
 
 COMPONENT = "codeprojectai"

@@ -7,8 +7,10 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
 import requests
-import voluptuous as vol
+from pydantic import Field
 from ruamel.yaml import YAML
+
+from viseron.helpers.config_model import ComponentRoot
 
 from .const import COMPONENT, DESC_COMPONENT, GO2RTC_CONFIG
 
@@ -17,19 +19,19 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
-CONFIG_SCHEMA = vol.Schema(
-    {
-        vol.Required(COMPONENT, description=DESC_COMPONENT): vol.Schema(
-            {}, extra=vol.ALLOW_EXTRA
-        )
-    },
-    extra=vol.ALLOW_EXTRA,
-)
+
+class Go2RTCRoot(ComponentRoot):
+    """Config with the go2rtc component at the root."""
+
+    go2rtc: dict[Any, Any] = Field(description=DESC_COMPONENT)
 
 
-def setup(vis: Viseron, config: dict[str, Any]) -> bool:
+CONFIG_SCHEMA = Go2RTCRoot
+
+
+def setup(vis: Viseron, config: Go2RTCRoot) -> bool:
     """Set up the go2rtc component."""
-    vis.data[COMPONENT] = Go2RTC(vis, config)
+    vis.data[COMPONENT] = Go2RTC(vis, {COMPONENT: config.go2rtc})
 
     return True
 

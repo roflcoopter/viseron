@@ -24,6 +24,10 @@ const Settings = lazy(() => import("pages/settings"));
 const SystemEvents = lazy(() => import("pages/settings/SystemEvents"));
 const Users = lazy(() => import("pages/settings/Users"));
 const TemplateEditor = lazy(() => import("pages/settings/TemplateEditor"));
+const Logs = lazy(() => import("pages/settings/Logs"));
+const StorageCleanup = lazy(() => import("pages/settings/StorageCleanup"));
+const Timelapse = lazy(() => import("pages/timelapse/Timelapse"));
+const CameraTimelapse = lazy(() => import("pages/timelapse/CameraTimelapse"));
 
 function App() {
   const routes = useRoutes([
@@ -66,6 +70,13 @@ function App() {
           ],
         },
         {
+          path: "/timelapse",
+          children: [
+            { index: true, element: <Timelapse /> },
+            { path: ":camera_identifier", element: <CameraTimelapse /> },
+          ],
+        },
+        {
           path: "/events",
           element: <Events />,
         },
@@ -103,6 +114,14 @@ function App() {
                 {
                   path: "/settings/template-editor",
                   element: <TemplateEditor />,
+                },
+                {
+                  path: "/settings/logs",
+                  element: <Logs />,
+                },
+                {
+                  path: "/settings/storage-cleanup",
+                  element: <StorageCleanup />,
                 },
               ],
             },

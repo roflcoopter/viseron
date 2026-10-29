@@ -4,16 +4,21 @@
 from __future__ import annotations
 
 import copy
+import datetime
 import os
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 from unittest.mock import ANY, Mock, call, patch
 
 import pytest
 import voluptuous as vol
+from sqlalchemy import insert
 
+from tests.common import MockCamera
+from tests.conftest import MockViseron
 from viseron.components.storage import CONFIG_SCHEMA, Storage, _get_tier_config
+from viseron.components.storage.config import TIER_SCHEMA_TIMELAPSE
 from viseron.components.storage.const import (
     COMPONENT,
     CONFIG_CHECK_INTERVAL,
@@ -25,6 +30,7 @@ from viseron.components.storage.const import (
     CONFIG_GB,
     CONFIG_HOURS,
     CONFIG_IMAGE_CLASSIFICATION,
+    CONFIG_INTERVAL,
     CONFIG_MAX_AGE,
     CONFIG_MAX_SIZE,
     CONFIG_MB,
@@ -39,6 +45,7 @@ from viseron.components.storage.const import (
     CONFIG_SECONDS,
     CONFIG_SNAPSHOTS,
     CONFIG_TIERS,
+    CONFIG_TIMELAPSE,
     DEFAULT_RECORDER_TIERS,
     DEFAULT_SNAPSHOTS_TIERS,
     TIER_CATEGORY_RECORDER,
@@ -52,11 +59,12 @@ from viseron.components.storage.const import (
     TIER_SUBCATEGORY_SEGMENTS,
     TIER_SUBCATEGORY_THUMBNAILS,
 )
+from viseron.components.storage.models import Files
 from viseron.domains.camera.const import CONFIG_STORAGE
 from viseron.helpers.validators import UNDEFINED
 
-from tests.common import MockCamera
-from tests.conftest import MockViseron
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session, sessionmaker
 
 TIER_CONFIG = {
     CONFIG_RECORDER: {CONFIG_TIERS: DEFAULT_RECORDER_TIERS},
@@ -360,6 +368,56 @@ def test_get_tier_config(config, camera_config, expected) -> None:
     assert _get_tier_config(config, mocked_camera) == expected
 
 
+TIMELAPSE_TIER = TIER_SCHEMA_TIMELAPSE(
+    {CONFIG_PATH: "/timelapse/", CONFIG_INTERVAL: {CONFIG_MINUTES: 1}}
+)
+CAMERA_TIMELAPSE_TIER = {CONFIG_PATH: "/camera/", CONFIG_INTERVAL: {CONFIG_MINUTES: 5}}
+
+
+@pytest.mark.parametrize(
+    ("camera_storage", "expected_tiers"),
+    [
+        pytest.param(None, [TIMELAPSE_TIER], id="no_camera_storage"),
+        pytest.param(
+            {CONFIG_RECORDER: UNDEFINED, CONFIG_SNAPSHOTS: UNDEFINED},
+            [TIMELAPSE_TIER],
+            id="camera_storage_without_timelapse_key",
+        ),
+        pytest.param(
+            {
+                CONFIG_RECORDER: UNDEFINED,
+                CONFIG_SNAPSHOTS: UNDEFINED,
+                CONFIG_TIMELAPSE: UNDEFINED,
+            },
+            [TIMELAPSE_TIER],
+            id="camera_storage_timelapse_undefined",
+        ),
+        pytest.param(
+            {
+                CONFIG_RECORDER: UNDEFINED,
+                CONFIG_SNAPSHOTS: UNDEFINED,
+                CONFIG_TIMELAPSE: {CONFIG_TIERS: [CAMERA_TIMELAPSE_TIER]},
+            },
+            [TIER_SCHEMA_TIMELAPSE(CAMERA_TIMELAPSE_TIER)],
+            id="camera_timelapse_override",
+        ),
+    ],
+)
+def test_get_tier_config_timelapse(
+    camera_storage: dict[str, Any] | None, expected_tiers: list[dict[str, Any]]
+) -> None:
+    """Test that cameras can override the timelapse tiers."""
+    config = {**TIER_CONFIG, CONFIG_TIMELAPSE: {CONFIG_TIERS: [TIMELAPSE_TIER]}}
+    mocked_camera = MockCamera(
+        config={
+            CONFIG_RECORDER: {CONFIG_CONTINUOUS: {}, CONFIG_EVENTS: {}},
+            CONFIG_STORAGE: camera_storage,
+        }
+    )
+    tier_config = _get_tier_config(config, mocked_camera)
+    assert tier_config[CONFIG_TIMELAPSE][CONFIG_TIERS] == expected_tiers
+
+
 @pytest.fixture(name="storage", scope="function")
 def fixture_storage(vis: MockViseron) -> vol.Generator[Storage, Any, None]:
     """Create a Storage instance."""
@@ -449,12 +507,100 @@ def fixture_storage(vis: MockViseron) -> vol.Generator[Storage, Any, None]:
         yield _storage
 
 
+class StoredFile(NamedTuple):
+    """A file row for the search_file tests, relative to tmp_path."""
+
+    tier: str
+    relative_path: str
+    on_disk: bool
+
+
+def _store_files(
+    get_session: sessionmaker[Session], root: Path, files: list[StoredFile]
+) -> None:
+    with get_session() as session:
+        for file in files:
+            tier_path = os.path.join(root, file.tier)
+            path = os.path.join(tier_path, file.relative_path)
+            if file.on_disk:
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                Path(path).touch()
+            session.execute(
+                insert(Files).values(
+                    tier_id=int(file.tier[-1]),
+                    tier_path=tier_path,
+                    camera_identifier="test_camera",
+                    category=TIER_CATEGORY_RECORDER,
+                    subcategory=TIER_SUBCATEGORY_EVENT_CLIPS,
+                    path=path,
+                    directory=os.path.dirname(path),
+                    filename=os.path.basename(path),
+                    size=10,
+                    orig_ctime=datetime.datetime.now(datetime.timezone.utc),
+                )
+            )
+        session.commit()
+
+
+CLIP = "event_clips/test_camera/2026-01-01/clip.mp4"
+
+
 class TestStorage:
     """Test the Storage class."""
 
-    def test_search_file(self, storage: Storage) -> None:
-        """Test the search_file method."""
+    def test_search_file_database(
+        self,
+        storage: Storage,
+        get_db_session: sessionmaker[Session],
+        tmp_path: Path,
+    ) -> None:
+        """Test that search_file resolves a moved file through the database."""
+        other_day = CLIP.replace("2026-01-01", "2026-01-02")
+        # The same filename in another subfolder sorts first but must be skipped
+        _store_files(
+            get_db_session,
+            tmp_path,
+            [StoredFile("tier0", other_day, True), StoredFile("tier1", CLIP, True)],
+        )
+        # No configured tiers, so only the database lookup can find the file
+        storage._camera_tier_handlers["test_camera"] = {TIER_CATEGORY_RECORDER: []}
+
+        with patch.object(storage, "get_session", get_db_session):
+            result = storage.search_file(
+                "test_camera",
+                TIER_CATEGORY_RECORDER,
+                TIER_SUBCATEGORY_EVENT_CLIPS,
+                os.path.join(tmp_path, "tier0", CLIP),
+            )
+
+        assert result == os.path.join(tmp_path, "tier1", CLIP)
+
+    def test_search_file_database_row_without_file(
+        self,
+        storage: Storage,
+        get_db_session: sessionmaker[Session],
+        tmp_path: Path,
+    ) -> None:
+        """Test that a row whose file is not on disk is not returned."""
+        _store_files(get_db_session, tmp_path, [StoredFile("tier1", CLIP, False)])
+        storage._camera_tier_handlers["test_camera"] = {TIER_CATEGORY_RECORDER: []}
+
+        with patch.object(storage, "get_session", get_db_session):
+            result = storage.search_file(
+                "test_camera",
+                TIER_CATEGORY_RECORDER,
+                TIER_SUBCATEGORY_EVENT_CLIPS,
+                os.path.join(tmp_path, "tier0", CLIP),
+            )
+
+        assert result is None
+
+    def test_search_file_prefix_fallback(
+        self, storage: Storage, get_db_session: sessionmaker[Session]
+    ) -> None:
+        """Test that search_file probes the tiers when no row has been inserted yet."""
         with (
+            patch.object(storage, "get_session", get_db_session),
             tempfile.TemporaryDirectory() as tier1,
             tempfile.TemporaryDirectory() as tier2,
         ):

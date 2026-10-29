@@ -4,13 +4,17 @@ import voluptuous as vol
 
 from viseron.components.storage.config import (
     RECORDER_SCHEMA as STORAGE_RECORDER_SCHEMA,
+)
+from viseron.components.storage.config import (
     TIER_SCHEMA_BASE,
     get_snapshots_schema,
+    get_timelapse_schema,
 )
 from viseron.components.storage.const import (
     CONFIG_CONTINUOUS,
     CONFIG_EVENTS,
     CONFIG_SNAPSHOTS,
+    CONFIG_TIMELAPSE,
     DESC_CONTINUOUS,
     DESC_EVENTS,
     DESC_SNAPSHOTS,
@@ -141,6 +145,7 @@ from .const import (
     DESC_STILL_IMAGE_HEIGHT,
     DESC_STILL_IMAGE_WIDTH,
     DESC_STORAGE,
+    DESC_STORAGE_TIMELAPSE,
     DESC_THUMBNAIL,
     DESC_URL,
     DESC_USE_LAST_SNAPSHOT_ON_ERROR,
@@ -408,6 +413,11 @@ BASE_CONFIG_SCHEMA = vol.Schema(
                     default=UNDEFINED,
                     description=DESC_SNAPSHOTS,
                 ): Maybe(get_snapshots_schema(undefined_defaults=True)),
+                vol.Optional(
+                    CONFIG_TIMELAPSE,
+                    default=UNDEFINED,
+                    description=DESC_STORAGE_TIMELAPSE,
+                ): Maybe(get_timelapse_schema()),
             }
         ),
     }

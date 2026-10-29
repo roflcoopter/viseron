@@ -6,12 +6,12 @@ import asyncio
 import logging
 import os
 import secrets
+import shutil
 import threading
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import tornado.ioloop
 import tornado.web
-import voluptuous as vol
 from tornado.routing import PathMatches
 
 from viseron.components.webserver.auth import Auth
@@ -20,55 +20,15 @@ from viseron.const import DEFAULT_PORT, VISERON_SIGNAL_SHUTDOWN
 from viseron.exceptions import ComponentNotReady
 from viseron.helpers import normalize_subpath, utcnow
 from viseron.helpers.storage import Storage
-from viseron.helpers.validators import CoerceNoneToDict, Deprecated
 
 from .api import APIRouter
+from .config import RateLimits, WebserverConfig, WebserverRoot
 from .const import (
     COMPONENT,
-    CONFIG_AUTH,
-    CONFIG_DAYS,
-    CONFIG_DEBUG,
-    CONFIG_HOURS,
-    CONFIG_MAX_ATTEMPTS,
-    CONFIG_MINUTES,
-    CONFIG_PORT,
-    CONFIG_PUBLIC_BASE_URL,
-    CONFIG_PUBLIC_URL_EXPIRY_HOURS,
-    CONFIG_PUBLIC_URL_MAX_DOWNLOADS,
     CONFIG_RATE_LIMIT_LOGIN,
     CONFIG_RATE_LIMIT_ONBOARDING,
     CONFIG_RATE_LIMIT_TOKEN,
-    CONFIG_RATE_LIMITS,
-    CONFIG_SESSION_EXPIRY,
-    CONFIG_SUBPATH,
-    CONFIG_WINDOW_SECONDS,
-    DEFAULT_COMPONENT,
-    DEFAULT_DEBUG,
-    DEFAULT_PUBLIC_URL_EXPIRY_HOURS,
-    DEFAULT_PUBLIC_URL_MAX_DOWNLOADS,
-    DEFAULT_RATE_LIMIT_LOGIN,
-    DEFAULT_RATE_LIMIT_ONBOARDING,
-    DEFAULT_RATE_LIMIT_TOKEN,
-    DEFAULT_SESSION_EXPIRY,
-    DEFAULT_SUBPATH,
-    DESC_AUTH,
-    DESC_COMPONENT,
-    DESC_DAYS,
-    DESC_DEBUG,
-    DESC_HOURS,
-    DESC_MAX_ATTEMPTS,
-    DESC_MINUTES,
-    DESC_PORT,
-    DESC_PUBLIC_BASE_URL,
-    DESC_PUBLIC_URL_EXPIRY_HOURS,
-    DESC_PUBLIC_URL_MAX_DOWNLOADS,
-    DESC_RATE_LIMIT_LOGIN,
-    DESC_RATE_LIMIT_ONBOARDING,
-    DESC_RATE_LIMIT_TOKEN,
-    DESC_RATE_LIMITS,
-    DESC_SESSION_EXPIRY,
-    DESC_SUBPATH,
-    DESC_WINDOW_SECONDS,
+    DOWNLOAD_PATH,
     DOWNLOAD_TOKENS,
     PUBLIC_IMAGE_TOKENS,
     PUBLIC_IMAGES_PATH,
@@ -76,6 +36,7 @@ from .const import (
     WEBSOCKET_COMMANDS,
     WEBSOCKET_CONNECTIONS,
 )
+from .file_key_handler import FileKeyHandler
 from .stream_handler import DynamicStreamHandler, StaticStreamHandler
 from .websocket_api import WebSocketHandler
 from .websocket_api.commands import (
@@ -89,6 +50,7 @@ from .websocket_api.commands import (
     handle_reload_config,
     handle_render_template,
     ping,
+    render_timelapse,
     restart_viseron,
     save_config,
     subscribe_event,
@@ -100,6 +62,8 @@ from .websocket_api.commands import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from viseron import Viseron
     from viseron.components.webserver.download_token import DownloadToken
     from viseron.components.webserver.public_image_token import PublicImageToken
@@ -108,115 +72,12 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-def _rate_limit_schema(default: dict[str, Any]) -> Any:
-    """Build the schema for a single rate-limit bucket."""
-    return vol.All(
-        CoerceNoneToDict(),
-        {
-            vol.Optional(
-                CONFIG_MAX_ATTEMPTS,
-                default=default["max_attempts"],
-                description=DESC_MAX_ATTEMPTS,
-            ): vol.All(int, vol.Range(min=1)),
-            vol.Optional(
-                CONFIG_WINDOW_SECONDS,
-                default=default["window_seconds"],
-                description=DESC_WINDOW_SECONDS,
-            ): vol.All(vol.Coerce(float), vol.Range(min=1)),
-        },
-    )
+CONFIG_SCHEMA = WebserverRoot
 
 
-CONFIG_SCHEMA = vol.Schema(
-    {
-        vol.Required(
-            COMPONENT, default=DEFAULT_COMPONENT, description=DESC_COMPONENT
-        ): vol.All(
-            CoerceNoneToDict(),
-            {
-                Deprecated(CONFIG_PORT, description=DESC_PORT): vol.All(
-                    int, vol.Range(min=1024, max=49151)
-                ),
-                vol.Optional(
-                    CONFIG_DEBUG, default=DEFAULT_DEBUG, description=DESC_DEBUG
-                ): bool,
-                vol.Optional(
-                    CONFIG_SUBPATH, default=DEFAULT_SUBPATH, description=DESC_SUBPATH
-                ): vol.Maybe(str),
-                vol.Optional(
-                    CONFIG_PUBLIC_BASE_URL,
-                    description=DESC_PUBLIC_BASE_URL,
-                ): str,
-                vol.Optional(
-                    CONFIG_PUBLIC_URL_EXPIRY_HOURS,
-                    description=DESC_PUBLIC_URL_EXPIRY_HOURS,
-                    default=DEFAULT_PUBLIC_URL_EXPIRY_HOURS,
-                ): vol.All(vol.Coerce(int), vol.Range(min=1, max=744)),
-                vol.Optional(
-                    CONFIG_PUBLIC_URL_MAX_DOWNLOADS,
-                    description=DESC_PUBLIC_URL_MAX_DOWNLOADS,
-                    default=DEFAULT_PUBLIC_URL_MAX_DOWNLOADS,
-                ): vol.All(vol.Coerce(int), vol.Range(min=0)),
-                vol.Optional(CONFIG_AUTH, description=DESC_AUTH): vol.All(
-                    CoerceNoneToDict(),
-                    {
-                        vol.Optional(
-                            CONFIG_SESSION_EXPIRY,
-                            default=DEFAULT_SESSION_EXPIRY,
-                            description=DESC_SESSION_EXPIRY,
-                        ): vol.All(
-                            CoerceNoneToDict(),
-                            {
-                                vol.Optional(
-                                    CONFIG_DAYS,
-                                    description=DESC_DAYS,
-                                ): vol.All(int, vol.Range(min=0)),
-                                vol.Optional(
-                                    CONFIG_HOURS,
-                                    description=DESC_HOURS,
-                                ): vol.All(int, vol.Range(min=0)),
-                                vol.Optional(
-                                    CONFIG_MINUTES,
-                                    description=DESC_MINUTES,
-                                ): vol.All(int, vol.Range(min=0)),
-                            },
-                        ),
-                        vol.Optional(
-                            CONFIG_RATE_LIMITS,
-                            description=DESC_RATE_LIMITS,
-                        ): vol.All(
-                            CoerceNoneToDict(),
-                            {
-                                vol.Optional(
-                                    CONFIG_RATE_LIMIT_LOGIN,
-                                    default=DEFAULT_RATE_LIMIT_LOGIN,
-                                    description=DESC_RATE_LIMIT_LOGIN,
-                                ): _rate_limit_schema(DEFAULT_RATE_LIMIT_LOGIN),
-                                vol.Optional(
-                                    CONFIG_RATE_LIMIT_TOKEN,
-                                    default=DEFAULT_RATE_LIMIT_TOKEN,
-                                    description=DESC_RATE_LIMIT_TOKEN,
-                                ): _rate_limit_schema(DEFAULT_RATE_LIMIT_TOKEN),
-                                vol.Optional(
-                                    CONFIG_RATE_LIMIT_ONBOARDING,
-                                    default=DEFAULT_RATE_LIMIT_ONBOARDING,
-                                    description=DESC_RATE_LIMIT_ONBOARDING,
-                                ): _rate_limit_schema(DEFAULT_RATE_LIMIT_ONBOARDING),
-                            },
-                        ),
-                    },
-                ),
-            },
-        )
-    },
-    extra=vol.ALLOW_EXTRA,
-)
-
-
-def setup(vis: Viseron, config: dict[str, Any]) -> bool:
+def setup(vis: Viseron, config: WebserverRoot) -> bool:
     """Set up the webserver component."""
-    config = config[COMPONENT]
-    webserver = Webserver(vis, config)
+    webserver = Webserver(vis, config.webserver)
     vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, webserver.stop)
 
     webserver.register_websocket_command(ping)
@@ -235,6 +96,7 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     webserver.register_websocket_command(export_recording)
     webserver.register_websocket_command(export_snapshot)
     webserver.register_websocket_command(export_timespan)
+    webserver.register_websocket_command(render_timelapse)
     webserver.register_websocket_command(handle_render_template)
     webserver.register_websocket_command(get_setup_status)
 
@@ -261,7 +123,7 @@ class WebserverStore:
 
 def create_application(
     vis: Viseron,
-    config: dict[str, Any],
+    config: WebserverConfig,
     cookie_secret: str,
     *,
     xsrf_cookies: bool = True,
@@ -292,7 +154,7 @@ def create_application(
             ),
             (r"/websocket$", WebSocketHandler, {"vis": vis}),
         ],
-        debug=config[CONFIG_DEBUG],
+        debug=config.debug,
         autoreload=False,
         cookie_secret=cookie_secret,
         xsrf_cookies=xsrf_cookies,
@@ -301,6 +163,7 @@ def create_application(
         r".*",
         [
             (PathMatches(r"/api/.*"), APIRouter(vis, application)),
+            (r"/file/([A-Za-z0-9_]+/[0-9a-f]+)$", FileKeyHandler, {"vis": vis}),
         ],
     )
     return application
@@ -309,32 +172,29 @@ def create_application(
 class Webserver(threading.Thread):
     """Webserver."""
 
-    def __init__(self, vis: Viseron, config: dict[str, Any]) -> None:
+    def __init__(self, vis: Viseron, config: WebserverConfig) -> None:
         super().__init__(name="Tornado Webserver", daemon=True)
         self._vis = vis
         self._config = config
-        self._auth = None
-        if self._config.get(CONFIG_AUTH, False):
-            self._auth = Auth(vis, config)
+        self._auth: Auth | None = None
+        if config.auth is not None:
+            self._auth = Auth(vis, config.auth)
         self._store = WebserverStore(vis)
-        self._subpath = normalize_subpath(config.get(CONFIG_SUBPATH))
+        self._subpath = normalize_subpath(config.subpath)
 
-        # Rate limiters for auth-sensitive endpoints.
-        auth_config = self._config.get(CONFIG_AUTH) or {}
-        rate_limits_config = auth_config.get(CONFIG_RATE_LIMITS) or {}
+        # Rate limiters for auth-sensitive endpoints, keyed by bucket name.
+        rate_limits = (
+            config.auth.rate_limits if config.auth is not None else RateLimits()
+        )
         self._rate_limiters: dict[str, RateLimiter] = {
             bucket: RateLimiter(
-                max_attempts=rate_limits_config.get(bucket, default)[
-                    CONFIG_MAX_ATTEMPTS
-                ],
-                window_seconds=rate_limits_config.get(bucket, default)[
-                    CONFIG_WINDOW_SECONDS
-                ],
+                max_attempts=rate_limit.max_attempts,
+                window_seconds=rate_limit.window_seconds,
             )
-            for bucket, default in (
-                (CONFIG_RATE_LIMIT_LOGIN, DEFAULT_RATE_LIMIT_LOGIN),
-                (CONFIG_RATE_LIMIT_TOKEN, DEFAULT_RATE_LIMIT_TOKEN),
-                (CONFIG_RATE_LIMIT_ONBOARDING, DEFAULT_RATE_LIMIT_ONBOARDING),
+            for bucket, rate_limit in (
+                (CONFIG_RATE_LIMIT_LOGIN, rate_limits.login),
+                (CONFIG_RATE_LIMIT_TOKEN, rate_limits.token),
+                (CONFIG_RATE_LIMIT_ONBOARDING, rate_limits.onboarding),
             )
         }
 
@@ -350,9 +210,12 @@ class Webserver(threading.Thread):
         # Clean up expired public images on startup
         self._cleanup_expired_public_images()
 
+        # Download tokens only live in memory, so any leftover download is orphaned
+        shutil.rmtree(DOWNLOAD_PATH, ignore_errors=True)
+
         self._asyncio_ioloop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._asyncio_ioloop)
-        if config[CONFIG_DEBUG]:
+        if config.debug:
             self._asyncio_ioloop.set_debug(True)
 
         self._application = create_application(vis, config, self._store.cookie_secret)
@@ -368,8 +231,24 @@ class Webserver(threading.Thread):
             raise
         self._ioloop = tornado.ioloop.IOLoop.current()
 
+        self._remove_session_revoked_listener: Callable[[], None] | None = None
+        if self._auth:
+            self._remove_session_revoked_listener = (
+                self._auth.add_session_revoked_listener(self._close_revoked_sessions)
+            )
+
         # Schedule periodic cleanup of expired public images (every hour)
         self._cleanup_task: asyncio.Task | None = None
+
+    def _close_revoked_sessions(self, session_ids: set[str]) -> None:
+        """Close WebSocket connections belonging to revoked sessions.
+
+        WebSockets authenticate once at connection time, so a revoked session
+        keeps full access over an already open connection until it is closed.
+        """
+        for connection in list(self._vis.data[WEBSOCKET_CONNECTIONS]):
+            if connection.session_id in session_ids:
+                connection.revoke_session()
 
     def _cleanup_expired_public_images(self) -> None:
         """Clean up expired public images (files older than max expiry)."""
@@ -447,21 +326,17 @@ class Webserver(threading.Thread):
     @property
     def public_base_url(self) -> str | None:
         """Return public base URL."""
-        return self._config.get(CONFIG_PUBLIC_BASE_URL)
+        return self._config.public_base_url
 
     @property
     def public_url_expiry_hours(self) -> int:
         """Return public URL expiry hours."""
-        return self._config.get(
-            CONFIG_PUBLIC_URL_EXPIRY_HOURS, DEFAULT_PUBLIC_URL_EXPIRY_HOURS
-        )
+        return self._config.public_url_expiry_hours
 
     @property
     def public_url_max_downloads(self) -> int:
         """Return public URL max downloads."""
-        return self._config.get(
-            CONFIG_PUBLIC_URL_MAX_DOWNLOADS, DEFAULT_PUBLIC_URL_MAX_DOWNLOADS
-        )
+        return self._config.public_url_max_downloads
 
     @property
     def configured_subpath(self) -> str:
@@ -488,6 +363,10 @@ class Webserver(threading.Thread):
     def stop(self) -> None:
         """Stop ioloop."""
         LOGGER.debug("Stopping webserver")
+        if self._remove_session_revoked_listener:
+            self._remove_session_revoked_listener()
+            self._remove_session_revoked_listener = None
+
         if self._httpserver:
             LOGGER.debug("Stopping HTTPServer")
             self._httpserver.stop()

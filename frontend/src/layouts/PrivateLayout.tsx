@@ -25,6 +25,8 @@ function PrivateLayoutContent() {
 
   const { auth, user } = useAuthContext();
 
+  const hideScrollToTop = ["/settings/logs"].includes(location.pathname);
+
   // User is not logged in
   if (auth.enabled && !user) {
     return (
@@ -73,7 +75,7 @@ function PrivateLayoutContent() {
           </Suspense>
         </FullHeightContainer>
         <Footer />
-        <ScrollToTopFab />
+        {!hideScrollToTop && <ScrollToTopFab />}
       </FullHeightContainer>
     </ViseronProvider>
   );

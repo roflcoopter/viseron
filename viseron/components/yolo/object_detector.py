@@ -99,7 +99,7 @@ class ObjectDetector(AbstractObjectDetector):
                 frame,
                 conf=self._config[CONFIG_MIN_CONFIDENCE],
                 iou=self._config[CONFIG_IOU],
-                half=self._config[CONFIG_HALF_PRECISION],
+                quantize=(16 if self._config[CONFIG_HALF_PRECISION] else 32),
                 device=self._config[CONFIG_DEVICE],
                 verbose=False,
             )

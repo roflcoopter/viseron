@@ -13,7 +13,7 @@ import voluptuous as vol
 from alembic import command, script
 from alembic.config import Config
 from alembic.migration import MigrationContext
-from sqlalchemy import text, update
+from sqlalchemy import select, text, update
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, scoped_session, sessionmaker
 
@@ -21,6 +21,7 @@ from viseron.components.storage.config import (
     STORAGE_SCHEMA,
     TIER_SCHEMA_RECORDER,
     TIER_SCHEMA_SNAPSHOTS,
+    TIER_SCHEMA_TIMELAPSE,
     validate_tiers,
 )
 from viseron.components.storage.const import (
@@ -51,9 +52,19 @@ from viseron.components.storage.const import (
     TIER_SUBCATEGORY_SEGMENTS,
     TIER_SUBCATEGORY_THUMBNAILS,
     TIER_SUBCATEGORY_TIMELAPSE,
+    TIMELAPSE_RENDER_MANAGER,
+    TIMELAPSE_SEGMENT_CACHE_PATH,
+    TIMELAPSE_SEGMENT_ENCODER,
 )
 from viseron.components.storage.jobs import CleanupManager
-from viseron.components.storage.models import Base, FilesMeta, Motion, Recordings
+from viseron.components.storage.models import (
+    Base,
+    Files,
+    FilesMeta,
+    Motion,
+    PendingMove,
+    Recordings,
+)
 from viseron.components.storage.storage_subprocess import TierCheckWorker
 from viseron.components.storage.tier_handler import (
     EventClipTierHandler,
@@ -62,6 +73,8 @@ from viseron.components.storage.tier_handler import (
     ThumbnailTierHandler,
     TimelapseTierHandler,
 )
+from viseron.components.storage.timelapse_render import TimelapseRenderManager
+from viseron.components.storage.timelapse_segments import TimelapseSegmentEncoder
 from viseron.components.storage.util import (
     RequestedFilesCount,
     get_event_clips_path,
@@ -71,7 +84,8 @@ from viseron.components.storage.util import (
     get_timelapse_path,
 )
 from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_STOPPING
-from viseron.domains.camera.const import CONFIG_STORAGE, DOMAIN as CAMERA_DOMAIN
+from viseron.domains.camera.const import CONFIG_STORAGE
+from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import ComponentNotReady
 from viseron.helpers import utcnow
 from viseron.helpers.logs import StreamToLogger
@@ -276,6 +290,8 @@ class Storage:
         self._get_session: Callable[[], Session] | None = None
 
         self.temporary_files_meta: dict[str, FilesMeta] = {}
+        # Keyed by the source path
+        self.pending_moves: dict[str, PendingMove] = {}
 
         self.cleanup_manager = CleanupManager(vis, self)
         self.cleanup_manager.start()
@@ -283,6 +299,20 @@ class Storage:
         self.tier_check_worker = TierCheckWorker(
             vis, config[CONFIG_TIER_CHECK_CPU_LIMIT], config[CONFIG_TIER_CHECK_WORKERS]
         )
+
+        self._timelapse_segment_encoder = TimelapseSegmentEncoder(
+            TIMELAPSE_SEGMENT_CACHE_PATH
+        )
+        self._timelapse_render_manager = TimelapseRenderManager(
+            self._timelapse_segment_encoder
+        )
+        vis.data[TIMELAPSE_SEGMENT_ENCODER] = self._timelapse_segment_encoder
+        vis.data[TIMELAPSE_RENDER_MANAGER] = self._timelapse_render_manager
+
+    @property
+    def config(self) -> dict[str, Any]:
+        """Return the storage configuration."""
+        return self._config
 
     @property
     def camera_tier_handlers(self):
@@ -579,7 +609,36 @@ class Storage:
     def search_file(
         self, camera_identifier: str, category: str, subcategory: str, path: str
     ) -> str | None:
-        """Search for file in tiers."""
+        """Search for a file that has been moved to another tier."""
+        with self.get_session() as session:
+            stmt = (
+                select(Files.path, Files.tier_path)
+                .where(Files.camera_identifier == camera_identifier)
+                .where(Files.category == category)
+                .where(Files.subcategory == subcategory)
+                .where(Files.filename == os.path.basename(path))
+                .order_by(Files.tier_id)
+            )
+            candidates = session.execute(stmt).all()
+
+        for candidate, tier_path in candidates:
+            # Filenames are only unique per folder, event clips are split by date
+            if (
+                candidate != path
+                and path.endswith(os.sep + os.path.relpath(candidate, tier_path))
+                and os.path.exists(candidate)
+            ):
+                LOGGER.debug(f"Found file in database: {candidate}")
+                return candidate
+
+        return self._search_file_by_tier_prefix(
+            camera_identifier, category, subcategory, path
+        )
+
+    def _search_file_by_tier_prefix(
+        self, camera_identifier: str, category: str, subcategory: str, path: str
+    ) -> str | None:
+        """Search for file by swapping its tier prefix for each succeeding tier."""
         prev_tier_handler = None
         for tier_handler in self._camera_tier_handlers[camera_identifier][category]:
             if tier_handler[subcategory].tier[CONFIG_PATH] in path:
@@ -631,7 +690,6 @@ class Storage:
             ):
                 continue
             self._camera_tier_handlers[camera.identifier].setdefault(category, [])
-            # pylint: disable-next=line-too-long
             for subcategory in TIER_CATEGORIES[category]:  # type: ignore[literal-required] # noqa: E501
                 if tier_config[category].get(subcategory["subcategory"], None):
                     tiers = tier_config[category][subcategory["subcategory"]][
@@ -696,6 +754,8 @@ class Storage:
 
     def _shutdown(self) -> None:
         """Shutdown."""
+        self._timelapse_render_manager.stop()
+        self._timelapse_segment_encoder.stop()
         if self.engine:
             self.engine.dispose()
 
@@ -787,13 +847,11 @@ def _get_tier_config(config: dict[str, Any], camera: AbstractCamera) -> dict[str
     # Handle timelapse tiers (only if timelapse is configured)
     if tier_config.get(CONFIG_TIMELAPSE):
         _timelapse_tier: dict[str, Any] = {}
-        if (
-            camera.config[CONFIG_STORAGE]
-            and camera.config[CONFIG_STORAGE][CONFIG_TIMELAPSE] != UNDEFINED
-        ):
-            _timelapse_tier = camera.config[CONFIG_STORAGE][CONFIG_TIMELAPSE][
-                CONFIG_TIERS
-            ]
+        camera_timelapse = (camera.config[CONFIG_STORAGE] or {}).get(
+            CONFIG_TIMELAPSE, UNDEFINED
+        )
+        if camera_timelapse not in (None, UNDEFINED):
+            _timelapse_tier = camera_timelapse[CONFIG_TIERS]
             tier_config[CONFIG_TIMELAPSE][CONFIG_TIERS] = _timelapse_tier
 
         if _timelapse_tier:
@@ -804,7 +862,7 @@ def _get_tier_config(config: dict[str, Any], camera: AbstractCamera) -> dict[str
             # Validate the tier schema to fill in defaults
             tier_config[CONFIG_TIMELAPSE][CONFIG_TIERS] = vol.Schema(
                 vol.All(
-                    [TIER_SCHEMA_SNAPSHOTS],
+                    [TIER_SCHEMA_TIMELAPSE],
                     vol.Length(min=1),
                 )
             )(tier_config[CONFIG_TIMELAPSE][CONFIG_TIERS])

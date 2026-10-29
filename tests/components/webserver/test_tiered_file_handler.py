@@ -1,4 +1,5 @@
 """Test the TieredFileHandler class."""
+
 # pylint: disable=protected-access
 import os
 import shutil
@@ -24,15 +25,15 @@ class TestTieredFileHandler(TestAppBaseNoAuth):
         """Return an app with fake endpoints."""
         return tornado.web.Application()
 
-    def test_get(self):
-        """Test get."""
+    def _setup_tiers(self) -> tuple[str, str]:
+        """Register handlers and tier handlers for two tiers."""
         storage: Storage = self.vis.data[STORAGE_COMPONENT]
         storage.camera_requested_files_count["test_camera"] = RequestedFilesCount()
 
         tier1 = "/tmp/viseron/test/tier1"
         tier2 = "/tmp/viseron/test/tier2"
-        os.makedirs("/tmp/viseron/test/tier1", exist_ok=True)
-        os.makedirs("/tmp/viseron/test/tier2", exist_ok=True)
+        os.makedirs(tier1, exist_ok=True)
+        os.makedirs(tier2, exist_ok=True)
 
         self._app.add_handlers(
             r".*",
@@ -74,6 +75,11 @@ class TestTieredFileHandler(TestAppBaseNoAuth):
         storage._camera_tier_handlers["test_camera"]["recorder"].append(
             {"segmments": tier_handler2}
         )
+        return tier1, tier2
+
+    def test_get(self):
+        """Test get."""
+        tier1, tier2 = self._setup_tiers()
 
         # Test accessing file from tier 2 with tier 1 path
         with open(f"{tier2}/test1.jpg", "wb") as tier2_file:

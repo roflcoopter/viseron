@@ -184,6 +184,9 @@ export function useTuneHandlers() {
         componentType = "face_recognition";
       } else if (domainName === "license_plate_recognition") {
         componentType = "license_plate_recognition";
+      } else if (domainName === "onvif") {
+        // For ONVIF domain, use component name as type (device, imaging, media, ptz, client)
+        componentType = componentName;
       }
 
       // Parse OSD texts and video transforms if camera component

@@ -5,7 +5,6 @@ parameters:
       - aarch64
       - amd64
       - amd64-cuda
-      - rpi3
   - name: namespace
     type: string
     default: roflcoopter
@@ -55,3 +54,7 @@ jobs:
             inputs:
               command: logout
               containerRegistry: "Docker Hub"
+
+          - template: cleanup.yaml
+            parameters:
+              mode: post

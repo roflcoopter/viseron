@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 import concurrent.futures
+import datetime
 import json
 import logging
 import multiprocessing.process
 import os
-import sys
 import threading
 import time
 import tracemalloc
 from functools import partial
-from logging.handlers import RotatingFileHandler
 from timeit import default_timer as timer
 from typing import TYPE_CHECKING, Any, Literal, overload
 
@@ -21,7 +20,6 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.base import Job, SchedulerNotRunningError
 from jinja2 import BaseLoader, StrictUndefined
 from jinja2.sandbox import SandboxedEnvironment
-from sqlalchemy import insert
 
 from viseron.components import (
     Component,
@@ -40,17 +38,13 @@ from viseron.components.nvr.const import (
     DOMAIN as NVR_DOMAIN,
 )
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
-from viseron.components.storage.models import Events
 from viseron.config import load_config
 from viseron.const import (
-    ENV_LOG_BACKUP_COUNT,
     ENV_LOG_FD,
-    ENV_LOG_MAX_BYTES,
     ENV_PROFILE_MEMORY,
     FAILED,
     LOADED,
     LOADING,
-    VISERON_LOG_PATH,
     VISERON_SIGNAL_LAST_WRITE,
     VISERON_SIGNAL_SHUTDOWN,
     VISERON_SIGNAL_STOPPING,
@@ -58,23 +52,16 @@ from viseron.const import (
 from viseron.domain_registry import DomainRegistry
 from viseron.domains import setup_domains
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.event_writer import EventWriter
 from viseron.events import Event, EventData
 from viseron.exceptions import DataStreamNotLoaded
 from viseron.helpers import (
     check_fd_usage,
     memory_usage_profiler,
-    parse_size_to_bytes,
     utcnow,
 )
 from viseron.helpers.json import JSONEncoder
-from viseron.helpers.logs import (
-    LOG_DATE_FORMAT,
-    LOG_FORMAT,
-    DuplicateFilter,
-    SensitiveInformationFilter,
-    ViseronLogFormat,
-)
-from viseron.states import States
+from viseron.states import States, validate_entity_ownership
 from viseron.viseron_types import Domain, SupportedDomains, ViseronData
 from viseron.watchdog.process_watchdog import ProcessWatchDog
 from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
@@ -115,90 +102,6 @@ SIGNAL_SCHEMA = vol.Schema(
 LOGGER = logging.getLogger(f"{__name__}.core")
 
 
-def _get_rotation_rules() -> tuple[int, int]:
-    env_max_bytes = os.getenv(ENV_LOG_MAX_BYTES)
-    env_backup_count = os.getenv(ENV_LOG_BACKUP_COUNT)
-
-    max_bytes = 0
-    if env_max_bytes is not None:
-        try:
-            max_bytes = parse_size_to_bytes(env_max_bytes)
-        except ValueError as error:
-            LOGGER.error(
-                f"Failed to parse {ENV_LOG_MAX_BYTES} as int, using default value",
-                exc_info=error,
-            )
-
-    backup_count = 1
-    if env_backup_count is not None:
-        try:
-            backup_count = parse_size_to_bytes(env_backup_count)
-        except ValueError as error:
-            LOGGER.error(
-                f"Failed to parse {ENV_LOG_BACKUP_COUNT} as int, using default value",
-                exc_info=error,
-            )
-
-    return max_bytes, backup_count
-
-
-def enable_logging() -> None:
-    """Enable logging."""
-    root_logger = logging.getLogger()
-    root_logger.propagate = False
-    formatter = ViseronLogFormat()
-    duplicate_filter = DuplicateFilter()
-    sensitive_information_filter = SensitiveInformationFilter()
-
-    handler = logging.StreamHandler()
-    handler.setFormatter(formatter)
-    handler.addFilter(duplicate_filter)
-    handler.addFilter(sensitive_information_filter)
-    root_logger.addHandler(handler)
-
-    max_bytes, backup_count = _get_rotation_rules()
-    file_handler = RotatingFileHandler(
-        VISERON_LOG_PATH,
-        maxBytes=max_bytes,
-        backupCount=backup_count,
-        delay=True,
-    )
-    file_handler.setFormatter(
-        logging.Formatter(fmt=LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
-    )
-    file_handler.addFilter(sensitive_information_filter)
-    file_handler.doRollover()
-    root_logger.addHandler(file_handler)
-
-    root_logger.setLevel(logging.INFO)
-
-    # Silence noisy loggers
-    logging.getLogger("apscheduler.scheduler").setLevel(logging.ERROR)
-    logging.getLogger("apscheduler.executors").setLevel(logging.ERROR)
-    logging.getLogger("requests").setLevel(logging.WARNING)
-    logging.getLogger("urllib3").setLevel(logging.WARNING)
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("httpcore").setLevel(logging.WARNING)
-    logging.getLogger("tornado.access").setLevel(logging.WARNING)
-    logging.getLogger("tornado.application").setLevel(logging.WARNING)
-    logging.getLogger("tornado.general").setLevel(logging.WARNING)
-    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
-    logging.getLogger("watchdog.observers.inotify_buffer").setLevel(logging.WARNING)
-
-    sys.excepthook = lambda *args: logging.getLogger(None).exception(
-        "Uncaught exception", exc_info=args
-    )
-    threading.excepthook = lambda args: logging.getLogger(None).exception(
-        "Uncaught thread exception in thread %s",
-        args.thread.name if args.thread else "unknown",
-        exc_info=(
-            args.exc_type,
-            args.exc_value,
-            args.exc_traceback,
-        ),  # type: ignore[arg-type]
-    )
-
-
 def setup_viseron(vis: Viseron) -> None:
     """Set up and run Viseron."""
     start = timer()
@@ -219,6 +122,7 @@ def setup_viseron(vis: Viseron) -> None:
         setup_components(vis, config)
 
     vis.storage = vis.data[STORAGE_COMPONENT]
+    vis.start_event_writer()
 
     registry = vis.domain_registry
     camera_ids = registry.get_identifiers(CAMERA_DOMAIN)
@@ -276,7 +180,7 @@ class Viseron:
         self._subprocess_watchdog: SubprocessWatchDog | None = None
         self._process_watchdog: ProcessWatchDog | None = None
 
-        self._dispatched_events: list[str] = []
+        self._dispatched_events: set[str] = set()
 
         self.background_scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
         if start_background_scheduler:
@@ -286,6 +190,7 @@ class Viseron:
             self._process_watchdog = ProcessWatchDog(self.background_scheduler)
 
         self.storage: Storage | None = None
+        self._event_writer: EventWriter | None = None
         self.jinja_env = SandboxedEnvironment(
             loader=BaseLoader(), undefined=StrictUndefined, autoescape=True
         )
@@ -326,7 +231,7 @@ class Viseron:
     @property
     def dispatched_events(self) -> list[str]:
         """Return the list of dispatched events."""
-        return self._dispatched_events
+        return list(self._dispatched_events)
 
     @property
     def domain_registry(self) -> DomainRegistry:
@@ -388,28 +293,39 @@ class Viseron:
 
         return unsubscribe
 
-    def _insert_event(self, event: Event[EventData]) -> None:
-        """Insert event into database."""
-        if self.storage:
-            event_data_json = "{}"
-            if event.data and event.data.json_serializable:
-                try:
-                    event_data_json = partial(
-                        json.dumps, cls=JSONEncoder, allow_nan=False
-                    )(event.data)
-                except (TypeError, ValueError, json.JSONDecodeError) as error:
-                    LOGGER.warning(
-                        f"Failed to decode event {event.name} to JSON: {error}"
-                    )
-                    return
+    def start_event_writer(self) -> None:
+        """Start persisting dispatched events once storage is available."""
+        if self._event_writer is not None or self.storage is None:
+            return
 
-            with self.storage.get_session() as session:
-                stmt = insert(Events).values(
-                    name=event.name,
-                    data=event_data_json,
+        self._event_writer = EventWriter(self.storage)
+        self.register_signal_handler(VISERON_SIGNAL_LAST_WRITE, self._event_writer.stop)
+
+    def _insert_event(self, event: Event[EventData]) -> None:
+        """Queue an event for persistence.
+
+        Serialize on the dispatching thread so the stored payload
+        reflects the event as it was dispatched, but the database round trip is
+        handed to the event writer.
+        """
+        if self._event_writer is None:
+            return
+
+        event_data_json = "{}"
+        if event.data and event.data.json_serializable:
+            try:
+                event_data_json = partial(json.dumps, cls=JSONEncoder, allow_nan=False)(
+                    event.data
                 )
-                session.execute(stmt)
-                session.commit()
+            except (TypeError, ValueError, json.JSONDecodeError) as error:
+                LOGGER.warning(f"Failed to decode event {event.name} to JSON: {error}")
+                return
+
+        self._event_writer.enqueue(
+            event.name,
+            event_data_json,
+            datetime.datetime.fromtimestamp(event.timestamp, tz=datetime.timezone.utc),
+        )
 
     def dispatch_event(
         self, event: str, data: EventData, *, store: bool = True
@@ -420,8 +336,7 @@ class Viseron:
             self._insert_event(_event)
         self.data[DATA_STREAM_COMPONENT].publish_data(f"event/{event}", data=_event)
 
-        if event not in self._dispatched_events:
-            self._dispatched_events.append(event)
+        self._dispatched_events.add(event)
 
     @overload
     def register_domain(
@@ -625,6 +540,18 @@ class Viseron:
 
         LOGGER.info("Shutdown complete in %.1f seconds", timer() - start)
 
+    @overload
+    def add_entity(self, component: str, entity: Entity) -> Entity: ...
+
+    @overload
+    def add_entity(
+        self,
+        component: str,
+        entity: Entity,
+        domain: SupportedDomains,
+        identifier: str,
+    ) -> Entity: ...
+
     def add_entity(
         self,
         component: str,
@@ -633,10 +560,16 @@ class Viseron:
         identifier: str | None = None,
     ) -> Entity:
         """Add entity to states registry."""
+        validate_entity_ownership(domain, identifier)
+
         component_instance = self.data[LOADED].get(component, None)
         if not component_instance:
             component_instance = self.data[LOADING][component]
-        return self.states.add_entity(component_instance, entity, domain, identifier)
+        if domain is not None and identifier is not None:
+            return self.states.add_entity(
+                component_instance, entity, domain, identifier
+            )
+        return self.states.add_entity(component_instance, entity)
 
     def add_entities(self, component: str, entities: list[Entity]) -> None:
         """Add entities to states registry."""

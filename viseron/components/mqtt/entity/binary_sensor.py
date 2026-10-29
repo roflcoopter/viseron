@@ -1,4 +1,5 @@
 """MQTT binary sensor entity."""
+
 from viseron.helpers.entity.binary_sensor import BinarySensorEntity
 
 from . import MQTTEntity

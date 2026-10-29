@@ -299,7 +299,10 @@ class DarknetDNN(BaseDarknet, SubProcessWorker):
                 "nms": self._nms,
             },
         )
-        item = result_queue.get()
+        try:
+            item = result_queue.get(timeout=3)
+        except Empty:
+            return None
         return item["result"]
 
     def work_output(self, item) -> None:

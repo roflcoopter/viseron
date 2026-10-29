@@ -1,4 +1,5 @@
 """DeepStack constants."""
+
 from typing import Final
 
 COMPONENT = "deepstack"

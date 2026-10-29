@@ -35,6 +35,13 @@
 !/docker/jetson-nano/Dockerfile*
 !/docker/jetson-nano/pycoral-2.0.0-cp38-cp38-linux_aarch64.whl
 !/docker/jetson-nano/tflite_runtime-2.5.0.post1-cp38-cp38-linux_aarch64.whl
+!/docker/jetson-orin/
+!/docker/jetson-orin/Dockerfile.viseron
+!/docker/jetson-orin/.dockerignore
+!/docker/jetson-orin/README.md
+!/docker/jetson-orin/validate-input.sh
+!/docker/jetson-orin/build-viseron-local.sh
+/docker/jetson-orin/input/
 !/docker/rpi3
 !/docker/rpi3/Dockerfile*
 !/docker/rpi5
@@ -65,6 +72,10 @@
 !/tests/domains/**
 !/tests/helpers
 !/tests/helpers/**
+!/tests/scripts
+!/tests/scripts/**
+!/tests/watchdog
+!/tests/watchdog/**
 
 # Source
 !/viseron
@@ -88,6 +99,8 @@
 
 # Frontend
 !/frontend
+!/frontend/demo-public
+!/frontend/demo-public/*
 !/frontend/e2e
 !/frontend/e2e/**
 !/frontend/eslint-rules
@@ -100,6 +113,8 @@
 !/frontend/src/**
 !/frontend/tests
 !/frontend/tests/**
+!/frontend/vite-plugins
+!/frontend/vite-plugins/**
 !/frontend/eslint.config.cjs
 !/frontend/.prettierrc.json
 !/frontend/404.html

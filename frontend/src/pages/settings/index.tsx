@@ -1,5 +1,6 @@
 import {
   ArrowRight,
+  Clean,
   DataBlob,
   Script,
   SettingsEdit,
@@ -38,7 +39,7 @@ function Settings() {
       disabledReason: null,
     },
     {
-      name: "User Management",
+      name: "Users Management",
       description: "Create, edit, and delete users",
       path: "/settings/users",
       icon: <UserMultiple size={23} />,
@@ -68,12 +69,21 @@ function Settings() {
     },
     {
       name: "Logs",
-      description: "View system logs",
+      description: "View the latest system logs in real time",
       path: "/settings/logs",
       icon: <DataBlob size={23} />,
       color: "orange",
-      disabled: true,
-      disabledReason: "Not implemented yet",
+      disabled: false,
+      disabledReason: null,
+    },
+    {
+      name: "Storage Cleanup",
+      description: "Delete files left behind by removed cameras",
+      path: "/settings/storage-cleanup",
+      icon: <Clean size={23} />,
+      color: "red",
+      disabled: false,
+      disabledReason: null,
     },
   ];
 

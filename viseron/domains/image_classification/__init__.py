@@ -68,10 +68,13 @@ class EventImageClassification(EventData):
 class AbstractImageClassification(AbstractPostProcessor):
     """Abstract image classification."""
 
+    domain = DOMAIN
+    snapshot_domain = SnapshotDomain.IMAGE_CLASSIFICATION
+
     def __init__(
         self, vis: Viseron, component: str, config: dict, camera_identifier: str
     ) -> None:
-        super().__init__(vis, config, camera_identifier)
+        super().__init__(vis, component, config, camera_identifier)
         self._expire_timer: Timer | None = None
         vis.add_entity(
             component,
@@ -98,10 +101,7 @@ class AbstractImageClassification(AbstractPostProcessor):
         result = self.image_classification(post_processor_frame)
 
         if result and post_processor_frame.shared_frame:
-            snapshot_path = self._camera.save_snapshot(
-                post_processor_frame.shared_frame,
-                SnapshotDomain.IMAGE_CLASSIFICATION,
-            )
+            snapshot_path = self._save_snapshot(post_processor_frame.shared_frame)
             for classification in result:
                 self._insert_result(DOMAIN, snapshot_path, classification.as_dict())
 

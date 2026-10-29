@@ -4,12 +4,28 @@ import {
   ThemeOptions,
   ThemeProvider,
   createTheme,
+  useTheme,
 } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { deepmerge } from "@mui/utils";
-import { createContext, useCallback, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
-declare module "@mui/material/styles/createPalette" {
+declare module "@mui/material/styles" {
+  interface BreakpointOverrides {
+    xs: true;
+    sm: true;
+    md: true;
+    lg: true;
+    xl: true;
+    xxl: true;
+  }
+
   interface ColorRange {
     50: string;
     100: string;
@@ -30,9 +46,7 @@ declare module "@mui/material/styles/createPalette" {
     motion: string;
     recording: string;
   }
-}
 
-declare module "@mui/material/styles" {
   interface Theme {
     headerHeight: number;
     headerMargin: string;
@@ -90,6 +104,18 @@ export const ColorModeContext = createContext({
   toggleColorMode: () => {},
 });
 
+function ThemeMetaHandler() {
+  const theme = useTheme();
+
+  useEffect(() => {
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", theme.palette.background.default);
+  }, [theme.palette.background.default]);
+
+  return null;
+}
+
 export function ColorModeProvider({ children }: ColorModeProviderProps) {
   const preferredMode = useMediaQuery("(prefers-color-scheme: dark)")
     ? "dark"
@@ -120,6 +146,17 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
       ({
         shape: {
           borderRadius: 5,
+        },
+
+        breakpoints: {
+          values: {
+            xs: 0,
+            sm: 600,
+            md: 900,
+            lg: 1200,
+            xl: 1536,
+            xxl: 1800,
+          },
         },
 
         ...(requestedMode === "light" && {
@@ -325,7 +362,10 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
   );
   return (
     <ColorModeContext.Provider value={colorMode}>
-      <ThemeProvider theme={theme}>{children}</ThemeProvider>
+      <ThemeProvider theme={theme}>
+        {children}
+        <ThemeMetaHandler />
+      </ThemeProvider>
     </ColorModeContext.Provider>
   );
 }

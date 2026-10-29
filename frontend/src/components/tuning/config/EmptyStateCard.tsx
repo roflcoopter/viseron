@@ -2,14 +2,22 @@ import { Box, Card, CardContent, Typography } from "@mui/material";
 
 interface EmptyStateCardProps {
   message: string;
+  hasSetupErrors: boolean;
 }
 
-export function EmptyStateCard({ message }: EmptyStateCardProps) {
+export function EmptyStateCard({
+  message,
+  hasSetupErrors,
+}: EmptyStateCardProps) {
   return (
     <Card
       variant="outlined"
       sx={{
-        height: { md: "72.5vh" },
+        height: {
+          md: hasSetupErrors ? "70vh" : "73vh",
+          xl: hasSetupErrors ? "72vh" : "75vh",
+          xxl: hasSetupErrors ? "77vh" : "80vh",
+        },
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",

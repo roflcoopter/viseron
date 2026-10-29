@@ -5,6 +5,8 @@ import {
   SettingsAdjust,
   VideoChat,
   VideoOff,
+  ViewFilled,
+  ViewOffFilled,
 } from "@carbon/icons-react";
 import Image from "@jy95/material-ui-image";
 import Box from "@mui/material/Box";
@@ -13,10 +15,10 @@ import CardActionArea from "@mui/material/CardActionArea";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
+import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
-import Switch from "@mui/material/Switch";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
@@ -29,7 +31,6 @@ import { CameraUptime } from "components/camera/CameraUptime";
 import { FailedCameraCard } from "components/camera/FailedCameraCard";
 import { useAuthContext } from "context/AuthContext";
 import { ViseronContext } from "context/ViseronContext";
-import { useFirstRender } from "hooks/UseFirstRender";
 import useOnScreen from "hooks/UseOnScreen";
 import { useCamera, useCameraStartStop } from "lib/api/camera";
 import { BASE_PATH } from "lib/api/client";
@@ -61,9 +62,6 @@ interface CameraCardProps {
   border?: string;
 }
 
-const blankImage =
-  "data:image/svg+xml;charset=utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E";
-
 function SuccessCameraCard({
   camera,
   buttons = true,
@@ -77,7 +75,6 @@ function SuccessCameraCard({
   const ref: any = useRef<HTMLDivElement>(undefined);
   const onScreen = useOnScreen<HTMLDivElement>(ref);
   const isVisible = usePageVisibility();
-  const firstRender = useFirstRender();
 
   const cameraStartStop = useCameraStartStop();
 
@@ -90,30 +87,25 @@ function SuccessCameraCard({
         .substring(7)}${width ? `&width=${Math.trunc(width)}` : ""}`,
     [camera.identifier],
   );
-  const [snapshotURL, setSnapshotURL] = useState({
-    // Show blank image on start
-    url: blankImage,
+  const [snapshotURL, setSnapshotURL] = useState<{
+    // null until the first snapshot has been requested
+    url: string | null;
+    disableSpinner: boolean;
+    disableTransition: boolean;
+    loading: boolean;
+  }>({
+    url: null,
+    // Spinner and transition are only used until the first snapshot has loaded
     disableSpinner: false,
     disableTransition: false,
-    loading: true,
+    loading: false,
   });
   const updateSnapshot = useRef<NodeJS.Timeout | null>(undefined);
   const updateImage = useCallback(() => {
     setSnapshotURL((prevSnapshotURL) => {
-      if (prevSnapshotURL.loading && !firstRender) {
+      if (prevSnapshotURL.loading) {
         // Dont load new image if we are still loading
         return prevSnapshotURL;
-      }
-      if (firstRender) {
-        // Make sure we show the spinner on the first image fetched.
-        return {
-          url: generateSnapshotURL(
-            ref.current ? ref.current.offsetWidth : null,
-          ),
-          disableSpinner: false,
-          disableTransition: false,
-          loading: true,
-        };
       }
       return {
         ...prevSnapshotURL,
@@ -121,7 +113,7 @@ function SuccessCameraCard({
         loading: true,
       };
     });
-  }, [firstRender, generateSnapshotURL]);
+  }, [generateSnapshotURL]);
 
   useEffect(() => {
     // If element is on screen and browser is visible, start interval to fetch images
@@ -153,6 +145,14 @@ function SuccessCameraCard({
     camera.still_image.available,
     camera.still_image.refresh_interval,
   ]);
+
+  const mediaPlaceholderSx = {
+    aspectRatio: camera.still_image.width / camera.still_image.height,
+    backgroundColor: theme.palette.background.default,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  };
 
   return (
     <div
@@ -192,16 +192,7 @@ function SuccessCameraCard({
         >
           <CardMedia>
             {!camera.connected ? (
-              <Box
-                sx={{
-                  aspectRatio:
-                    camera.still_image.width / camera.still_image.height,
-                  backgroundColor: theme.palette.background.default,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
+              <Box sx={mediaPlaceholderSx}>
                 <VideoOff
                   size={48}
                   style={{
@@ -209,6 +200,16 @@ function SuccessCameraCard({
                     opacity: 0.5,
                   }}
                 />
+              </Box>
+            ) : snapshotURL.url === null ? (
+              // No snapshot requested yet, card is off screen or disconnected
+              <Box
+                sx={mediaPlaceholderSx}
+                data-testid="camera-snapshot-loading"
+              >
+                {camera.still_image.available ? (
+                  <CircularProgress enableTrackSlot />
+                ) : null}
               </Box>
             ) : (
               <Image
@@ -220,6 +221,7 @@ function SuccessCameraCard({
                   camera.still_image.width / camera.still_image.height
                 }
                 color={theme.palette.background.default}
+                loading={<CircularProgress enableTrackSlot />}
                 onLoad={() => {
                   setSnapshotURL((prevSnapshotURL) => ({
                     ...prevSnapshotURL,
@@ -253,23 +255,56 @@ function SuccessCameraCard({
               sx={{ width: "100%", alignItems: "center" }}
             >
               <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                <Tooltip title={camera.is_on ? "Stop Camera" : "Start Camera"}>
-                  <div data-testid="camera-toggle-button">
-                    <Switch
-                      checked={camera.is_on}
+                {(!auth.enabled || user?.role === "admin") && (
+                  <Tooltip
+                    title={camera.is_on ? "Stop Camera" : "Start Camera"}
+                  >
+                    <Chip
+                      data-testid="camera-toggle-button"
+                      icon={
+                        camera.is_on ? (
+                          <ViewOffFilled
+                            style={{
+                              width: "clamp(16px, 3vw, 18px)",
+                              height: "clamp(16px, 3vw, 18px)",
+                            }}
+                          />
+                        ) : (
+                          <ViewFilled
+                            style={{
+                              width: "clamp(16px, 3vw, 18px)",
+                              height: "clamp(16px, 3vw, 18px)",
+                            }}
+                          />
+                        )
+                      }
+                      label=""
                       disabled={cameraStartStop.isPending}
-                      onChange={() => {
-                        if (cameraStartStop.isPending) {
-                          return;
-                        }
+                      color={camera.is_on ? "error" : "primary"}
+                      size="small"
+                      sx={{
+                        height: 30,
+                        borderRadius: 1.2,
+                        px: 1.5,
+                        "& .MuiChip-icon": {
+                          margin: 0,
+                        },
+                        "& .MuiChip-label": {
+                          padding: 0,
+                          width: 0,
+                        },
+                        justifyContent: "center",
+                      }}
+                      onClick={() => {
+                        if (cameraStartStop.isPending) return;
                         cameraStartStop.mutate({
                           camera,
                           action: camera.is_on ? "stop" : "start",
                         });
                       }}
                     />
-                  </div>
-                </Tooltip>
+                  </Tooltip>
+                )}
                 <Tooltip title="Uptime Status">
                   <div style={{ cursor: "pointer" }}>
                     <CameraUptime
@@ -287,7 +322,12 @@ function SuccessCameraCard({
                     component={Link}
                     to={`/events?camera=${camera.identifier}&tab=events`}
                   >
-                    <IntrusionPrevention size={20} />
+                    <IntrusionPrevention
+                      style={{
+                        width: "clamp(16px, 3vw, 20px)",
+                        height: "clamp(16px, 3vw, 20px)",
+                      }}
+                    />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Timeline">
@@ -295,7 +335,12 @@ function SuccessCameraCard({
                     component={Link}
                     to={`/events?camera=${camera.identifier}&tab=timeline`}
                   >
-                    <Roadmap size={20} />
+                    <Roadmap
+                      style={{
+                        width: "clamp(16px, 3vw, 20px)",
+                        height: "clamp(16px, 3vw, 20px)",
+                      }}
+                    />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Recordings">
@@ -303,7 +348,12 @@ function SuccessCameraCard({
                     component={Link}
                     to={`/recordings/${camera.identifier}`}
                   >
-                    <Demo size={20} />
+                    <Demo
+                      style={{
+                        width: "clamp(16px, 3vw, 20px)",
+                        height: "clamp(16px, 3vw, 20px)",
+                      }}
+                    />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Live View">
@@ -311,17 +361,27 @@ function SuccessCameraCard({
                     component={Link}
                     to={`/live?camera=${camera.identifier}`}
                   >
-                    <VideoChat size={20} />
+                    <VideoChat
+                      style={{
+                        width: "clamp(16px, 3vw, 20px)",
+                        height: "clamp(16px, 3vw, 20px)",
+                      }}
+                    />
                   </IconButton>
                 </Tooltip>
                 {(!auth.enabled || user?.role === "admin") && (
                   <Tooltip title="Camera Tuning">
                     <IconButton
+                      data-testid="camera-tuning-button"
                       component={Link}
                       to={`/cameras/${camera.identifier}`}
-                      data-testid="camera-tuning-button"
                     >
-                      <SettingsAdjust size={20} />
+                      <SettingsAdjust
+                        style={{
+                          width: "clamp(16px, 3vw, 20px)",
+                          height: "clamp(16px, 3vw, 20px)",
+                        }}
+                      />
                     </IconButton>
                   </Tooltip>
                 )}

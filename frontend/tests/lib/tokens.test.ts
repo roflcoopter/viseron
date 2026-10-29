@@ -1,30 +1,30 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { getDayjs } from "lib/helpers/dates";
+import { getDayjs, getDayjsFromDateTimeString } from "lib/helpers/dates";
 import * as tokens from "lib/tokens";
 import * as types from "lib/types";
 
 const TOKENS_KEY = "tokens";
 
-const NOW = getDayjs();
+const EXPIRES_AT = getDayjs().add(3600, "second");
 const TOKEN_RESPONSE: types.AuthTokenResponse = {
   header: "header",
   payload: "payload",
   expiration: 3600,
-  expires_at: NOW.add(3600, "second").toISOString(),
-  expires_at_timestamp: NOW.add(3600, "second").unix(),
-  session_expires_at: NOW.add(3600, "second").toISOString(),
-  session_expires_at_timestamp: NOW.add(3600, "second").unix(),
+  expires_at: EXPIRES_AT.toISOString(),
+  expires_at_timestamp: EXPIRES_AT.unix(),
+  session_expires_at: EXPIRES_AT.toISOString(),
+  session_expires_at_timestamp: EXPIRES_AT.unix(),
 };
 
+// Convert the same way the code does. Reusing EXPIRES_AT gives a dayjs
+// instance that holds the same instant but differs internally outside UTC.
 const TOKEN_DATA: types.StoredTokens = {
-  header: "header",
-  payload: "payload",
-  expiration: 3600,
-  expires_at: NOW.add(3600, "second"),
-  expires_at_timestamp: NOW.add(3600, "second").unix(),
-  session_expires_at: NOW.add(3600, "second"),
-  session_expires_at_timestamp: NOW.add(3600, "second").unix(),
+  ...TOKEN_RESPONSE,
+  expires_at: getDayjsFromDateTimeString(TOKEN_RESPONSE.expires_at),
+  session_expires_at: getDayjsFromDateTimeString(
+    TOKEN_RESPONSE.session_expires_at,
+  ),
 };
 
 vi.useFakeTimers();
@@ -128,6 +128,10 @@ describe("Tokens", () => {
       const result = tokens.genTokens(TOKEN_RESPONSE);
 
       expect(result).toEqual(TOKEN_DATA);
+      expect(result.expires_at.toISOString()).toBe(TOKEN_RESPONSE.expires_at);
+      expect(result.session_expires_at.toISOString()).toBe(
+        TOKEN_RESPONSE.session_expires_at,
+      );
     });
   });
 

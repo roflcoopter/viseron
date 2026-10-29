@@ -46,6 +46,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         self._webserver = vis.data[COMPONENT]
         self._storage = vis.data[STORAGE_COMPONENT]
         self.current_user = None
+        self._refresh_token: RefreshToken | None = None
         # Manually set xsrf cookie
         self.xsrf_token  # pylint: disable=pointless-statement # noqa: B018
 
@@ -267,9 +268,15 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             LOGGER.debug("User mismatch")
             return False
 
+        self._refresh_token = refresh_token
         return True
 
-    def _get_cameras(self) -> None | dict[str, AbstractCamera]:
+    @property
+    def refresh_token(self) -> RefreshToken | None:
+        """Return the refresh token the request was authenticated with."""
+        return self._refresh_token
+
+    def _get_cameras(self) -> dict[str, AbstractCamera] | None:
         """Get all registered camera instances."""
         try:
             cameras = self._vis.get_registered_identifiers(CAMERA_DOMAIN)
@@ -289,11 +296,11 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             if camera_identifier in self.current_user.assigned_cameras
         }
 
-    def get_cameras(self) -> None | dict[str, AbstractCamera]:
+    def get_cameras(self) -> dict[str, AbstractCamera] | None:
         """Get all registered camera instances."""
         return self._get_cameras()
 
-    def _get_failed_cameras(self) -> None | dict[str, FailedCamera]:
+    def _get_failed_cameras(self) -> dict[str, FailedCamera] | None:
         """Get all registered failed camera instances."""
         try:
             failed_entries: dict[str, DomainEntry] = (

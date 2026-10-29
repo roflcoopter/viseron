@@ -44,6 +44,18 @@ export type ExportTimespanMessage = {
   end: number;
 };
 
+export type RenderTimelapseMessage = {
+  type: "render_timelapse";
+  camera_identifier: string;
+  start: number;
+  end: number;
+  fps?: number;
+  max_frames?: number;
+  max_width?: number | null;
+};
+
+export type RenderTimelapseParams = Omit<RenderTimelapseMessage, "type">;
+
 export function auth(accessToken: string) {
   return {
     type: "auth",
@@ -198,6 +210,14 @@ export function exportTimespan(
     start,
     end,
   } as ExportTimespanMessage;
+}
+
+export function renderTimelapse(params: RenderTimelapseParams) {
+  const message: RenderTimelapseMessage = {
+    type: "render_timelapse",
+    ...params,
+  };
+  return message;
 }
 
 export function renderTemplate(template: string) {

@@ -1,4 +1,5 @@
 """Test the Recordings API handler."""
+
 from __future__ import annotations
 
 import datetime
@@ -110,24 +111,28 @@ class TestRecordingsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
         }
         mock_camera2.recorder.delete_recording.return_value = True
 
-        with patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_camera"
+        with (
+            patch(
+                (
+                    "viseron.components.webserver.request_handler.ViseronRequestHandler."
+                    "_get_camera"
+                ),
+                return_value=mock_camera,
             ),
-            return_value=mock_camera,
-        ), patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_cameras"
+            patch(
+                (
+                    "viseron.components.webserver.request_handler.ViseronRequestHandler."
+                    "_get_cameras"
+                ),
+                return_value={"test": mock_camera, "test2": mock_camera2},
             ),
-            return_value={"test": mock_camera, "test2": mock_camera2},
-        ), patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler"
-                "._get_session"
+            patch(
+                (
+                    "viseron.components.webserver.request_handler.ViseronRequestHandler"
+                    "._get_session"
+                ),
+                return_value=get_db_session(),
             ),
-            return_value=get_db_session(),
         ):
             yield
 

@@ -1,12 +1,52 @@
 import { HttpResponse, http } from "msw";
-import { fileURLToPath } from "url";
+import { getDayjs } from "tests/mocks/clock";
+import {
+  cameraEventsResponse,
+  eventsDatesOfInterestResponse,
+} from "tests/mocks/helpers/events";
+import {
+  type VideoLoader,
+  recordingPlaylistResponse,
+  timePeriodPlaylistResponse,
+} from "tests/mocks/helpers/hls";
+import { mockLogs } from "tests/mocks/helpers/logs";
+import {
+  type TimelapseGap,
+  timelapseDatesOfInterestResponse,
+  timelapseFramesResponse,
+  timelapseSummaryResponse,
+} from "tests/mocks/helpers/timelapse";
 
-import { getDayjs } from "lib/helpers/dates";
+import type {
+  PtzNodesResponse,
+  PtzPresetsResponse,
+} from "lib/api/actions/onvif/types";
+import type { LogsResponse } from "lib/api/logger";
 import * as types from "lib/types";
 
 export const API_BASE_URL = "/api/v1";
 
-export const handlers = [
+export type SnapshotLoader = (cameraIdentifier: string) => Promise<ArrayBuffer>;
+
+export const timelapseFramesHandler = (gaps: TimelapseGap[] = []) =>
+  http.get(
+    `${API_BASE_URL}/timelapse/:camera_identifier`,
+    ({ params, request }) => {
+      const searchParams = new URL(request.url).searchParams;
+      return timelapseFramesResponse(
+        String(params.camera_identifier),
+        Number(searchParams.get("start")),
+        Number(searchParams.get("end")),
+        Number(searchParams.get("max_frames") ?? 1800),
+        gaps,
+      );
+    },
+  );
+
+export const createHandlers = (
+  loadSnapshot: SnapshotLoader,
+  loadVideo: VideoLoader,
+) => [
   http.get(`${API_BASE_URL}/auth/enabled`, () =>
     HttpResponse.json(
       { enabled: true, onboarding_complete: true },
@@ -39,6 +79,40 @@ export const handlers = [
         assigned_cameras: null,
         preferences: null,
       } as types.AuthUserResponse,
+      { status: 200 },
+    ),
+  ),
+
+  http.get(`${API_BASE_URL}/auth/users`, () =>
+    HttpResponse.json(
+      {
+        users: [
+          {
+            id: "123456789",
+            name: "Test User",
+            username: "testuser",
+            role: "admin",
+            assigned_cameras: null,
+            preferences: null,
+          },
+          {
+            id: "223456789",
+            name: "Read Only",
+            username: "readonly",
+            role: "read",
+            assigned_cameras: ["camera1"],
+            preferences: null,
+          },
+          {
+            id: "323456789",
+            name: "Writer",
+            username: "writer",
+            role: "write",
+            assigned_cameras: ["camera2", "camera3"],
+            preferences: null,
+          },
+        ],
+      } as types.AuthUsersResponse,
       { status: 200 },
     ),
   ),
@@ -82,6 +156,8 @@ export const handlers = [
         live_stream_available: true,
         connected: true,
         is_recording: false,
+        is_manual_recording: false,
+        timelapse: true,
       },
       camera2: {
         identifier: "camera2",
@@ -104,6 +180,9 @@ export const handlers = [
         live_stream_available: true,
         connected: true,
         is_recording: true,
+        is_manual_recording: false,
+        timelapse: true,
+        ptz_support: "onvif+auto",
       },
       camera3: {
         identifier: "camera3",
@@ -126,12 +205,42 @@ export const handlers = [
         live_stream_available: true,
         connected: true,
         is_recording: false,
+        is_manual_recording: false,
+        timelapse: false,
       },
     };
     return HttpResponse.json(cameras, { status: 200 });
   }),
   http.get(`${API_BASE_URL}/cameras/failed`, () =>
     HttpResponse.json({}, { status: 200 }),
+  ),
+  // Cameras that have stored data but are no longer configured
+  http.get(`${API_BASE_URL}/cameras/orphaned`, () => {
+    const orphaned: types.OrphanedCameras = {
+      cameras: [
+        {
+          camera_identifier: "camera_3",
+          file_count: 12,
+          size_bytes: 2621440,
+          database_rows: 4,
+          directories: ["/segments/camera_3", "/event_clips/camera_3"],
+        },
+      ],
+    };
+    return HttpResponse.json(orphaned, { status: 200 });
+  }),
+  http.delete(
+    `${API_BASE_URL}/cameras/orphaned/:camera_identifier`,
+    ({ params }) => {
+      const orphaned: types.OrphanedCamera = {
+        camera_identifier: params.camera_identifier as string,
+        file_count: 12,
+        size_bytes: 2621440,
+        database_rows: 4,
+        directories: [],
+      };
+      return HttpResponse.json(orphaned, { status: 200 });
+    },
   ),
   // Single camera info
   http.get(`${API_BASE_URL}/camera/camera1`, () => {
@@ -156,6 +265,8 @@ export const handlers = [
       live_stream_available: true,
       connected: true,
       is_recording: false,
+      is_manual_recording: false,
+      timelapse: true,
     };
     return HttpResponse.json(camera, { status: 200 });
   }),
@@ -181,6 +292,9 @@ export const handlers = [
       live_stream_available: true,
       connected: true,
       is_recording: true,
+      is_manual_recording: false,
+      timelapse: true,
+      ptz_support: "onvif+auto",
     };
     return HttpResponse.json(camera, { status: 200 });
   }),
@@ -206,21 +320,16 @@ export const handlers = [
       live_stream_available: true,
       connected: true,
       is_recording: false,
+      is_manual_recording: false,
+      timelapse: false,
     };
     return HttpResponse.json(camera, { status: 200 });
   }),
   http.get(
     `${API_BASE_URL}/camera/:camera_identifier/snapshot`,
     async ({ params }) => {
-      const fs = await import("fs");
-      const path = await import("path");
-      const __dirname = path.dirname(fileURLToPath(import.meta.url));
-      const imagePath = path.resolve(
-        __dirname,
-        `fixtures/${params.camera_identifier}_snapshot.jpg`,
-      );
-      const buffer = fs.readFileSync(imagePath);
-      return HttpResponse.arrayBuffer(buffer.buffer, {
+      const buffer = await loadSnapshot(String(params.camera_identifier));
+      return HttpResponse.arrayBuffer(buffer, {
         status: 200,
         headers: { "Content-Type": "image/jpeg" },
       });
@@ -316,6 +425,51 @@ export const handlers = [
   }),
   http.get(`${API_BASE_URL}/recordings/camera3`, () =>
     HttpResponse.json({}, { status: 200 }),
+  ),
+
+  http.get(`${API_BASE_URL}/events/:camera_identifier`, ({ params, request }) =>
+    cameraEventsResponse(
+      String(params.camera_identifier),
+      new URL(request.url).searchParams,
+    ),
+  ),
+  http.post(`${API_BASE_URL}/events/dates_of_interest`, async ({ request }) =>
+    eventsDatesOfInterestResponse(
+      ((await request.json()) as { camera_identifiers: string[] })
+        .camera_identifiers,
+    ),
+  ),
+
+  http.get(
+    `${API_BASE_URL}/hls/:camera_identifier/index.m3u8`,
+    ({ params, request }) =>
+      timePeriodPlaylistResponse(
+        loadVideo,
+        String(params.camera_identifier),
+        Number(new URL(request.url).searchParams.get("start_timestamp")),
+      ),
+  ),
+  http.get(
+    `${API_BASE_URL}/hls/:camera_identifier/:recording_id/index.m3u8`,
+    ({ params }) =>
+      recordingPlaylistResponse(loadVideo, String(params.camera_identifier)),
+  ),
+
+  // Recording thumbnails and event snapshots reuse the camera snapshot
+  http.get("/files/:tier/:category/:camera/:file", async ({ params }) =>
+    HttpResponse.arrayBuffer(await loadSnapshot(String(params.camera)), {
+      status: 200,
+      headers: { "Content-Type": "image/jpeg" },
+    }),
+  ),
+  http.get("/files/segments/:camera/:file", async ({ params }) =>
+    HttpResponse.arrayBuffer(
+      await loadVideo.load(`${String(params.camera)}/${String(params.file)}`),
+      {
+        status: 200,
+        headers: { "Content-Type": "video/mp4" },
+      },
+    ),
   ),
 
   // Profile
@@ -527,4 +681,117 @@ export const handlers = [
     }
     return HttpResponse.json({ success: true }, { status: 200 });
   }),
+
+  // Logger
+  http.get(`${API_BASE_URL}/logger/logs`, ({ request }) => {
+    const url = new URL(request.url);
+    const lines = Number(url.searchParams.get("lines") ?? 500);
+    const search = url.searchParams.get("search");
+    const level = url.searchParams.get("level");
+
+    const logs = mockLogs()
+      .filter((entry) => (level ? entry.level === level : true))
+      .filter((entry) =>
+        search ? entry.raw.toLowerCase().includes(search.toLowerCase()) : true,
+      )
+      .slice(-lines);
+
+    return HttpResponse.json(
+      {
+        logs,
+        total_lines_returned: logs.length,
+        requested_lines: lines,
+        file_exists: true,
+        file_size: 1048576,
+        filters: { search, level },
+      } as LogsResponse,
+      { status: 200 },
+    );
+  }),
+  http.get(`${API_BASE_URL}/logger/config`, () =>
+    HttpResponse.json(
+      {
+        default_level: "info",
+        logs: { "viseron.components.ffmpeg": "debug" },
+        cameras: { camera2: "debug" },
+      },
+      { status: 200 },
+    ),
+  ),
+  // ONVIF PTZ
+  http.get(`${API_BASE_URL}/actions/onvif/ptz/:camera_identifier/nodes`, () =>
+    HttpResponse.json(
+      {
+        nodes: [
+          {
+            token: "PTZNodeToken",
+            Name: "PTZNode",
+            HomeSupported: true,
+            MaximumNumberOfPresets: 255,
+            SupportedPTZSpaces: {
+              AbsolutePanTiltPositionSpace: [
+                { XRange: { Min: -1, Max: 1 }, YRange: { Min: -1, Max: 1 } },
+              ],
+              ContinuousPanTiltVelocitySpace: [
+                { XRange: { Min: -1, Max: 1 }, YRange: { Min: -1, Max: 1 } },
+              ],
+              ContinuousZoomVelocitySpace: [{ XRange: { Min: -1, Max: 1 } }],
+              PanTiltSpeedSpace: [{ XRange: { Min: 0, Max: 1 } }],
+              ZoomSpeedSpace: [{ XRange: { Min: 0, Max: 1 } }],
+            },
+          },
+        ],
+      } as PtzNodesResponse,
+      { status: 200 },
+    ),
+  ),
+  http.get(`${API_BASE_URL}/actions/onvif/ptz/:camera_identifier/presets`, () =>
+    HttpResponse.json(
+      {
+        presets: [
+          {
+            Name: "Driveway",
+            type: "onvif",
+            token: "1",
+            PTZPosition: { PanTilt: { x: -0.4, y: 0.1 }, Zoom: { x: 0.2 } },
+          },
+          {
+            Name: "Front door",
+            type: "onvif",
+            token: "2",
+            PTZPosition: { PanTilt: { x: 0.35, y: -0.05 }, Zoom: { x: 0 } },
+          },
+        ],
+      } as PtzPresetsResponse,
+      { status: 200 },
+    ),
+  ),
+  http.all(`${API_BASE_URL}/actions/onvif/ptz/:camera_identifier/:action`, () =>
+    HttpResponse.json({ success: true } as types.APISuccessResponse, {
+      status: 200,
+    }),
+  ),
+
+  // Timelapse
+  http.get(`${API_BASE_URL}/timelapse`, () => timelapseSummaryResponse()),
+  timelapseFramesHandler(),
+  http.get(
+    `${API_BASE_URL}/timelapse/:camera_identifier/dates_of_interest`,
+    () => timelapseDatesOfInterestResponse(),
+  ),
+  http.get("/file/:camera_identifier/:file_key", async ({ params }) => {
+    const buffer = await loadSnapshot(String(params.camera_identifier));
+    return HttpResponse.arrayBuffer(buffer, {
+      status: 200,
+      headers: { "Content-Type": "image/jpeg" },
+    });
+  }),
+  // Downloads of exports and rendered timelapses, nothing is actually rendered
+  http.get(`${API_BASE_URL}/download`, () =>
+    // Not empty, the browser only reports download progress for a body
+    HttpResponse.arrayBuffer(new ArrayBuffer(1024), {
+      status: 200,
+      headers: { "Content-Type": "video/mp4" },
+    }),
+  ),
 ];

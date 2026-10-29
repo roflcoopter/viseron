@@ -165,6 +165,11 @@ DESC_STORAGE = (
     "Overrides the configuration in the "
     "<a href=/components-explorer/components/storage>storage component</a>."
 )
+DESC_STORAGE_TIMELAPSE = (
+    "Override the timelapse tiers for this camera. "
+    "Only used when <code>timelapse</code> is configured in the "
+    "<a href=/components-explorer/components/storage>storage component</a>."
+)
 DESC_CREATE_EVENT_CLIP = (
     "Concatenate fragments to an MP4 file for each event. "
     "WARNING: Will store both the fragments AND the MP4 file, using more storage space."

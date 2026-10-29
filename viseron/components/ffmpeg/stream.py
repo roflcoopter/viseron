@@ -7,11 +7,13 @@ import logging
 import os
 import subprocess as sp
 from dataclasses import dataclass
+from functools import cache
 from typing import TYPE_CHECKING, Any
 
 from viseron.const import (
     CAMERA_SEGMENT_DURATION,
     ENV_CUDA_SUPPORTED,
+    ENV_FFMPEG_BACKEND,
     ENV_JETSON_NANO,
     ENV_RASPBERRYPI3,
     ENV_RASPBERRYPI4,
@@ -22,6 +24,7 @@ from viseron.helpers.logs import LogPipe, UnhelpfullLogFilter
 from viseron.helpers.validators import UNDEFINED
 from viseron.watchdog.subprocess_watchdog import RestartablePopen
 
+from .pipe import FFmpegPipe
 from .const import (
     CAMERA_INPUT_ARGS,
     CONFIG_AUDIO_CODEC,
@@ -58,13 +61,16 @@ from .const import (
     DEFAULT_FFMPEG_RECOVERABLE_ERRORS,
     DEFAULT_RECORDER_AUDIO_CODEC,
     ENV_FFMPEG_PATH,
+    FFMPEG_BACKEND_JETSON_ORIN_R39,
     FFMPEG_LOGLEVELS,
     FFPROBE_LOGLEVELS,
     FFPROBE_TIMEOUT,
     HWACCEL_CUDA_DECODER_CODEC_MAP,
     HWACCEL_JETSON_NANO_DECODER_CODEC_MAP,
+    HWACCEL_JETSON_ORIN_R39_DECODER_CODEC_MAP,
     HWACCEL_RPI3_DECODER_CODEC_MAP,
     HWACCEL_RPI4_DECODER_CODEC_MAP,
+    ORIN_RAWVIDEO_OUTPUT,
     STREAM_FORMAT_MAP,
 )
 
@@ -83,6 +89,43 @@ class StreamInformation:
     audio_codec: str | None
     url: str
     config: dict[str, Any]
+
+
+@cache
+def validate_jetson_orin_r39_ffmpeg(ffmpeg_path: str) -> None:
+    """Check the selected FFmpeg for NVIDIA decoders with NV12 output."""
+    commands = [
+        [ffmpeg_path, "-hide_banner", "-decoders"],
+        [ffmpeg_path, "-hide_banner", "-h", "decoder=h264_nvv4l2dec"],
+        [ffmpeg_path, "-hide_banner", "-h", "decoder=hevc_nvv4l2dec"],
+    ]
+    outputs = []
+    for command in commands:
+        try:
+            result = sp.run(
+                command, capture_output=True, check=False, text=True, timeout=10
+            )
+        except (OSError, sp.TimeoutExpired) as error:
+            raise RuntimeError(
+                "Unable to validate the jetson_orin_r39 FFmpeg backend"
+            ) from error
+        if result.returncode:
+            raise RuntimeError(
+                "jetson_orin_r39 FFmpeg capability check exited with "
+                f"{result.returncode}: {' '.join(command)}"
+            )
+        outputs.append(result.stdout + result.stderr)
+
+    for decoder in ("h264_nvv4l2dec", "hevc_nvv4l2dec"):
+        if decoder not in outputs[0].split():
+            raise RuntimeError(f"jetson_orin_r39 FFmpeg is missing {decoder}")
+    for decoder, output in zip(
+        ("h264_nvv4l2dec", "hevc_nvv4l2dec"), outputs[1:], strict=True
+    ):
+        if "Supported pixel formats:" not in output or "nv12" not in output:
+            raise RuntimeError(
+                f"jetson_orin_r39 FFmpeg decoder lacks NV12 output: {decoder}"
+            )
 
 
 class Stream:
@@ -109,9 +152,17 @@ class Stream:
 
         self._camera: Camera = camera
 
-        self._pipe: RestartablePopen | None = None
-        self.segment_process: RestartablePopen | None = None
-        self._log_pipe: LogPipe | None = None
+        self._ffmpeg_pipe: FFmpegPipe | None = None
+        self._ffmpeg_backend = os.getenv(ENV_FFMPEG_BACKEND)
+        if self._ffmpeg_backend == FFMPEG_BACKEND_JETSON_ORIN_R39:
+            ffmpeg_path = os.getenv(ENV_FFMPEG_PATH)
+            if not ffmpeg_path:
+                raise RuntimeError(
+                    "VISERON_FFMPEG_PATH is required for jetson_orin_r39"
+                )
+            validate_jetson_orin_r39_ffmpeg(ffmpeg_path)
+        elif self._ffmpeg_backend:
+            raise RuntimeError(f"Unsupported FFmpeg backend: {self._ffmpeg_backend}")
         self._ffprobe = FFprobe(config, camera_identifier, attempt)
 
         self._mainstream = self.get_stream_information(config)
@@ -140,8 +191,13 @@ class Stream:
             "rawvideo",
             "-pix_fmt",
             self.pixel_format,
-            "pipe:1",
+            ORIN_RAWVIDEO_OUTPUT if self.use_rawvideo_fd else "pipe:1",
         ]
+
+    @property
+    def use_rawvideo_fd(self) -> bool:
+        """Return whether this stream explicitly selected Orin rawvideo transport."""
+        return self._ffmpeg_backend == FFMPEG_BACKEND_JETSON_ORIN_R39
 
     @property
     def alias(self) -> str:
@@ -286,9 +342,8 @@ class Stream:
             width, height, fps, codec, audio_codec, stream_url, stream_config
         )
 
-    @staticmethod
     def get_decoder_codec(
-        stream_config: dict[str, Any], stream_codec: str
+        self, stream_config: dict[str, Any], stream_codec: str
     ) -> list[str]:
         """Return decoder codec set in config or from predefined codec map."""
         if stream_config[CONFIG_CODEC] and stream_config[CONFIG_CODEC] != DEFAULT_CODEC:
@@ -297,7 +352,9 @@ class Stream:
         codec = None
         codec_map = None
         if stream_codec and stream_config[CONFIG_STREAM_FORMAT] in ["rtsp", "rtmp"]:
-            if os.getenv(ENV_RASPBERRYPI3) == "true":
+            if self.use_rawvideo_fd:
+                codec_map = HWACCEL_JETSON_ORIN_R39_DECODER_CODEC_MAP
+            elif os.getenv(ENV_RASPBERRYPI3) == "true":
                 codec_map = HWACCEL_RPI3_DECODER_CODEC_MAP
             elif os.getenv(ENV_RASPBERRYPI4) == "true":
                 codec_map = HWACCEL_RPI4_DECODER_CODEC_MAP
@@ -313,13 +370,22 @@ class Stream:
         return []
 
     @property
+    def is_mjpeg_stream(self) -> bool:
+        """Return whether the mainstream contains MJPEG video."""
+        return (
+            self._config[CONFIG_STREAM_FORMAT] == "mjpeg"
+            or self._mainstream.codec.lower() == "mjpeg"
+        )
+
+    @property
     def encoder_codec(self) -> str:
         """Return encoder codec set in config."""
         if self._config[CONFIG_RECORDER][CONFIG_RECORDER_CODEC] != UNDEFINED:
             return self._config[CONFIG_RECORDER][CONFIG_RECORDER_CODEC]
-        if self._config[CONFIG_STREAM_FORMAT] == "mjpeg":
+        if self.is_mjpeg_stream or self._mainstream.codec.lower() in ["mpeg4", "mp4v"]:
             self._logger.warning(
-                "MJPEG stream detected. Defaulting to h264 encoder codec. "
+                "Browser-incompatible stream codec detected. Defaulting to h264 "
+                "encoder codec. "
                 "Consider setting `codec: h264` under the cameras `recorder` "
                 "section in your config.yaml to avoid this warning. "
             )
@@ -422,9 +488,7 @@ class Stream:
         causing a delay in the output.
         Using -tune zerolatency eliminates this buffering delay.
         """
-        if self._config[
-            CONFIG_STREAM_FORMAT
-        ] == "mjpeg" and self.encoder_codec.lower() in [
+        if self.is_mjpeg_stream and self.encoder_codec.lower() in [
             "libx264",
             "h264",
         ]:
@@ -438,7 +502,7 @@ class Stream:
         MJPEG streams. Force keyframes at the segment
         duration interval to ensure segments are created.
         """
-        if self._config[CONFIG_STREAM_FORMAT] == "mjpeg":
+        if self.is_mjpeg_stream:
             return [
                 "-force_key_frames",
                 f"expr:gte(t,n_forced*{CAMERA_SEGMENT_DURATION})",
@@ -519,6 +583,10 @@ class Stream:
         """Return full FFmpeg command."""
         if self._substream:
             if self._config[CONFIG_SUBSTREAM][CONFIG_RAW_COMMAND]:
+                if self.use_rawvideo_fd:
+                    raise RuntimeError(
+                        "raw_command is unsupported with jetson_orin_r39"
+                    )
                 return self._config[CONFIG_SUBSTREAM][CONFIG_RAW_COMMAND].split(" ")
             stream_input_command = self.stream_command(
                 self._substream.config,
@@ -528,6 +596,10 @@ class Stream:
             camera_segment_args = []
         else:
             if self._config[CONFIG_RAW_COMMAND]:
+                if self.use_rawvideo_fd:
+                    raise RuntimeError(
+                        "raw_command is unsupported with jetson_orin_r39"
+                    )
                 return self._config[CONFIG_RAW_COMMAND].split(" ")
             stream_input_command = self.stream_command(
                 self._mainstream.config,
@@ -547,120 +619,27 @@ class Stream:
             + self.output_args
         )
 
-    def pipe(self) -> RestartablePopen:
-        """Return subprocess pipe for FFmpeg."""
-        try:
-            if self._log_pipe:
-                self._log_pipe.close()
-                self._log_pipe = None
-        except OSError as error:
-            self._logger.error("Failed to close log pipe: %s", error)
-
-        self._log_pipe = LogPipe(
-            self._logger, FFMPEG_LOGLEVELS[self._config[CONFIG_FFMPEG_LOGLEVEL]]
-        )
-
-        if self._config.get(CONFIG_SUBSTREAM, None):
-            self.segment_process = RestartablePopen(
-                self.build_segment_command(),
-                name=f"viseron.camera.{self._camera.identifier}.segments",
-                stdin=sp.DEVNULL,
-                stdout=sp.PIPE,
-                stderr=self._log_pipe,
-            )
-
-        return RestartablePopen(
-            self.build_command(),
-            name=f"viseron.camera.{self._camera.identifier}.pipe",
-            register=False,
-            stdin=sp.DEVNULL,
-            stdout=sp.PIPE,
-            stderr=self._log_pipe,
-        )
-
-    def start_pipe(self) -> None:
-        """Start piping frames from FFmpeg."""
-        self._logger.debug(f"FFmpeg decoder command: {' '.join(self.build_command())}")
-        if self._config.get(CONFIG_SUBSTREAM, None):
-            self._logger.debug(
-                f"FFmpeg segments command: {' '.join(self.build_segment_command())}"
-            )
-
-        self._pipe = self.pipe()
+    @property
+    def segment_process(self) -> RestartablePopen | None:
+        """Return the segment subprocess."""
+        if self._ffmpeg_pipe:
+            return self._ffmpeg_pipe.segment_process
+        return None
 
     def close_pipe(self) -> None:
         """Close FFmpeg pipe."""
-        self._logger.debug("Closing pipe")
-        if self.segment_process:
-            self._logger.debug("Terminating segment process")
-            try:
-                self.segment_process.terminate()
-                try:
-                    self.segment_process.communicate(timeout=5)
-                except sp.TimeoutExpired:
-                    self._logger.debug("FFmpeg did not terminate, killing instead.")
-                    self.segment_process.kill()
-                    self.segment_process.communicate()
-            except (AttributeError, OSError) as error:
-                self._logger.error("Failed to close segment process: %s", error)
-
-        if self._pipe:
-            try:
-                self._pipe.terminate()
-                try:
-                    self._pipe.communicate(timeout=5)
-                except sp.TimeoutExpired:
-                    self._logger.debug("FFmpeg did not terminate, killing instead.")
-                    self._pipe.kill()
-                    self._pipe.communicate()
-            except (AttributeError, OSError) as error:
-                self._logger.error("Failed to close pipe: %s", error)
-
-        try:
-            if self._log_pipe:
-                self._log_pipe.close()
-                self._log_pipe = None
-        except OSError as error:
-            self._logger.error("Failed to close log pipe: %s", error)
-
-    def poll(self) -> int | None:
-        """Poll pipe."""
-        if self._pipe:
-            return self._pipe.poll()
-        return None
-
-    def read(self) -> bytes | None:
-        """Return a single frame from FFmpeg pipe."""
-        try:
-            if self._pipe and self._pipe.stdout:
-                return self._pipe.stdout.read(self.frame_bytes_size)
-        except Exception:  # pylint: disable=broad-except
-            self._logger.exception("Error reading frame from pipe")
-        return None
+        if self._ffmpeg_pipe:
+            self._ffmpeg_pipe.close()
 
     def record_only(self) -> None:
         """Record only the stream."""
-        self._logger.debug(
-            f"Recording only stream: {' '.join(self.build_segment_command())}"
+        self._ffmpeg_pipe = FFmpegPipe(
+            self._camera_identifier,
+            self._logger,
+            FFMPEG_LOGLEVELS[self._config[CONFIG_FFMPEG_LOGLEVEL]],
+            segment_command=self.build_segment_command(),
         )
-        try:
-            if self._log_pipe:
-                self._log_pipe.close()
-                self._log_pipe = None
-        except OSError as error:
-            self._logger.error("Failed to close log pipe: %s", error)
-
-        self._log_pipe = LogPipe(
-            self._logger, FFMPEG_LOGLEVELS[self._config[CONFIG_FFMPEG_LOGLEVEL]]
-        )
-
-        self.segment_process = RestartablePopen(
-            self.build_segment_command(),
-            name=f"viseron.camera.{self._camera.identifier}.segments",
-            stdin=sp.DEVNULL,
-            stdout=sp.PIPE,
-            stderr=self._log_pipe,
-        )
+        self._ffmpeg_pipe.start()
 
 
 class FFprobe:

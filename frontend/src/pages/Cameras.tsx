@@ -21,12 +21,10 @@ function Cameras() {
     return <Loading text="Loading Cameras" />;
   }
 
-  if (
-    !(
-      objHasValues<typeof cameras.data>(cameras.data) ||
-      objHasValues<typeof failedCameras.data>(failedCameras.data)
-    )
-  ) {
+  if (!(
+    objHasValues<typeof cameras.data>(cameras.data) ||
+    objHasValues<typeof failedCameras.data>(failedCameras.data)
+  )) {
     return hasCamerasConfigured ? (
       <Loading text="Waiting for cameras to register" />
     ) : (

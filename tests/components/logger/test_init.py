@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import logging
+import multiprocessing as mp
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from viseron.components.logger import (
+    LoggerConfig,
+    LoggerRoot,
     _get_loggers_for_camera,
     _matches_camera_override,
     setup,
@@ -20,6 +23,10 @@ from viseron.components.logger.const import (
     CONFIG_DEFAULT_LEVEL,
     CONFIG_LOGS,
     PREVIOUS_CONFIG,
+)
+from viseron.helpers.logs import (
+    register_child_log_levels,
+    unregister_child_log_levels,
 )
 
 if TYPE_CHECKING:
@@ -54,15 +61,13 @@ def _make_config(
     default_level: str = "info",
     logs: dict[str, str] | None = None,
     cameras: dict[str, str] | None = None,
-) -> dict[str, Any]:
-    """Build a validated config dict for the logger component."""
-    component_config: dict[str, Any] = {
-        CONFIG_DEFAULT_LEVEL: default_level,
-        CONFIG_CAMERAS: cameras or {},
-    }
-    if logs is not None:
-        component_config[CONFIG_LOGS] = logs
-    return {COMPONENT: component_config}
+) -> LoggerRoot:
+    """Build a validated config for the logger component."""
+    return LoggerRoot(
+        logger=LoggerConfig(
+            default_level=default_level, logs=logs or {}, cameras=cameras or {}
+        )
+    )
 
 
 class TestSetupFirstRun:
@@ -186,8 +191,8 @@ class TestReload:
 
     def _setup_and_reload(
         self,
-        initial_config: dict[str, Any],
-        new_config: dict[str, Any],
+        initial_config: LoggerRoot,
+        new_config: LoggerRoot,
     ) -> MagicMock:
         """Call setup, unload, and setup again with new config."""
         vis = _make_vis()
@@ -357,8 +362,7 @@ class TestReload:
         assert logging.getLogger("test.comp.nologs").level == logging.DEBUG
 
         unload(vis)
-        # New config has no logs key
-        setup(vis, {COMPONENT: {CONFIG_DEFAULT_LEVEL: "info", CONFIG_CAMERAS: {}}})
+        setup(vis, LoggerRoot.model_validate({COMPONENT: {}}))
 
         assert logging.getLogger("test.comp.nologs").level == logging.NOTSET
 
@@ -486,3 +490,21 @@ class TestHelpers:
         assert match1 in result
         assert match2 in result
         assert no_match not in result
+
+
+def test_setup_pushes_new_levels_to_child_processes() -> None:
+    """A reload must reach the loggers of already running child processes."""
+    vis = _make_vis()
+    setup(vis, _make_config(default_level="info"))
+    child_log_levels = register_child_log_levels(
+        "test_camera", mp.get_context(), ("test_child_logger",)
+    )
+
+    try:
+        unload(vis)
+        setup(vis, _make_config(default_level="debug"))
+
+        assert child_log_levels.wait_and_apply(timeout=5) is True
+        assert logging.getLogger("test_child_logger").level == logging.DEBUG
+    finally:
+        unregister_child_log_levels("test_camera")

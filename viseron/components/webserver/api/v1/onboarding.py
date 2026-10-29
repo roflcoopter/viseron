@@ -8,7 +8,10 @@ from http import HTTPStatus
 import voluptuous as vol
 
 from viseron.components.webserver.api.handlers import BaseAPIHandler, require_auth
-from viseron.components.webserver.auth import token_response
+from viseron.components.webserver.auth import (
+    OnboardingCompleteError,
+    token_response,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -37,20 +40,19 @@ class OnboardingAPIHandler(BaseAPIHandler):
     @require_auth
     async def onboarding(self) -> None:
         """Onboard the first user."""
-        onboarding_complete = await self.run_in_executor(self.auth.onboarding_complete)
-        if self.auth.users or onboarding_complete:
+        try:
+            user = await self.run_in_executor(
+                self.auth.onboard_user,
+                self.json_body["name"],
+                self.json_body["username"],
+                self.json_body["password"],
+            )
+        except OnboardingCompleteError:
             self.response_error(
                 HTTPStatus.FORBIDDEN,
                 reason="Onboarding has already been completed",
             )
             return
-
-        user = await self.run_in_executor(
-            self.auth.onboard_user,
-            self.json_body["name"],
-            self.json_body["username"],
-            self.json_body["password"],
-        )
 
         refresh_token = await self.run_in_executor(
             self.auth.generate_refresh_token,

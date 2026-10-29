@@ -15,7 +15,7 @@ import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import { useTheme } from "@mui/material/styles";
 import * as monaco from "monaco-editor";
-import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
+import EditorWorker from "monaco-editor/editor/editor.worker.js?worker";
 import { configureMonacoYaml } from "monaco-yaml";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 
@@ -38,13 +38,52 @@ type GlobalThis = typeof globalThis &
     MonacoEnvironment: any;
   };
 
+function createMonacoWorker(label: string): Worker {
+  if (label === "yaml") {
+    return new YamlWorker();
+  }
+  return new EditorWorker();
+}
+
 (window as GlobalThis).MonacoEnvironment = {
   getWorker(_: any, label: string) {
-    if (label === "yaml") {
-      return new YamlWorker();
-    }
-    return new EditorWorker();
+    return createMonacoWorker(label);
   },
+};
+
+type LegacyWebWorkerOptions = {
+  label?: string;
+  moduleId?: string;
+  createData?: unknown;
+  host?: Record<string, Function>;
+  keepIdleModels?: boolean;
+};
+
+// monaco-editor 0.56 changed editor.createWebWorker() to take an already
+// constructed `worker` instead of the old `{ label, moduleId, createData }`
+// shape. monaco-yaml still uses the old shape via monaco-worker-manager, which
+// is unmaintained, so translate the call here. This mirrors what monaco-editor
+// itself does internally for its own bundled language workers.
+const createWebWorker = monaco.editor.createWebWorker;
+monaco.editor.createWebWorker = function createWebWorkerCompat<
+  T extends object,
+>(opts: monaco.editor.IInternalWebWorkerOptions) {
+  if (opts.worker) {
+    return createWebWorker<T>(opts);
+  }
+
+  const legacyOpts = opts as LegacyWebWorkerOptions;
+  const worker = createMonacoWorker(legacyOpts.label || "");
+  // The first message makes the worker install monaco's initializer, the
+  // second one carries the data that initializer is called with.
+  worker.postMessage("ignore");
+  worker.postMessage(legacyOpts.createData);
+
+  return createWebWorker<T>({
+    worker,
+    host: legacyOpts.host,
+    keepIdleModels: legacyOpts.keepIdleModels,
+  });
 };
 
 loader.config({ monaco });
@@ -55,17 +94,12 @@ configureMonacoYaml(monaco, {
   hover: true,
   completion: true,
   validate: true,
-  format: true,
+  format: { enable: true },
   customTags: ["!secret"],
 });
 
 const renderWhitespace:
-  | "all"
-  | "none"
-  | "boundary"
-  | "selection"
-  | "trailing"
-  | undefined = "all";
+  "all" | "none" | "boundary" | "selection" | "trailing" | undefined = "all";
 
 const options = {
   selectOnLineNumbers: true,
@@ -244,6 +278,7 @@ function ConfigEditor() {
   }, [viseron.connection]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRestartPending(!viseron.connected);
   }, [viseron.connected]);
 

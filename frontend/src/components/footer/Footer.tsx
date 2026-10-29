@@ -1,4 +1,4 @@
-import { Cube, LogoGithub } from "@carbon/icons-react";
+import { Cube, LogoDiscord, LogoGithub } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Link from "@mui/material/Link";
 import Typography from "@mui/material/Typography";
@@ -19,15 +19,25 @@ export default function AppFooter() {
   const theme = useTheme();
   const location = useLocation();
   const { version, gitCommit } = useContext(ViseronContext);
-  const showFooter = !["/events", "/live", "/settings/configuration"].includes(
-    location.pathname,
-  );
-  const isLowerPaddingTop =
-    location.pathname.startsWith("/cameras") ||
-    ["/profile"].includes(location.pathname);
+  const showFooter = ![
+    "/events",
+    "/live",
+    "/settings/configuration",
+    "/settings/logs",
+  ].includes(location.pathname);
+  const isCameras = location.pathname.startsWith("/cameras");
+  const isSettings = ["/settings"].includes(location.pathname);
 
   return showFooter ? (
-    <Footer sx={{ paddingTop: isLowerPaddingTop ? "30px" : "60px" }}>
+    <Footer
+      sx={{
+        paddingTop: isSettings
+          ? { xs: 0, md: "30px", lg: "40px", xxl: "60px" }
+          : isCameras
+            ? { xs: "30px", md: "30px", lg: "20px", xxl: "22px" }
+            : "60px",
+      }}
+    >
       <Box
         sx={{
           display: "flex",
@@ -111,6 +121,34 @@ export default function AppFooter() {
               <Cube size={16} />
             </Box>
             Components
+          </Link>
+
+          <Link
+            target="_blank"
+            href="https://discord.gg/MxP5xpyvk7"
+            color={theme.palette.text.secondary}
+            variant="body2"
+            sx={{
+              fontWeight: "medium",
+              display: "flex",
+              alignItems: "center",
+              textDecoration: "none",
+              "&:hover": {
+                textDecoration: "underline",
+              },
+            }}
+          >
+            <Box
+              component="span"
+              sx={{
+                display: "inline-flex",
+                alignItems: "center",
+                marginRight: "5px",
+              }}
+            >
+              <LogoDiscord size={16} />
+            </Box>
+            Discord
           </Link>
         </Box>
       </Box>

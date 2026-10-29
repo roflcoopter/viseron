@@ -8,6 +8,8 @@ COMPONENT = "ffmpeg"
 DESC_COMPONENT = "FFmpeg Configuration."
 
 ENV_FFMPEG_PATH = "VISERON_FFMPEG_PATH"
+FFMPEG_BACKEND_JETSON_ORIN_R39 = "jetson_orin_r39"
+ORIN_RAWVIDEO_OUTPUT = "pipe:__VISERON_ORIN_RAWVIDEO_FD__"
 MAX_EMPTY_FRAMES = 10
 
 # A dead or unreachable camera would otherwise spawn a new decode process
@@ -66,6 +68,11 @@ HWACCEL_CUDA_DECODER_CODEC_MAP = {
 HWACCEL_RPI3_DECODER_CODEC_MAP = {"h264": "h264_mmal"}
 HWACCEL_RPI4_DECODER_CODEC_MAP = {"h264": "h264_v4l2m2m"}
 HWACCEL_JETSON_NANO_DECODER_CODEC_MAP = {
+    "h264": "h264_nvv4l2dec",
+    "h265": "hevc_nvv4l2dec",
+    "hevc": "hevc_nvv4l2dec",
+}
+HWACCEL_JETSON_ORIN_R39_DECODER_CODEC_MAP = {
     "h264": "h264_nvv4l2dec",
     "h265": "hevc_nvv4l2dec",
     "hevc": "hevc_nvv4l2dec",
@@ -168,8 +175,9 @@ DEFAULT_SEGMENTS_FOLDER = "/segments"
 DESC_RECORDER_HWACCEL_ARGS = "FFmpeg encoder hardware acceleration arguments."
 DESC_RECORDER_CODEC = (
     "FFmpeg video encoder codec, eg <code>h264_nvenc</code>. "
-    "Defaults to <code>copy</code> except for MJPEG streams where the default is "
-    "<code>h264</code>."
+    "Defaults to <code>copy</code>. MJPEG and MPEG-4 Part 2 "
+    "(<code>mpeg4</code>/<code>mp4v</code>) streams default to <code>h264</code> "
+    "for browser-compatible recordings."
 )
 DESC_RECORDER_AUDIO_CODEC = (
     "FFmpeg audio encoder codec, eg <code>aac</code>.<br>"

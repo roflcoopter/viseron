@@ -6,18 +6,19 @@ Inspired by Home Assistant logger.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated
 
-import voluptuous as vol
+from pydantic import Field
 
-from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict, Maybe
+from viseron.helpers.config_model import ComponentRoot, ConfigModel, MapKey
+from viseron.helpers.config_types import CameraIdentifier, Lower, NoneToDict, OneOf
+from viseron.helpers.logs import refresh_child_log_levels
 
 from .const import (
     COMPONENT,
     CONFIG_CAMERAS,
     CONFIG_DEFAULT_LEVEL,
     CONFIG_LOGS,
-    DEFAULT_CAMERAS,
     DEFAULT_LOG_LEVEL,
     DESC_CAMERA_IDENTIFIER,
     DESC_CAMERAS,
@@ -31,59 +32,54 @@ from .const import (
 
 if TYPE_CHECKING:
     from viseron import Viseron
-    from viseron.components.logger.logger_types import _LoggerViseronData
 
 LOGGER = logging.getLogger(__name__)
 
-CONFIG_SCHEMA = vol.Schema(
-    {
-        vol.Required(COMPONENT, description=DESC_COMPONENT): vol.Schema(
-            {
-                vol.Optional(
-                    CONFIG_DEFAULT_LEVEL,
-                    default=DEFAULT_LOG_LEVEL,
-                    description=DESC_DEFAULT_LEVEL,
-                ): vol.All(vol.Lower, vol.In(VALID_LOG_LEVELS)),
-                vol.Optional(CONFIG_LOGS, description=DESC_LOGS): {
-                    vol.Required(str, description=DESC_LOGGER_NAME): vol.All(
-                        vol.Lower, vol.In(VALID_LOG_LEVELS)
-                    )
-                },
-                vol.Optional(
-                    CONFIG_CAMERAS, default=DEFAULT_CAMERAS, description=DESC_CAMERAS
-                ): vol.All(
-                    Maybe(
-                        {
-                            CameraIdentifier(
-                                description=DESC_CAMERA_IDENTIFIER
-                            ): vol.All(vol.Lower, vol.In(VALID_LOG_LEVELS))
-                        },
-                    ),
-                    CoerceNoneToDict(),
-                ),
-            }
-        )
-    },
-    extra=vol.ALLOW_EXTRA,
-)
+LogLevel = Annotated[Lower, OneOf(VALID_LOG_LEVELS)]
+LoggerName = Annotated[str, MapKey(description=DESC_LOGGER_NAME, flag="required")]
+CameraLogLevels = dict[
+    Annotated[CameraIdentifier, MapKey(description=DESC_CAMERA_IDENTIFIER)], LogLevel
+]
 
 
-def setup(vis: Viseron, config: dict[str, Any]) -> bool:
+class LoggerConfig(ConfigModel):
+    """Config of the logger component."""
+
+    default_level: LogLevel = Field(
+        default=DEFAULT_LOG_LEVEL, description=DESC_DEFAULT_LEVEL
+    )
+    logs: Annotated[dict[LoggerName, LogLevel], NoneToDict] = Field(
+        default_factory=dict, description=DESC_LOGS
+    )
+    cameras: Annotated[CameraLogLevels, NoneToDict] = Field(
+        default_factory=dict, description=DESC_CAMERAS
+    )
+
+
+class LoggerRoot(ComponentRoot):
+    """Config with the logger component at the root."""
+
+    logger: LoggerConfig = Field(description=DESC_COMPONENT)
+
+
+CONFIG_SCHEMA = LoggerRoot
+
+
+def setup(vis: Viseron, config: LoggerRoot) -> bool:
     """Set up the logger component."""
-    logger_config = config[COMPONENT]
+    logger_config = config.logger
 
     if PREVIOUS_CONFIG in vis.data.get(COMPONENT, {}):
         # During reload, apply only the changes between the old and new config to avoid
         # resetting log levels unnecessarily and causing log spam.
         _apply_config_changes(vis, logger_config)
+        refresh_child_log_levels()
         return True
 
     vis.data[COMPONENT] = {}
     vis.data[COMPONENT][CONFIG_LOGS] = {}
-    vis.data[COMPONENT][CONFIG_CAMERAS] = dict(logger_config.get(CONFIG_CAMERAS) or {})
-    vis.data[COMPONENT][CONFIG_DEFAULT_LEVEL] = logger_config.get(
-        CONFIG_DEFAULT_LEVEL, DEFAULT_LOG_LEVEL
-    )
+    vis.data[COMPONENT][CONFIG_CAMERAS] = dict(logger_config.cameras)
+    vis.data[COMPONENT][CONFIG_DEFAULT_LEVEL] = logger_config.default_level
 
     logging.setLoggerClass(
         _get_logger_class(
@@ -97,11 +93,9 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
         vis.data[COMPONENT][CONFIG_DEFAULT_LEVEL],
     )
 
-    if CONFIG_LOGS in logger_config:
-        _set_log_levels(
-            vis, logger_config[CONFIG_LOGS], vis.data[COMPONENT][CONFIG_CAMERAS]
-        )
+    _set_log_levels(vis, logger_config.logs, vis.data[COMPONENT][CONFIG_CAMERAS])
 
+    refresh_child_log_levels()
     return True
 
 
@@ -123,7 +117,7 @@ def unload(vis: Viseron) -> None:
     }
 
 
-def _apply_config_changes(vis: Viseron, new_config: _LoggerViseronData) -> None:
+def _apply_config_changes(vis: Viseron, new_config: LoggerConfig) -> None:
     """Apply only the changes between old and new logger config.
 
     Computes the delta and applies removals first, then additions/changes.
@@ -132,13 +126,13 @@ def _apply_config_changes(vis: Viseron, new_config: _LoggerViseronData) -> None:
     previous = vis.data[COMPONENT].pop(PREVIOUS_CONFIG)
 
     old_default = previous[CONFIG_DEFAULT_LEVEL]
-    new_default = new_config.get(CONFIG_DEFAULT_LEVEL, DEFAULT_LOG_LEVEL)
+    new_default = new_config.default_level
 
     old_logs = previous[CONFIG_LOGS]
-    new_logs = new_config.get(CONFIG_LOGS, {})
+    new_logs = new_config.logs
 
     old_cameras = previous[CONFIG_CAMERAS]
-    new_cameras = dict(new_config.get(CONFIG_CAMERAS) or {})
+    new_cameras = new_config.cameras
 
     log_overrides = vis.data[COMPONENT][CONFIG_LOGS]
     camera_overrides = vis.data[COMPONENT][CONFIG_CAMERAS]

@@ -1,5 +1,5 @@
 import { Box, Grid, Typography } from "@mui/material";
-import { useCallback, useState } from "react";
+import { useCallback, useContext, useState } from "react";
 import { useParams } from "react-router-dom";
 import ServerDown from "svg/undraw/server_down.svg?react";
 
@@ -24,16 +24,24 @@ import {
 } from "components/tuning/shared";
 import { NameInputDialog } from "components/tuning/shared/NameInputDialog";
 import { normalizeComponentData } from "components/tuning/utils";
+import { ViseronContext } from "context/ViseronContext";
 import { useTitle } from "hooks/UseTitle";
 import { useToast } from "hooks/UseToast";
 import { useCameras } from "lib/api/cameras";
 import { BASE_PATH } from "lib/api/client";
 import { useTuneConfig, useUpdateTuneConfig } from "lib/api/tune";
+import { reloadConfig } from "lib/commands";
 
 function Tunes() {
   const { camera_identifier } = useParams<{ camera_identifier: string }>();
   const cameras = useCameras({});
   const toast = useToast();
+
+  const { connection, setupStatus } = useContext(ViseronContext);
+
+  const hasSetupErrors = setupStatus.components.some(
+    (component) => component.errors.length > 0 || component.validation_error,
+  );
 
   const [selectedTab, setSelectedTab] = useState(0);
   const [expandedComponent, setExpandedComponent] = useState<string | false>(
@@ -124,21 +132,48 @@ function Tunes() {
 
           tuneHandlers.setSelectedComponentData({
             ...componentDataWithParsed,
-            componentType: domainName,
+            // For ONVIF domain, use componentName as componentType
+            // For other domains, use domainName as componentType
+            componentType: domainName === "onvif" ? componentName : domainName,
             componentName,
           });
 
           // Update original data as well after successful save
           tuneHandlers.setOriginalComponentData({
             ...componentDataWithParsed,
-            componentType: domainName,
+            componentType: domainName === "onvif" ? componentName : domainName,
             componentName,
           });
         }
       }
 
       tuneHandlers.setIsConfigModified(false);
-      toast.success("Configuration saved successfully");
+
+      // Saving only writes config.yaml, reload so the running camera picks it up
+      if (!connection) {
+        toast.warning(
+          "Configuration saved, but not applied. Reload the config from the editor to apply it.",
+        );
+        return;
+      }
+      try {
+        const result = await reloadConfig(connection);
+        if (!result.success) {
+          toast.error(
+            "Configuration saved, but reload failed. Check the setup errors panel for details.",
+          );
+        } else if (result.restart_required) {
+          toast.warning(
+            "Configuration saved, but some changes require a restart to take effect.",
+          );
+        } else {
+          toast.success("Configuration saved and applied");
+        }
+      } catch (error) {
+        toast.error(
+          `Configuration saved, but reload failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
     },
     onError: (error) => {
       toast.error(error.message || "Failed to save configuration");
@@ -472,7 +507,11 @@ function Tunes() {
 
       <Box
         sx={{
-          height: { md: "75vh" },
+          height: {
+            md: hasSetupErrors ? "72vh" : "76vh",
+            xl: hasSetupErrors ? "74vh" : "78vh",
+            xxl: hasSetupErrors ? "79vh" : "82vh",
+          },
           display: "flex",
           flexDirection: "column",
           paddingY: 0.5,
@@ -481,9 +520,13 @@ function Tunes() {
       >
         <Grid container spacing={1} sx={{ flexGrow: 1, overflow: "hidden" }}>
           {/* Center Snapshot - First on mobile, middle on desktop */}
-          <Grid size={{ xs: 12, md: 6.5 }} sx={{ order: { xs: 0, md: 1 } }}>
+          <Grid
+            size={{ xs: 12, md: 6, xxl: 7 }}
+            sx={{ order: { xs: 0, md: 1 } }}
+          >
             <TuneSnapshot
               camera={camera}
+              hasSetupErrors={hasSetupErrors}
               snapshotURL={snapshotURL}
               isDrawingMode={tuneHandlers.isDrawingMode}
               selectedComponentData={tuneHandlers.selectedComponentData}
@@ -564,8 +607,12 @@ function Tunes() {
           </Grid>
 
           {/* Left Card - Second on mobile, first on desktop */}
-          <Grid size={{ xs: 12, md: 2.5 }} sx={{ order: { xs: 1, md: 0 } }}>
+          <Grid
+            size={{ xs: 12, md: 3, xxl: 2.5 }}
+            sx={{ order: { xs: 1, md: 0 } }}
+          >
             <TuneConfigPanel
+              hasSetupErrors={hasSetupErrors}
               selectedComponentData={tuneHandlers.selectedComponentData}
               isDrawingMode={tuneHandlers.isDrawingMode}
               drawingType={tuneHandlers.drawingType}
@@ -578,6 +625,7 @@ function Tunes() {
               }
               isConfigModified={tuneHandlers.isConfigModified}
               isSaving={updateTuneConfig.isPending}
+              cameraIdentifier={camera_identifier}
               onLabelClick={(index) => {
                 if (
                   tuneHandlers.selectedComponentData?.componentType ===
@@ -643,12 +691,24 @@ function Tunes() {
               onDeleteVideoTransform={tuneHandlers.handleDeleteVideoTransform}
               onMiscellaneousFieldChange={handleMiscellaneousFieldChange}
               currentDomainName={getCurrentDomainName()}
+              isOnvifAutoConfig={
+                // Use selectedComponentData if viewing client component (for live updates),
+                // otherwise use tuneConfig.data
+                expandedComponent === "onvif-client"
+                  ? tuneHandlers.selectedComponentData?.auto_config === true
+                  : tuneConfig.data?.onvif?.client?.auto_config === true
+              }
+              onUpdateSnapshot={updateSnapshot}
             />
           </Grid>
 
           {/* Right Card with Tabs - Third on mobile, last on desktop */}
-          <Grid size={{ xs: 12, md: 3 }} sx={{ order: { xs: 2, md: 2 } }}>
+          <Grid
+            size={{ xs: 12, md: 3, xxl: 2.5 }}
+            sx={{ order: { xs: 2, md: 2 } }}
+          >
             <TuneComponentList
+              hasSetupErrors={hasSetupErrors}
               selectedTab={selectedTab}
               expandedComponent={expandedComponent}
               domainTabs={getDomainTabs()}

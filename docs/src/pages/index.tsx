@@ -6,11 +6,11 @@ import {
   Chip,
   Demo,
   FaceActivated,
-  GroupObjects,
-  Help,
-  ImageReference,
   Movement,
+  PartitionAuto,
   Video,
+  VisualRecognition,
+  WatsonHealth3DMprToggle,
 } from "@carbon/icons-react";
 import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
@@ -60,10 +60,25 @@ function HomepageHeader() {
                 </div>
               </Link>
               <Link
+                to="/components-explorer/components/onvif"
+                className={styles.featureItem}
+              >
+                <PartitionAuto size={32} className={styles.featureIcon} />
+                <div>
+                  <div className={styles.featureTitle}>ONVIF Compatible</div>
+                  <div className={styles.featureDesc}>
+                    Control and configure ONVIF cameras
+                  </div>
+                </div>
+              </Link>
+              <Link
                 to="/components-explorer?tags=object_detector"
                 className={styles.featureItem}
               >
-                <GroupObjects size={32} className={styles.featureIcon} />
+                <WatsonHealth3DMprToggle
+                  size={32}
+                  className={styles.featureIcon}
+                />
                 <div>
                   <div className={styles.featureTitle}>Object Detection</div>
                   <div className={styles.featureDesc}>
@@ -99,7 +114,7 @@ function HomepageHeader() {
                 to="/components-explorer?tags=image_classification"
                 className={styles.featureItem}
               >
-                <ImageReference size={32} className={styles.featureIcon} />
+                <VisualRecognition size={32} className={styles.featureIcon} />
                 <div>
                   <div className={styles.featureTitle}>
                     Image Classification
@@ -158,15 +173,6 @@ function HomepageHeader() {
                   <div className={styles.featureTitle}>24/7 Recordings</div>
                   <div className={styles.featureDesc}>
                     Continuous recording with retention
-                  </div>
-                </div>
-              </Link>
-              <Link to="/docs/contributing" className={styles.featureItem}>
-                <Help size={32} className={styles.featureIcon} />
-                <div>
-                  <div className={styles.featureTitle}>Upcoming Features</div>
-                  <div className={styles.featureDesc}>
-                    And more features in the future..
                   </div>
                 </div>
               </Link>

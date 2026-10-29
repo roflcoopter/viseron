@@ -27,6 +27,9 @@ if TYPE_CHECKING:
 
     from pytest_postgresql.executor import PostgreSQLExecutor
 
+    from viseron.helpers.entity import EntityT
+    from viseron.viseron_types import SupportedDomains
+
 test_db = factories.postgresql_proc(port=None, dbname="test_db")
 
 
@@ -46,6 +49,7 @@ class MockViseron(Viseron):
         self.mocked_register_domain = self.register_domain
         self.add_entity: MagicMock = MagicMock(
             auto_spec=self.add_entity,
+            side_effect=self._mock_add_entity,
         )
         self.listen_event: MagicMock = MagicMock(
             auto_spec=self.listen_event,
@@ -58,6 +62,17 @@ class MockViseron(Viseron):
         self.register_signal_handler: MagicMock = MagicMock(
             side_effect=self._original_register_signal_handler
         )
+
+    def _mock_add_entity(
+        self,
+        component: str,  # pylint: disable=W0613 # noqa: ARG002
+        entity: EntityT,
+        domain: SupportedDomains | None = None,  # pylint: disable=W0613 # noqa: ARG002
+        identifier: str | None = None,  # pylint: disable=W0613 # noqa: ARG002
+    ) -> EntityT:
+        """Assign vis the way States.add_entity does, without registering."""
+        entity.vis = self
+        return entity
 
 
 @pytest.fixture
@@ -93,7 +108,7 @@ def patch_tier_check_worker() -> Iterator[None]:
 @pytest.fixture(scope="session", autouse=True)
 def patch_enable_logging() -> Iterator[None]:
     """Patch enable_logging to avoid adding duplicate handlers."""
-    with patch("viseron.enable_logging"):
+    with patch("viseron.helpers.logs.enable_logging"):
         yield
 
 

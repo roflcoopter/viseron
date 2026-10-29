@@ -8,6 +8,8 @@ const ComponentMetadata: Component = {
   image: "/img/logos/gotify.png",
   tags: ["notification"],
   category: null,
+  path: "viseron/components/gotify",
+  issue: "gotify",
 };
 
 export default ComponentMetadata;

@@ -21,6 +21,11 @@ const sidebars: SidebarsConfig = {
           label: "Screenshots",
           href: "/docs/documentation#screenshots",
         },
+        {
+          type: "link",
+          label: "Demo",
+          href: "/docs/documentation#demo",
+        },
       ],
     },
     {
@@ -130,6 +135,7 @@ const sidebars: SidebarsConfig = {
         { type: "doc", id: "documentation/configuration/recordings" },
         { type: "doc", id: "documentation/configuration/snapshots" },
         { type: "doc", id: "documentation/configuration/live_view" },
+        { type: "doc", id: "documentation/configuration/timelapse" },
         { type: "doc", id: "documentation/configuration/motion_detection" },
         {
           type: "doc",
@@ -180,7 +186,11 @@ const sidebars: SidebarsConfig = {
         type: "doc",
         id: "developers/frontend",
       },
-      items: ["developers/frontend/proxy"],
+      items: [
+        "developers/frontend/proxy",
+        "developers/frontend/demo",
+        "developers/frontend/screenshots",
+      ],
     },
     "developers/docker",
     "developers/documentation",

@@ -7,21 +7,6 @@ DESC_COMPONENT = "Telegram bot to control cameras."
 
 DATA_NOTIFIER: Final = "notifier"
 DATA_PTZ: Final = "ptz"
-CONFIG_PTZ_COMPONENT: Final = "ptz"
-
-
-CONFIG_TELEGRAM_BOT_TOKEN = "telegram_bot_token"
-CONFIG_TELEGRAM_CHAT_IDS = "telegram_chat_ids"
-CONFIG_TELEGRAM_USER_IDS = "telegram_user_ids"
-CONFIG_TELEGRAM_LOG_IDS = "telegram_log_ids"
-
-CONFIG_CAMERAS = "cameras"
-CONFIG_DETECTION_LABEL = "detection_label"
-CONFIG_DETECTION_LABELS = "detection_labels"
-
-CONFIG_SEND_THUMBNAIL = "send_detection_thumbnail"
-CONFIG_SEND_VIDEO = "send_detection_video"
-CONFIG_SEND_MESSAGE = "send_detection_message"
 
 DEFAULT_TELEGRAM_USER_IDS: list[int] = []
 DEFAULT_SEND_THUMBNAIL: Final = False

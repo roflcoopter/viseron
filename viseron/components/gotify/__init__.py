@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING
 
 import cv2
 import requests
-import voluptuous as vol
 
 from viseron.components.webserver.const import (
     COMPONENT as WEBSERVER_COMPONENT,
@@ -27,38 +26,10 @@ from viseron.helpers import escape_string, utcnow
 from viseron.helpers.logs import (
     SensitiveInformationFilterTracker,
 )
-from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
 from viseron.watchdog.thread_watchdog import RestartableThread
 
-from .const import (
-    COMPONENT,
-    CONFIG_CAMERAS,
-    CONFIG_DETECTION_LABEL,
-    CONFIG_DETECTION_LABEL_DEFAULT,
-    CONFIG_GOTIFY_PRIORITY,
-    CONFIG_GOTIFY_PRIORITY_DEFAULT,
-    CONFIG_GOTIFY_TOKEN,
-    CONFIG_GOTIFY_URL,
-    CONFIG_IMAGE_MAX_SIZE,
-    CONFIG_IMAGE_MAX_SIZE_DEFAULT,
-    CONFIG_IMAGE_QUALITY,
-    CONFIG_IMAGE_QUALITY_DEFAULT,
-    CONFIG_SEND_THUMBNAIL,
-    CONFIG_USE_PUBLIC_URL,
-    DESC_CAMERA_DETECTION_LABEL,
-    DESC_CAMERA_SEND_THUMBNAIL,
-    DESC_CAMERA_USE_PUBLIC_URL,
-    DESC_CAMERAS,
-    DESC_COMPONENT,
-    DESC_DETECTION_LABEL,
-    DESC_GOTIFY_PRIORITY,
-    DESC_GOTIFY_TOKEN,
-    DESC_GOTIFY_URL,
-    DESC_IMAGE_MAX_SIZE,
-    DESC_IMAGE_QUALITY,
-    DESC_SEND_THUMBNAIL,
-    DESC_USE_PUBLIC_URL,
-)
+from .config import GotifyConfig, GotifyRoot
+from .const import COMPONENT
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
@@ -66,69 +37,12 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
-CAMERA_SCHEMA = vol.Schema(
-    {
-        vol.Optional(
-            "detection_label",
-            description=DESC_CAMERA_DETECTION_LABEL,
-        ): str,
-        vol.Optional(
-            "send_thumbnail",
-            description=DESC_CAMERA_SEND_THUMBNAIL,
-        ): bool,
-        vol.Optional(
-            "use_public_url",
-            description=DESC_CAMERA_USE_PUBLIC_URL,
-        ): bool,
-    },
-    extra=vol.ALLOW_EXTRA,
-)
-
-CONFIG_SCHEMA: vol.Schema = vol.Schema(
-    {
-        vol.Required(COMPONENT, description=DESC_COMPONENT): {
-            vol.Required(CONFIG_GOTIFY_URL, description=DESC_GOTIFY_URL): str,
-            vol.Required(CONFIG_GOTIFY_TOKEN, description=DESC_GOTIFY_TOKEN): str,
-            vol.Optional(
-                CONFIG_GOTIFY_PRIORITY,
-                description=DESC_GOTIFY_PRIORITY,
-                default=CONFIG_GOTIFY_PRIORITY_DEFAULT,
-            ): vol.All(vol.Coerce(int), vol.Range(min=1, max=10)),
-            vol.Optional(
-                CONFIG_DETECTION_LABEL,
-                description=DESC_DETECTION_LABEL,
-                default=CONFIG_DETECTION_LABEL_DEFAULT,
-            ): str,
-            vol.Optional(
-                CONFIG_SEND_THUMBNAIL, description=DESC_SEND_THUMBNAIL, default=False
-            ): bool,
-            vol.Optional(
-                CONFIG_USE_PUBLIC_URL, description=DESC_USE_PUBLIC_URL, default=False
-            ): bool,
-            vol.Optional(
-                CONFIG_IMAGE_MAX_SIZE,
-                description=DESC_IMAGE_MAX_SIZE,
-                default=CONFIG_IMAGE_MAX_SIZE_DEFAULT,
-            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=7680)),
-            vol.Optional(
-                CONFIG_IMAGE_QUALITY,
-                description=DESC_IMAGE_QUALITY,
-                default=CONFIG_IMAGE_QUALITY_DEFAULT,
-            ): vol.All(vol.Coerce(int), vol.Range(min=1, max=100)),
-            vol.Required(CONFIG_CAMERAS, description=DESC_CAMERAS): {
-                CameraIdentifier(): vol.All(CoerceNoneToDict(), CAMERA_SCHEMA)
-            },
-        }
-    },
-    extra=vol.ALLOW_EXTRA,
-)
+CONFIG_SCHEMA = GotifyRoot
 
 
-def setup(vis: Viseron, config: dict) -> bool:
+def setup(vis: Viseron, config: GotifyRoot) -> bool:
     """Set up the Gotify component."""
-    component_config = config[COMPONENT]
-
-    vis.data[COMPONENT] = GotifyEventNotifier(vis, component_config)
+    vis.data[COMPONENT] = GotifyEventNotifier(vis, config.gotify)
 
     return True
 
@@ -144,24 +58,21 @@ def unload(vis: Viseron) -> None:
 class GotifyEventNotifier:
     """Gotify event notifier class that sends notifications to a Gotify server."""
 
-    def __init__(self, vis: Viseron, config: dict) -> None:
+    def __init__(self, vis: Viseron, config: GotifyConfig) -> None:
         self._vis = vis
         self._config = config
         self._sensitive_string_tracker = SensitiveInformationFilterTracker()
-        self._sensitive_string_tracker.add_sensitive_string(
-            self._config[CONFIG_GOTIFY_TOKEN]
-        )
-        self._sensitive_string_tracker.add_sensitive_string(
-            escape_string(self._config[CONFIG_GOTIFY_TOKEN])
-        )
-        self._gotify_url = self._config[CONFIG_GOTIFY_URL].rstrip("/")
-        self._gotify_token = self._config[CONFIG_GOTIFY_TOKEN]
-        self._priority = self._config[CONFIG_GOTIFY_PRIORITY]
+        token = config.gotify_token.get_secret_value()
+        self._sensitive_string_tracker.add_sensitive_string(token)
+        self._sensitive_string_tracker.add_sensitive_string(escape_string(token))
+        self._gotify_url = config.gotify_url.rstrip("/")
+        self._gotify_token = config.gotify_token
+        self._priority = config.priority
         self._loop = asyncio.new_event_loop()
         self._stop_event = asyncio.Event()
 
         self._event_listeners = []
-        for camera_identifier in self._config[CONFIG_CAMERAS]:
+        for camera_identifier in config.cameras:
             # Listen for recording start events
             self._event_listeners.append(
                 self._vis.listen_event(
@@ -186,8 +97,8 @@ class GotifyEventNotifier:
         recording = event_data.data.recording
         camera_identifier = camera.identifier
 
-        # Get camera-specific configuration or fall back to global configuration
-        camera_config = self._config[CONFIG_CAMERAS].get(camera_identifier, {})
+        # Keys that are not set for the camera fall back to the global config
+        camera_config = self._config.cameras[camera_identifier]
 
         # Get detected objects from the recording
         objects = recording.objects
@@ -197,15 +108,10 @@ class GotifyEventNotifier:
             return
 
         # Check if we should filter by detection label
-        # First check camera setting, then fall back to global setting, then to default
-        camera_detection_label = camera_config.get("detection_label")
-        global_detection_label = self._config.get(
-            CONFIG_DETECTION_LABEL, CONFIG_DETECTION_LABEL_DEFAULT
-        )
         detection_labels = (
-            camera_detection_label
-            if camera_detection_label is not None
-            else global_detection_label
+            camera_config.detection_label
+            if camera_config.detection_label is not None
+            else self._config.detection_label
         )
 
         # Find matching objects
@@ -235,13 +141,10 @@ class GotifyEventNotifier:
         thumbnail = recording.thumbnail
 
         # Check if thumbnail is enabled for this camera
-        # First check camera-specific setting, then fall back to global setting
-        camera_send_thumbnail = camera_config.get("send_thumbnail")
-        global_send_thumbnail = self._config.get(CONFIG_SEND_THUMBNAIL, False)
         send_thumbnail = (
-            camera_send_thumbnail
-            if camera_send_thumbnail is not None
-            else global_send_thumbnail
+            camera_config.send_thumbnail
+            if camera_config.send_thumbnail is not None
+            else self._config.send_thumbnail
         )
 
         # Send notification with image if thumbnail is enabled and available
@@ -249,9 +152,7 @@ class GotifyEventNotifier:
             try:
                 # Resize the thumbnail if needed
                 height, width = thumbnail.shape[:2]
-                max_size = self._config.get(
-                    CONFIG_IMAGE_MAX_SIZE, CONFIG_IMAGE_MAX_SIZE_DEFAULT
-                )
+                max_size = self._config.image_max_size
 
                 # Skip resizing if max_size is 0 (use original size)
                 if max_size == 0:
@@ -269,12 +170,10 @@ class GotifyEventNotifier:
                     )
 
                 # Check if we should use public URL
-                camera_use_public_url = camera_config.get("use_public_url")
-                global_use_public_url = self._config.get(CONFIG_USE_PUBLIC_URL, False)
                 use_public_url = (
-                    camera_use_public_url
-                    if camera_use_public_url is not None
-                    else global_use_public_url
+                    camera_config.use_public_url
+                    if camera_config.use_public_url is not None
+                    else self._config.use_public_url
                 )
 
                 # Send notification with image
@@ -326,7 +225,7 @@ class GotifyEventNotifier:
     def _send_gotify_message(self, title, message) -> None:
         """Send a simple text message to Gotify."""
         url = f"{self._gotify_url}/message"
-        headers = {"X-Gotify-Key": self._gotify_token}
+        headers = {"X-Gotify-Key": self._gotify_token.get_secret_value()}
         data = {
             "title": title,
             "message": message,
@@ -350,10 +249,10 @@ class GotifyEventNotifier:
             return
 
         url = f"{self._gotify_url}/message"
-        headers = {"X-Gotify-Key": self._gotify_token}
+        headers = {"X-Gotify-Key": self._gotify_token.get_secret_value()}
 
         # Encode the image as base64 with configured quality
-        quality = self._config.get(CONFIG_IMAGE_QUALITY, CONFIG_IMAGE_QUALITY_DEFAULT)
+        quality = self._config.image_quality
         _, buffer = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, quality])
         image_base64 = base64.b64encode(buffer.tobytes()).decode("utf-8")
 
@@ -397,9 +296,7 @@ class GotifyEventNotifier:
             webserver = self._vis.data.get(WEBSERVER_COMPONENT)
 
             # Save the image with configured quality
-            quality = self._config.get(
-                CONFIG_IMAGE_QUALITY, CONFIG_IMAGE_QUALITY_DEFAULT
-            )
+            quality = self._config.image_quality
             cv2.imwrite(image_file, image, [cv2.IMWRITE_JPEG_QUALITY, quality])
 
             # Get expiry hours and max downloads from webserver config
@@ -444,7 +341,7 @@ class GotifyEventNotifier:
 
             # Send message with public URL
             url = f"{self._gotify_url}/message"
-            headers = {"X-Gotify-Key": self._gotify_token}
+            headers = {"X-Gotify-Key": self._gotify_token.get_secret_value()}
             data = {
                 "title": title,
                 "message": message_with_image,

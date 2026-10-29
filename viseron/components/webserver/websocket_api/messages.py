@@ -1,4 +1,5 @@
 """WebSocket API messages."""
+
 from __future__ import annotations
 
 import logging

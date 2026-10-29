@@ -1,4 +1,5 @@
 """JSON helpers."""
+
 import dataclasses
 import datetime
 import json

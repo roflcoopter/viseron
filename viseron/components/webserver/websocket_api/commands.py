@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import datetime
 import enum
 import inspect
@@ -12,7 +13,6 @@ import shutil
 import signal
 import time
 import uuid
-from collections.abc import Callable
 from functools import wraps
 from typing import TYPE_CHECKING, Any, overload
 
@@ -26,6 +26,7 @@ from viseron.components.storage.const import (
     EVENT_FILE_DELETED,
     TIER_CATEGORY_RECORDER,
     TIER_SUBCATEGORY_SEGMENTS,
+    TIMELAPSE_RENDER_MANAGER,
 )
 from viseron.components.storage.models import (
     Motion,
@@ -37,10 +38,20 @@ from viseron.components.storage.queries import (
     get_recording_fragments,
     get_time_period_fragments,
 )
-from viseron.components.storage.util import EventFileCreated, EventFileDeleted
+from viseron.components.storage.timelapse_render import (
+    TimelapseNoFramesError,
+    TimelapseRenderBusyError,
+    TimelapseRenderCancelled,
+    TimelapseRenderError,
+    TimelapseRenderRequest,
+)
 from viseron.components.webserver.auth import Role
 from viseron.components.webserver.const import (
     DOWNLOAD_PATH,
+    TIMELAPSE_DEFAULT_MAX_FRAMES,
+    TIMELAPSE_MAX_RENDER_FRAMES,
+    TIMELAPSE_RENDER_WIDTHS,
+    WS_ERROR_INVALID_FORMAT,
     WS_ERROR_NOT_FOUND,
     WS_ERROR_RELOAD_CONFIG_FAILED,
     WS_ERROR_SAVE_CONFIG_FAILED,
@@ -48,15 +59,16 @@ from viseron.components.webserver.const import (
 )
 from viseron.components.webserver.download_token import DownloadToken
 from viseron.const import CONFIG_PATH, EVENT_STATE_CHANGED, RESTART_EXIT_CODE
+from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.camera.fragmenter import (
     Fragment,
     Timespan,
     get_available_timespans,
 )
-from viseron.exceptions import Unauthorized
+from viseron.exceptions import DomainNotRegisteredError, Unauthorized
 from viseron.helpers import create_directory, daterange_to_utc, get_utc_offset
 from viseron.helpers.template import render_template
-from viseron.helpers.validators import jinja2_template
+from viseron.helpers.validators import TIMESTAMP, jinja2_template
 from viseron.reload import reload_config
 
 from .messages import (
@@ -70,7 +82,10 @@ from .messages import (
 )
 
 if TYPE_CHECKING:
-    from viseron import Event
+    from collections.abc import Callable
+
+    from viseron import Event, Viseron
+    from viseron.components.storage.util import EventFileCreated, EventFileDeleted
     from viseron.states import EventStateChangedData
 
     from . import WebSocketHandler
@@ -139,6 +154,87 @@ def require_admin(func):
     return with_admin
 
 
+def _camera_identifier_from_event(vis: Viseron, event: Event) -> str | None:
+    """Return the identifier of the camera an event belongs to, if any.
+
+    A camera-scoped event either carries the identifier in its data or embeds it
+    in the topic. The position within the topic differs between event types
+    ("{camera_identifier}/objects", "object_detector/{camera_identifier}/result",
+    "domain/setup/{status}/{domain}/{identifier}"), so every segment is resolved
+    against the registered cameras instead of assuming a fixed one.
+    """
+    camera_identifier = getattr(event.data, "camera_identifier", None)
+    if isinstance(camera_identifier, str):
+        return camera_identifier
+
+    try:
+        cameras = vis.get_registered_identifiers(CAMERA_DOMAIN)
+    except DomainNotRegisteredError:
+        return None
+
+    for segment in event.name.split("/"):
+        if segment in cameras:
+            return segment
+    return None
+
+
+def _assigned_cameras(connection: WebSocketHandler) -> list[str] | None:
+    """Return the cameras the connection is limited to.
+
+    None means unrestricted: no authenticated user, an admin, or a user with an
+    empty assignment, which the admin UI documents as access to all cameras.
+    """
+    user = connection.current_user
+    if user is None or user.role == Role.ADMIN:
+        return None
+    return user.assigned_cameras
+
+
+def _event_allowed(connection: WebSocketHandler, event: Event) -> bool:
+    """Return whether the connection may receive an event."""
+    assigned_cameras = _assigned_cameras(connection)
+    if assigned_cameras is None:
+        return True
+
+    camera_identifier = _camera_identifier_from_event(connection.vis, event)
+    if camera_identifier is None:
+        return True
+
+    return camera_identifier in assigned_cameras
+
+
+def _entity_allowed(connection: WebSocketHandler, entity_id: str) -> bool:
+    """Return whether the connection may see an entity.
+
+    The states registry records the identifier an entity was registered under,
+    which for entities belonging to a camera is the camera identifier.
+    """
+    assigned_cameras = _assigned_cameras(connection)
+    if assigned_cameras is None:
+        return True
+
+    identifier = connection.vis.states.get_entity_identifier(entity_id)
+    if identifier is None:
+        return True
+
+    try:
+        cameras = connection.vis.get_registered_identifiers(CAMERA_DOMAIN)
+    except DomainNotRegisteredError:
+        return True
+
+    if identifier not in cameras:
+        return True
+
+    return identifier in assigned_cameras
+
+
+def _state_changed_allowed(
+    connection: WebSocketHandler, event: Event[EventStateChangedData]
+) -> bool:
+    """Return whether the connection may receive a state change."""
+    return _entity_allowed(connection, event.data.entity_id)
+
+
 @websocket_command({vol.Required("type"): "ping"})
 async def ping(connection: WebSocketHandler, message) -> None:
     """Respond to ping."""
@@ -158,6 +254,9 @@ async def subscribe_event(connection: WebSocketHandler, message) -> None:
 
     async def forward_event(event: Event) -> None:
         """Forward event to WebSocket connection."""
+        if not _event_allowed(connection, event):
+            return
+
         await connection.async_send_message(
             subscription_result_message(message["command_id"], event)
         )
@@ -218,6 +317,9 @@ async def subscribe_states(connection: WebSocketHandler, message) -> None:
 
     async def forward_state_change(event: Event[EventStateChangedData]) -> None:
         """Forward state_changed event to WebSocket connection."""
+        if not _state_changed_allowed(connection, event):
+            return
+
         if "entity_id" in message:
             if event.data.entity_id == message["entity_id"]:
                 await connection.async_send_message(
@@ -356,6 +458,11 @@ async def handle_reload_config(connection: WebSocketHandler, message) -> None:
 async def get_entities(connection: WebSocketHandler, message) -> None:
     """Get all registered entities."""
     entities = await connection.run_in_executor(connection.vis.get_entities)
+    entities = {
+        entity_id: entity
+        for entity_id, entity in entities.items()
+        if _entity_allowed(connection, entity_id)
+    }
 
     await connection.async_send_message(
         result_message(message["command_id"], entities),
@@ -702,7 +809,7 @@ async def export_timespan(connection: WebSocketHandler, message) -> None:
             "%Y-%m-%d-%H-%M-%S"
         )
         video_name = (
-            f"{camera.identifier}-{time_string}.{os.path.splitext(timespan_video)[1]}"
+            f"{camera.identifier}-{time_string}{os.path.splitext(timespan_video)[1]}"
         )
         new_path = os.path.join(DOWNLOAD_PATH, video_name)
         shutil.move(timespan_video, new_path)
@@ -727,6 +834,171 @@ async def export_timespan(connection: WebSocketHandler, message) -> None:
     await connection.async_send_message(
         cancel_subscription_message(message["command_id"])
     )
+
+
+_RENDER_TASKS: set[asyncio.Task] = set()
+
+
+@websocket_command(
+    {
+        vol.Required("type"): "render_timelapse",
+        vol.Required("camera_identifier"): str,
+        vol.Required("start"): TIMESTAMP,
+        vol.Required("end"): TIMESTAMP,
+        vol.Optional("fps", default=30): vol.All(int, vol.Range(min=1, max=60)),
+        vol.Optional("max_frames", default=TIMELAPSE_DEFAULT_MAX_FRAMES): vol.All(
+            int, vol.Range(min=1, max=TIMELAPSE_MAX_RENDER_FRAMES)
+        ),
+        vol.Optional("max_width", default=None): vol.Any(
+            None, vol.In(TIMELAPSE_RENDER_WIDTHS)
+        ),
+    }
+)
+async def render_timelapse(connection: WebSocketHandler, message) -> None:
+    """Render timelapse frames to an MP4 and report progress as it renders.
+
+    The render runs in the background so that other commands on the connection
+    are not blocked while it runs.
+    """
+    command_id = message["command_id"]
+    camera = connection.get_camera(message["camera_identifier"])
+    if camera is None or camera.timelapse_folder is None:
+        await connection.async_send_message(
+            error_message(
+                command_id,
+                WS_ERROR_NOT_FOUND,
+                f"Timelapse for camera {message['camera_identifier']} not found.",
+            )
+        )
+        return
+
+    if message["end"] <= message["start"]:
+        await connection.async_send_message(
+            error_message(
+                command_id, WS_ERROR_INVALID_FORMAT, "end must be after start"
+            )
+        )
+        return
+
+    await connection.async_send_message(result_message(command_id))
+
+    def on_status(status: dict[str, Any]) -> None:
+        connection.send_message(subscription_result_message(command_id, status))
+
+    try:
+        job = connection.vis.data[TIMELAPSE_RENDER_MANAGER].submit(
+            TimelapseRenderRequest(
+                camera_identifier=camera.identifier,
+                start=message["start"],
+                end=message["end"],
+                fps=message["fps"],
+                max_frames=message["max_frames"],
+                max_width=message["max_width"],
+            ),
+            connection.get_session,
+            on_status,
+        )
+    except TimelapseRenderBusyError:
+        await connection.async_send_message(
+            subscription_error_message(
+                command_id,
+                WS_ERROR_UNKNOWN_ERROR,
+                "Too many timelapse renders are queued, try again later.",
+            )
+        )
+        await connection.async_send_message(cancel_subscription_message(command_id))
+        return
+    # unsubscribe_event and closing the connection both cancel the render
+    connection.subscriptions[command_id] = job.cancel
+
+    def _move_to_downloads(temp_path: str, token: str) -> str:
+        create_directory(DOWNLOAD_PATH)
+        # fromtimestamp automatically converts to server timezone
+        start_string, end_string = (
+            datetime.datetime.fromtimestamp(message[key]).strftime("%Y-%m-%d-%H-%M-%S")
+            for key in ("start", "end")
+        )
+        # The token makes the path unique when the same range is rendered twice
+        new_path = os.path.join(
+            DOWNLOAD_PATH,
+            f"{camera.identifier}-timelapse-{start_string}-{end_string}-"
+            f"{token[:8]}.mp4",
+        )
+        try:
+            shutil.move(temp_path, new_path)
+        except BaseException:
+            # A move across filesystems can fail halfway, leaving both files
+            for path in (temp_path, new_path):
+                with contextlib.suppress(FileNotFoundError):
+                    os.remove(path)
+            raise
+        return new_path
+
+    async def _complete(temp_path: str) -> dict[str, Any] | None:
+        """Hand the rendered video out as a download, None if cancelled."""
+        token = str(uuid.uuid4())
+        try:
+            path = await connection.run_in_executor(
+                _move_to_downloads, temp_path, token
+            )
+        except Exception:  # pylint: disable=broad-except
+            LOGGER.exception("Failed to move rendered timelapse to downloads")
+            return subscription_error_message(
+                command_id, WS_ERROR_UNKNOWN_ERROR, "Unknown error"
+            )
+        # Checked after the move since unsubscribe can run while it is awaited
+        if command_id not in connection.subscriptions:
+            await connection.run_in_executor(os.remove, path)
+            return None
+        download_token = DownloadToken(
+            filename=path,
+            token=token,
+            delete_after_download=True,
+        )
+        connection.webserver.download_tokens[download_token.token] = download_token
+        return subscription_result_message(
+            command_id,
+            {
+                "status": "done",
+                "filename": download_token.filename,
+                "token": download_token.token,
+            },
+        )
+
+    async def _finish() -> None:
+        try:
+            temp_path = await asyncio.wrap_future(job.future)
+        except (asyncio.CancelledError, TimelapseRenderCancelled):
+            return
+        except TimelapseNoFramesError as error:
+            result = subscription_error_message(
+                command_id, WS_ERROR_NOT_FOUND, str(error)
+            )
+        except TimelapseRenderError as error:
+            LOGGER.error("Timelapse render failed: %s", error)
+            result = subscription_error_message(
+                command_id, WS_ERROR_UNKNOWN_ERROR, str(error)
+            )
+        except Exception:  # pylint: disable=broad-except
+            LOGGER.exception("Timelapse render failed")
+            result = subscription_error_message(
+                command_id, WS_ERROR_UNKNOWN_ERROR, "Unknown error"
+            )
+        else:
+            completed = await _complete(temp_path)
+            if completed is None:
+                return
+            result = completed
+
+        if connection.subscriptions.pop(command_id, None) is None:
+            # Unsubscribed while the render was failing
+            return
+        await connection.async_send_message(result)
+        await connection.async_send_message(cancel_subscription_message(command_id))
+
+    task = asyncio.create_task(_finish())
+    _RENDER_TASKS.add(task)
+    task.add_done_callback(_RENDER_TASKS.discard)
 
 
 @require_admin

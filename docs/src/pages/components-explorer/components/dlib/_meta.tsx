@@ -8,6 +8,8 @@ const ComponentMetadata: Component = {
   image: "/img/logos/dlib.png",
   tags: ["face_recognition"],
   category: null,
+  path: "viseron/components/dlib",
+  issue: 'dlib OR label:"domain: face_recognition"',
 };
 
 export default ComponentMetadata;

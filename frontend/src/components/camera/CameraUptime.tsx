@@ -29,14 +29,21 @@ export function CameraUptime({
   if (compact) {
     return (
       <Chip
-        icon={<NetworkTimeProtocol size={20} />}
+        icon={
+          <NetworkTimeProtocol
+            style={{
+              width: "clamp(16px, 3vw, 20px)",
+              height: "clamp(16px, 3vw, 20px)",
+            }}
+          />
+        }
         label={displayText}
         size="small"
         color={isConnected ? "default" : "error"}
         sx={{
           fontSize: "0.75rem",
           height: 30,
-          borderRadius: 0.7,
+          borderRadius: 1.2,
           px: 0.5,
           py: 1,
         }}

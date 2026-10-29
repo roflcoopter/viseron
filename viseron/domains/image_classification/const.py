@@ -1,4 +1,5 @@
 """Image classification constants."""
+
 from typing import Final
 
 DOMAIN: Final = "image_classification"

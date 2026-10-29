@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import os
 import re
-import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -51,11 +50,21 @@ def _data_mount_container(
     *,
     name_suffix: str,
     env_overrides: dict[str, str] | None = None,
-    host_nginx_port: int | None = None,
+    publish_nginx: bool = False,
     log_label: str,
+    config_owner: tuple[int, int] | None = None,
 ) -> Iterator[Any]:
-    """Start and manage the lifecycle for a /data-mount smoke-test container."""
-    container_name = f"viseron-smoke-data-mount-{name_suffix}-{int(time.time())}"
+    """Start and manage the lifecycle for a /data-mount smoke-test container.
+
+    ``config_owner``, if given, seeds ``/config`` as already owned by that
+    ``(uid, gid)`` instead of root. This simulates a host bind mount whose
+    ownership is already correct, which is a precondition for
+    ``VISERON_DISABLE_CHOWN`` (documented in installation.mdx) since that
+    flag skips the container's own recursive chown of ``/config``.
+    """
+    container_name = helpers.unique_container_name(
+        f"viseron-smoke-data-mount-{name_suffix}"
+    )
 
     environment = {
         "PUID": str(os.getuid()),
@@ -70,8 +79,8 @@ def _data_mount_container(
         "name": container_name,
         "environment": environment,
     }
-    if host_nginx_port is not None:
-        run_kwargs["ports"] = {f"{NGINX_PORT}/tcp": host_nginx_port}
+    if publish_nginx:
+        run_kwargs["ports"] = {f"{NGINX_PORT}/tcp": None}
 
     if Path("/dev/dri").exists():
         run_kwargs["devices"] = ["/dev/dri:/dev/dri"]
@@ -92,7 +101,12 @@ def _data_mount_container(
 
     # Seed /config and ONLY /data, no individual storage dirs.
     # The 10-adduser init script will create /data/{folder} and symlinks.
-    helpers.put_abs(container, "/config/config.yaml", _MINIMAL_CONFIG.read_bytes())
+    helpers.put_abs(
+        container,
+        "/config/config.yaml",
+        _MINIMAL_CONFIG.read_bytes(),
+        owner=config_owner,
+    )
     helpers.create_directories(container, "/data")
     helpers.install_http_probe(container)
 
@@ -146,7 +160,6 @@ def viseron_container_data_mount(
     docker_client: docker.DockerClient,
     image: str,
     docker_platform: str,
-    host_nginx_port_data_mount: int,
     boot_timeout: float,
     artifact_dir: Path,
     request: pytest.FixtureRequest,
@@ -160,7 +173,7 @@ def viseron_container_data_mount(
         artifact_dir,
         request,
         name_suffix="default",
-        host_nginx_port=host_nginx_port_data_mount,
+        publish_nginx=True,
         log_label="data-mount",
     )
 
@@ -174,7 +187,13 @@ def viseron_container_data_mount_disable_chown(
     artifact_dir: Path,
     request: pytest.FixtureRequest,
 ) -> Iterator[Any]:
-    """Start a /data-mount container with VISERON_DISABLE_CHOWN enabled."""
+    """Start a /data-mount container with VISERON_DISABLE_CHOWN enabled.
+
+    /config is pre-seeded as owned by the PUID/PGID the container will run
+    with, since VISERON_DISABLE_CHOWN skips the recursive chown that would
+    otherwise fix up ownership at boot (see installation.mdx: "ownership of
+    your mounted paths must already be correct on the host").
+    """
     yield from _data_mount_container(
         docker_client,
         image,
@@ -185,6 +204,7 @@ def viseron_container_data_mount_disable_chown(
         name_suffix="no-chown",
         env_overrides={"VISERON_DISABLE_CHOWN": "true"},
         log_label="no-chown",
+        config_owner=(os.getuid(), os.getgid()),
     )
 
 

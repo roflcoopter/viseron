@@ -27,7 +27,7 @@ from viseron.components.storage.const import (
     TIER_SUBCATEGORY_SEGMENTS,
     TIER_SUBCATEGORY_THUMBNAILS,
 )
-from viseron.components.storage.models import Files
+from viseron.components.storage.models import Files, TriggerTypes
 from viseron.components.webserver.const import COMPONENT as WEBSERVER_COMPONENT
 from viseron.const import TEMP_DIR
 from viseron.domain_registry import DomainEntry, DomainState
@@ -46,9 +46,7 @@ from viseron.helpers import (
     utcnow,
     zoom_boundingbox,
 )
-from viseron.helpers.logs import (
-    SensitiveInformationFilterTracker,
-)
+from viseron.helpers.logs import SensitiveInformationFilterTracker
 from viseron.viseron_types import SnapshotDomain
 
 from .const import (
@@ -82,9 +80,10 @@ from .shared_frames import SharedFrames
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    import numpy as np
+
     from viseron import Viseron
     from viseron.components.nvr.nvr import FrameIntervalCalculator
-    from viseron.components.storage.models import TriggerTypes
     from viseron.domains.object_detector.detected_object import DetectedObject
 
     from .recorder import AbstractRecorder
@@ -140,7 +139,7 @@ class AbstractCamera(AbstractDomain):
         self.stopped = Event()
         self.stopped.set()
         self.current_frame: SharedFrame | None = None
-        self.shared_frames = SharedFrames(vis)
+        self.shared_frames = SharedFrames()
         self.frame_bytes_topic = EVENT_FRAME_BYTES_TOPIC.format(
             camera_identifier=self.identifier
         )
@@ -219,6 +218,8 @@ class AbstractCamera(AbstractDomain):
             self._logger.debug("Still image is configured, setting availability.")
             self.still_image_available = True
 
+        self._ptz_support: str | None = None
+
     def __post_init__(self, *args: Any, **kwargs: Any) -> None:
         """Post init hook."""
         self._vis.register_domain(DOMAIN, self._identifier, self)
@@ -245,6 +246,9 @@ class AbstractCamera(AbstractDomain):
             "connected": self.connected,
             "live_stream_available": self.live_stream_available,
             "is_recording": self.is_recording,
+            "is_manual_recording": self.is_manual_recording,
+            "ptz_support": self.ptz_support,
+            "timelapse": self.timelapse_folder is not None,
         }
 
     def generate_token(self) -> str:
@@ -284,6 +288,7 @@ class AbstractCamera(AbstractDomain):
     def start_camera(self) -> None:
         """Start camera streaming."""
         self.stopped.clear()
+        self.fragmenter.start()
         self._start_camera()
         self._vis.dispatch_event(
             EVENT_CAMERA_STARTED.format(camera_identifier=self.identifier),
@@ -299,6 +304,7 @@ class AbstractCamera(AbstractDomain):
         self._stop_camera()
         self.still_image_available = self.still_image_configured
         self.stopped.set()
+        self.fragmenter.stop()
         self._vis.dispatch_event(
             EVENT_CAMERA_STOPPED.format(camera_identifier=self.identifier),
             EventEmptyData(),
@@ -380,6 +386,15 @@ class AbstractCamera(AbstractDomain):
     @abstractmethod
     def is_recording(self) -> bool:
         """Return recording status."""
+
+    @property
+    def is_manual_recording(self) -> bool:
+        """Return if the active recording is a manual recording."""
+        return (
+            self.is_recording
+            and self.recorder.active_recording is not None
+            and self.recorder.active_recording.trigger_type == TriggerTypes.MANUAL
+        )
 
     @property
     def is_on(self) -> bool:
@@ -465,11 +480,15 @@ class AbstractCamera(AbstractDomain):
         """Return camera config."""
         return self._config
 
-    def tier_base_path(self, tier_id: int, tier_category: str, subcategory: str) -> str:
-        """Return storage tier base path."""
-        return self._storage.camera_tier_handlers[self.identifier][tier_category][
-            tier_id
-        ][subcategory].tier_base_path
+    @property
+    def ptz_support(self) -> str | None:
+        """Return PTZ support type."""
+        return self._ptz_support
+
+    @ptz_support.setter
+    def ptz_support(self, value: str | None) -> None:
+        """Set PTZ support."""
+        self._ptz_support = value
 
     @staticmethod
     def _clear_snapshot_cache(clear_cache: Callable[[], None]) -> None:
@@ -529,18 +548,15 @@ class AbstractCamera(AbstractDomain):
             return self.snapshots_motion_folder
         assert_never(domain)
 
-    def save_snapshot(
+    def build_snapshot_frame(
         self,
         shared_frame: SharedFrame,
-        domain: SnapshotDomain,
         zoom_coordinates: tuple[float, float, float, float] | None = None,
         detected_object: DetectedObject | None = None,
         bbox: tuple[float, float, float, float] | None = None,
         text: str | None = None,
-        subfolder: str | None = None,
-        filename: str | None = None,
-    ) -> str:
-        """Save snapshot to disk."""
+    ) -> np.ndarray:
+        """Build an annotated snapshot frame without writing it to disk."""
         decoded_frame = self.shared_frames.get_decoded_frame_rgb(shared_frame)
         snapshot_frame = decoded_frame
 
@@ -560,6 +576,16 @@ class AbstractCamera(AbstractDomain):
                 crop_correction_factor=1.2,
             )
 
+        return snapshot_frame
+
+    def write_snapshot(
+        self,
+        frame: np.ndarray,
+        domain: SnapshotDomain,
+        subfolder: str | None = None,
+        filename: str | None = None,
+    ) -> str:
+        """Write a prepared snapshot frame to disk."""
         folder = self._get_folder(domain)
 
         if subfolder:
@@ -571,8 +597,31 @@ class AbstractCamera(AbstractDomain):
         path = os.path.join(folder, filename)
         self._logger.debug(f"Saving snapshot to {path}")
         create_directory(folder)
-        cv2.imwrite(path, snapshot_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
+        cv2.imwrite(path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
         return path
+
+    def save_snapshot(
+        self,
+        shared_frame: SharedFrame,
+        domain: SnapshotDomain,
+        zoom_coordinates: tuple[float, float, float, float] | None = None,
+        detected_object: DetectedObject | None = None,
+        bbox: tuple[float, float, float, float] | None = None,
+        text: str | None = None,
+        subfolder: str | None = None,
+        filename: str | None = None,
+    ) -> str:
+        """Save snapshot to disk."""
+        snapshot_frame = self.build_snapshot_frame(
+            shared_frame,
+            zoom_coordinates=zoom_coordinates,
+            detected_object=detected_object,
+            bbox=bbox,
+            text=text,
+        )
+        return self.write_snapshot(
+            snapshot_frame, domain, subfolder=subfolder, filename=filename
+        )
 
     def unload(self) -> None:
         """Unload camera."""
@@ -730,23 +779,6 @@ class FailedCamera:
     def recorder(self) -> FailedCameraRecorder:
         """Return recorder."""
         return self._recorder
-
-    def tier_base_path(self, tier_id: int, tier_category: str, subcategory: str) -> str:
-        """Return storage tier base path."""
-        with self._storage.get_session() as session:
-            tier_stmt = (
-                select(Files.tier_path)
-                .where(Files.tier_id == tier_id)
-                .where(Files.camera_identifier == self.identifier)
-                .where(Files.category == tier_category)
-                .where(Files.subcategory == subcategory)
-                .order_by(Files.created_at.desc())
-                .limit(1)
-            )
-            tier_base_path = session.execute(tier_stmt).scalars().first()
-        if tier_base_path is None:
-            raise ValueError("No storage tier found for failed camera")
-        return tier_base_path
 
 
 def setup_failed(vis: Viseron, entry: DomainEntry) -> FailedCamera:

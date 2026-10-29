@@ -1,119 +1,95 @@
-"""FFmpeg camera tests."""
+"""Tests for viseron.components.ffmpeg.camera."""
 
 from __future__ import annotations
 
-import threading
-from unittest.mock import MagicMock, patch
+import logging
+import multiprocessing as mp
+from typing import TYPE_CHECKING, cast
+from unittest.mock import MagicMock
+
+import pytest
 
 from viseron.components.ffmpeg.camera import Camera
 from viseron.components.ffmpeg.const import (
-    DEFAULT_RESTART_DELAY,
-    MAX_RESTART_DELAY,
+    CONFIG_FFMPEG_LOGLEVEL,
+    CONFIG_FFMPEG_RECOVERABLE_ERRORS,
+    CONFIG_RECORD_ONLY,
+    CONFIG_SUBSTREAM,
 )
+from viseron.components.ffmpeg.frame_reader import frame_reader_logger_name
+from viseron.helpers.logs import refresh_child_log_levels
+from viseron.watchdog.process_watchdog import ProcessWatchDog
+from viseron.watchdog.thread_watchdog import ThreadWatchDog
 
-from tests.common import MockCamera
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+LOGGER_NAME = frame_reader_logger_name("cam")
 
 
-def _camera_with_failing_stream(read_values: list, iterations: int = 12) -> MockCamera:
-    """Return a MockCamera whose stream never delivers frames."""
-    camera = MockCamera(identifier="test_camera_identifier")
-    camera.decode_error = threading.Event()
-    camera._capture_frames = MagicMock()
-    camera._capture_frames.is_set.side_effect = [True] * iterations + [False]
-    camera._thread_stuck = False
-    camera.stream = MagicMock()
-    camera.stream.read.side_effect = read_values
-    camera.stream.poll.return_value = 1
+@pytest.fixture(name="camera")
+def camera_fixture() -> Iterator[Camera]:
+    """Return a camera with only what the frame reader methods need."""
+    camera = object.__new__(Camera)
+    camera._identifier = "cam"
     camera._logger = MagicMock()
-    camera._frame_queue = MagicMock()
-    return camera
+    camera._mp_context = cast("mp.context.ForkServerContext", mp.get_context())
+    camera._frame_queue = None  # type: ignore[assignment]
+    camera._capture_frames = MagicMock()
+    camera.decode_error = MagicMock()
+    camera._frame_reader = None
+    camera._frame_relay = None
+    camera._check_segment_process_thread = None
+    camera.stream = MagicMock()
+    camera._config = {
+        CONFIG_SUBSTREAM: None,
+        CONFIG_FFMPEG_LOGLEVEL: "error",
+        CONFIG_FFMPEG_RECOVERABLE_ERRORS: [],
+        CONFIG_RECORD_ONLY: False,
+    }
+
+    registered_processes = ProcessWatchDog.registered_items[:]
+    registered_threads = ThreadWatchDog.registered_items[:]
+    try:
+        yield camera
+    finally:
+        camera._stop_camera()
+        ProcessWatchDog.registered_items[:] = registered_processes
+        ThreadWatchDog.registered_items[:] = registered_threads
+        logging.getLogger(LOGGER_NAME).setLevel(logging.NOTSET)
 
 
-class TestCameraReadFrames:
-    """Test the read_frames method."""
+def test_create_frame_reader_registers_the_child_log_levels(camera: Camera) -> None:
+    """A running frame reader must follow the log level of its camera."""
+    frame_reader, _ = camera._create_frame_reader()
+    child_log_levels = frame_reader._child_log_levels
 
-    def test_read_frames_backs_off_exponentially_on_repeated_failures(self) -> None:
-        """A dead camera must retry less often instead of every 5 seconds."""
-        camera = _camera_with_failing_stream([None] * 20, iterations=12)
-        iterations = 12
+    logging.getLogger(LOGGER_NAME).setLevel(logging.DEBUG)
+    refresh_child_log_levels()
+    # The child is still on the level it started with.
+    logging.getLogger(LOGGER_NAME).setLevel(logging.INFO)
 
-        sleeps: list[float] = []
+    assert (
+        child_log_levels.wait_and_apply(  # type: ignore[attr-defined]
+            timeout=5,
+        )
+        is True
+    )
+    assert logging.getLogger(LOGGER_NAME).level == logging.DEBUG
 
-        def fake_sleep(seconds: float) -> None:
-            sleeps.append(seconds)
 
-        with (
-            patch("viseron.components.ffmpeg.camera.os.kill"),
-            patch("viseron.components.ffmpeg.camera.setproctitle.setproctitle"),
-            patch(
-                "viseron.components.ffmpeg.camera.time.sleep",
-                side_effect=fake_sleep,
-            ),
-        ):
-            Camera.read_frames(camera, camera._frame_queue)
+def test_stop_camera_unregisters_the_child_log_levels(camera: Camera) -> None:
+    """A stopped camera must not be kept alive by the registry."""
+    camera._frame_reader, _ = camera._create_frame_reader()
+    camera._frame_relay = MagicMock()
+    child_log_levels = camera._frame_reader._child_log_levels
 
-        # First failure waits the base delay, then each consecutive failure
-        # doubles the wait until it is capped at MAX_RESTART_DELAY.
-        assert sleeps == [
-            DEFAULT_RESTART_DELAY,
-            10,
-            20,
-            40,
-            MAX_RESTART_DELAY,
-            MAX_RESTART_DELAY,
-            MAX_RESTART_DELAY,
-            MAX_RESTART_DELAY,
-            MAX_RESTART_DELAY,
-            MAX_RESTART_DELAY,
-            MAX_RESTART_DELAY,
-        ]
-        assert camera.stream.start_pipe.call_count == iterations
+    camera._stop_camera()
+    refresh_child_log_levels()
 
-    def test_read_frames_resets_backoff_on_success(self) -> None:
-        """A successful frame must reset the backoff to its base delay."""
-        reads = [
-            None,
-            None,
-            b"frame",
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        ]
-        camera = _camera_with_failing_stream(reads)
-
-        sleeps: list[float] = []
-
-        def fake_sleep(seconds: float) -> None:
-            sleeps.append(seconds)
-
-        with (
-            patch("viseron.components.ffmpeg.camera.os.kill"),
-            patch("viseron.components.ffmpeg.camera.setproctitle.setproctitle"),
-            patch(
-                "viseron.components.ffmpeg.camera.time.sleep",
-                side_effect=fake_sleep,
-            ),
-        ):
-            Camera.read_frames(camera, camera._frame_queue)
-
-        # The frame at read #3 resets the backoff, so the wait after the next
-        # failure is back to the base delay.
-        assert sleeps == [
-            DEFAULT_RESTART_DELAY,
-            10,
-            DEFAULT_RESTART_DELAY,
-            10,
-            20,
-            40,
-            MAX_RESTART_DELAY,
-            MAX_RESTART_DELAY,
-            MAX_RESTART_DELAY,
-            MAX_RESTART_DELAY,
-        ]
-        camera._frame_queue.put_nowait.assert_called_once_with(b"frame")
+    assert (
+        child_log_levels.wait_and_apply(  # type: ignore[attr-defined]
+            timeout=0.01,
+        )
+        is False
+    )

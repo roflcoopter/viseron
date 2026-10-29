@@ -1,4 +1,5 @@
 """Face recognition constants."""
+
 from typing import Final
 
 from viseron.const import CONFIG_DIR

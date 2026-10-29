@@ -8,8 +8,6 @@ test fails.
 from __future__ import annotations
 
 import os
-import socket
-import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -23,9 +21,8 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 
-# Default ports
+# Container-side port nginx listens on.
 NGINX_PORT = 8888
-WEBSERVER_PORT = 9999
 
 # Pattern logged by viseron once it has finished booting all components.
 READY_LOG_PATTERN = r"Viseron initialized in [\d.]+ seconds"
@@ -65,6 +62,35 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=False,
         help="Do not stop/remove the container on teardown (debug aid)",
     )
+
+
+# Every test is tagged with the container fixture it ultimately depends on, so
+# that `-n <N> --dist loadgroup` keeps all tests sharing a container on one
+# worker. Without this xdist spreads them round-robin and each worker boots its
+# own copy of every container, which is slower than running serially.
+# Booting a container dominates the runtime here, so the useful worker count is
+# the number of groups below, not the number of CPUs.
+CONTAINER_FIXTURE_GROUPS = (
+    ("pg_upgrade_container", "pg_upgrade"),
+    ("viseron_container_data_mount", "data_mount"),
+    ("viseron_container_data_mount_disable_chown", "data_mount"),
+    ("image_container", "image"),
+    ("viseron_container", "main"),
+)
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    """Tag each test with the xdist group of the container it needs."""
+    if not config.pluginmanager.hasplugin("xdist"):
+        return
+    for item in items:
+        fixtures = set(getattr(item, "fixturenames", ()))
+        for fixture_name, group in CONTAINER_FIXTURE_GROUPS:
+            if fixture_name in fixtures:
+                item.add_marker(pytest.mark.xdist_group(group))
+                break
 
 
 @pytest.fixture(scope="session")
@@ -128,65 +154,6 @@ REQUIRED_STORAGE_DIRS = (
 )
 
 
-def _free_port() -> int:
-    """Return an unused TCP port on the host."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind(("", 0))
-        return sock.getsockname()[1]
-
-
-def _default_gateway() -> str | None:
-    """Return the default IPv4 gateway for the current network namespace."""
-    route_path = Path("/proc/net/route")
-    if not route_path.exists():
-        return None
-
-    for line in route_path.read_text(encoding="utf-8").splitlines()[1:]:
-        fields = line.split()
-        if len(fields) > 2 and fields[1] == "00000000":
-            gateway_hex = fields[2]
-            octets = [
-                str(int(gateway_hex[index : index + 2], 16)) for index in range(0, 8, 2)
-            ]
-            return ".".join(reversed(octets))
-    return None
-
-
-def _can_connect(host: str, port: int) -> bool:
-    """Return True if ``host:port`` accepts a TCP connection."""
-    try:
-        with socket.create_connection((host, port), timeout=0.25):
-            return True
-    except OSError:
-        return False
-
-
-def _published_port_host(port: int) -> str:
-    """Return the address pytest should use for a Docker-published port."""
-    if smoke_host := os.environ.get("VISERON_SMOKE_HOST"):
-        return smoke_host
-
-    if _can_connect("127.0.0.1", port):
-        return "127.0.0.1"
-
-    if Path("/.dockerenv").exists() and (gateway := _default_gateway()):
-        return gateway
-
-    return "127.0.0.1"
-
-
-@pytest.fixture(scope="session")
-def host_nginx_port() -> int:
-    """Pick a random free host port to map to the container's nginx port."""
-    return _free_port()
-
-
-@pytest.fixture(scope="session")
-def host_nginx_port_data_mount() -> int:
-    """Pick a random free host port to map to the data-mount container's nginx."""
-    return _free_port()
-
-
 @pytest.fixture(scope="session")
 def artifact_dir(request: pytest.FixtureRequest) -> Path:
     """Return (and create) the directory where smoke-test artifacts are written.
@@ -206,11 +173,64 @@ def artifact_dir(request: pytest.FixtureRequest) -> Path:
 
 
 @pytest.fixture(scope="session")
+def image_container(
+    docker_client: docker.DockerClient,
+    image: str,
+    docker_platform: str,
+    artifact_dir: Path,
+    request: pytest.FixtureRequest,
+) -> Iterator[Any]:
+    """Start the image with s6 bypassed, for tests that only inspect its contents."""
+    container_name = helpers.unique_container_name("viseron-smoke-image")
+
+    run_kwargs: dict[str, Any] = {
+        "image": image,
+        "name": container_name,
+        "entrypoint": ["sleep", "infinity"],
+    }
+    if Path("/dev/dri").exists():
+        run_kwargs["devices"] = ["/dev/dri:/dev/dri"]
+    if docker_platform:
+        run_kwargs["platform"] = docker_platform
+
+    print(  # noqa: T201
+        f"\n[smoke] starting image-inspection container {container_name} from {image}"
+    )
+    container = docker_client.containers.create(**run_kwargs)
+    try:
+        container.start()
+    except Exception as exc:
+        (artifact_dir / f"{container_name}-startup-error.txt").write_text(
+            f"Container failed to start:\n{exc}\n", encoding="utf-8"
+        )
+        container.remove(force=True)
+        raise
+
+    yield container
+
+    if request.config.getoption("--keep-container"):
+        print(  # noqa: T201
+            f"[smoke] --keep-container set; leaving {container_name} running"
+        )
+        return
+
+    try:
+        container.stop(timeout=5)
+    finally:
+        container.remove(force=True)
+
+
+@pytest.fixture(scope="session")
+def image_host(image_container: Any) -> testinfra.host.Host:
+    """Return a testinfra host bound to the non-booted image container."""
+    return testinfra.get_host(f"docker://{image_container.name}")
+
+
+@pytest.fixture(scope="session")
 def viseron_container(
     docker_client: docker.DockerClient,
     image: str,
     docker_platform: str,
-    host_nginx_port: int,
     boot_timeout: float,
     artifact_dir: Path,
     request: pytest.FixtureRequest,
@@ -223,7 +243,7 @@ def viseron_container(
     the Docker daemon sit on different filesystems so volume paths in the test
     process are not visible to the daemon.
     """
-    container_name = f"viseron-smoke-{int(time.time())}"
+    container_name = helpers.unique_container_name("viseron-smoke")
 
     run_kwargs: dict[str, Any] = {
         "image": image,
@@ -233,7 +253,8 @@ def viseron_container(
             "PGID": str(os.getgid()),
             "TZ": "UTC",
         },
-        "ports": {f"{NGINX_PORT}/tcp": host_nginx_port},
+        # Let Docker pick the host port
+        "ports": {f"{NGINX_PORT}/tcp": None},
     }
     if Path("/dev/dri").exists():
         run_kwargs["devices"] = ["/dev/dri:/dev/dri"]

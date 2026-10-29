@@ -1,6 +1,5 @@
 """Decorators for Viseron."""
 
-
 from functools import wraps
 
 

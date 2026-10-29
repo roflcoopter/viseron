@@ -35,6 +35,8 @@ from .request_handler import ViseronRequestHandler
 LOGGER = logging.getLogger(__name__)
 
 BOUNDARY = "jpgboundary"
+CONTENT_TYPE_MULTIPART = f"multipart/x-mixed-replace; boundary={BOUNDARY}"
+CONTENT_TYPE_OCTET_STREAM = "application/octet-stream"
 MAX_CAMERA_LOOKUP_TRIES = 60
 
 if TYPE_CHECKING:
@@ -85,8 +87,15 @@ class StreamHandler(ViseronRequestHandler):
             "no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0",
         )
         self.set_header("Connection", "close")
+        accepted = [
+            media_range.split(";")[0].strip().lower()
+            for media_range in self.request.headers.get("Accept", "").split(",")
+        ]
         self.set_header(
-            "Content-Type", f"multipart/x-mixed-replace; boundary={BOUNDARY}"
+            "Content-Type",
+            CONTENT_TYPE_OCTET_STREAM
+            if CONTENT_TYPE_OCTET_STREAM in accepted
+            else CONTENT_TYPE_MULTIPART,
         )
         self.set_header("Pragma", "no-cache")
 
@@ -104,7 +113,9 @@ class StreamHandler(ViseronRequestHandler):
         nvr: NVR, processed_frame: EventProcessedFrame, mjpeg_stream_config: dict
     ) -> tuple[bool, np.ndarray]:
         """Return JPG with drawn objects, zones etc."""
-        _frame = processed_frame.frame.copy()
+        _frame = nvr.camera.shared_frames.get_decoded_frame_rgb(
+            processed_frame.shared_frame
+        )
 
         if mjpeg_stream_config["width"] and mjpeg_stream_config["height"]:
             resolution = mjpeg_stream_config["width"], mjpeg_stream_config["height"]
@@ -142,12 +153,14 @@ class StreamHandler(ViseronRequestHandler):
                     frame,
                     nvr.object_detector.mask,
                 )
-            if mjpeg_stream_config["draw_objects"] and processed_frame.objects_in_fov:
-                draw_objects(
-                    frame,
-                    processed_frame.objects_in_fov,
-                    resolution=resolution,
-                )
+            if mjpeg_stream_config["draw_objects"]:
+                objects = list(processed_frame.objects_in_fov or [])
+                for zone in nvr.object_detector.zones:
+                    objects += [
+                        obj for obj in zone.objects_in_zone if obj not in objects
+                    ]
+                if objects:
+                    draw_objects(frame, objects, resolution=resolution)
 
         for domain, post_processor in nvr.post_processors.items():
             if mjpeg_stream_config["draw_post_processor_mask"] and post_processor.mask:
@@ -205,7 +218,10 @@ class DynamicStreamHandler(StreamHandler):
             try:
                 processed_frame = await frame_queue.get()
                 ret, jpg = await self.run_in_executor(
-                    self.process_frame, nvr, processed_frame.data, mjpeg_stream_config
+                    self.process_frame,
+                    nvr,
+                    processed_frame.data,
+                    mjpeg_stream_config,
                 )
 
                 if ret:

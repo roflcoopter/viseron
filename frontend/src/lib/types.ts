@@ -44,7 +44,11 @@ export type WebSocketSubscriptionResultResponse = {
   command_id: number;
   type: "subscription_result";
   success: true;
-  result: Event | HlsAvailableTimespans | DownloadFileResponse;
+  result:
+    | Event
+    | HlsAvailableTimespans
+    | DownloadFileResponse
+    | TimelapseRenderStatus;
 };
 
 export type WebSocketSubscriptionErrorResponse = {
@@ -206,6 +210,9 @@ export interface Camera {
   connected: boolean;
   live_stream_available: boolean;
   is_recording: boolean;
+  is_manual_recording: boolean;
+  ptz_support?: string | null;
+  timelapse: boolean;
 }
 
 export interface Cameras {
@@ -233,6 +240,18 @@ export interface FailedCameras {
 
 export interface CamerasOrFailedCameras {
   [identifier: string]: Camera | FailedCamera;
+}
+
+export interface OrphanedCamera {
+  camera_identifier: string;
+  file_count: number;
+  size_bytes: number;
+  database_rows: number;
+  directories: string[];
+}
+
+export interface OrphanedCameras {
+  cameras: OrphanedCamera[];
 }
 
 export interface DetectedObject {
@@ -434,6 +453,64 @@ export type DownloadFileResponse = {
   token: string;
 };
 
+export type TimelapseFrame = {
+  file_key: number;
+  timestamp: number;
+  path: string;
+};
+
+export type TimelapseStream = {
+  fps: number;
+  segment_frames: number;
+  width: number;
+  height: number;
+};
+
+export type TimelapseFramesResponse = {
+  camera_identifier: string;
+  start: number;
+  end: number;
+  // Seconds between returned frames when downsampled, null if not downsampled
+  step: number | null;
+  total: number;
+  frames: TimelapseFrame[];
+  // null when none of the newest frames could be read
+  stream: TimelapseStream | null;
+};
+
+export type TimelapseCameraSummary = {
+  camera_identifier: string;
+  count: number;
+  first_timestamp: number | null;
+  last_timestamp: number | null;
+  latest_frame: TimelapseFrame | null;
+};
+
+export type TimelapseSummaryResponse = {
+  cameras: {
+    [identifier: string]: TimelapseCameraSummary;
+  };
+};
+
+export type TimelapseDatesOfInterest = {
+  dates_of_interest: {
+    [date: string]: {
+      frames: number;
+    };
+  };
+};
+
+export type TimelapseRenderStatus =
+  | { status: "queued" }
+  | {
+      status: "rendering";
+      frame: number;
+      total_frames: number;
+      progress: number;
+    }
+  | { status: "encoding" }
+  | ({ status: "done" } & DownloadFileResponse);
+
 export type SystemDispatchedEvents = {
   events: string[];
 };
@@ -451,7 +528,6 @@ export type DomainStatus = {
   component: string;
   domain: string;
   identifier: string;
-  config: Record<string, unknown>;
   require_domains: { domain: string; identifier: string }[];
   optional_domains: { domain: string; identifier: string }[];
   state: string;

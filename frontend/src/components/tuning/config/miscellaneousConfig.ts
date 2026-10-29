@@ -1,6 +1,7 @@
 import { CAMERA_MISCELLANEOUS_CONFIG } from "../camera/miscellaneousConfig";
 import { MOTION_DETECTOR_MISCELLANEOUS_CONFIG } from "../motion_detector/miscellaneousConfig";
 import { OBJECT_DETECTOR_MISCELLANEOUS_CONFIG } from "../object_detector/miscellaneousConfig";
+import { ONVIF_MISCELLANEOUS_CONFIG } from "../onvif/miscellaneousConfig";
 import { MiscellaneousField } from "./MiscellaneousSection";
 
 /**
@@ -47,6 +48,7 @@ export const MISCELLANEOUS_CONFIG: {
   camera: CAMERA_MISCELLANEOUS_CONFIG,
   object_detector: OBJECT_DETECTOR_MISCELLANEOUS_CONFIG,
   motion_detector: MOTION_DETECTOR_MISCELLANEOUS_CONFIG,
+  onvif: ONVIF_MISCELLANEOUS_CONFIG,
 };
 
 /**

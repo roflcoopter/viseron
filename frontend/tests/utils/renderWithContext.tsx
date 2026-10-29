@@ -1,4 +1,6 @@
 import CssBaseline from "@mui/material/CssBaseline";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   RenderHookOptions,
@@ -27,6 +29,7 @@ export interface TestContextOptions {
   queryClient?: QueryClient;
   connection?: ViseronContextState["connection"];
   viseronOverrides?: Partial<ViseronContextState>;
+  initialEntries?: string[];
 }
 
 const defaultAuth: types.AuthEnabledResponse = {
@@ -52,6 +55,7 @@ export function createProvidersWrapper(options: TestContextOptions = {}) {
     }),
     connection = undefined,
     viseronOverrides = {},
+    initialEntries,
   } = options;
 
   function ProvidersWrapper({ children }: ProvidersWrapperProps) {
@@ -70,20 +74,22 @@ export function createProvidersWrapper(options: TestContextOptions = {}) {
 
     return (
       <ColorModeProvider>
-        <CssBaseline enableColorScheme />
-        <QueryClientProvider client={queryClient}>
-          <MemoryRouter>
-            {/* eslint-disable-next-line react/jsx-no-constructed-context-values */}
-            <AuthContext.Provider value={{ auth, user }}>
-              <FullscreenProvider>
-                <ViseronContext.Provider value={viseronValue}>
-                  {children}
-                </ViseronContext.Provider>
-              </FullscreenProvider>
-            </AuthContext.Provider>
-          </MemoryRouter>
-          <ToastContainer />
-        </QueryClientProvider>
+        <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <CssBaseline enableColorScheme />
+          <QueryClientProvider client={queryClient}>
+            <MemoryRouter initialEntries={initialEntries}>
+              {/* eslint-disable-next-line react/jsx-no-constructed-context-values */}
+              <AuthContext.Provider value={{ auth, user }}>
+                <FullscreenProvider>
+                  <ViseronContext.Provider value={viseronValue}>
+                    {children}
+                  </ViseronContext.Provider>
+                </FullscreenProvider>
+              </AuthContext.Provider>
+            </MemoryRouter>
+            <ToastContainer />
+          </QueryClientProvider>
+        </LocalizationProvider>
       </ColorModeProvider>
     );
   }
@@ -95,14 +101,22 @@ function renderWithContext(
   component: React.ReactElement,
   options?: TestContextOptions & Omit<RenderOptions, "wrapper">,
 ) {
-  const { viseronOverrides, connection, auth, user, queryClient, ...rtl } =
-    options || {};
+  const {
+    viseronOverrides,
+    connection,
+    auth,
+    user,
+    queryClient,
+    initialEntries,
+    ...rtl
+  } = options || {};
   const wrapper = createProvidersWrapper({
     viseronOverrides,
     connection,
     auth,
     user: user || null,
     queryClient,
+    initialEntries,
   });
   return render(component, { wrapper, ...rtl });
 }

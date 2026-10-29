@@ -1,17 +1,17 @@
 """API handler for vod."""
+
 from __future__ import annotations
 
 import datetime
 import logging
 import os
-from collections.abc import Callable
 from dataclasses import dataclass
 from http import HTTPStatus
 from math import ceil
 from typing import TYPE_CHECKING
 
 import voluptuous as vol
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from viseron.components.storage.const import (
     TIER_CATEGORY_RECORDER,
@@ -20,7 +20,8 @@ from viseron.components.storage.const import (
 from viseron.components.storage.models import Files, Recordings
 from viseron.components.storage.queries import get_time_period_fragments
 from viseron.components.webserver.api.handlers import BaseAPIHandler
-from viseron.const import CAMERA_SEGMENT_DURATION
+from viseron.const import CAMERA_SEGMENT_DURATION, HLS_SKIP_BOUNDARY_TARGET_DURATIONS
+from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.fragmenter import (
     Fragment,
     generate_playlist,
@@ -30,9 +31,11 @@ from viseron.helpers import client_current_datetime, daterange_to_utc, utcnow
 from viseron.helpers.fixed_size_dict import FixedSizeDict
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from sqlalchemy.orm import Session
 
-    from viseron.domains.camera import AbstractCamera, FailedCamera
+    from viseron.domains.camera import FailedCamera
 
 LOGGER = logging.getLogger(__name__)
 
@@ -53,6 +56,18 @@ def count_files_removed(
     return index + 1
 
 
+def count_matching_fragments(
+    previous_list: list[Fragment], current_list: list[Fragment]
+) -> int:
+    """Count the leading Fragments that are the same in both lists."""
+    count = 0
+    for previous, current in zip(previous_list, current_list):
+        if previous.filename != current.filename:
+            break
+        count += 1
+    return count
+
+
 @dataclass
 class HlsClient:
     """Dataclass for HLS client to keep track of removed files in live playlists."""
@@ -66,7 +81,7 @@ class HlsClient:
 class HlsAPIHandler(BaseAPIHandler):
     """API handler for HLS."""
 
-    hls_client_ids: FixedSizeDict[str, HlsClient] = FixedSizeDict(maxlen=10)
+    hls_client_ids: FixedSizeDict[str, HlsClient] = FixedSizeDict(maxlen=500)
 
     routes = [
         {
@@ -77,6 +92,13 @@ class HlsAPIHandler(BaseAPIHandler):
             "supported_methods": ["GET"],
             "method": "get_recording_hls_playlist",
             "allow_token_parameter": True,
+            "request_arguments_schema": vol.Schema(
+                {
+                    vol.Optional("_HLS_skip", default=None): vol.Maybe(
+                        vol.In(["YES", "v2"])
+                    ),
+                }
+            ),
         },
         {
             "path_pattern": (r"/hls/(?P<camera_identifier>[A-Za-z0-9_]+)/index.m3u8"),
@@ -90,6 +112,9 @@ class HlsAPIHandler(BaseAPIHandler):
                         vol.Coerce(int)
                     ),
                     vol.Optional("date", default=None): vol.Maybe(str),
+                    vol.Optional("_HLS_skip", default=None): vol.Maybe(
+                        vol.In(["YES", "v2"])
+                    ),
                 }
             ),
         },
@@ -137,6 +162,7 @@ class HlsAPIHandler(BaseAPIHandler):
             camera,
             recording_id,
             subpath,
+            self.request_arguments["_HLS_skip"] is not None,
         )
         if not playlist:
             self.response_error(
@@ -174,6 +200,7 @@ class HlsAPIHandler(BaseAPIHandler):
             self.request_arguments["end_timestamp"],
             self.request_arguments["date"],
             subpath,
+            self.request_arguments["_HLS_skip"] is not None,
         )
         if not playlist:
             self.response_error(
@@ -224,20 +251,27 @@ def _get_init_file(
     get_session: Callable[[], Session], camera: AbstractCamera | FailedCamera
 ) -> str | None:
     """Get the init file for a camera."""
+    # Normally in the first tier, so avoid querying every tier on each playlist poll
+    if isinstance(camera, AbstractCamera):
+        init_file = os.path.join(camera.segments_folder, "init.mp4")
+        if os.path.exists(init_file):
+            return init_file
+
     with get_session() as session:
         stmt = (
-            select(Files)
-            .distinct(Files.directory)
+            select(Files.directory)
             .where(Files.camera_identifier == camera.identifier)
             .where(Files.category == TIER_CATEGORY_RECORDER)
             .where(Files.subcategory == TIER_SUBCATEGORY_SEGMENTS)
-            .order_by(Files.directory, Files.created_at.desc())
+            .group_by(Files.directory)
+            .order_by(func.min(Files.tier_id), func.max(Files.created_at).desc())
         )
-        files = session.execute(stmt).scalars().all()
+        directories = session.execute(stmt).scalars().all()
 
-    for file in files:
-        if os.path.exists(os.path.join(file.directory, "init.mp4")):
-            return os.path.join(file.directory, "init.mp4")
+    for directory in directories:
+        init_file = os.path.join(directory, "init.mp4")
+        if os.path.exists(init_file):
+            return init_file
     LOGGER.error(f"Could not find init.mp4 file for camera {camera.identifier}")
     return None
 
@@ -254,65 +288,74 @@ def get_target_duration(fragments: list[Fragment]) -> int:
 def update_hls_client(
     hls_client_id: str,
     fragments: list[Fragment],
-) -> HlsClient:
-    """Keep track of HLS client media sequence."""
-    media_sequence = 0
+) -> tuple[HlsClient, int]:
+    """Keep track of HLS client media sequence.
+
+    Only call this for playlists that are returned to the client, since the fragments
+    are stored as the client's previous playlist.
+    Returns the client and the number of leading fragments it already received.
+    """
     hls_client = HlsAPIHandler.hls_client_ids.get(hls_client_id, None)
     if hls_client:
-        media_sequence = hls_client.media_sequence
-        media_sequence += count_files_removed(hls_client.fragments, fragments)
+        removed = count_files_removed(hls_client.fragments, fragments)
+        received = count_matching_fragments(hls_client.fragments[removed:], fragments)
         hls_client.fragments = fragments
-        hls_client.media_sequence = media_sequence
-    else:
-        hls_client = HlsClient(
-            client_id=hls_client_id,
-            fragments=fragments,
-            media_sequence=media_sequence,
-            target_duration=get_target_duration(fragments),
-        )
-        HlsAPIHandler.hls_client_ids[hls_client_id] = hls_client
-    return hls_client
+        hls_client.media_sequence += removed
+        return hls_client, received
+
+    hls_client = HlsClient(
+        client_id=hls_client_id,
+        fragments=fragments,
+        media_sequence=0,
+        target_duration=get_target_duration(fragments),
+    )
+    HlsAPIHandler.hls_client_ids[hls_client_id] = hls_client
+    return hls_client, 0
 
 
-def adjust_fragment_paths(
-    camera: AbstractCamera | FailedCamera, subpath: str, files: list
-) -> list[Fragment]:
-    """Adjust fragment paths for multi-tier storage.
+def files_to_fragments(subpath: str, files: list) -> list[Fragment]:
+    """Create fragments that reference segments by their file key.
 
-    For tiers other than the first one, we need to alter the path to
-    point to the first tier and then provide the actual tier path as a
-    query parameter.
-    This is to not break the HLS specifications for files that are moved
-    between updates of the playlist
+    Segment URIs must not change between updates of a playlist, and the file key
+    stays the same when a segment moves to another tier.
     """
-    fragments = []
-    for file in files:
-
-        path: str
-        if file.tier_id > 0:
-            first_tier_path = camera.tier_base_path(
-                0, TIER_CATEGORY_RECORDER, TIER_SUBCATEGORY_SEGMENTS
-            )
-            path = file.path.replace(
-                file.tier_path,
-                first_tier_path,
-                1,
-            )
-            path += (
-                f"?first_tier_path={first_tier_path}&actual_tier_path={file.tier_path}"
-            )
-        else:
-            path = file.path
-
-        fragments.append(
-            Fragment(
-                file.filename,
-                f"{subpath}/files{path}",
-                file.duration,
-                file.orig_ctime,
-            )
+    return [
+        Fragment(
+            file.filename,
+            # file_key is converted to a hexadecimal string in the URL
+            f"{subpath}/file/{file.camera_identifier}/{file.file_key:x}",
+            file.duration,
+            file.orig_ctime,
         )
-    return fragments
+        for file in files
+    ]
+
+
+def _render_client_playlist(
+    fragments: list[Fragment],
+    init_file: str,
+    hls_client_id: str | None,
+    *,
+    skip_requested: bool,
+    end: bool,
+) -> str:
+    """Render the playlist with the media sequence and delta updates of a client."""
+    if hls_client_id is None:
+        return generate_playlist(fragments, init_file, end=end, file_directive=False)
+
+    hls_client, received = update_hls_client(hls_client_id, fragments)
+    return generate_playlist(
+        fragments,
+        init_file,
+        media_sequence=hls_client.media_sequence,
+        target_duration=hls_client.target_duration,
+        end=end,
+        file_directive=False,
+        can_skip_until=hls_client.target_duration * HLS_SKIP_BOUNDARY_TARGET_DURATIONS,
+        # The client restores skipped segments from its previous playlist, which
+        # new or evicted clients lack and stale clients only partially have
+        max_skipped_segments=received if skip_requested else 0,
+    )
 
 
 def _generate_playlist(
@@ -321,6 +364,7 @@ def _generate_playlist(
     camera: AbstractCamera | FailedCamera,
     recording_id: int,
     subpath: str,
+    skip_requested: bool = False,
 ) -> str | None:
     """Generate the HLS playlist for a recording."""
     now = utcnow()
@@ -340,9 +384,8 @@ def _generate_playlist(
         get_session,
         now=now,
     )
-    fragments = adjust_fragment_paths(camera, subpath, files)
+    fragments = files_to_fragments(subpath, files)
 
-    hls_client = update_hls_client(hls_client_id, fragments) if hls_client_id else None
     end: bool = True
     # Recording has not ended yet
     if recording.end_time is None:
@@ -365,15 +408,13 @@ def _generate_playlist(
     if not init_file or not fragments:
         return None
 
-    playlist = generate_playlist(
+    return _render_client_playlist(
         fragments,
         f"{subpath}/files{init_file}",
-        media_sequence=hls_client.media_sequence if hls_client else 0,
-        target_duration=hls_client.target_duration if hls_client else None,
+        hls_client_id,
+        skip_requested=skip_requested,
         end=end,
-        file_directive=False,
     )
-    return playlist
 
 
 def _generate_playlist_time_period(
@@ -385,6 +426,7 @@ def _generate_playlist_time_period(
     end_timestamp: int | None = None,
     date: str | None = None,
     subpath: str = "",
+    skip_requested: bool = False,
 ) -> str | None:
     """Generate the HLS playlist for a time period."""
     end_playlist = False
@@ -401,20 +443,16 @@ def _generate_playlist_time_period(
     files = get_time_period_fragments(
         [camera.identifier], start_timestamp, end_timestamp, get_session
     )
-    fragments = adjust_fragment_paths(camera, subpath, files)
-
-    hls_client = update_hls_client(hls_client_id, fragments) if hls_client_id else None
+    fragments = files_to_fragments(subpath, files)
 
     init_file = _get_init_file(get_session, camera)
     if not init_file:
         return None
 
-    playlist = generate_playlist(
+    return _render_client_playlist(
         fragments,
         f"{subpath}/files{init_file}",
-        media_sequence=hls_client.media_sequence if hls_client else 0,
-        target_duration=hls_client.target_duration if hls_client else None,
+        hls_client_id,
+        skip_requested=skip_requested,
         end=end_playlist,
-        file_directive=False,
     )
-    return playlist

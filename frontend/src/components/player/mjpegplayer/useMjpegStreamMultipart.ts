@@ -58,7 +58,11 @@ export function useMjpegStreamMultipart(
 
     const startStream = async () => {
       try {
-        const response = await fetch(src, { signal: controller.signal });
+        const response = await fetch(src, {
+          signal: controller.signal,
+          // Needed for WebKit support
+          headers: { Accept: "application/octet-stream" },
+        });
         if (!response.ok || !response.body) {
           setError(`Stream returned status ${response.status}`);
           setIsLoading(false);

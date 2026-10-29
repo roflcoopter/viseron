@@ -5,7 +5,7 @@ import { downloadFile } from "lib/api/download";
 import { getCameraNameFromQueryCache } from "lib/helpers";
 import * as messages from "lib/messages";
 import * as types from "lib/types";
-import { Connection } from "lib/websockets";
+import { Connection, SubscriptionUnsubscribe } from "lib/websockets";
 
 export const getCameras = async (
   connection: Connection,
@@ -98,17 +98,25 @@ export const subscribeTimespans = async (
 };
 
 const exportErrorCallback = (
-  message: types.WebSocketSubscriptionErrorResponse,
+  error: types.WebSocketSubscriptionErrorResponse["error"],
   toast: ReturnType<typeof useToast>,
   toastId: Id,
   cameraName: string,
 ) => {
   toast.update(toastId, {
     type: "error",
-    render: `${cameraName}: Preparation of download failed: ${message.error.message}`,
+    render: `${cameraName}: Preparation of download failed: ${error.message}`,
     autoClose: 5000,
   });
 };
+
+export const commandErrorMessage = (error: unknown): string =>
+  typeof error === "object" &&
+  error !== null &&
+  "message" in error &&
+  typeof error.message === "string"
+    ? error.message
+    : String(error);
 
 const handleExport = async (
   camera_identifier: string,
@@ -123,10 +131,22 @@ const handleExport = async (
     autoClose: false,
   });
 
-  await exportFn(
-    (message) => downloadFile(message, toastId, cameraName),
-    (message) => exportErrorCallback(message, toast, toastId, cameraName),
-  );
+  try {
+    await exportFn(
+      async (message) => {
+        await downloadFile(message, toastId, cameraName);
+      },
+      (message) =>
+        exportErrorCallback(message.error, toast, toastId, cameraName),
+    );
+  } catch (error) {
+    exportErrorCallback(
+      { code: "error", message: commandErrorMessage(error) },
+      toast,
+      toastId,
+      cameraName,
+    );
+  }
 };
 
 export const exportRecording = async (
@@ -172,6 +192,14 @@ export const exportTimespan = async (
     );
   }
 };
+
+export const renderTimelapse = async (
+  connection: Connection,
+  params: messages.RenderTimelapseParams,
+  statusCallback: (status: types.TimelapseRenderStatus) => void,
+  errorCallback: (message: types.WebSocketSubscriptionErrorResponse) => void,
+): Promise<SubscriptionUnsubscribe> =>
+  connection.renderTimelapse(params, statusCallback, errorCallback);
 
 export const renderTemplate = async (
   connection: Connection,

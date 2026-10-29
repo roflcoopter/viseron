@@ -2,6 +2,7 @@
 
 If the dictionary exceeds the maximum size, the oldest item is removed.
 """
+
 from __future__ import annotations
 
 import typing

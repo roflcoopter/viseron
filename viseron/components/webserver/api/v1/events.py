@@ -367,7 +367,7 @@ class EventsAPIHandler(BaseAPIHandler):
             stmt = (
                 select(
                     func.date(Motion.start_time + self.utc_offset),
-                    func.count(),  # pylint: disable=not-callable
+                    func.count(),
                 )
                 .where(Motion.camera_identifier.in_(camera_identifiers))
                 .group_by(func.date(Motion.start_time + self.utc_offset))
@@ -377,7 +377,7 @@ class EventsAPIHandler(BaseAPIHandler):
             stmt = (
                 select(
                     func.date(Recordings.start_time + self.utc_offset),
-                    func.count(),  # pylint: disable=not-callable
+                    func.count(),
                 )
                 .where(Recordings.camera_identifier.in_(camera_identifiers))
                 .group_by(func.date(Recordings.start_time + self.utc_offset))
@@ -387,7 +387,7 @@ class EventsAPIHandler(BaseAPIHandler):
             stmt = (
                 select(
                     func.date(Objects.created_at + self.utc_offset),
-                    func.count(),  # pylint: disable=not-callable
+                    func.count(),
                 )
                 .where(Objects.camera_identifier.in_(camera_identifiers))
                 .group_by(func.date(Objects.created_at + self.utc_offset))
@@ -398,7 +398,7 @@ class EventsAPIHandler(BaseAPIHandler):
                 select(
                     func.date(PostProcessorResults.created_at + self.utc_offset),
                     PostProcessorResults.domain,
-                    func.count(),  # pylint: disable=not-callable
+                    func.count(),
                 )
                 .where(PostProcessorResults.camera_identifier.in_(camera_identifiers))
                 .group_by(
@@ -449,6 +449,20 @@ class EventsAPIHandler(BaseAPIHandler):
         )
         await self.response_success(response={"events_amount": events_amount})
 
+    def _allowed_camera_identifiers(self, camera_identifiers: list[str]) -> list[str]:
+        """Drop camera identifiers the current user is not assigned to."""
+        if (
+            not self.current_user
+            or self.current_user.assigned_cameras is None
+            or self.current_user.role == Role.ADMIN
+        ):
+            return camera_identifiers
+        return [
+            camera_identifier
+            for camera_identifier in camera_identifiers
+            if camera_identifier in self.current_user.assigned_cameras
+        ]
+
     async def post_events_amount_multiple(self) -> None:
         """Get amount of events per day for multiple cameras.
 
@@ -457,7 +471,7 @@ class EventsAPIHandler(BaseAPIHandler):
         events_amount = await self.run_in_executor(
             self._events_amount,
             self._get_session,
-            self.json_body["camera_identifiers"],
+            self._allowed_camera_identifiers(self.json_body["camera_identifiers"]),
         )
         await self.response_success(response={"events_amount": events_amount})
 
@@ -473,6 +487,7 @@ class EventsAPIHandler(BaseAPIHandler):
                 HTTPStatus.BAD_REQUEST, reason="No camera identifiers provided"
             )
             return
+        camera_identifiers = self._allowed_camera_identifiers(camera_identifiers)
 
         events_amount = await self.run_in_executor(
             self._events_amount,

@@ -1,4 +1,5 @@
 """Jinja2 template helpers for Viseron."""
+
 from __future__ import annotations
 
 from numbers import Number
@@ -41,7 +42,7 @@ class _DomainNamespace:
         return self._states[key]
 
 
-def render_template(vis: Viseron, template_str: str | None, **kwargs) -> None | str:
+def render_template(vis: Viseron, template_str: str | None, **kwargs) -> str | None:
     """Render a Jinja2 template with the states and any other arbitrary data."""
     if not template_str:
         return None

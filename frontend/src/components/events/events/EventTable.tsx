@@ -82,6 +82,8 @@ export const EventTable = memo(({ parentRef, date }: EventTableProps) => {
   const groupedEvents = useGroupedEvents(eventsQueries.data || []);
 
   const parentElement = parentRef.current;
+  // https://github.com/TanStack/virtual/issues/736
+  // eslint-disable-next-line react-hooks/incompatible-library
   const rowVirtualizer = useVirtualizer({
     count: groupedEvents.length,
     getScrollElement: () => parentElement,

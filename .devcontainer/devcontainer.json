@@ -106,6 +106,8 @@
     }
   },
   "features": {
-    "ghcr.io/devcontainers/features/sshd:1": {}
+    "ghcr.io/devcontainers/features/sshd:1": {},
+    // Needed for generating the documentation screenshots
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
   }
 }

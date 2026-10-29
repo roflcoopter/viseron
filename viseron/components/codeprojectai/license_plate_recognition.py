@@ -1,4 +1,5 @@
 """CodeProject.AI license plate recognition."""
+
 from __future__ import annotations
 
 import logging

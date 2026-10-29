@@ -27,8 +27,7 @@ export type ViseronContextState = {
   gitCommit: string | undefined;
   setupStatus: types.SetupStatusResponse;
   subscriptionRef:
-    | React.MutableRefObject<Record<string, SubscriptionManager>>
-    | undefined;
+    React.MutableRefObject<Record<string, SubscriptionManager>> | undefined;
 };
 
 const contextDefaultValues: ViseronContextState = {
@@ -170,6 +169,7 @@ export function ViseronProvider({ children }: ViseronProviderProps) {
   }, [connection, queryClient]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setContextValue((prevContextValue) => ({
       ...prevContextValue,
       connection: new Connection(toast),

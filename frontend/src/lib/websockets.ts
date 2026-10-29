@@ -41,7 +41,13 @@ interface SubscribeEventCommmandInFlight<T> {
   subscribe: (() => Promise<SubscriptionUnsubscribe>) | undefined;
   unsubscribe: SubscriptionUnsubscribe;
   errorCallback?: (message: types.WebSocketSubscriptionErrorResponse) => void;
+  serverControlled?: boolean;
 }
+
+const CONNECTION_LOST_ERROR = {
+  code: "connection_lost",
+  message: "Connection lost",
+};
 
 export type SocketPromise = {
   socket: WebSocket;
@@ -401,9 +407,19 @@ export class Connection {
 
     // Reject unanswered commands
     if (this.oldSubscriptions) {
-      this.oldSubscriptions.forEach((subscription) => {
+      this.oldSubscriptions.forEach((subscription, commandId) => {
         if (!("subscribe" in subscription)) {
           subscription.reject("Connection lost");
+        } else if (subscription.serverControlled) {
+          // The server cancels these when the socket closes, they cannot be resumed
+          this.oldSubscriptions!.delete(commandId);
+          subscription.reject(CONNECTION_LOST_ERROR);
+          subscription.errorCallback?.({
+            command_id: commandId,
+            type: "subscription_result",
+            success: false,
+            error: CONNECTION_LOST_ERROR,
+          });
         }
       });
     }
@@ -608,33 +624,37 @@ export class Connection {
     subMessage:
       | messages.ExportRecordingMessage
       | messages.ExportSnapshotMessage
-      | messages.ExportTimespanMessage,
+      | messages.ExportTimespanMessage
+      | messages.RenderTimelapseMessage,
     errorCallback?: (message: types.WebSocketSubscriptionErrorResponse) => void,
-  ) {
+  ): Promise<SubscriptionUnsubscribe> {
     if (this.queuedMessages) {
       await new Promise((resolve, reject) => {
         this.queuedMessages!.push({ resolve, reject });
       });
     }
-    let subscription: SubscribeEventCommmandInFlight<any>;
+    const commandId = this._generateCommandId();
+    const subscription: SubscribeEventCommmandInFlight<any> = {
+      resolve: () => {},
+      reject: () => {},
+      callback,
+      subscribe: undefined,
+      unsubscribe: async () => {
+        // Command ids restart on reconnect and may belong to a newer command
+        if (this.commands.get(commandId) === subscription) {
+          this.commands.delete(commandId);
+        }
+        if (this.oldSubscriptions?.get(commandId) === subscription) {
+          this.oldSubscriptions.delete(commandId);
+        }
+      },
+      errorCallback,
+      serverControlled: true,
+    };
 
     await new Promise((resolve, reject) => {
-      const commandId = this._generateCommandId();
-
-      subscription = {
-        resolve,
-        reject,
-        callback,
-        subscribe: undefined,
-        unsubscribe: async () => {
-          this.commands.delete(commandId);
-          if (this.oldSubscriptions) {
-            this.oldSubscriptions.delete(commandId);
-          }
-        },
-        errorCallback,
-      };
-
+      subscription.resolve = resolve;
+      subscription.reject = reject;
       this.commands.set(commandId, subscription);
       try {
         this.sendMessage(subMessage, commandId);
@@ -642,6 +662,22 @@ export class Connection {
         // Socket is closing
       }
     });
+
+    // Asks the server to stop. Does nothing if the command already finished.
+    return async () => {
+      if (this.commands.get(commandId) !== subscription) {
+        return;
+      }
+      // Ignore messages that are already on their way
+      subscription.callback = () => {};
+      subscription.errorCallback = () => {};
+      try {
+        await this.sendMessagePromise(messages.unsubscribeEvent(commandId));
+      } catch (err) {
+        // The command finished before the server received the unsubscribe
+      }
+      await subscription.unsubscribe();
+    };
   }
 
   async subscribeEvent<EventType>(
@@ -778,6 +814,27 @@ export class Connection {
     await this.serverControlledSubscribe(
       callback,
       messages.exportTimespan(camera_identifier, start, end),
+      errorCallback,
+    );
+  }
+
+  async renderTimelapse(
+    params: messages.RenderTimelapseParams,
+    callback: (message: types.TimelapseRenderStatus) => void,
+    errorCallback: (message: types.WebSocketSubscriptionErrorResponse) => void,
+  ): Promise<SubscriptionUnsubscribe> {
+    if (this.queuedMessages) {
+      await new Promise((resolve, reject) => {
+        this.queuedMessages!.push({ resolve, reject });
+      });
+    }
+    if (DEBUG) {
+      console.debug("Rendering timelapse", params);
+    }
+
+    return this.serverControlledSubscribe(
+      callback,
+      messages.renderTimelapse(params),
       errorCallback,
     );
   }

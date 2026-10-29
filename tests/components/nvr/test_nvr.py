@@ -79,7 +79,6 @@ def configure_camera_for_recording_tests(
     camera.shared_frames.get_decoded_frame_rgb.return_value = np.zeros(
         (2, 2, 3), dtype=np.uint8
     )
-    camera.shared_frames.remove = MagicMock()
 
     def start_recorder_side_effect(_shared_frame, _objects_in_fov, trigger_type):
         camera.is_recording = True

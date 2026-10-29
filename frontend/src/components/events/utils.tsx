@@ -1,13 +1,76 @@
 import {
-  Car,
-  Classification,
-  DocumentVideo,
-  DogWalker,
-  FaceActivated,
-  IntrusionPrevention,
-  Movement,
-  UserActivity,
-} from "@carbon/icons-react";
+  Icon,
+  IconApple,
+  IconArmchair,
+  IconBackpack,
+  IconBanana,
+  IconBat,
+  IconBed,
+  IconBike,
+  IconBook2,
+  IconBottle,
+  IconBowl,
+  IconBread,
+  IconBriefcase,
+  IconBrush,
+  IconBus,
+  IconCake,
+  IconCanary,
+  IconCar,
+  IconCarCrash,
+  IconCarrot,
+  IconCat,
+  IconChairDirector,
+  IconClock2,
+  IconCooker,
+  IconCube,
+  IconCup,
+  IconDeer,
+  IconDeviceDesktop,
+  IconDeviceLaptop,
+  IconDeviceMobile,
+  IconDeviceRemote,
+  IconDog,
+  IconFaceId,
+  IconFerry,
+  IconFireHydrant,
+  IconFridge,
+  IconGlass,
+  IconHorse,
+  IconKeyboard,
+  IconLemon2,
+  IconLuggage,
+  IconMicrowave,
+  IconMotorbike,
+  IconMouse2,
+  IconMovie,
+  IconNut,
+  IconParkingMeter,
+  IconPaw,
+  IconPhotoQuestion,
+  IconPhotoScan,
+  IconPicnicTable,
+  IconPig,
+  IconPizza,
+  IconPlant,
+  IconRoadSign,
+  IconRobot,
+  IconRun,
+  IconSausage,
+  IconScissors,
+  IconSofa,
+  IconSpider,
+  IconTie,
+  IconToiletPaper,
+  IconToolsKitchen,
+  IconToolsKitchen3,
+  IconTrafficLights,
+  IconTrain,
+  IconTruck,
+  IconUmbrella,
+  IconUserBolt,
+  IconWind,
+} from "@tabler/icons-react";
 import { Dayjs } from "dayjs";
 import Hls, { Fragment } from "hls.js";
 import { useCallback } from "react";
@@ -16,7 +79,6 @@ import { persist } from "zustand/middleware";
 import { useShallow } from "zustand/react/shallow";
 
 import { useCameraStore } from "components/camera/useCameraStore";
-import LicensePlateRecognitionIcon from "components/icons/LicensePlateRecognition";
 import { useSubscribeTimespans } from "hooks/UseSubscribeTimespans";
 import { useCameras } from "lib/api/cameras";
 import { BLANK_IMAGE } from "lib/helpers";
@@ -762,33 +824,120 @@ export const useSelectEvent = () => {
   return selectEvent;
 };
 
-const labelToIcon = (label: string) => {
-  switch (label) {
-    case "person":
-      return UserActivity;
+// The icon here assumes the user is employing the built-in model from the `object_detector` component.
+// Otherwise, it will be rendered with the default `IconPhotoQuestion`.
+const objectLabelIconMap: Record<string, Icon> = {
+  person: IconUserBolt,
 
-    case "car":
-    case "truck":
-    case "vehicle":
-      return Car;
+  // Vehicle
+  car: IconCar,
+  vehicle: IconCar,
+  bicycle: IconBike,
+  motorbike: IconMotorbike,
+  bus: IconBus,
+  train: IconTrain,
+  truck: IconTruck,
+  boat: IconFerry,
 
-    case "dog":
-    case "cat":
-    case "animal":
-      return DogWalker;
+  // Stationery
+  "traffic light": IconTrafficLights,
+  "fire hydrant": IconFireHydrant,
+  "stop sign": IconRoadSign,
+  "road sign": IconRoadSign,
+  "parking meter": IconParkingMeter,
+  bench: IconChairDirector,
 
-    default:
-      return IntrusionPrevention;
-  }
+  // Animals
+  bird: IconCanary,
+  cat: IconCat,
+  dog: IconDog,
+  horse: IconHorse,
+  pig: IconPig,
+  deer: IconDeer,
+  spider: IconSpider,
+  bat: IconBat,
+  animal: IconPaw,
+  ...Object.fromEntries(
+    [
+      "bear",
+      "sheep",
+      "cow",
+      "elephant",
+      "zebra",
+      "giraffe",
+      "rabbit",
+      "squirrel",
+      "raccoon",
+      "fox",
+      "skunk",
+    ].map((label) => [label, IconPaw]),
+  ),
+
+  // Accessories
+  backpack: IconBackpack,
+  umbrella: IconUmbrella,
+  handbag: IconBriefcase,
+  tie: IconTie,
+  suitcase: IconLuggage,
+
+  // TO-DO: Sports
+
+  // Food
+  bottle: IconBottle,
+  "wine glass": IconGlass,
+  cup: IconCup,
+  fork: IconToolsKitchen3,
+  knife: IconToolsKitchen,
+  spoon: IconToolsKitchen3,
+  bowl: IconBowl,
+
+  banana: IconBanana,
+  apple: IconApple,
+  sandwich: IconBread,
+  orange: IconLemon2,
+  carrot: IconCarrot,
+  "hot dog": IconSausage,
+  pizza: IconPizza,
+  donut: IconNut,
+  cake: IconCake,
+
+  // Furniture etc
+  chair: IconArmchair,
+  sofa: IconSofa,
+  pottedplant: IconPlant,
+  bed: IconBed,
+  diningtable: IconPicnicTable,
+  toilet: IconToiletPaper,
+
+  // Devices
+  tvmonitor: IconDeviceDesktop,
+  laptop: IconDeviceLaptop,
+  mouse: IconMouse2,
+  remote: IconDeviceRemote,
+  keyboard: IconKeyboard,
+  "cell phone": IconDeviceMobile,
+  microwave: IconMicrowave,
+  oven: IconCooker,
+  refrigerator: IconFridge,
+  book: IconBook2,
+  clock: IconClock2,
+  vase: IconPlant,
+  scissors: IconScissors,
+  "teddy bear": IconRobot,
+  "hair drier": IconWind,
+  toothbrush: IconBrush,
 };
 
+const labelToIcon = (label: string): Icon =>
+  objectLabelIconMap[label] ?? IconPhotoQuestion; // will catch generic icon
+
 const iconMap = {
-  object: UserActivity,
-  face_recognition: FaceActivated,
-  image_classification: Classification,
-  license_plate_recognition: LicensePlateRecognitionIcon,
-  motion: Movement,
-  recording: DocumentVideo,
+  object: IconCube,
+  face_recognition: IconFaceId,
+  image_classification: IconPhotoScan,
+  license_plate_recognition: IconCarCrash,
+  motion: IconRun,
+  recording: IconMovie,
 };
 
 export const getIcon = (event: types.CameraEvent) => {
@@ -809,7 +958,7 @@ export const getIcon = (event: types.CameraEvent) => {
 export const getIconFromType = (type: types.CameraEvent["type"]) => {
   const IconComponent = iconMap[type];
   function IconWithSize() {
-    return <IconComponent size={20} />;
+    return <IconComponent size={EVENT_ICON_HEIGHT} stroke={1.25} />;
   }
   return IconWithSize;
 };

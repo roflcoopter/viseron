@@ -1,4 +1,5 @@
 """Handling of Zones within a cameras field of view."""
+
 from __future__ import annotations
 
 import logging

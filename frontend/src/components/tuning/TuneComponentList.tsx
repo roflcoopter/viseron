@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 
 interface TuneComponentListProps {
+  hasSetupErrors: boolean;
   selectedTab: number;
   expandedComponent: string | false;
   domainTabs: Array<{ label: string; value: string }>;
@@ -28,6 +29,7 @@ interface TuneComponentListProps {
 }
 
 export function TuneComponentList({
+  hasSetupErrors,
   selectedTab,
   expandedComponent,
   domainTabs,
@@ -94,7 +96,11 @@ export function TuneComponentList({
     <Card
       variant="outlined"
       sx={{
-        height: { md: "72.5vh" },
+        height: {
+          md: hasSetupErrors ? "70vh" : "73vh",
+          xl: hasSetupErrors ? "72vh" : "75vh",
+          xxl: hasSetupErrors ? "77vh" : "80vh",
+        },
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",

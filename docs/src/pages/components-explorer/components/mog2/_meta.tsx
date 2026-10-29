@@ -8,6 +8,8 @@ const ComponentMetadata: Component = {
   image: "/img/logos/opencv.svg",
   tags: ["motion_detector"],
   category: null,
+  path: "viseron/components/mog2",
+  issue: 'label:"component: mog2" OR label:"domain: motion_detector"',
 };
 
 export default ComponentMetadata;

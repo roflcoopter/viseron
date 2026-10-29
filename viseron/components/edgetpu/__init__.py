@@ -8,6 +8,7 @@ import multiprocessing as mp
 import subprocess as sp
 import threading
 from abc import abstractmethod
+from queue import Empty
 from typing import TYPE_CHECKING
 
 import voluptuous as vol
@@ -154,8 +155,10 @@ def available_devices() -> list[str]:
             [
                 "/usr/bin/python3.9",
                 "-c",
-                "from pycoral.utils.edgetpu import list_edge_tpus;"
-                "print(list_edge_tpus())",
+                (
+                    "from pycoral.utils.edgetpu import list_edge_tpus;"
+                    "print(list_edge_tpus())"
+                ),
             ],
             capture_output=True,
             text=True,
@@ -362,7 +365,10 @@ class EdgeTPU(SubProcessWorker):
                 "frame_resolution": frame_resolution,
             },
         )
-        item = result_queue.get()
+        try:
+            item = result_queue.get(timeout=3)
+        except Empty:
+            return None
         return item["result"]
 
     def work_output(self, item) -> None:

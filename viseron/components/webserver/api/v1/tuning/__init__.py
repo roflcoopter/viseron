@@ -6,6 +6,7 @@ from .face_recognition import FaceRecognitionTuningHandler
 from .license_plate_recognition import LicensePlateRecognitionTuningHandler
 from .motion_detector import MotionDetectorTuningHandler
 from .object_detector import ObjectDetectorTuningHandler
+from .onvif import OnvifTuningHandler
 
 __all__ = [
     "BaseTuningHandler",
@@ -14,4 +15,5 @@ __all__ = [
     "LicensePlateRecognitionTuningHandler",
     "MotionDetectorTuningHandler",
     "ObjectDetectorTuningHandler",
+    "OnvifTuningHandler",
 ]

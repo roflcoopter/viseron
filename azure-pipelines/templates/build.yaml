@@ -6,7 +6,6 @@ parameters:
       - amd64
       - amd64-cuda
       - jetson-nano
-      - rpi3
   - name: namespace
     type: string
     default: roflcoopter
@@ -64,6 +63,10 @@ jobs:
               containerRegistry: "GHCR"
 
           - template: cleanup.yaml
+            parameters:
+              mode: pre
+              ${{ if startsWith(architecture, 'amd64') }}:
+                minFreeGb: 40
 
           - script: docker run --rm --privileged tonistiigi/binfmt --install all
             displayName: Register QEMU for cross-builds
@@ -242,3 +245,9 @@ jobs:
             inputs:
               command: logout
               containerRegistry: "GHCR"
+
+          - template: cleanup.yaml
+            parameters:
+              mode: post
+              ${{ if startsWith(architecture, 'amd64') }}:
+                minFreeGb: 40

@@ -8,6 +8,7 @@ import { createRoot } from "react-dom/client";
 import { ErrorBoundary } from "react-error-boundary";
 import { HashRouter as Router } from "react-router-dom";
 
+import DemoBanner from "components/DemoBanner";
 import {
   ErrorBoundaryInner,
   ErrorBoundaryOuter,
@@ -25,6 +26,12 @@ import "./index.css";
 window.addEventListener("vite:preloadError", (_event) => {
   window.location.reload();
 });
+
+// Mocked demo build. Must resolve before rendering so the app's first requests
+// are already intercepted.
+if (import.meta.env.VITE_MOCK_API === "true") {
+  await import("./demo/bootstrap");
+}
 
 const container = document.getElementById("root");
 const root = createRoot(container!);
@@ -46,6 +53,7 @@ root.render(
               </ErrorBoundary>
             </Router>
             <ToastContainer />
+            <DemoBanner />
           </QueryClientProvider>
         </LocalizationProvider>
       </ColorModeProvider>

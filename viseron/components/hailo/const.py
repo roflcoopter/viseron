@@ -1,4 +1,5 @@
 """Constants for the Hailo component."""
+
 from typing import Final
 
 COMPONENT: Final = "hailo"

@@ -305,7 +305,8 @@ class Hailo8Detector(ChildProcessWorker):
 class HailoInfer:
     """Helper around Hailo SDK to perform asynchronous inference.
 
-    Based on https://raw.githubusercontent.com/hailo-ai/Hailo-Application-Code-Examples/refs/heads/main/runtime/hailo-8/python/common/hailo_inference.py #pylint: disable=line-too-long
+    Based on:
+    https://raw.githubusercontent.com/hailo-ai/Hailo-Application-Code-Examples/refs/heads/main/runtime/hailo-8/python/common/hailo_inference.py # noqa: E501
     """  # noqa: E501
 
     def __init__(

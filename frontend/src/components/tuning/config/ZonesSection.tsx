@@ -1,5 +1,5 @@
-import { AddAlt, AreaCustom } from "@carbon/icons-react";
-import { Box, Button, Typography } from "@mui/material";
+import { AddAlt, AreaCustom, Help } from "@carbon/icons-react";
+import { Box, Button, Tooltip, Typography } from "@mui/material";
 import { MouseEvent } from "react";
 
 import { Zone } from "../object_detector/types";
@@ -35,7 +35,16 @@ export function ZonesSection({
         alignItems="center"
         mb={1}
       >
-        <Typography variant="subtitle2">Zones</Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography variant="subtitle2">Zones</Typography>
+          <Tooltip
+            title="Zones are used to define areas in the cameras field of view where you want to look for certain objects (labels)."
+            arrow
+            placement="top"
+          >
+            <Help size={16} />
+          </Tooltip>
+        </Box>
         <Button
           size="small"
           startIcon={<AddAlt size={16} />}
@@ -46,21 +55,37 @@ export function ZonesSection({
         </Button>
       </Box>
       {zones && Array.isArray(zones) && zones.length > 0 ? (
-        zones.map((zone: Zone, index: number) => (
-          <Button
-            key={zone.name || `zone-${index}`}
-            variant={selectedZoneIndex === index ? "contained" : "outlined"}
-            fullWidth
-            sx={{ mb: 1, justifyContent: "flex-start" }}
-            onClick={() => onZoneClick(index)}
-            onContextMenu={(e) => onContextMenu(e, "zone", index)}
-            disabled={isDrawingMode || isSaving}
-            color="success"
-            startIcon={<AreaCustom />}
-          >
-            {zone.name || `Zone ${index + 1}`}
-          </Button>
-        ))
+        <Box display="flex" flexDirection="column" gap={1}>
+          {zones.map((zone: Zone, index: number) => (
+            <Button
+              key={zone.name || `zone-${index}`}
+              variant={selectedZoneIndex === index ? "contained" : "outlined"}
+              fullWidth
+              sx={{
+                p: 1.5,
+                display: "flex",
+                justifyContent: "flex-start",
+                textTransform: "none",
+              }}
+              onClick={() => onZoneClick(index)}
+              onContextMenu={(e) => onContextMenu(e, "zone", index)}
+              disabled={isDrawingMode || isSaving}
+              color="success"
+            >
+              <AreaCustom size={20} style={{ marginRight: 8, flexShrink: 0 }} />
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 500,
+                  flexGrow: 1,
+                  textAlign: "left",
+                }}
+              >
+                {zone.name || `Zone ${index + 1}`}
+              </Typography>
+            </Button>
+          ))}
+        </Box>
       ) : (
         <Typography
           variant="caption"

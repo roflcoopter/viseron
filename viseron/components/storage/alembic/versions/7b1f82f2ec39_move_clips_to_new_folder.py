@@ -55,7 +55,7 @@ def process_clip(old_subcategory: str, new_subcategory: str) -> None:
     """Move clips from old_subcategory to new_subcategory."""
     connection = op.get_bind()
     files = connection.execute(
-        sa.select(Files)
+        sa.select(Files.id, Files.path)
         .where(Files.category == "recorder")
         .where(Files.subcategory == old_subcategory)
     )
