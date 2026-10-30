@@ -9,7 +9,11 @@ from contextlib import ExitStack
 from unittest.mock import MagicMock, patch
 
 from viseron.components.ffmpeg import stream
-from viseron.components.ffmpeg.const import MAX_EMPTY_FRAMES
+from viseron.components.ffmpeg.const import (
+    DEFAULT_RESTART_DELAY,
+    MAX_EMPTY_FRAMES,
+    MAX_RESTART_DELAY,
+)
 from viseron.components.ffmpeg.frame_reader import (
     FrameReaderConfig,
     frame_reader_logger_name,
@@ -141,3 +145,56 @@ def test_decode_error_restarts_the_same_pipe() -> None:
     assert ffmpeg_pipe.return_value.start.call_count == 2
     assert ffmpeg_pipe.return_value.close.call_count == 2
     assert frame_queue.get_nowait() == b"1234"
+
+
+def test_restart_delay_backs_off_exponentially() -> None:
+    """A dead camera must retry less often instead of every 5 seconds."""
+    iterations = 8
+    capture_frames = MagicMock()
+    capture_frames.is_set.side_effect = [True] * iterations + [False]
+    decode_error = MagicMock()
+    decode_error.is_set.return_value = True
+    frame_queue = _FakeQueue(maxsize=2)
+
+    with ExitStack() as stack:
+        ffmpeg_pipe, _ = _enter_patches(stack)
+        sleep = stack.enter_context(
+            patch("viseron.components.ffmpeg.frame_reader.time.sleep")
+        )
+        ffmpeg_pipe.return_value.read.return_value = None
+        run_frame_reader(_config(), frame_queue, capture_frames, decode_error)
+
+    assert [call.args[0] for call in sleep.call_args_list] == [
+        DEFAULT_RESTART_DELAY,
+        10,
+        20,
+        40,
+        MAX_RESTART_DELAY,
+        MAX_RESTART_DELAY,
+        MAX_RESTART_DELAY,
+        MAX_RESTART_DELAY,
+    ]
+
+
+def test_restart_delay_resets_after_a_frame() -> None:
+    """A successful frame must reset the backoff to the base delay."""
+    capture_frames = MagicMock()
+    capture_frames.is_set.side_effect = [True] * 4 + [False]
+    decode_error = MagicMock()
+    # Fail, fail, then recover (frame read), then fail again
+    decode_error.is_set.side_effect = [True, True, False, True]
+    frame_queue = _FakeQueue(maxsize=2)
+
+    with ExitStack() as stack:
+        ffmpeg_pipe, _ = _enter_patches(stack)
+        sleep = stack.enter_context(
+            patch("viseron.components.ffmpeg.frame_reader.time.sleep")
+        )
+        ffmpeg_pipe.return_value.read.side_effect = [None, None, b"1234", None]
+        run_frame_reader(_config(), frame_queue, capture_frames, decode_error)
+
+    assert [call.args[0] for call in sleep.call_args_list] == [
+        DEFAULT_RESTART_DELAY,
+        10,
+        DEFAULT_RESTART_DELAY,
+    ]
