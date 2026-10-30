@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import datetime
+import pickle
 import shutil
 import tempfile
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from multiprocessing.context import set_spawning_popen
+from multiprocessing.reduction import ForkingPickler
+from typing import TYPE_CHECKING, Any, TypeVar
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -41,6 +44,22 @@ STORAGE_PATH_TARGETS = (
     "viseron.helpers.storage.STORAGE_PATH",
     "viseron.components.webserver.auth.STORAGE_PATH",
 )
+
+T = TypeVar("T")
+
+
+def pickle_for_child_process(obj: T) -> T:
+    """Return obj after the pickle round trip made when starting a child process.
+
+    Multiprocessing primitives such as Event refuse to be pickled unless a child
+    process is being spawned, so pretend that one is.
+    """
+    set_spawning_popen(object())
+    try:
+        data = ForkingPickler.dumps(obj)
+    finally:
+        set_spawning_popen(None)
+    return pickle.loads(data)  # noqa: S301
 
 
 @contextmanager
