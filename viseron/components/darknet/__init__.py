@@ -22,13 +22,12 @@ from viseron.domains.object_detector.const import CONFIG_CAMERAS
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.exceptions import ViseronError
 from viseron.helpers import letterbox_resize, pop_if_full
+from viseron.helpers.child_process_context import get_child_process_context
 from viseron.helpers.child_process_worker import ChildProcessWorker
-from viseron.helpers.logs import CTypesLogPipe
 from viseron.helpers.schemas import FLOAT_MIN_ZERO_MAX_ONE
 from viseron.helpers.subprocess_worker import SubProcessWorker
 from viseron.watchdog.subprocess_watchdog import RestartablePopen
 
-from . import darknet
 from .const import (
     COMPONENT,
     CONFIG_DNN_BACKEND,
@@ -62,6 +61,7 @@ from .const import (
     DNN_OPENCV,
     DNN_TARGETS,
 )
+from .native_process import DarknetNativeWork
 
 if TYPE_CHECKING:
     import numpy as np
@@ -379,14 +379,23 @@ class DarknetNative(BaseDarknet, ChildProcessWorker):
 
         self.create_data_file(config, self.labels)
 
-        self._darknet = darknet.DarknetWrapper(config[CONFIG_HALF_PRECISION])
-        self._network = None
-        self._labels = None
-        self._darknet_image = None
-
-        self._process_initialization_done = mp.Event()
-        ChildProcessWorker.__init__(self, vis, f"{COMPONENT}.{CONFIG_OBJECT_DETECTOR}")
+        self._process_initialization_done = get_child_process_context().Event()
+        ChildProcessWorker.__init__(
+            self,
+            vis,
+            f"{COMPONENT}.{CONFIG_OBJECT_DETECTOR}",
+            DarknetNativeWork(
+                half_precision=config[CONFIG_HALF_PRECISION],
+                model_config=config[CONFIG_MODEL_CONFIG],
+                data_path=self.darknet_data_path,
+                model_path=config[CONFIG_MODEL_PATH],
+                model_width=self._model_width,
+                model_height=self._model_height,
+                initialization_done=self._process_initialization_done,
+            ),
+        )
         if not self._process_initialization_done.wait(timeout=15):
+            self.stop()
             raise LoadDarknetError("Failed to load Darknet network in child process")
 
     def create_data_file(self, config, labels) -> None:
@@ -395,39 +404,6 @@ class DarknetNative(BaseDarknet, ChildProcessWorker):
         with open(self.darknet_data_path, "w", encoding="utf-8") as data_file:
             data_file.write(f"classes={len(labels)}\n")
             data_file.write(f"names={config[CONFIG_LABEL_PATH]}")
-
-    def process_initialization(self) -> None:
-        """Load network inside the child process."""
-        self._darknet_image = self._darknet.make_image(
-            self._model_width, self._model_height, 3
-        )
-
-        logger = logging.getLogger(f"{__name__}.libdarknet")
-        logpipe = CTypesLogPipe(logger, logging.DEBUG, 1)
-        self._network, self._labels = self._darknet.load_network(
-            self._config[CONFIG_MODEL_CONFIG],
-            self.darknet_data_path,
-            self._config[CONFIG_MODEL_PATH],
-            batch_size=1,
-        )
-        logpipe.close()
-        self._process_initialization_done.set()
-
-    def _detect(self, frame: bytes, min_confidence):
-        """Run detection on frame."""
-        self._darknet.copy_image_from_bytes(self._darknet_image, frame)
-        detections = self._darknet.detect_image(
-            self._network,
-            self._labels,
-            self._darknet_image,
-            thresh=min_confidence,
-        )
-        return detections
-
-    def work_input(self, item):
-        """Perform object detection."""
-        item["result"] = self._detect(item["frame"], item["min_confidence"])
-        return item
 
     def work_output(self, item) -> None:
         """Put result into queue."""
