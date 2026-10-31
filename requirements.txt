@@ -34,7 +34,7 @@ requests-toolbelt==1.0.0
 scikit-learn==1.9.1
 scipy==1.17.1
 supervision==0.31.0
-tornado==6.5.10
+tornado==6.6
 tzlocal==5.4.4
 typing-extensions==4.16.0
 urllib3==2.8.0
