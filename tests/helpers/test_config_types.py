@@ -7,7 +7,7 @@ import warnings
 from typing import Annotated, Any
 
 import pytest
-from pydantic import Field, TypeAdapter, ValidationError
+from pydantic import Field, SecretStr, TypeAdapter, ValidationError
 
 from viseron.helpers.config_model import ConfigModel
 from viseron.helpers.config_types import (
@@ -21,6 +21,7 @@ from viseron.helpers.config_types import (
     Lower,
     NoneToDict,
     OneOf,
+    SecretJinja2Template,
     Slug,
     Timezone,
     Undefinable,
@@ -53,6 +54,12 @@ ACCEPTED: list[tuple[str, Any, Any, Any]] = [
     ("CronExpression", CronExpression, "0 8 * * mon-fri", "0 8 * * mon-fri"),
     ("Timezone", Timezone, "Europe/Stockholm", "Europe/Stockholm"),
     ("Jinja2Template", Jinja2Template, "{{ a }}", "{{ a }}"),
+    (
+        "SecretJinja2Template",
+        SecretJinja2Template,
+        "{{ a }}",
+        SecretStr("{{ a }}"),
+    ),
     ("Url", Url, "http://example.com/x", "http://example.com/x"),
     ("ExistingPath", ExistingPath, "/", "/"),
     ("FloatZeroToOne", FloatZeroToOne, 0.5, 0.5),
@@ -83,6 +90,8 @@ REJECTED: list[tuple[str, Any, Any]] = [
     ("Timezone", Timezone, 5),
     ("Jinja2Template", Jinja2Template, "{{ a"),
     ("Jinja2Template", Jinja2Template, 5),
+    ("SecretJinja2Template", SecretJinja2Template, "{{ a"),
+    ("SecretJinja2Template", SecretJinja2Template, 5),
     ("Url", Url, "example.com"),
     ("Url", Url, 5),
     ("ExistingPath", ExistingPath, "/does/not/exist"),
@@ -154,6 +163,12 @@ def test_config_type_rejects(type_: Any, value: Any) -> None:
             "{{ a",
             "Input should be a valid Jinja2 template, unexpected end of template",
             id="Jinja2Template",
+        ),
+        pytest.param(
+            SecretJinja2Template,
+            "{{ a",
+            "Input should be a valid Jinja2 template, unexpected end of template",
+            id="SecretJinja2Template",
         ),
         pytest.param(Url, "example.com", "Input should be a valid URL", id="Url"),
         pytest.param(

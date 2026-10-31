@@ -14,6 +14,7 @@ from pydantic import (
     BeforeValidator,
     Field,
     GetCoreSchemaHandler,
+    SecretStr,
     SerializerFunctionWrapHandler,
     StringConstraints,
     WrapSerializer,
@@ -147,6 +148,11 @@ def _jinja2_template(value: str) -> str:
     return value
 
 
+def _secret_jinja2_template(value: SecretStr) -> SecretStr:
+    _jinja2_template(value.get_secret_value())
+    return value
+
+
 def _url(value: str) -> str:
     parsed = urlparse(value)
     if not parsed.scheme or not parsed.netloc:
@@ -187,6 +193,13 @@ Timezone = Annotated[str, AfterValidator(_timezone)]
 Jinja2Template = Annotated[
     str,
     AfterValidator(_jinja2_template),
+    Docs(type="jinja2_template", value="jinja2_template"),
+]
+
+# A template whose value is a secret, such as a header carrying a token.
+SecretJinja2Template = Annotated[
+    SecretStr,
+    AfterValidator(_secret_jinja2_template),
     Docs(type="jinja2_template", value="jinja2_template"),
 ]
 
