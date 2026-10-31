@@ -41,7 +41,10 @@ from viseron.components.storage.models import (
     PostProcessorResults,
     Recordings,
 )
-from viseron.components.storage.storage_subprocess import DataItemMoveFile
+from viseron.components.storage.storage_subprocess import (
+    DataItemDeleteFile,
+    DataItemMoveFile,
+)
 from viseron.components.storage.tier_handler import (
     SNAPSHOT_REFERENCE_MODELS,
     EventClipTierHandler,
@@ -1187,6 +1190,33 @@ def test_failed_move_does_not_hand_over_row(
     tier0._on_deleted(FileDeletedEvent(src))
 
     assert not _file_keys(db_storage)
+
+
+def test_move_file_without_row_only_deletes(
+    vis: MockViseron, db_storage: Mock, tmp_path: Path
+) -> None:
+    """Test that a file without a database row is deleted instead of moved."""
+    src = os.path.join(tmp_path, "tier0", "1.m4s")
+    dst = os.path.join(tmp_path, "tier1", "1.m4s")
+
+    move_file(
+        vis,
+        db_storage,
+        db_storage.get_session,
+        "test",
+        0,
+        TIER_CATEGORY_RECORDER,
+        TIER_SUBCATEGORY_SEGMENTS,
+        src,
+        dst,
+        os.path.join(tmp_path, "tier1"),
+        logging.getLogger(__name__),
+    )
+
+    # A move sent as well would race the delete in the worker threads
+    db_storage.tier_check_worker_send_command.assert_called_once_with(
+        DataItemDeleteFile(cmd="delete_file", src=src), callback=None
+    )
 
 
 def test_new_files_get_distinct_file_keys(

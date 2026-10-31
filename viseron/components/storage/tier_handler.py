@@ -1254,6 +1254,7 @@ def move_file(
             storage,
             src,
         )
+        return
 
     def _move_file_callback(
         item: DataItemMoveFile,
