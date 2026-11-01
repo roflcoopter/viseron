@@ -5,36 +5,16 @@ from typing import Final
 COMPONENT: Final = "webhook"
 
 
-# CONFIG_SCHEMA constants
 DESC_COMPONENT: Final = "Webhook component configuration."
 
 SUPPORTED_METHODS = ["get", "patch", "post", "put", "delete"]
 
 DESC_HOOK = "Hook configuration."
-CONFIG_TRIGGER: Final = "trigger"
-CONFIG_EVENT: Final = "event"
-CONFIG_CONDITION: Final = "condition"
-CONFIG_URL: Final = "url"
-CONFIG_METHOD: Final = "method"
-CONFIG_HEADERS: Final = "headers"
-CONFIG_USERNAME: Final = "username"
-CONFIG_PASSWORD: Final = "password"  # noqa: S105
-CONFIG_PAYLOAD: Final = "payload"
-CONFIG_TIMEOUT: Final = "timeout"
-CONFIG_CONTENT_TYPE: Final = "content_type"
-CONFIG_VERIFY_SSL: Final = "verify_ssl"
-CONFIG_CA_CERT: Final = "ca_cert"
 
-DEFAULT_CONDITION: Final = None
-DEFAULT_HEADERS: Final = None
-DEFAULT_USERNAME: Final = None
-DEFAULT_PASSWORD: Final = None
-DEFAULT_PAYLOAD: Final = None
 DEFAULT_CONTENT_TYPE: Final = "application/json"
 DEFAULT_TIMEOUT: Final = 10
 DEFAULT_METHOD: Final = "get"
 DEFAULT_VERIFY_SSL: Final = True
-DEFAULT_CA_CERT: Final = None
 
 DESC_TRIGGER: Final = "The trigger configuration for the webhook."
 DESC_EVENT: Final = "The event type that triggers the webhook."
@@ -60,6 +40,5 @@ DESC_CA_CERT: Final = (
     "Authority."
 )
 
-INCLUSION_GROUP_AUTHENTICATION: Final = "authentication"
 
 MESSAGE_AUTHENTICATION = "username and password must be provided together"

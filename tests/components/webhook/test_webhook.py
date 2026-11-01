@@ -2,225 +2,208 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+import logging
+from typing import TYPE_CHECKING, Any
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from viseron.components.webhook import CONFIG_PAYLOAD, HOOK_SCHEMA, Webhook
+from viseron.components.webhook import CONFIG_SCHEMA, setup, unload
+from viseron.components.webhook.const import COMPONENT
+from viseron.events import Event
+from viseron.helpers.config_validation import validate_config
 
-HOOK_CONFIG: dict = {
-    "trigger": {"event": "test_event", "condition": None},
-    "url": "http://localhost/test",
-    "method": "post",
-    "headers": {},
-    "username": None,
-    "password": None,
-    "payload": '{"name": "{{ name }}"}',
-    "timeout": 10,
-    "content_type": "application/json",
-    "verify_ssl": True,
-    "ca_cert": None,
-}
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
 
-VALID_URL = "http://localhost/test"
-UTF8_PAYLOAD = '{"name": "\u0159"}'
-ASCII_PAYLOAD = '{"name": "john"}'
+    from tests.conftest import MockViseron
 
+    Trigger = Callable[..., MagicMock]
 
-@pytest.fixture(name="vis")
-def fixture_vis():
-    """Create a mock Viseron instance."""
-    vis = MagicMock()
-    vis.data = {}
-    vis.listen_event = MagicMock()
-    vis.jinja_env = MagicMock()
-    vis.states = MagicMock()
-    return vis
-
-
-class TestPayloadEncoding:
-    """Tests for webhook payload encoding behavior."""
-
-    @patch("viseron.components.webhook.requests.request")
-    def test_utf8_chars_encoded_as_bytes(
-        self, mock_request: MagicMock, vis: MagicMock
-    ) -> None:
-        """Test that payloads with UTF-8 characters are encoded as bytes.
-
-        The requests library defaults to latin-1 encoding when data is a str
-        without an explicit charset in Content-Type. Payloads containing
-        non-ASCII characters like 'ř' (U+0159) must be pre-encoded to UTF-8
-        bytes to avoid UnicodeEncodeError.
-        """
-        mock_render = MagicMock()
-        mock_render.side_effect = [VALID_URL, UTF8_PAYLOAD]
-
-        with (
-            patch("viseron.components.webhook.render_template", mock_render),
-            patch(
-                "viseron.components.webhook.render_template_condition",
-                return_value=(True, "true"),
-            ),
-        ):
-            webhook = Webhook(vis, {"test_hook": HOOK_CONFIG})
-            webhook._handle_event(HOOK_CONFIG, {"name": "ř"}, "test_hook")
-
-        mock_request.assert_called_once()
-        _, kwargs = mock_request.call_args
-        data_arg = kwargs["data"]
-
-        assert isinstance(data_arg, bytes), (
-            f"Expected data to be bytes, got {type(data_arg)}: {data_arg!r}"
-        )
-        assert data_arg == UTF8_PAYLOAD.encode("utf-8"), (
-            f"Expected UTF-8 encoded bytes, got {data_arg!r}"
-        )
-
-    @patch("viseron.components.webhook.requests.request")
-    def test_ascii_payload_still_works(
-        self, mock_request: MagicMock, vis: MagicMock
-    ) -> None:
-        """Test that ASCII-only payloads are still encoded correctly."""
-        mock_render = MagicMock()
-        mock_render.side_effect = [VALID_URL, ASCII_PAYLOAD]
-
-        with (
-            patch("viseron.components.webhook.render_template", mock_render),
-            patch(
-                "viseron.components.webhook.render_template_condition",
-                return_value=(True, "true"),
-            ),
-        ):
-            webhook = Webhook(vis, {"test_hook": HOOK_CONFIG})
-            webhook._handle_event(HOOK_CONFIG, {"name": "john"}, "test_hook")
-
-        mock_request.assert_called_once()
-        _, kwargs = mock_request.call_args
-        data_arg = kwargs["data"]
-
-        assert isinstance(data_arg, bytes), (
-            f"Expected data to be bytes, got {type(data_arg)}: {data_arg!r}"
-        )
-        assert data_arg == ASCII_PAYLOAD.encode("utf-8")
-
-    @patch("viseron.components.webhook.requests.request")
-    def test_none_payload_not_encoded(
-        self, mock_request: MagicMock, vis: MagicMock
-    ) -> None:
-        """Test that None payload is passed as None, not encoded."""
-        mock_render = MagicMock()
-        mock_render.side_effect = [VALID_URL, None]
-
-        hook_config_no_payload = dict(HOOK_CONFIG)
-        hook_config_no_payload[CONFIG_PAYLOAD] = None
-
-        with (
-            patch("viseron.components.webhook.render_template", mock_render),
-            patch(
-                "viseron.components.webhook.render_template_condition",
-                return_value=(True, "true"),
-            ),
-        ):
-            webhook = Webhook(vis, {"test_hook": hook_config_no_payload})
-            webhook._handle_event(hook_config_no_payload, {}, "test_hook")
-
-        mock_request.assert_called_once()
-        _, kwargs = mock_request.call_args
-        assert kwargs["data"] is None
-
-
+EVENT = "camera_one/motion_detected"
+URL = "http://localhost/test"
 CA_CERT_PATH = "/path/to/ca.pem"
 
 
-class TestVerify:
-    """Tests for how the webhook resolves the requests ``verify`` argument."""
-
-    @staticmethod
-    def _run(vis: MagicMock, hook_conf: dict) -> MagicMock:
-        """Drive ``_handle_event`` and return the patched ``requests.request``."""
-        mock_render = MagicMock()
-        mock_render.side_effect = [VALID_URL, ASCII_PAYLOAD]
-
-        with (
-            patch("viseron.components.webhook.requests.request") as mock_request,
-            patch("viseron.components.webhook.render_template", mock_render),
-            patch(
-                "viseron.components.webhook.render_template_condition",
-                return_value=(True, "true"),
-            ),
-        ):
-            webhook = Webhook(vis, {"test_hook": hook_conf})
-            webhook._handle_event(hook_conf, {"name": "john"}, "test_hook")
-        return mock_request
-
-    def test_ca_cert_used_as_verify(self, vis: MagicMock) -> None:
-        """A configured ca_cert path is passed as the verify argument."""
-        hook_conf = dict(HOOK_CONFIG)
-        hook_conf["ca_cert"] = CA_CERT_PATH
-
-        mock_request = self._run(vis, hook_conf)
-
-        mock_request.assert_called_once()
-        _, kwargs = mock_request.call_args
-        assert kwargs["verify"] == CA_CERT_PATH
-
-    def test_verify_ssl_true_when_no_ca_cert(self, vis: MagicMock) -> None:
-        """Without ca_cert the boolean verify_ssl value is used unchanged."""
-        hook_conf = dict(HOOK_CONFIG)
-        hook_conf["ca_cert"] = None
-        hook_conf["verify_ssl"] = True
-
-        mock_request = self._run(vis, hook_conf)
-
-        mock_request.assert_called_once()
-        _, kwargs = mock_request.call_args
-        assert kwargs["verify"] is True
-
-    def test_verify_ssl_false_when_no_ca_cert(self, vis: MagicMock) -> None:
-        """verify_ssl: False is still honored when no ca_cert is set."""
-        hook_conf = dict(HOOK_CONFIG)
-        hook_conf["ca_cert"] = None
-        hook_conf["verify_ssl"] = False
-
-        mock_request = self._run(vis, hook_conf)
-
-        mock_request.assert_called_once()
-        _, kwargs = mock_request.call_args
-        assert kwargs["verify"] is False
-
-    def test_ca_cert_takes_precedence_over_verify_ssl(self, vis: MagicMock) -> None:
-        """ca_cert wins over verify_ssl when both are provided."""
-        hook_conf = dict(HOOK_CONFIG)
-        hook_conf["ca_cert"] = CA_CERT_PATH
-        hook_conf["verify_ssl"] = False
-
-        mock_request = self._run(vis, hook_conf)
-
-        mock_request.assert_called_once()
-        _, kwargs = mock_request.call_args
-        assert kwargs["verify"] == CA_CERT_PATH
+def make_config(**keys: Any) -> dict[str, Any]:
+    """Return a config with one hook, test_hook, that has the given keys."""
+    return {COMPONENT: {"test_hook": {"trigger": {"event": EVENT}, "url": URL, **keys}}}
 
 
-class TestSchema:
-    """Tests for HOOK_SCHEMA validation of the ca_cert option."""
+@pytest.fixture(name="request_mock")
+def fixture_request_mock() -> Iterator[MagicMock]:
+    """Patch the HTTP request sent by the webhook."""
+    with patch("viseron.components.webhook.requests.request") as request:
+        yield request
 
-    def test_ca_cert_accepts_string(self) -> None:
-        """A string ca_cert validates and is preserved."""
-        validated = HOOK_SCHEMA(
-            {
-                "trigger": {"event": "test_event"},
-                "url": VALID_URL,
-                "ca_cert": CA_CERT_PATH,
-            }
+
+@pytest.fixture(name="trigger")
+def fixture_trigger(vis: MockViseron, request_mock: MagicMock) -> Trigger:
+    """Return a function that sets up the webhook and fires its event.
+
+    It returns the patched requests.request.
+    """
+
+    def _trigger(event_data: dict[str, Any] | None = None, **keys: Any) -> MagicMock:
+        setup(vis, validate_config(CONFIG_SCHEMA, make_config(**keys)))
+        handler = vis.listen_event.call_args.args[1]
+        handler(Event(EVENT, event_data or {}, 0.0))
+        return request_mock
+
+    return _trigger
+
+
+def request_kwargs(request_mock: MagicMock) -> dict[str, Any]:
+    """Return the keyword arguments of the only request that was sent."""
+    request_mock.assert_called_once()
+    return request_mock.call_args.kwargs
+
+
+def test_listens_to_the_event_of_each_hook(vis: MockViseron) -> None:
+    """Each hook listens to its own trigger event, and unload stops listening."""
+    config = make_config()
+    config[COMPONENT]["other_hook"] = {"trigger": {"event": "other"}, "url": URL}
+    setup(vis, validate_config(CONFIG_SCHEMA, config))
+
+    assert [listen.args[0] for listen in vis.listen_event.call_args_list] == [
+        EVENT,
+        "other",
+    ]
+    unload(vis)
+    assert vis.listen_event.return_value.call_args_list == [call(), call()]
+    assert COMPONENT not in vis.data
+
+
+def test_defaults(trigger: Trigger) -> None:
+    """A minimal hook sends a GET request with the default options."""
+    assert request_kwargs(trigger()) == {
+        "method": "get",
+        "url": URL,
+        "data": None,
+        "headers": {"Content-Type": "application/json"},
+        "timeout": 10,
+        "verify": True,
+        "auth": None,
+    }
+
+
+def test_every_option(trigger: Trigger) -> None:
+    """Every option of a hook reaches the request, templates rendered."""
+    kwargs = request_kwargs(
+        trigger(
+            {"camera_identifier": "camera_one", "token": "abc"},
+            url="http://localhost/{{ event.camera_identifier }}",
+            method="PUT",
+            headers={
+                "Authorization": "Bearer {{ event.token }}",
+                "X-Static": "static",
+            },
+            username="user",
+            password="pass",
+            payload='{"camera": "{{ event.camera_identifier }}"}',
+            timeout=5,
+            content_type="text/plain",
+            verify_ssl=False,
         )
-        assert validated["ca_cert"] == CA_CERT_PATH
+    )
+    assert kwargs == {
+        "method": "put",
+        "url": "http://localhost/camera_one",
+        "data": b'{"camera": "camera_one"}',
+        "headers": {
+            "Authorization": "Bearer abc",
+            "X-Static": "static",
+            "Content-Type": "text/plain",
+        },
+        "timeout": 5,
+        "verify": False,
+        "auth": ("user", "pass"),
+    }
 
-    def test_ca_cert_defaults_to_none(self) -> None:
-        """Omitting ca_cert defaults it to None."""
-        validated = HOOK_SCHEMA(
-            {
-                "trigger": {"event": "test_event"},
-                "url": VALID_URL,
-            }
-        )
-        assert validated["ca_cert"] is None
+
+@pytest.mark.parametrize(
+    ("condition", "sent"),
+    [
+        ("{{ event.motion_detected }}", True),
+        ("{{ not event.motion_detected }}", False),
+    ],
+)
+def test_condition(trigger: Trigger, condition: str, sent: bool) -> None:
+    """The request is only sent if the condition renders to a truthy value."""
+    request_mock = trigger(
+        {"motion_detected": True},
+        trigger={"event": EVENT, "condition": condition},
+    )
+    assert request_mock.called is sent
+
+
+@pytest.mark.parametrize("url", ["{{ event.url }}", None])
+def test_empty_url_is_skipped(trigger: Trigger, url: str | None) -> None:
+    """No request is sent if the URL renders to an empty string or is null."""
+    assert not trigger({"url": ""}, url=url).called
+
+
+def test_empty_content_type_sends_no_header(trigger: Trigger) -> None:
+    """An empty content_type leaves the Content-Type header out."""
+    assert request_kwargs(trigger(content_type=""))["headers"] == {}
+
+
+def test_header_rendered_empty_is_left_out(trigger: Trigger) -> None:
+    """A header whose value renders to nothing is not sent."""
+    kwargs = request_kwargs(trigger(headers={"X-Empty": ""}))
+    assert kwargs["headers"] == {"Content-Type": "application/json"}
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        pytest.param('{"name": "ř"}', id="utf8"),
+        pytest.param('{"name": "john"}', id="ascii"),
+    ],
+)
+def test_payload_encoded_as_utf8(trigger: Trigger, payload: str) -> None:
+    """The payload is sent as UTF-8 bytes.
+
+    The requests library defaults to latin-1 encoding when data is a str
+    without an explicit charset in Content-Type. Payloads containing
+    non-ASCII characters like 'ř' (U+0159) must be pre-encoded to UTF-8
+    bytes to avoid UnicodeEncodeError.
+    """
+    assert request_kwargs(trigger(payload=payload))["data"] == payload.encode("utf-8")
+
+
+@pytest.mark.parametrize(
+    ("keys", "verify"),
+    [
+        pytest.param({"ca_cert": CA_CERT_PATH}, CA_CERT_PATH, id="ca_cert"),
+        pytest.param({"verify_ssl": True}, True, id="verify_ssl_true"),
+        pytest.param({"verify_ssl": False}, False, id="verify_ssl_false"),
+        pytest.param(
+            {"ca_cert": CA_CERT_PATH, "verify_ssl": False},
+            CA_CERT_PATH,
+            id="ca_cert_over_verify_ssl",
+        ),
+    ],
+)
+def test_verify(trigger: Trigger, keys: dict[str, Any], verify: str | bool) -> None:
+    """A ca_cert path takes precedence over verify_ssl."""
+    assert request_kwargs(trigger(**keys))["verify"] == verify
+
+
+def test_header_values_are_not_logged(
+    trigger: Trigger, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Header values can be secrets, so only the header names are logged."""
+    caplog.set_level(logging.DEBUG, logger="viseron.components.webhook")
+    trigger(headers={"Authorization": "Bearer secret_token"})
+    assert "Authorization" in caplog.text
+    assert "secret_token" not in caplog.text
+
+
+def test_request_error_is_logged(
+    trigger: Trigger, request_mock: MagicMock, caplog: pytest.LogCaptureFixture
+) -> None:
+    """An error while sending the request is logged, not raised."""
+    request_mock.side_effect = OSError("boom")
+    trigger()
+    assert "Error sending webhook 'test_hook'" in caplog.text
