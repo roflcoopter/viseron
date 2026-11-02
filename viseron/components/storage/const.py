@@ -88,10 +88,6 @@ TIMELAPSE_SEGMENT_ENCODE_TIMEOUT = 60
 # Storage configuration
 DESC_COMPONENT = "Storage configuration."
 DEFAULT_COMPONENT: dict[str, Any] = {}
-CONFIG_TIER_CHECK_CPU_LIMIT: Final = "tier_check_cpu_limit"
-CONFIG_TIER_CHECK_WORKERS: Final = "tier_check_workers"
-CONFIG_TIER_CHECK_BATCH_SIZE: Final = "tier_check_batch_size"
-CONFIG_TIER_CHECK_SLEEP_BETWEEN_BATCHES: Final = "tier_check_sleep_between_batches"
 CONFIG_PATH: Final = "path"
 CONFIG_POLL: Final = "poll"
 CONFIG_MOVE_ON_SHUTDOWN: Final = "move_on_shutdown"

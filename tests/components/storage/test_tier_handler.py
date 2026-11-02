@@ -18,9 +18,9 @@ from sqlalchemy import event, insert, select, text
 from watchdog.events import FileCreatedEvent, FileDeletedEvent
 
 from viseron.components.storage import TIER_CATEGORIES, Storage
+from viseron.components.storage.config import RecorderTier, Tier
 from viseron.components.storage.const import (
     COMPONENT as STORAGE_COMPONENT,
-    CONFIG_DRAIN,
     CONFIG_PATH,
     CONFIG_RECORDER,
     LATEST_SNAPSHOT_FILENAME,
@@ -48,6 +48,7 @@ from viseron.components.storage.storage_subprocess import (
 from viseron.components.storage.tier_handler import (
     SNAPSHOT_REFERENCE_MODELS,
     EventClipTierHandler,
+    RetentionTierHandler,
     SegmentsTierHandler,
     SnapshotTierHandler,
     ThumbnailTierHandler,
@@ -86,9 +87,7 @@ _TierHandlerT = TypeVar("_TierHandlerT", bound=TierHandler)
 def test_handle_file_delete(mock_delete_file: Mock, vis: MockViseron) -> None:
     """Test handle_file."""
     file = "/tmp/tier1/file1"
-    tier_1 = {
-        "path": "/tmp/tier1",
-    }
+    tier_1 = Tier(path="/tmp/tier1")
     tier_2 = None
     session = MagicMock()
     logger = MagicMock()
@@ -115,12 +114,8 @@ def test_handle_file_move(mock_move_file: Mock, vis: MockViseron) -> None:
     """Test handle_file."""
     tier_1_file = "/tmp/tier1/file1"
     tier_2_file = "/tmp/tier2/file1"
-    tier_1 = {
-        "path": "/tmp/tier1/",
-    }
-    tier_2 = {
-        "path": "/tmp/tier2/",
-    }
+    tier_1 = Tier(path="/tmp/tier1/")
+    tier_2 = Tier(path="/tmp/tier2/")
     storage = MagicMock()
     session = MagicMock()
     logger = MagicMock()
@@ -160,7 +155,7 @@ def test_snapshot_tier_handler_ignores_the_latest_snapshot() -> None:
     tier_handler._storage = MagicMock(spec=Storage)
     tier_handler.add_file_handler = MagicMock()  # type: ignore[method-assign]
 
-    with patch.object(TierHandler, "initialize"):
+    with patch.object(RetentionTierHandler, "initialize"):
         tier_handler.initialize()
 
     tier_handler._storage.ignore_file.assert_called_once_with(LATEST_SNAPSHOT_FILENAME)
@@ -185,37 +180,15 @@ class MockFilesQueryResult:
     tier_path: str
 
 
-def _get_tier_config(events: bool, continuous: bool) -> dict[str, Any]:
+def _get_tier_config(events: bool, continuous: bool) -> RecorderTier:
     """Get tier config for test."""
-    max_age_events = None
-    max_age_continuous = None
-    if events:
-        max_age_events = 1
-    if continuous:
-        max_age_continuous = 1
-    return {
-        "path": "/",
-        "events": {
-            "max_age": {"days": max_age_events, "hours": None, "minutes": None},
-            "min_age": {"hours": None, "days": None, "minutes": None},
-            "min_size": {"gb": None, "mb": None},
-            "max_size": {"gb": None, "mb": None},
-        },
-        "move_on_shutdown": False,
-        "poll": False,
-        "continuous": {
-            "max_age": {"minutes": max_age_continuous, "hours": None, "days": None},
-            "min_age": {"minutes": None, "hours": None, "days": None},
-            "min_size": {"gb": None, "mb": None},
-            "max_size": {"gb": None, "mb": None},
-        },
-        "check_interval": {
-            "days": 0,
-            "hours": 0,
-            "minutes": 1,
-            "seconds": 0,
-        },
-    }
+    return RecorderTier.model_validate(
+        {
+            "path": "/",
+            "events": {"max_age": {"days": 1 if events else None}},
+            "continuous": {"max_age": {"minutes": 1 if continuous else None}},
+        }
+    )
 
 
 class TestSegmentsTierHandler(BaseTestWithRecordings):
@@ -316,7 +289,7 @@ class TestSegmentsTierHandler(BaseTestWithRecordings):
     def test__check_tier(
         self,
         vis: MockViseron,
-        tier: dict[str, Any],
+        tier: RecorderTier,
         data: NDArray[Any],
         recordings_amount: Literal[2, 3],
         first_recording_id: Literal[3, 1],
@@ -417,7 +390,7 @@ class TestSegmentsTierHandler(BaseTestWithRecordings):
     def test__check_tier_next_tier(
         self,
         vis: Viseron,
-        tiers_config: list[dict[str, Any]],
+        tiers_config: list[RecorderTier],
         recording_id: int,
         force_delete: bool,
         next_tier_index: int | None,
@@ -521,9 +494,7 @@ class TestCheckTierCallbackLifecycle:
                 CONFIG_SCHEDULE: None,
             }
         }
-        # _create_dataitem reads CONFIG_DRAIN, which _get_tier_config omits.
         tier_config = _get_tier_config(events=True, continuous=True)
-        tier_config[CONFIG_DRAIN] = False
 
         tier_handler = SegmentsTierHandler(
             vis,
@@ -733,7 +704,6 @@ def test_continuous_enabled_is_structural_only(vis: MockViseron) -> None:
     }
 
     tier = _get_tier_config(events=True, continuous=True)
-    tier[CONFIG_DRAIN] = False
     tier_handler = SegmentsTierHandler(
         vis,
         mock_camera,
@@ -768,7 +738,6 @@ def test_create_dataitem_passes_continuous_schedule_entries(
     }
 
     tier = _get_tier_config(events=True, continuous=True)
-    tier[CONFIG_DRAIN] = False
     tier_handler = SegmentsTierHandler(
         vis,
         mock_camera,
@@ -801,7 +770,6 @@ def test_create_dataitem_continuous_schedule_none_when_omitted(
     }
 
     tier = _get_tier_config(events=True, continuous=True)
-    tier[CONFIG_DRAIN] = False
     tier_handler = SegmentsTierHandler(
         vis,
         mock_camera,
@@ -862,7 +830,7 @@ def _make_bare_tier_handler(
     tier_handler._storage = storage
     tier_handler._camera = Mock(identifier="test")
     tier_handler._tier_id = tier_id
-    tier_handler._tier = {CONFIG_PATH: tier_path}
+    tier_handler._tier = Tier(path=tier_path)
     tier_handler._category = category
     tier_handler._subcategory = subcategory
     tier_handler.check_tier = Mock()  # type: ignore[method-assign]

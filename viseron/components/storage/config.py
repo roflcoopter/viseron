@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Literal, TypedDict
+from datetime import timedelta
+from typing import TYPE_CHECKING, Annotated, Any, Final, Literal
 
 import voluptuous as vol
+from pydantic import AfterValidator, Field, ValidationError, model_validator
+from pydantic_core import PydanticCustomError
+from typing_extensions import Self
 
 from viseron.components.storage.const import (
     COMPONENT,
@@ -34,10 +38,6 @@ from viseron.components.storage.const import (
     CONFIG_RECORDER,
     CONFIG_SECONDS,
     CONFIG_SNAPSHOTS,
-    CONFIG_TIER_CHECK_BATCH_SIZE,
-    CONFIG_TIER_CHECK_CPU_LIMIT,
-    CONFIG_TIER_CHECK_SLEEP_BETWEEN_BATCHES,
-    CONFIG_TIER_CHECK_WORKERS,
     CONFIG_TIERS,
     CONFIG_TIMELAPSE,
     DEFAULT_CHECK_INTERVAL,
@@ -45,6 +45,7 @@ from viseron.components.storage.const import (
     DEFAULT_CHECK_INTERVAL_HOURS,
     DEFAULT_CHECK_INTERVAL_MINUTES,
     DEFAULT_CHECK_INTERVAL_SECONDS,
+    DEFAULT_COMPONENT,
     DEFAULT_CONTINUOUS,
     DEFAULT_DAYS,
     DEFAULT_DRAIN,
@@ -80,6 +81,7 @@ from viseron.components.storage.const import (
     DESC_CHECK_INTERVAL_HOURS,
     DESC_CHECK_INTERVAL_MINUTES,
     DESC_CHECK_INTERVAL_SECONDS,
+    DESC_COMPONENT,
     DESC_CONTINUOUS,
     DESC_DOMAIN_TIERS,
     DESC_DRAIN,
@@ -125,13 +127,453 @@ from viseron.components.storage.const import (
     TIER_CATEGORY_SNAPSHOTS,
     TIER_CATEGORY_TIMELAPSE,
     TIER_SUBCATEGORY_EVENT_CLIPS,
+    TIER_SUBCATEGORY_FACE_RECOGNITION,
+    TIER_SUBCATEGORY_IMAGE_CLASSIFICATION,
+    TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION,
+    TIER_SUBCATEGORY_MOTION_DETECTOR,
+    TIER_SUBCATEGORY_OBJECT_DETECTOR,
     TIER_SUBCATEGORY_SEGMENTS,
     TIER_SUBCATEGORY_THUMBNAILS,
 )
-from viseron.components.storage.util import calculate_age, calculate_bytes
 from viseron.config import UNSUPPORTED
 from viseron.const import TEMP_DIR
+from viseron.helpers.config_model import ComponentRoot, ConfigModel
+from viseron.helpers.config_types import NoneToDict
+from viseron.helpers.config_validation import format_validation_error
 from viseron.helpers.validators import UNDEFINED, CoerceNoneToDict, Maybe
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+
+def _ends_with_slash(value: str) -> str:
+    return value if value.endswith("/") else f"{value}/"
+
+
+TierPath = Annotated[str, Field(min_length=1), AfterValidator(_ends_with_slash)]
+
+
+class Size(ConfigModel):
+    """A size. Gigabytes and megabytes are added together."""
+
+    gb: float | None = DEFAULT_GB
+    mb: float | None = DEFAULT_MB
+
+    def to_bytes(self) -> int:
+        """Return the size in bytes."""
+        return int((self.gb or 0) * 1024**3 + (self.mb or 0) * 1024**2)
+
+
+class MinSize(Size):
+    """Minimum size of a tier."""
+
+    gb: float | None = Field(default=DEFAULT_GB, description=DESC_MIN_GB)
+    mb: float | None = Field(default=DEFAULT_MB, description=DESC_MIN_MB)
+
+
+class MaxSize(Size):
+    """Maximum size of a tier."""
+
+    gb: float | None = Field(default=DEFAULT_GB, description=DESC_MAX_GB)
+    mb: float | None = Field(default=DEFAULT_MB, description=DESC_MAX_MB)
+
+
+class Age(ConfigModel):
+    """An age. Days, hours and minutes are added together."""
+
+    days: int | None = DEFAULT_DAYS
+    hours: int | None = DEFAULT_HOURS
+    minutes: int | None = DEFAULT_MINUTES
+
+    def to_timedelta(self) -> timedelta:
+        """Return the age as a timedelta."""
+        return timedelta(
+            days=self.days or 0, hours=self.hours or 0, minutes=self.minutes or 0
+        )
+
+
+class MinAge(Age):
+    """Minimum age of the files in a tier."""
+
+    days: int | None = Field(default=DEFAULT_DAYS, description=DESC_MIN_DAYS)
+    hours: int | None = Field(default=DEFAULT_HOURS, description=DESC_MIN_HOURS)
+    minutes: int | None = Field(default=DEFAULT_MINUTES, description=DESC_MIN_MINUTES)
+
+
+class MaxAge(Age):
+    """Maximum age of the files in a tier."""
+
+    days: int | None = Field(default=DEFAULT_DAYS, description=DESC_MAX_DAYS)
+    hours: int | None = Field(default=DEFAULT_HOURS, description=DESC_MAX_HOURS)
+    minutes: int | None = Field(default=DEFAULT_MINUTES, description=DESC_MAX_MINUTES)
+
+
+class CheckInterval(ConfigModel):
+    """How often a tier is checked for files to move or delete."""
+
+    days: int = Field(
+        default=DEFAULT_CHECK_INTERVAL_DAYS, ge=0, description=DESC_CHECK_INTERVAL_DAYS
+    )
+    hours: int = Field(
+        default=DEFAULT_CHECK_INTERVAL_HOURS,
+        ge=0,
+        description=DESC_CHECK_INTERVAL_HOURS,
+    )
+    minutes: int = Field(
+        default=DEFAULT_CHECK_INTERVAL_MINUTES,
+        ge=0,
+        description=DESC_CHECK_INTERVAL_MINUTES,
+    )
+    seconds: int = Field(
+        default=DEFAULT_CHECK_INTERVAL_SECONDS,
+        ge=0,
+        description=DESC_CHECK_INTERVAL_SECONDS,
+    )
+
+    def to_timedelta(self) -> timedelta:
+        """Return the interval as a timedelta."""
+        return timedelta(
+            days=self.days, hours=self.hours, minutes=self.minutes, seconds=self.seconds
+        )
+
+
+class TimelapseInterval(ConfigModel):
+    """Time between the timelapse frames that are kept in a tier."""
+
+    days: int | None = Field(default=DEFAULT_DAYS, description=DESC_INTERVAL_DAYS)
+    hours: int | None = Field(default=DEFAULT_HOURS, description=DESC_INTERVAL_HOURS)
+    minutes: int | None = Field(
+        default=DEFAULT_MINUTES, description=DESC_INTERVAL_MINUTES
+    )
+    seconds: int | None = Field(
+        default=DEFAULT_SECONDS, description=DESC_INTERVAL_SECONDS
+    )
+
+    def to_timedelta(self) -> timedelta:
+        """Return the interval as a timedelta."""
+        return timedelta(
+            days=self.days or 0,
+            hours=self.hours or 0,
+            minutes=self.minutes or 0,
+            seconds=self.seconds or 0,
+        )
+
+
+class TierRetention(ConfigModel):
+    """Rules for when files are moved to the next tier or deleted."""
+
+    min_size: Annotated[MinSize, NoneToDict] = Field(
+        default=DEFAULT_MIN_SIZE, validate_default=True, description=DESC_MIN_SIZE
+    )
+    max_size: Annotated[MaxSize, NoneToDict] = Field(
+        default=DEFAULT_MAX_SIZE, validate_default=True, description=DESC_MAX_SIZE
+    )
+    max_age: Annotated[MaxAge, NoneToDict] = Field(
+        default=DEFAULT_MAX_AGE, validate_default=True, description=DESC_MAX_AGE
+    )
+    min_age: Annotated[MinAge, NoneToDict] = Field(
+        default=DEFAULT_MIN_AGE, validate_default=True, description=DESC_MIN_AGE
+    )
+
+    @property
+    def enabled(self) -> bool:
+        """Return if any rule is set."""
+        return any(
+            (
+                self.max_size.to_bytes(),
+                self.min_age.to_timedelta(),
+                self.min_size.to_bytes(),
+                self.max_age.to_timedelta(),
+            )
+        )
+
+
+class Tier(ConfigModel):
+    """The common keys for all kinds of storage tiers."""
+
+    path: TierPath = Field(description=DESC_PATH)
+    poll: bool = Field(default=DEFAULT_POLL, description=DESC_POLL)
+    move_on_shutdown: bool = Field(
+        default=DEFAULT_MOVE_ON_SHUTDOWN, description=DESC_MOVE_ON_SHUTDOWN
+    )
+    drain: bool = Field(default=DEFAULT_DRAIN, description=DESC_DRAIN)
+    check_interval: Annotated[CheckInterval, NoneToDict] = Field(
+        default=DEFAULT_CHECK_INTERVAL,
+        validate_default=True,
+        description=DESC_CHECK_INTERVAL,
+    )
+
+
+class RecorderTier(Tier):
+    """A recorder tier with separate rules for continuous and event recordings."""
+
+    continuous: Annotated[TierRetention, NoneToDict] = Field(
+        default=DEFAULT_CONTINUOUS, validate_default=True, description=DESC_CONTINUOUS
+    )
+    events: Annotated[TierRetention, NoneToDict] = Field(
+        default=DEFAULT_EVENTS, validate_default=True, description=DESC_EVENTS
+    )
+
+
+class SnapshotsTier(Tier, TierRetention):
+    """A snapshots tier."""
+
+
+class TimelapseTier(SnapshotsTier):
+    """A timelapse tier."""
+
+    interval: Annotated[TimelapseInterval, NoneToDict] = Field(
+        default=DEFAULT_INTERVAL, validate_default=True, description=DESC_INTERVAL
+    )
+
+
+RecorderTiers = Annotated[list[RecorderTier], Field(min_length=1)]
+SnapshotsTiers = Annotated[list[SnapshotsTier], Field(min_length=1)]
+TimelapseTiers = Annotated[list[TimelapseTier], Field(min_length=1)]
+
+
+def _tier_error(path: str, message: str) -> PydanticCustomError:
+    return PydanticCustomError("storage_tier", message, {"path": path})
+
+
+def _check_path_exists(path: str, category: str) -> None:
+    """Check that the folders of a tier are mounted."""
+    if path == "/":
+        if category == TIER_CATEGORY_RECORDER:
+            folders = [
+                f"/{TIER_SUBCATEGORY_SEGMENTS}",
+                f"/{TIER_SUBCATEGORY_EVENT_CLIPS}",
+                f"/{TIER_SUBCATEGORY_THUMBNAILS}",
+            ]
+        else:
+            folders = [f"/{category}"]
+    else:
+        folders = [path]
+
+    for folder in folders:
+        if not os.path.exists(folder):
+            raise _tier_error(
+                folder,
+                "The {path} folder does not exist. Please mount it to the container.",
+            )
+
+
+def _check_tiers(tiers: Iterable[tuple[str, MaxAge]], category: str) -> None:
+    """Check the tiers of one kind of file, in the order they are used.
+
+    Rules:
+    - Paths cannot be reserved paths.
+    - The same path cannot be used twice.
+    - The path has to exist.
+    - max_age has to be greater than max_age of the previous tier.
+    """
+    paths: list[str] = []
+    previous_max_age: timedelta | None = None
+    for path, max_age in tiers:
+        if path in ["/tmp", TEMP_DIR]:
+            raise _tier_error(path, "Tier {path} is a reserved path and cannot be used")
+        if path in paths:
+            raise _tier_error(path, "Tier {path} is defined multiple times")
+        paths.append(path)
+
+        _check_path_exists(path, category)
+
+        tier_max_age = max_age.to_timedelta()
+        if (
+            previous_max_age is not None
+            and timedelta(0) < tier_max_age <= previous_max_age
+        ):
+            raise _tier_error(
+                path, "Tier {path} max_age must be greater than previous tier max_age"
+            )
+        previous_max_age = tier_max_age
+
+
+class RecorderConfig(ConfigModel):
+    """Tiers of the recordings."""
+
+    tiers: RecorderTiers = Field(
+        default=DEFAULT_RECORDER_TIERS,
+        validate_default=True,
+        description=DESC_RECORDER_TIERS,
+    )
+
+    @model_validator(mode="after")
+    def _validate_tiers(self) -> Self:
+        """Check the tiers of continuous and event recordings.
+
+        Continuous and event recordings can only be enabled in a tier if they are
+        enabled in the first tier.
+        """
+        first_tier, *other_tiers = self.tiers
+        for tier in other_tiers:
+            if not first_tier.continuous.enabled and tier.continuous.enabled:
+                raise PydanticCustomError(
+                    "storage_tier",
+                    "Continuous recordings is not enabled in the first tier and thus "
+                    "cannot be enabled in any subsequent tier",
+                )
+            if not first_tier.events.enabled and tier.events.enabled:
+                raise PydanticCustomError(
+                    "storage_tier",
+                    "Event recordings is not enabled in the first tier and thus "
+                    "cannot be enabled in any subsequent tier",
+                )
+
+        _check_tiers(
+            ((tier.path, tier.events.max_age) for tier in self.tiers),
+            TIER_CATEGORY_RECORDER,
+        )
+        _check_tiers(
+            ((tier.path, tier.continuous.max_age) for tier in self.tiers),
+            TIER_CATEGORY_RECORDER,
+        )
+        return self
+
+
+# The keys of SnapshotsConfig that set the tiers of one domain
+SNAPSHOT_DOMAINS: Final = (
+    TIER_SUBCATEGORY_FACE_RECOGNITION,
+    TIER_SUBCATEGORY_IMAGE_CLASSIFICATION,
+    TIER_SUBCATEGORY_OBJECT_DETECTOR,
+    TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION,
+    TIER_SUBCATEGORY_MOTION_DETECTOR,
+)
+
+
+class DomainTiers(ConfigModel):
+    """Tiers of the snapshots of one domain."""
+
+    tiers: SnapshotsTiers = Field(description=DESC_DOMAIN_TIERS)
+
+
+class SnapshotsConfig(ConfigModel):
+    """Tiers of the snapshots, with optional tiers per domain."""
+
+    tiers: SnapshotsTiers = Field(
+        default=DEFAULT_SNAPSHOTS_TIERS,
+        validate_default=True,
+        description=DESC_SNAPSHOTS_TIERS,
+    )
+    face_recognition: DomainTiers | None = Field(
+        default=DEFAULT_FACE_RECOGNITION, description=DESC_FACE_RECOGNITION
+    )
+    image_classification: DomainTiers | None = Field(
+        default=DEFAULT_IMAGE_CLASSIFICATION, description=DESC_IMAGE_CLASSIFICATION
+    )
+    object_detector: DomainTiers | None = Field(
+        default=DEFAULT_OBJECT_DETECTOR, description=DESC_OBJECT_DETECTOR
+    )
+    license_plate_recognition: DomainTiers | None = Field(
+        default=DEFAULT_LICENSE_PLATE_RECOGNITION,
+        description=DESC_LICENSE_PLATE_RECOGNITION,
+    )
+    motion_detector: DomainTiers | None = Field(
+        default=DEFAULT_MOTION_DETECTOR, description=DESC_MOTION_DETECTOR
+    )
+
+    def domain_tiers(self, domain: str) -> list[SnapshotsTier]:
+        """Return the tiers of a domain, which are the common tiers if not set."""
+        domain_config: DomainTiers | None = getattr(self, domain)
+        return domain_config.tiers if domain_config else self.tiers
+
+    def tier_lists(self) -> list[list[SnapshotsTier]]:
+        """Return the common tiers and the tiers of each domain that sets them."""
+        tier_lists = [self.tiers]
+        for domain in SNAPSHOT_DOMAINS:
+            domain_config: DomainTiers | None = getattr(self, domain)
+            if domain_config:
+                tier_lists.append(domain_config.tiers)
+        return tier_lists
+
+    @model_validator(mode="after")
+    def _validate_tiers(self) -> Self:
+        """Check the common tiers and the tiers of each domain on their own."""
+        for tiers in self.tier_lists():
+            _check_tiers(
+                ((tier.path, tier.max_age) for tier in tiers), TIER_CATEGORY_SNAPSHOTS
+            )
+        return self
+
+
+class TimelapseConfig(ConfigModel):
+    """Tiers of the timelapse frames."""
+
+    tiers: TimelapseTiers = Field(description=DESC_TIMELAPSE_TIERS)
+
+    @model_validator(mode="after")
+    def _validate_tiers(self) -> Self:
+        _check_tiers(
+            ((tier.path, tier.max_age) for tier in self.tiers), TIER_CATEGORY_TIMELAPSE
+        )
+        return self
+
+
+class StorageConfig(ConfigModel):
+    """Storage configuration."""
+
+    tier_check_cpu_limit: int = Field(
+        default=DEFAULT_TIER_CHECK_CPU_LIMIT, description=DESC_TIER_CHECK_CPU_LIMIT
+    )
+    tier_check_workers: int = Field(
+        default=DEFAULT_TIER_CHECK_WORKERS, ge=1, description=DESC_TIER_CHECK_WORKERS
+    )
+    tier_check_batch_size: int = Field(
+        default=DEFAULT_TIER_CHECK_BATCH_SIZE, description=DESC_TIER_CHECK_BATCH_SIZE
+    )
+    tier_check_sleep_between_batches: float = Field(
+        default=DEFAULT_TIER_CHECK_SLEEP_BETWEEN_BATCHES,
+        description=DESC_TIER_CHECK_SLEEP_BETWEEN_BATCHES,
+    )
+    recorder: Annotated[RecorderConfig, NoneToDict] = Field(
+        default=DEFAULT_RECORDER, validate_default=True, description=DESC_RECORDER
+    )
+    snapshots: Annotated[SnapshotsConfig, NoneToDict] = Field(
+        default=DEFAULT_SNAPSHOTS, validate_default=True, description=DESC_SNAPSHOTS
+    )
+    timelapse: TimelapseConfig | None = Field(
+        default=DEFAULT_TIMELAPSE, description=DESC_TIMELAPSE
+    )
+
+
+class StorageRoot(ComponentRoot):
+    """Root model of the storage component."""
+
+    storage: Annotated[StorageConfig, NoneToDict] = Field(
+        default=DEFAULT_COMPONENT, validate_default=True, description=DESC_COMPONENT
+    )
+
+
+def validate_tiers(config: dict[str, Any]) -> dict[str, Any]:
+    """Check the tiers that a camera sets in its storage config.
+
+    The camera config is still validated by Voluptuous so this can be removed once
+    the camera domain has been migrated.
+    """
+    camera_storage: dict[str, Any] = config[COMPONENT]
+    sections: dict[str, type[ConfigModel]] = {
+        CONFIG_RECORDER: RecorderConfig,
+        CONFIG_SNAPSHOTS: SnapshotsConfig,
+        CONFIG_TIMELAPSE: TimelapseConfig,
+    }
+    for key, model in sections.items():
+        # Keys that the camera does not set are UNDEFINED, which is falsy
+        if section := camera_storage.get(key):
+            try:
+                model.model_validate(
+                    {
+                        section_key: value
+                        for section_key, value in section.items()
+                        if not isinstance(value, UNDEFINED)
+                    }
+                )
+            except ValidationError as error:
+                raise vol.Invalid(format_validation_error(error)) from error
+    return config
+
+
+# Voluptuous schemas of the tiers that a camera can set in its own config. They are
+# used by viseron/domains/camera/config.py, and are removed when it is ported.
 
 
 def custom_convert(value) -> dict[str, str] | object:
@@ -428,9 +870,6 @@ def get_snapshots_schema(undefined_defaults=False):
     }
 
 
-SNAPSHOTS_SCHEMA = get_snapshots_schema()
-
-
 TIER_SCHEMA_TIMELAPSE = vol.All(
     TIER_SCHEMA_SNAPSHOTS.extend(
         {
@@ -473,255 +912,3 @@ def get_timelapse_schema():
             vol.Length(min=1),
         ),
     }
-
-
-TIMELAPSE_SCHEMA = get_timelapse_schema()
-
-STORAGE_SCHEMA = vol.Schema(
-    {
-        vol.Optional(
-            CONFIG_TIER_CHECK_CPU_LIMIT,
-            default=DEFAULT_TIER_CHECK_CPU_LIMIT,
-            description=DESC_TIER_CHECK_CPU_LIMIT,
-        ): Maybe(vol.Coerce(int)),
-        vol.Optional(
-            CONFIG_TIER_CHECK_WORKERS,
-            default=DEFAULT_TIER_CHECK_WORKERS,
-            description=DESC_TIER_CHECK_WORKERS,
-        ): Maybe(vol.All(vol.Coerce(int), vol.Range(min=1))),
-        vol.Optional(
-            CONFIG_TIER_CHECK_BATCH_SIZE,
-            default=DEFAULT_TIER_CHECK_BATCH_SIZE,
-            description=DESC_TIER_CHECK_BATCH_SIZE,
-        ): Maybe(vol.Coerce(int)),
-        vol.Optional(
-            CONFIG_TIER_CHECK_SLEEP_BETWEEN_BATCHES,
-            default=DEFAULT_TIER_CHECK_SLEEP_BETWEEN_BATCHES,
-            description=DESC_TIER_CHECK_SLEEP_BETWEEN_BATCHES,
-        ): Maybe(vol.Coerce(float)),
-        vol.Optional(
-            CONFIG_RECORDER,
-            default=DEFAULT_RECORDER,
-            description=DESC_RECORDER,
-        ): RECORDER_SCHEMA,
-        vol.Optional(
-            CONFIG_SNAPSHOTS,
-            default=DEFAULT_SNAPSHOTS,
-            description=DESC_SNAPSHOTS,
-        ): SNAPSHOTS_SCHEMA,
-        vol.Optional(
-            CONFIG_TIMELAPSE,
-            default=DEFAULT_TIMELAPSE,
-            description=DESC_TIMELAPSE,
-        ): Maybe(TIMELAPSE_SCHEMA),
-    }
-)
-
-
-def _check_path_exists(tier: Tier, category: str):
-    """Check if path exists."""
-    if category == TIER_CATEGORY_RECORDER and tier[CONFIG_PATH] == "/":
-        for subcategory in [
-            TIER_SUBCATEGORY_SEGMENTS,
-            TIER_SUBCATEGORY_EVENT_CLIPS,
-            TIER_SUBCATEGORY_THUMBNAILS,
-        ]:
-            if not os.path.exists(f"/{subcategory}"):
-                raise vol.Invalid(
-                    f"The /{subcategory} folder does not exist. "
-                    "Please mount it to the container."
-                )
-        return
-
-    if category == TIER_CATEGORY_SNAPSHOTS and tier[CONFIG_PATH] == "/":
-        if not os.path.exists(f"/{TIER_CATEGORY_SNAPSHOTS}"):
-            raise vol.Invalid(
-                f"The /{TIER_CATEGORY_SNAPSHOTS} folder does not exist. "
-                "Please mount it to the container."
-            )
-        return
-
-    if category == TIER_CATEGORY_TIMELAPSE and tier[CONFIG_PATH] == "/":
-        if not os.path.exists(f"/{TIER_CATEGORY_TIMELAPSE}"):
-            raise vol.Invalid(
-                f"The /{TIER_CATEGORY_TIMELAPSE} folder does not exist. "
-                "Please mount it to the container."
-            )
-        return
-
-    if not os.path.exists(tier[CONFIG_PATH]):
-        raise vol.Invalid(
-            f"The {tier[CONFIG_PATH]} folder does not exist. "
-            "Please mount it to the container."
-        )
-
-
-def _check_tier(
-    tier: Tier,
-    previous_tier: Tier | None,
-    paths: list[str],
-    category: str,
-):
-    """Check tier config."""
-    if tier[CONFIG_PATH] in ["/tmp", TEMP_DIR]:
-        raise vol.Invalid(
-            f"Tier {tier[CONFIG_PATH]} is a reserved path and cannot be used"
-        )
-
-    if tier[CONFIG_PATH] in paths:
-        raise vol.Invalid(f"Tier {tier[CONFIG_PATH]} is defined multiple times")
-    paths.append(tier[CONFIG_PATH])
-
-    _check_path_exists(tier, category)
-
-    if previous_tier is None:
-        return
-
-    tier_max_age = calculate_age(tier[CONFIG_MAX_AGE]).total_seconds()
-    previous_tier_max_age = calculate_age(previous_tier[CONFIG_MAX_AGE]).total_seconds()
-
-    if (
-        tier_max_age > 0  # pylint: disable=chained-comparison
-        and tier_max_age <= previous_tier_max_age
-    ):
-        raise vol.Invalid(
-            f"Tier {tier[CONFIG_PATH]} "
-            "max_age must be greater than previous tier max_age"
-        )
-
-
-class Tier(TypedDict):
-    """Tier."""
-
-    path: str
-    max_age: dict[str, Any]
-
-
-def _storage_type_enabled(config: dict[str, Any]) -> bool:
-    max_bytes = calculate_bytes(config[CONFIG_MAX_SIZE])
-    min_bytes = calculate_bytes(config[CONFIG_MIN_SIZE])
-    max_age = calculate_age(config[CONFIG_MAX_AGE])
-    min_age = calculate_age(config[CONFIG_MIN_AGE])
-    params = [
-        max_bytes,
-        min_age,
-        min_bytes,
-        max_age,
-    ]
-    return any(params)
-
-
-def _validate_recorder_tiers(
-    component_config: dict[str, Any],
-):
-    # Check continuous and events config in first tier
-    first_tier = component_config.get(CONFIG_RECORDER, {}).get(CONFIG_TIERS, [])[0]
-    continuous_enabled = _storage_type_enabled(first_tier[CONFIG_CONTINUOUS])
-    events_enabled = _storage_type_enabled(first_tier[CONFIG_EVENTS])
-
-    for tier in component_config.get(CONFIG_RECORDER, {}).get(CONFIG_TIERS, [])[1:]:
-        if tier.get(CONFIG_CONTINUOUS, None) or tier.get(CONFIG_EVENTS, None):
-            continuous_enabled_in_tier = _storage_type_enabled(
-                tier.get(CONFIG_CONTINUOUS, {})
-            )
-            events_enabled_in_tier = _storage_type_enabled(tier.get(CONFIG_EVENTS, {}))
-            if not continuous_enabled and continuous_enabled_in_tier:
-                raise vol.Invalid(
-                    "Continuous recordings is not enabled in the first tier and thus "
-                    "cannot be enabled in any subsequent tier"
-                )
-            if not events_enabled and events_enabled_in_tier:
-                raise vol.Invalid(
-                    "Event recordings is not enabled in the first tier and thus "
-                    "cannot be enabled in any subsequent tier"
-                )
-
-    # Check events config
-    previous_tier: Tier | None = None
-    paths: list[str] = []
-    for tier in component_config.get(CONFIG_RECORDER, {}).get(CONFIG_TIERS, []):
-        if tier.get(CONFIG_EVENTS, None):
-            _tier = Tier(
-                path=tier[CONFIG_PATH], max_age=tier[CONFIG_EVENTS][CONFIG_MAX_AGE]
-            )
-            _check_tier(_tier, previous_tier, paths, CONFIG_RECORDER)
-            previous_tier = _tier
-
-    # Check continuous config
-    previous_tier = None
-    paths = []
-    for tier in component_config.get(CONFIG_RECORDER, {}).get(CONFIG_TIERS, []):
-        if tier.get(CONFIG_CONTINUOUS, None):
-            _tier = Tier(
-                path=tier[CONFIG_PATH], max_age=tier[CONFIG_CONTINUOUS][CONFIG_MAX_AGE]
-            )
-            _check_tier(_tier, previous_tier, paths, CONFIG_RECORDER)
-            previous_tier = _tier
-
-
-def _validate_snapshots_tiers(
-    component_config: dict[str, Any],
-):
-    # Check snapshots config
-    previous_tier = None
-    paths: list[str] = []
-    for tier in component_config.get(CONFIG_SNAPSHOTS, {}).get(CONFIG_TIERS, []):
-        _tier = Tier(path=tier[CONFIG_PATH], max_age=tier[CONFIG_MAX_AGE])
-        _check_tier(_tier, previous_tier, paths, CONFIG_SNAPSHOTS)
-        previous_tier = _tier
-
-    # Check snapshots domain config
-    for domain in [
-        CONFIG_FACE_RECOGNITION,
-        CONFIG_IMAGE_CLASSIFICATION,
-        CONFIG_OBJECT_DETECTOR,
-        CONFIG_LICENSE_PLATE_RECOGNITION,
-        CONFIG_MOTION_DETECTOR,
-    ]:
-        if not component_config.get(CONFIG_SNAPSHOTS, {}).get(domain, None):
-            continue
-        previous_tier = None
-        paths = []
-        for tier in component_config[CONFIG_SNAPSHOTS][domain][CONFIG_TIERS]:
-            _tier = Tier(path=tier[CONFIG_PATH], max_age=tier[CONFIG_MAX_AGE])
-            _check_tier(_tier, previous_tier, paths, CONFIG_SNAPSHOTS)
-            previous_tier = _tier
-
-
-def _validate_timelapse_tiers(
-    component_config: dict[str, Any],
-):
-    # Check timelapse config
-    timelapse_config = component_config.get(CONFIG_TIMELAPSE)
-    if not timelapse_config:
-        return
-
-    previous_tier = None
-    paths: list[str] = []
-    for tier in timelapse_config.get(CONFIG_TIERS, []):
-        _tier = Tier(path=tier[CONFIG_PATH], max_age=tier[CONFIG_MAX_AGE])
-        _check_tier(_tier, previous_tier, paths, CONFIG_TIMELAPSE)
-        previous_tier = _tier
-
-
-def validate_tiers(config: dict[str, Any]) -> dict[str, Any]:
-    """Validate tiers.
-
-    Rules:
-    - Paths cannot be reserved paths.
-    - The same path cannot be defined multiple times.
-    - max_age has to be greater than previous tier max_age.
-    - If continuous and/or events is not defined in the first tier,
-      it can't be defined in any other tier.
-    """
-    component_config: dict[str, Any] = config[COMPONENT]
-    if component_config.get(CONFIG_RECORDER, None):
-        _validate_recorder_tiers(component_config)
-
-    if component_config.get(CONFIG_SNAPSHOTS, None):
-        _validate_snapshots_tiers(component_config)
-
-    if component_config.get(CONFIG_TIMELAPSE):
-        _validate_timelapse_tiers(component_config)
-
-    return config

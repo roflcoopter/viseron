@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy import select
 
+from viseron.components.storage.config import StorageConfig
 from viseron.components.storage.models import (
     Files,
     Motion,
@@ -42,13 +43,21 @@ def _write_file(path: str, size: int = 1024) -> None:
         file.write(b"0" * size)
 
 
-def _tier_config(tier_path: str) -> dict:
+def _storage_config(config: dict[str, Any]) -> StorageConfig:
+    """Validate a storage config without checking that the tier paths exist."""
+    with patch("viseron.components.storage.config._check_path_exists"):
+        return StorageConfig.model_validate(config)
+
+
+def _tier_config(tier_path: str) -> StorageConfig:
     """Return a minimal storage config with a single tier."""
-    return {
-        "recorder": {"tiers": [{"path": tier_path}]},
-        "snapshots": {"tiers": [{"path": tier_path}]},
-        "timelapse": {"tiers": [{"path": tier_path}]},
-    }
+    return _storage_config(
+        {
+            "recorder": {"tiers": [{"path": tier_path}]},
+            "snapshots": {"tiers": [{"path": tier_path}]},
+            "timelapse": {"tiers": [{"path": tier_path}]},
+        }
+    )
 
 
 def _mock_storage(tier_path: str, get_db_session: sessionmaker[Session]) -> MagicMock:
@@ -68,12 +77,17 @@ def _mock_vis(configured: list[str]) -> MagicMock:
     return vis
 
 
-def _add_file(session: Session, tier_path: str, camera_identifier: str, path: str):
-    """Insert a Files row."""
+def _add_file(
+    session: Session, tier_path: str, camera_identifier: str, path: str
+) -> None:
+    """Insert a Files row.
+
+    The tier path is stored with a trailing slash, as it is in the validated config.
+    """
     session.add(
         Files(
             tier_id=0,
-            tier_path=tier_path,
+            tier_path=os.path.join(tier_path, ""),
             camera_identifier=camera_identifier,
             category="recorder",
             subcategory="segments",
@@ -88,27 +102,28 @@ def _add_file(session: Session, tier_path: str, camera_identifier: str, path: st
 
 def test_get_configured_tier_paths() -> None:
     """Test that every tier path in the config is found."""
-    config = {
-        "recorder": {"tiers": [{"path": "/tier1"}, {"path": "/tier2"}]},
-        "snapshots": {
-            "tiers": [{"path": "/tier1"}],
-            "face_recognition": {"tiers": [{"path": "/faces"}]},
-            "object_detector": None,
-        },
-        "timelapse": {"tiers": [{"path": "/lapse"}]},
-    }
+    config = _storage_config(
+        {
+            "recorder": {"tiers": [{"path": "/tier1"}, {"path": "/tier2"}]},
+            "snapshots": {
+                "tiers": [{"path": "/tier1"}],
+                "face_recognition": {"tiers": [{"path": "/faces"}]},
+                "object_detector": None,
+            },
+            "timelapse": {"tiers": [{"path": "/lapse"}]},
+        }
+    )
     assert get_configured_tier_paths(config) == {
-        "/tier1",
-        "/tier2",
-        "/faces",
-        "/lapse",
+        "/tier1/",
+        "/tier2/",
+        "/faces/",
+        "/lapse/",
     }
 
 
-def test_get_configured_tier_paths_empty() -> None:
-    """Test that an empty config yields no tier paths."""
-    assert get_configured_tier_paths({}) == set()
-    assert get_configured_tier_paths({"timelapse": None}) == set()
+def test_get_configured_tier_paths_default() -> None:
+    """Test that the default config yields the root tier."""
+    assert get_configured_tier_paths(_storage_config({})) == {"/"}
 
 
 def test_get_camera_directories() -> None:
@@ -167,7 +182,7 @@ class TestGetOrphanedCameras:
         orphaned = get_orphaned_cameras(
             _mock_vis(["camera_1"]), _mock_storage(tier_path, get_db_session)
         )
-        assert orphaned == []
+        assert not orphaned
 
     def test_finds_camera_with_database_rows_only(
         self, tmp_path: Path, get_db_session: sessionmaker[Session]
@@ -263,7 +278,7 @@ class TestGetOrphanedCameras:
         orphaned = get_orphaned_cameras(
             _mock_vis([]), _mock_storage(tier_path, get_db_session)
         )
-        assert orphaned == []
+        assert not orphaned
 
 
 class TestDeleteOrphanedCamera:
