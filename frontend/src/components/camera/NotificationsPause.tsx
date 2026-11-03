@@ -1,4 +1,4 @@
-import { Notification, NotificationOff } from "@carbon/icons-react";
+import { NotificationOff, NotificationsPaused } from "@carbon/icons-react";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -8,6 +8,7 @@ import IconButton from "@mui/material/IconButton";
 import ListSubheader from "@mui/material/ListSubheader";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
+import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { Dayjs } from "dayjs";
@@ -66,20 +67,21 @@ function PauseUntilDialog({ open, onClose, onPause }: PauseUntilDialogProps) {
   const valid = until !== null && until.isValid() && until.isAfter(getDayjs());
 
   return (
-    <Dialog open={open} onClose={onClose}>
+    <Dialog fullWidth maxWidth="xs" open={open} onClose={onClose}>
       <DialogTitle>Pause notifications until</DialogTitle>
       <DialogContent>
-        <DateTimePicker
-          label="Resume at"
-          value={until}
-          onChange={setUntil}
-          onAccept={setUntil}
-          disablePast
-          closeOnSelect={false}
-          ampm={is12HourFormat()}
-          format={getDisplayDateTimeFormat()}
-          sx={{ mt: 1 }}
-        />
+        <Stack sx={{ mt: 1 }}>
+          <DateTimePicker
+            label="Resume at"
+            value={until}
+            onChange={setUntil}
+            onAccept={setUntil}
+            disablePast
+            closeOnSelect={false}
+            ampm={is12HourFormat()}
+            format={getDisplayDateTimeFormat()}
+          />
+        </Stack>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
@@ -150,11 +152,6 @@ function NotificationsPauseMenu({
   );
 }
 
-const iconStyle = {
-  width: "clamp(16px, 3vw, 20px)",
-  height: "clamp(16px, 3vw, 20px)",
-};
-
 export function CameraNotificationsButton({
   camera,
 }: {
@@ -170,14 +167,20 @@ export function CameraNotificationsButton({
         <IconButton
           data-testid="camera-notifications-button"
           aria-label={text}
-          color={camera.notifications_paused ? "warning" : "default"}
+          size="small"
           disabled={notifications.isPending}
           onClick={(event) => setAnchorEl(event.currentTarget)}
+          sx={{
+            padding: "2px",
+            pointerEvents: "auto",
+            color: camera.notifications_paused ? "warning.main" : "white",
+            filter: "drop-shadow(rgba(0, 0, 0, 0.88) 0px 0px 2px)",
+          }}
         >
           {camera.notifications_paused ? (
-            <NotificationOff style={iconStyle} />
+            <NotificationOff size={16} />
           ) : (
-            <Notification style={iconStyle} />
+            <NotificationsPaused size={16} />
           )}
         </IconButton>
       </Tooltip>

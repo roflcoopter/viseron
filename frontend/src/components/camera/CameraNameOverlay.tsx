@@ -1,14 +1,20 @@
-import { CircleFill, NotificationOff, VideoOff } from "@carbon/icons-react";
+import { CircleFill, VideoOff } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { SxProps, Theme } from "@mui/material/styles";
 
+import {
+  CameraNotificationsButton,
+  pausedUntilText,
+} from "components/camera/NotificationsPause";
+import { useAuthContext } from "context/AuthContext";
 import { useCamera } from "lib/api/camera";
 import * as types from "lib/types";
 
 type CameraNameOverlayProps = {
   camera_identifier: string;
   extraStatusText?: string;
+  notificationsPause?: boolean;
 };
 
 const overlayStyles: SxProps<Theme> = {
@@ -54,7 +60,9 @@ function StatusIcon({ camera }: { camera: types.Camera }) {
 export function CameraNameOverlay({
   camera_identifier,
   extraStatusText,
+  notificationsPause = false,
 }: CameraNameOverlayProps) {
+  const { auth, user } = useAuthContext();
   const cameraQuery = useCamera(camera_identifier);
   if (!cameraQuery.data) {
     return null;
@@ -86,17 +94,6 @@ export function CameraNameOverlay({
         <Typography variant="uppercase" sx={cameraNameStyles}>
           {camera.name}
         </Typography>
-        {!camera.failed && camera.notifications_paused && (
-          <NotificationOff
-            size={12}
-            aria-label="Notifications paused"
-            style={{
-              color: "white",
-              marginLeft: "4px",
-              filter: "drop-shadow(rgba(0, 0, 0, 0.88) 0px 0px 2px)",
-            }}
-          />
-        )}
         {!camera.failed && <StatusIcon camera={camera as types.Camera} />}
       </Box>
       {statusText && (
@@ -107,6 +104,27 @@ export function CameraNameOverlay({
           {statusText}
         </Typography>
       )}
+      {!camera.failed &&
+        (notificationsPause &&
+        camera.notifications_configured &&
+        (!auth.enabled || user?.role === "admin") ? (
+          <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+            <CameraNotificationsButton camera={camera as types.Camera} />
+          </Box>
+        ) : (
+          camera.notifications_paused && (
+            <Typography
+              variant="body2"
+              sx={{
+                ...cameraNameStyles,
+                fontSize: "0.7rem",
+                textAlign: "right",
+              }}
+            >
+              {pausedUntilText(camera as types.Camera)}
+            </Typography>
+          )
+        ))}
       {extraStatusText && (
         <Typography
           variant="body2"

@@ -8,7 +8,7 @@ Pausing requires the `admin` role.
 
 ## Web interface
 
-On the `Cameras` page, click the bell on a camera card to pause that camera for 15 minutes, 1 hour, 4 hours, 8 hours, until a date and time you pick, or until resumed. The bell is only shown for cameras that at least one of the components above sends notifications for. While a camera is paused, its bell is crossed out and its tooltip shows when notifications resume. Click the bell again to resume early.
+On the `Cameras` page, click the bell under the camera name on a camera card to pause that camera for 15 minutes, 1 hour, 4 hours, 8 hours, until a date and time you pick, or until resumed. The bell is only shown for cameras that at least one of the components above sends notifications for. While a camera is paused, its bell is crossed out and its tooltip shows when notifications resume. Click the bell again to resume early. Elsewhere, and for users who cannot pause notifications, a paused camera shows when its notifications resume under its name.
 
 To pause all of those cameras at once, use `Pause notifications` above the camera cards.
 

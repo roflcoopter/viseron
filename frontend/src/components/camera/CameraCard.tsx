@@ -29,7 +29,6 @@ import { Link } from "react-router-dom";
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
 import { CameraUptime } from "components/camera/CameraUptime";
 import { FailedCameraCard } from "components/camera/FailedCameraCard";
-import { CameraNotificationsButton } from "components/camera/NotificationsPause";
 import { useAuthContext } from "context/AuthContext";
 import { ViseronContext } from "context/ViseronContext";
 import useOnScreen from "hooks/UseOnScreen";
@@ -177,7 +176,10 @@ function SuccessCameraCard({
         ]}
       >
         {compact ? (
-          <CameraNameOverlay camera_identifier={camera.identifier} />
+          <CameraNameOverlay
+            camera_identifier={camera.identifier}
+            notificationsPause={buttons}
+          />
         ) : (
           <CardContent>
             <Typography variant="h5" align="center">
@@ -306,10 +308,6 @@ function SuccessCameraCard({
                     />
                   </Tooltip>
                 )}
-                {camera.notifications_configured &&
-                  (!auth.enabled || user?.role === "admin") && (
-                    <CameraNotificationsButton camera={camera} />
-                  )}
                 <Tooltip title="Uptime Status">
                   <div style={{ cursor: "pointer" }}>
                     <CameraUptime
