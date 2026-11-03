@@ -370,7 +370,7 @@ def _check_tiers(tiers: Iterable[tuple[str, MaxAge]], category: str) -> None:
     paths: list[str] = []
     previous_max_age: timedelta | None = None
     for path, max_age in tiers:
-        if path in ["/tmp", TEMP_DIR]:
+        if os.path.normpath(path) in ["/tmp", TEMP_DIR]:
             raise _tier_error(path, "Tier {path} is a reserved path and cannot be used")
         if path in paths:
             raise _tier_error(path, "Tier {path} is defined multiple times")

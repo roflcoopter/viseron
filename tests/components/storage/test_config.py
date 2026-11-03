@@ -18,7 +18,6 @@ from viseron.components.storage.config import (
     StorageRoot,
     TierRetention,
     _check_path_exists,
-    _check_tiers,
     validate_tiers,
 )
 from viseron.helpers.config_validation import ConfigValidationError, validate_config
@@ -483,11 +482,23 @@ def test_tier_rules_allow(config: dict[str, Any]) -> None:
     validate_config(CONFIG_SCHEMA, config)
 
 
-@pytest.mark.parametrize("path", ["/tmp", "/tmp/viseron"])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/tmp",
+        "/tmp/",
+        "/tmp//",
+        "/tmp/./",
+        "/tmp/../tmp",
+        "/tmp/viseron",
+        "/tmp/viseron/",
+        "/tmp/viseron//",
+    ],
+)
 def test_reserved_path(path: str) -> None:
-    """A reserved path cannot be used as a tier."""
-    with pytest.raises(PydanticCustomError, match="is a reserved path"):
-        _check_tiers([(path, MaxAge())], "snapshots")
+    """A reserved path cannot be used as a tier, however it is written."""
+    with pytest.raises(ConfigValidationError, match="is a reserved path"):
+        validate_config(CONFIG_SCHEMA, _snapshots({"path": path}))
 
 
 @pytest.mark.parametrize(
@@ -598,6 +609,17 @@ def test_validate_camera_tiers() -> None:
                 "storage": {
                     "recorder": {"tiers": [{"path": "/tier1/"}, {"path": "/tier1/"}]},
                     "snapshots": UNDEFINED(),
+                    "timelapse": UNDEFINED(),
+                }
+            }
+        )
+
+    with pytest.raises(vol.Invalid, match="Tier /tmp/ is a reserved path"):
+        validate_tiers(
+            {
+                "storage": {
+                    "recorder": UNDEFINED(),
+                    "snapshots": {"tiers": [{"path": "/tmp/"}]},
                     "timelapse": UNDEFINED(),
                 }
             }
