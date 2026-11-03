@@ -2,40 +2,53 @@
 
 from __future__ import annotations
 
+import datetime
 import logging
 import os
 import shutil
 import threading
+import time
 from dataclasses import dataclass
-from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
 from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import pytest
-from numpy._typing._array_like import NDArray
-from sqlalchemy import select
+from sqlalchemy import event, insert, select, text
 from watchdog.events import FileCreatedEvent, FileDeletedEvent
 
-from viseron import Viseron
-from viseron.components.storage import Storage
+from viseron.components.storage import TIER_CATEGORIES, Storage
+from viseron.components.storage.config import RecorderTier, Tier
 from viseron.components.storage.const import (
     COMPONENT as STORAGE_COMPONENT,
-    CONFIG_DRAIN,
     CONFIG_PATH,
     CONFIG_RECORDER,
     LATEST_SNAPSHOT_FILENAME,
     TIER_CATEGORY_RECORDER,
+    TIER_CATEGORY_SNAPSHOTS,
+    TIER_SUBCATEGORY_FACE_RECOGNITION,
+    TIER_SUBCATEGORY_IMAGE_CLASSIFICATION,
+    TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION,
+    TIER_SUBCATEGORY_MOTION_DETECTOR,
+    TIER_SUBCATEGORY_OBJECT_DETECTOR,
     TIER_SUBCATEGORY_SEGMENTS,
 )
 from viseron.components.storage.models import (
     Files,
     FilesMeta,
+    Motion,
+    Objects,
+    PostProcessorResults,
     Recordings,
 )
-from viseron.components.storage.storage_subprocess import DataItemMoveFile
+from viseron.components.storage.storage_subprocess import (
+    DataItemDeleteFile,
+    DataItemMoveFile,
+)
 from viseron.components.storage.tier_handler import (
+    SNAPSHOT_REFERENCE_MODELS,
     EventClipTierHandler,
+    RetentionTierHandler,
     SegmentsTierHandler,
     SnapshotTierHandler,
     ThumbnailTierHandler,
@@ -55,12 +68,17 @@ from viseron.domains.camera.const import (
 from viseron.helpers import utcnow
 
 from tests.common import BaseTestWithRecordings
-from tests.conftest import MockViseron
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from numpy._typing._array_like import NDArray
+    from sqlalchemy.engine import ExceptionContext
     from sqlalchemy.orm import Session, sessionmaker
+
+    from viseron import Viseron
+
+    from tests.conftest import MockViseron
 
 _TierHandlerT = TypeVar("_TierHandlerT", bound=TierHandler)
 
@@ -69,9 +87,7 @@ _TierHandlerT = TypeVar("_TierHandlerT", bound=TierHandler)
 def test_handle_file_delete(mock_delete_file: Mock, vis: MockViseron) -> None:
     """Test handle_file."""
     file = "/tmp/tier1/file1"
-    tier_1 = {
-        "path": "/tmp/tier1",
-    }
+    tier_1 = Tier(path="/tmp/tier1")
     tier_2 = None
     session = MagicMock()
     logger = MagicMock()
@@ -98,12 +114,8 @@ def test_handle_file_move(mock_move_file: Mock, vis: MockViseron) -> None:
     """Test handle_file."""
     tier_1_file = "/tmp/tier1/file1"
     tier_2_file = "/tmp/tier2/file1"
-    tier_1 = {
-        "path": "/tmp/tier1/",
-    }
-    tier_2 = {
-        "path": "/tmp/tier2/",
-    }
+    tier_1 = Tier(path="/tmp/tier1/")
+    tier_2 = Tier(path="/tmp/tier2/")
     storage = MagicMock()
     session = MagicMock()
     logger = MagicMock()
@@ -143,7 +155,7 @@ def test_snapshot_tier_handler_ignores_the_latest_snapshot() -> None:
     tier_handler._storage = MagicMock(spec=Storage)
     tier_handler.add_file_handler = MagicMock()  # type: ignore[method-assign]
 
-    with patch.object(TierHandler, "initialize"):
+    with patch.object(RetentionTierHandler, "initialize"):
         tier_handler.initialize()
 
     tier_handler._storage.ignore_file.assert_called_once_with(LATEST_SNAPSHOT_FILENAME)
@@ -168,37 +180,15 @@ class MockFilesQueryResult:
     tier_path: str
 
 
-def _get_tier_config(events: bool, continuous: bool) -> dict[str, Any]:
+def _get_tier_config(events: bool, continuous: bool) -> RecorderTier:
     """Get tier config for test."""
-    max_age_events = None
-    max_age_continuous = None
-    if events:
-        max_age_events = 1
-    if continuous:
-        max_age_continuous = 1
-    return {
-        "path": "/",
-        "events": {
-            "max_age": {"days": max_age_events, "hours": None, "minutes": None},
-            "min_age": {"hours": None, "days": None, "minutes": None},
-            "min_size": {"gb": None, "mb": None},
-            "max_size": {"gb": None, "mb": None},
-        },
-        "move_on_shutdown": False,
-        "poll": False,
-        "continuous": {
-            "max_age": {"minutes": max_age_continuous, "hours": None, "days": None},
-            "min_age": {"minutes": None, "hours": None, "days": None},
-            "min_size": {"gb": None, "mb": None},
-            "max_size": {"gb": None, "mb": None},
-        },
-        "check_interval": {
-            "days": 0,
-            "hours": 0,
-            "minutes": 1,
-            "seconds": 0,
-        },
-    }
+    return RecorderTier.model_validate(
+        {
+            "path": "/",
+            "events": {"max_age": {"days": 1 if events else None}},
+            "continuous": {"max_age": {"minutes": 1 if continuous else None}},
+        }
+    )
 
 
 class TestSegmentsTierHandler(BaseTestWithRecordings):
@@ -299,7 +289,7 @@ class TestSegmentsTierHandler(BaseTestWithRecordings):
     def test__check_tier(
         self,
         vis: MockViseron,
-        tier: dict[str, Any],
+        tier: RecorderTier,
         data: NDArray[Any],
         recordings_amount: Literal[2, 3],
         first_recording_id: Literal[3, 1],
@@ -400,7 +390,7 @@ class TestSegmentsTierHandler(BaseTestWithRecordings):
     def test__check_tier_next_tier(
         self,
         vis: Viseron,
-        tiers_config: list[dict[str, Any]],
+        tiers_config: list[RecorderTier],
         recording_id: int,
         force_delete: bool,
         next_tier_index: int | None,
@@ -504,9 +494,7 @@ class TestCheckTierCallbackLifecycle:
                 CONFIG_SCHEDULE: None,
             }
         }
-        # _create_dataitem reads CONFIG_DRAIN, which _get_tier_config omits.
         tier_config = _get_tier_config(events=True, continuous=True)
-        tier_config[CONFIG_DRAIN] = False
 
         tier_handler = SegmentsTierHandler(
             vis,
@@ -519,8 +507,8 @@ class TestCheckTierCallbackLifecycle:
         )
         tier_handler._storage = Mock(spec=Storage)
         # No throttling, so only the in-flight guard can suppress a request.
-        tier_handler._throttle_period = timedelta(0)
-        tier_handler._time_of_last_call = utcnow() - timedelta(hours=1)
+        tier_handler._throttle_period = datetime.timedelta(0)
+        tier_handler._time_of_last_call = utcnow() - datetime.timedelta(hours=1)
         return tier_handler
 
     def test_check_tier_sends_once_while_in_flight(self, vis: MockViseron) -> None:
@@ -716,7 +704,6 @@ def test_continuous_enabled_is_structural_only(vis: MockViseron) -> None:
     }
 
     tier = _get_tier_config(events=True, continuous=True)
-    tier[CONFIG_DRAIN] = False
     tier_handler = SegmentsTierHandler(
         vis,
         mock_camera,
@@ -751,7 +738,6 @@ def test_create_dataitem_passes_continuous_schedule_entries(
     }
 
     tier = _get_tier_config(events=True, continuous=True)
-    tier[CONFIG_DRAIN] = False
     tier_handler = SegmentsTierHandler(
         vis,
         mock_camera,
@@ -784,7 +770,6 @@ def test_create_dataitem_continuous_schedule_none_when_omitted(
     }
 
     tier = _get_tier_config(events=True, continuous=True)
-    tier[CONFIG_DRAIN] = False
     tier_handler = SegmentsTierHandler(
         vis,
         mock_camera,
@@ -845,7 +830,7 @@ def _make_bare_tier_handler(
     tier_handler._storage = storage
     tier_handler._camera = Mock(identifier="test")
     tier_handler._tier_id = tier_id
-    tier_handler._tier = {CONFIG_PATH: tier_path}
+    tier_handler._tier = Tier(path=tier_path)
     tier_handler._category = category
     tier_handler._subcategory = subcategory
     tier_handler.check_tier = Mock()  # type: ignore[method-assign]
@@ -1055,6 +1040,88 @@ def test_move_dispatches_file_created(
     assert created_paths == [_tier_file(tier1, "1.m4s")]
 
 
+def _wait_for_lock_waiter(storage: Mock) -> None:
+    """Block until a backend is waiting on a database lock."""
+    stmt = text(
+        "SELECT count(*) FROM pg_stat_activity "
+        "WHERE datname = current_database() AND wait_event_type = 'Lock'"
+    )
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        with storage.get_session() as session:
+            if session.execute(stmt).scalar_one():
+                return
+        time.sleep(0.01)
+    pytest.fail("No backend started waiting on a lock")
+
+
+def test_hand_over_row_concurrent_with_destination_insert(
+    vis: MockViseron, db_storage: Mock, tmp_path: Path
+) -> None:
+    """Test that the hand-over does not violate files_path_key.
+
+    The destination observer can insert its row while the source observer hands
+    over the source row. Postgres logs every unique violation, even caught ones.
+    """
+    tier0, tier1 = _two_tiers(
+        TierHandler,
+        vis,
+        db_storage,
+        tmp_path,
+        TIER_CATEGORY_RECORDER,
+        TIER_SUBCATEGORY_SEGMENTS,
+    )
+    src = _create_file(_tier_file(tier0, "1.m4s"))
+    tier0._on_created(FileCreatedEvent(src))
+    original_key = _file_keys(db_storage)[src]
+    src, dst = _start_move(vis, db_storage, tier0, tier1, "1.m4s")
+
+    db_errors: list[BaseException] = []
+
+    def on_db_error(context: ExceptionContext) -> None:
+        db_errors.append(context.original_exception)
+
+    engine = db_storage.get_session.kw["bind"]
+    event.listen(engine, "handle_error", on_db_error)
+
+    inserted = threading.Event()
+    release_commit = threading.Event()
+
+    def get_gated_session() -> Session:
+        session = db_storage.get_session()
+        commit = session.commit
+
+        def gated_commit() -> None:
+            inserted.set()
+            release_commit.wait(10)
+            commit()
+
+        session.commit = gated_commit  # type: ignore[method-assign]
+        return session
+
+    dst_storage = Mock(spec=Storage)
+    dst_storage.get_session = get_gated_session
+    dst_storage.temporary_files_meta = db_storage.temporary_files_meta
+    dst_storage.pending_moves = db_storage.pending_moves
+    tier1._storage = dst_storage
+
+    created = threading.Thread(target=tier1._on_created, args=(FileCreatedEvent(dst),))
+    deleted = threading.Thread(target=tier0._on_deleted, args=(FileDeletedEvent(src),))
+    try:
+        created.start()
+        assert inserted.wait(10)
+        deleted.start()
+        _wait_for_lock_waiter(db_storage)
+    finally:
+        release_commit.set()
+        created.join(10)
+        deleted.join(10)
+        event.remove(engine, "handle_error", on_db_error)
+
+    assert not db_errors
+    assert _file_keys(db_storage) == {dst: original_key}
+
+
 def test_failed_move_does_not_hand_over_row(
     vis: MockViseron, db_storage: Mock, tmp_path: Path
 ) -> None:
@@ -1093,6 +1160,33 @@ def test_failed_move_does_not_hand_over_row(
     assert not _file_keys(db_storage)
 
 
+def test_move_file_without_row_only_deletes(
+    vis: MockViseron, db_storage: Mock, tmp_path: Path
+) -> None:
+    """Test that a file without a database row is deleted instead of moved."""
+    src = os.path.join(tmp_path, "tier0", "1.m4s")
+    dst = os.path.join(tmp_path, "tier1", "1.m4s")
+
+    move_file(
+        vis,
+        db_storage,
+        db_storage.get_session,
+        "test",
+        0,
+        TIER_CATEGORY_RECORDER,
+        TIER_SUBCATEGORY_SEGMENTS,
+        src,
+        dst,
+        os.path.join(tmp_path, "tier1"),
+        logging.getLogger(__name__),
+    )
+
+    # A move sent as well would race the delete in the worker threads
+    db_storage.tier_check_worker_send_command.assert_called_once_with(
+        DataItemDeleteFile(cmd="delete_file", src=src), callback=None
+    )
+
+
 def test_new_files_get_distinct_file_keys(
     vis: MockViseron, db_storage: Mock, tmp_path: Path
 ) -> None:
@@ -1118,3 +1212,173 @@ def test_new_files_get_distinct_file_keys(
     keys = _file_keys(db_storage)
     assert set(keys) == {with_meta, without_meta}
     assert keys[with_meta] != keys[without_meta]
+
+
+SNAPSHOT_REFERENCES = [
+    pytest.param(
+        TIER_SUBCATEGORY_MOTION_DETECTOR,
+        Motion,
+        {"start_time": datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)},
+        id="motion_detector",
+    ),
+    pytest.param(
+        TIER_SUBCATEGORY_OBJECT_DETECTOR,
+        Objects,
+        {
+            "label": "person",
+            "confidence": 0.9,
+            "width": 1.0,
+            "height": 1.0,
+            "x1": 0.0,
+            "y1": 0.0,
+            "x2": 1.0,
+            "y2": 1.0,
+        },
+        id="object_detector",
+    ),
+    pytest.param(
+        TIER_SUBCATEGORY_FACE_RECOGNITION,
+        PostProcessorResults,
+        {"domain": TIER_SUBCATEGORY_FACE_RECOGNITION, "data": {}},
+        id="face_recognition",
+    ),
+    pytest.param(
+        TIER_SUBCATEGORY_IMAGE_CLASSIFICATION,
+        PostProcessorResults,
+        {"domain": TIER_SUBCATEGORY_IMAGE_CLASSIFICATION, "data": {}},
+        id="image_classification",
+    ),
+    pytest.param(
+        TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION,
+        PostProcessorResults,
+        {"domain": TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION, "data": {}},
+        id="license_plate_recognition",
+    ),
+]
+
+SnapshotModel = type[Motion] | type[Objects] | type[PostProcessorResults]
+
+
+def _create_snapshot(
+    tier_handler: SnapshotTierHandler,
+    model: SnapshotModel,
+    values: dict[str, Any],
+) -> str:
+    """Create a snapshot file with a Files row and a detector row referencing it."""
+    path = _create_file(_tier_file(tier_handler, "1.jpg"))
+    tier_handler._on_created(FileCreatedEvent(path))
+    with tier_handler._storage.get_session() as session:
+        session.execute(
+            insert(model).values(camera_identifier="test", snapshot_path=path, **values)
+        )
+        session.commit()
+    return path
+
+
+def _snapshot_paths(storage: Mock, model: SnapshotModel) -> list[str]:
+    with storage.get_session() as session:
+        return list(session.execute(select(model.snapshot_path)).scalars())
+
+
+def test_snapshot_reference_models_cover_all_snapshot_subcategories() -> None:
+    """Test that every snapshot subcategory has a model to re-point on a move."""
+    assert set(SNAPSHOT_REFERENCE_MODELS) == {
+        subcategory["subcategory"]
+        for subcategory in TIER_CATEGORIES[TIER_CATEGORY_SNAPSHOTS]
+    }
+
+
+@pytest.mark.parametrize("observer_order", OBSERVER_ORDERS)
+@pytest.mark.parametrize(("subcategory", "model", "values"), SNAPSHOT_REFERENCES)
+def test_snapshot_references_follow_move(
+    vis: MockViseron,
+    db_storage: Mock,
+    tmp_path: Path,
+    subcategory: str,
+    model: SnapshotModel,
+    values: dict[str, Any],
+    observer_order: tuple[str, str],
+) -> None:
+    """Test that detector rows are re-pointed, not deleted, when a snapshot moves."""
+    tier0, tier1 = _two_tiers(
+        SnapshotTierHandler,
+        vis,
+        db_storage,
+        tmp_path,
+        TIER_CATEGORY_SNAPSHOTS,
+        subcategory,
+    )
+    _create_snapshot(tier0, model, values)
+
+    _simulate_move(vis, db_storage, tier0, tier1, "1.jpg", observer_order)
+
+    assert _snapshot_paths(db_storage, model) == [_tier_file(tier1, "1.jpg")]
+
+
+@pytest.mark.parametrize(("subcategory", "model", "values"), SNAPSHOT_REFERENCES)
+def test_snapshot_references_deleted_with_snapshot(
+    vis: MockViseron,
+    db_storage: Mock,
+    tmp_path: Path,
+    subcategory: str,
+    model: SnapshotModel,
+    values: dict[str, Any],
+) -> None:
+    """Test that detector rows are deleted when their snapshot leaves the last tier."""
+    tier0 = _make_bare_tier_handler(
+        SnapshotTierHandler,
+        vis,
+        db_storage,
+        0,
+        os.path.join(tmp_path, "tier0"),
+        TIER_CATEGORY_SNAPSHOTS,
+        subcategory,
+    )
+    path = _create_snapshot(tier0, model, values)
+
+    os.remove(path)
+    tier0._on_deleted(FileDeletedEvent(path))
+
+    assert not _snapshot_paths(db_storage, model)
+
+
+@pytest.mark.parametrize(("subcategory", "model", "values"), SNAPSHOT_REFERENCES)
+def test_snapshot_references_untouched_on_move_failure(
+    vis: MockViseron,
+    db_storage: Mock,
+    tmp_path: Path,
+    subcategory: str,
+    model: SnapshotModel,
+    values: dict[str, Any],
+) -> None:
+    """Test that a failed move leaves detector rows pointing at the source."""
+    tier0, tier1 = _two_tiers(
+        SnapshotTierHandler,
+        vis,
+        db_storage,
+        tmp_path,
+        TIER_CATEGORY_SNAPSHOTS,
+        subcategory,
+    )
+    src = _create_snapshot(tier0, model, values)
+    dst = _tier_file(tier1, "1.jpg")
+
+    move_file(
+        vis,
+        db_storage,
+        db_storage.get_session,
+        "test",
+        0,
+        TIER_CATEGORY_SNAPSHOTS,
+        subcategory,
+        src,
+        dst,
+        tier1.tier[CONFIG_PATH],
+        logging.getLogger(__name__),
+    )
+    assert _snapshot_paths(db_storage, model) == [src]
+
+    callback = db_storage.tier_check_worker_send_command.call_args.kwargs["callback"]
+    callback(DataItemMoveFile(cmd="move_file", src=src, dst=dst, error="boom"))
+
+    assert _snapshot_paths(db_storage, model) == [src]

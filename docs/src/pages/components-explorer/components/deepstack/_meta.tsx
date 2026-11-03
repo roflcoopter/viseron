@@ -9,7 +9,8 @@ const ComponentMetadata: Component = {
   tags: ["object_detector", "face_recognition"],
   category: null,
   path: "viseron/components/deepstack",
-  issue: 'deepstack OR label:"domain: object_detector" OR label:"domain: face_recognition"',
+  issue:
+    'deepstack OR label:"domain: object_detector" OR label:"domain: face_recognition"',
 };
 
 export default ComponentMetadata;

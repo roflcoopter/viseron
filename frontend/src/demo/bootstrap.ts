@@ -3,6 +3,7 @@ import { createHandlers } from "tests/mocks/handlers";
 import { wsHandlers } from "tests/mocks/wsHandlers";
 
 import { browserSnapshotLoader } from "./snapshotLoader";
+import { browserVideoLoader } from "./videoLoader";
 
 // Seed default credentials, so a visitor lands logged in.
 document.cookie = "user=123456789; path=/";
@@ -19,12 +20,12 @@ localStorage.setItem(
 );
 
 const worker = setupWorker(
-  ...createHandlers(browserSnapshotLoader),
+  ...createHandlers(browserSnapshotLoader, browserVideoLoader),
   ...wsHandlers,
 );
 
 // Bypass keeps fonts, chunks and hashed assets flowing to the network.
 await worker.start({
-  onUnhandledRequest: "bypass",
+  onUnhandledFrame: "bypass",
   serviceWorker: { url: "./mockServiceWorker.js" },
 });

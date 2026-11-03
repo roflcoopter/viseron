@@ -5,7 +5,9 @@ set -euo pipefail
 APP_DIR="${VISERON_APP_DIR:-/src}"
 
 reload_viseron() {
-  mapfile -t pids < <(pgrep -f "^viseron" || true)
+  # Match the main process exactly. Child processes also have titles starting
+  # with "viseron", and the forkserver children have no SIGHUP handler.
+  mapfile -t pids < <(pgrep -xf "viseron -u -m viseron" || true)
 
   if [ "${#pids[@]}" -eq 0 ]; then
     echo "No running viseron process found" >&2

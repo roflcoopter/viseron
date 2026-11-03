@@ -7,7 +7,7 @@ import logging
 import multiprocessing as mp
 import os
 import signal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -97,10 +97,16 @@ class RestartableProcess:
         context: str | None = None,
         stage: str | None = VISERON_SIGNAL_SHUTDOWN,
         create_process_method: Callable[[], mp.Process] | None = None,
+        create_args_method: Callable[[], tuple[Any, ...]] | None = None,
         start_watchdogs: bool = False,
         child_logger_names: tuple[str, ...] | None = None,
         **kwargs,
     ) -> None:
+        """Initialize the process.
+
+        create_args_method is called on every start to create the args of the new
+        process, which allows replacing queues that a killed process left broken.
+        """
         self._args = args
         self._name = name
         self._grace_period = grace_period
@@ -113,8 +119,16 @@ class RestartableProcess:
         self._start_time: float | None = None
         self._register = register
         self._create_process_method = create_process_method
+        self._create_args_method = create_args_method
         self._start_watchdogs = start_watchdogs
         self._child_log_levels: ChildLogLevels | None = None
+        if create_args_method and args:
+            raise ValueError("create_args_method can't be combined with args")
+        if create_args_method and create_process_method:
+            raise ValueError(
+                "create_args_method is not used by processes created with "
+                "create_process_method"
+            )
         if child_logger_names:
             if create_process_method:
                 raise ValueError(
@@ -185,6 +199,8 @@ class RestartableProcess:
             self._kwargs["target"] = _ChildProcessTarget(
                 self._original_target, self._start_watchdogs, self._child_log_levels
             )
+        if self._create_args_method:
+            self._kwargs["args"] = self._create_args_method()
 
         if self._create_process_method:
             self._process = self._create_process_method()

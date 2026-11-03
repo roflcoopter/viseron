@@ -10,6 +10,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from viseron.components.logger import (
+    LoggerConfig,
+    LoggerRoot,
     _get_loggers_for_camera,
     _matches_camera_override,
     setup,
@@ -59,15 +61,13 @@ def _make_config(
     default_level: str = "info",
     logs: dict[str, str] | None = None,
     cameras: dict[str, str] | None = None,
-) -> dict[str, Any]:
-    """Build a validated config dict for the logger component."""
-    component_config: dict[str, Any] = {
-        CONFIG_DEFAULT_LEVEL: default_level,
-        CONFIG_CAMERAS: cameras or {},
-    }
-    if logs is not None:
-        component_config[CONFIG_LOGS] = logs
-    return {COMPONENT: component_config}
+) -> LoggerRoot:
+    """Build a validated config for the logger component."""
+    return LoggerRoot(
+        logger=LoggerConfig(
+            default_level=default_level, logs=logs or {}, cameras=cameras or {}
+        )
+    )
 
 
 class TestSetupFirstRun:
@@ -191,8 +191,8 @@ class TestReload:
 
     def _setup_and_reload(
         self,
-        initial_config: dict[str, Any],
-        new_config: dict[str, Any],
+        initial_config: LoggerRoot,
+        new_config: LoggerRoot,
     ) -> MagicMock:
         """Call setup, unload, and setup again with new config."""
         vis = _make_vis()
@@ -362,8 +362,7 @@ class TestReload:
         assert logging.getLogger("test.comp.nologs").level == logging.DEBUG
 
         unload(vis)
-        # New config has no logs key
-        setup(vis, {COMPONENT: {CONFIG_DEFAULT_LEVEL: "info", CONFIG_CAMERAS: {}}})
+        setup(vis, LoggerRoot.model_validate({COMPONENT: {}}))
 
         assert logging.getLogger("test.comp.nologs").level == logging.NOTSET
 

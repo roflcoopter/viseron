@@ -82,7 +82,7 @@ class UTCDateTime(types.TypeDecorator):
     comparator_factory = Comparator
 
 
-class UTCNow(expression.FunctionElement):
+class UTCNow(expression.FunctionElement):  # pylint: disable=inconsistent-mro
     """Return the current timestamp in UTC."""
 
     type = UTCDateTime()
@@ -129,6 +129,13 @@ class Files(Base):
             "subcategory",
             "filename",
         ),
+        Index(
+            "idx_files_orig_ctime_lookup",
+            "camera_identifier",
+            "category",
+            "subcategory",
+            "orig_ctime",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -168,7 +175,7 @@ class FilesMeta:
     """
 
     orig_ctime: datetime.datetime
-    duration: float
+    duration: float | None
     file_key: int | None = None
 
 

@@ -191,6 +191,7 @@ class TestStream:
         ):
             stream = Stream(config, mocked_camera, "test_camera_identifier")
             stream._logger = MagicMock()
+            stream._ffmpeg_backend = None
             assert stream.get_decoder_codec(config, stream_codec) == expected_cmd
 
     @pytest.mark.parametrize(

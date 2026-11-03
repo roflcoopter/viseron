@@ -8,6 +8,7 @@ import multiprocessing as mp
 import subprocess as sp
 import threading
 from abc import abstractmethod
+from queue import Empty
 from typing import TYPE_CHECKING
 
 import voluptuous as vol
@@ -364,7 +365,10 @@ class EdgeTPU(SubProcessWorker):
                 "frame_resolution": frame_resolution,
             },
         )
-        item = result_queue.get()
+        try:
+            item = result_queue.get(timeout=3)
+        except Empty:
+            return None
         return item["result"]
 
     def work_output(self, item) -> None:

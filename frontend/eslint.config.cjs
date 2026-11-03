@@ -144,7 +144,6 @@ module.exports = defineConfig([
     "**/eslint.config.cjs",
     "**/vite.config.ts",
     "**/vitest.config.ts",
-    "**/lint-staged.config.js",
     "**/video-rtc.js",
     "src/components/editor/yaml.worker.js",
   ]),

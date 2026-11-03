@@ -15,6 +15,12 @@ DESC_COMPONENT = "GStreamer Configuration."
 ENV_GSTREAMER_PATH = "VISERON_GSTREAMER_PATH"
 MAX_EMPTY_FRAMES = 10
 
+# A dead or unreachable camera would otherwise spawn a new decode process
+# every few seconds indefinitely. Consecutive decode failures back off
+# exponentially between these bounds before retrying.
+DEFAULT_RESTART_DELAY = 5
+MAX_RESTART_DELAY = 60
+
 RECORDER = "recorder"
 
 # pylint: disable=useless-suppression

@@ -1285,6 +1285,53 @@ def test_filter_zones_object_outside_zone_is_excluded(
     assert obj not in detector.zones[0].objects_in_zone
 
 
+def test_filter_zones_logs_objects_in_zone(
+    vis: MockViseron,
+    base_config: dict[str, Any],
+    mock_shared_frame: SharedFrame,
+) -> None:
+    """Objects matched by a zone are logged even without top level labels."""
+    base_config[CONFIG_CAMERAS][CAMERA_IDENTIFIER][CONFIG_ZONES] = [
+        {
+            CONFIG_ZONE_NAME: "full_frame",
+            CONFIG_COORDINATES: [
+                {"x": 0, "y": 0},
+                {"x": 640, "y": 0},
+                {"x": 640, "y": 480},
+                {"x": 0, "y": 480},
+            ],
+            CONFIG_LABELS: [
+                {
+                    CONFIG_LABEL_LABEL: "person",
+                    CONFIG_LABEL_CONFIDENCE: 0.5,
+                    CONFIG_LABEL_WIDTH_MIN: 0.0,
+                    CONFIG_LABEL_WIDTH_MAX: 1.0,
+                    CONFIG_LABEL_HEIGHT_MIN: 0.0,
+                    CONFIG_LABEL_HEIGHT_MAX: 1.0,
+                    CONFIG_LABEL_TRIGGER_EVENT_RECORDING: False,
+                    CONFIG_LABEL_STORE: False,
+                    CONFIG_LABEL_STORE_INTERVAL: 60,
+                    CONFIG_LABEL_REQUIRE_MOTION: False,
+                    CONFIG_LABEL_REQUIRE_MOTION_OVERLAP: False,
+                    CONFIG_LABEL_MOTION_OVERLAP_THRESHOLD: 0.1,
+                }
+            ],
+        }
+    ]
+    detector = ConcreteObjectDetector(vis, base_config, CAMERA_IDENTIFIER)
+    detector._logger = MagicMock()
+
+    obj = create_detected_object("person", confidence=0.9)
+    other = create_detected_object("dog", confidence=0.9)
+    detector.filter_fov(mock_shared_frame, [obj, other])
+    detector.filter_zones(mock_shared_frame, [obj, other])
+
+    detector._logger.debug.assert_any_call("Objects: %s", [])
+    detector._logger.debug.assert_any_call(
+        "Objects in zone %s: %s", "full_frame", [obj.formatted]
+    )
+
+
 # ============================================================================
 # Properties Tests
 # ============================================================================
@@ -2041,20 +2088,40 @@ def test_object_detection_loop_discards_stale_frames(
     assert stale_log_calls, "Expected a stale-frame debug log but none was found"
 
 
+@pytest.mark.parametrize(
+    ("thread_alive", "expected_warnings"),
+    [
+        pytest.param(False, [], id="thread_exits"),
+        pytest.param(
+            True,
+            [call("Object detection thread did not stop in time")],
+            id="thread_stuck",
+        ),
+    ],
+)
 def test_stop_sets_kill_flag_and_joins_thread(
     vis: MockViseron,
     base_config: dict[str, Any],
+    thread_alive: bool,
+    expected_warnings: list[Any],
 ) -> None:
-    """stop() sets _kill_received=True then stops and joins the thread."""
+    """stop() sets _kill_received=True then stops and joins the thread.
+
+    The join is bounded so a detection thread blocked on a dead detector backend
+    cannot keep the non-daemon shutdown signal thread alive forever.
+    """
     det = ConcreteObjectDetector(vis, base_config, CAMERA_IDENTIFIER)
     det._object_detection_thread = MagicMock()
+    det._object_detection_thread.is_alive.return_value = thread_alive
     det._kill_received = False
+    det._logger = MagicMock()
 
     det.stop()
 
     assert det._kill_received is True
     det._object_detection_thread.stop.assert_called_once()
-    det._object_detection_thread.join.assert_called_once()
+    det._object_detection_thread.join.assert_called_once_with(timeout=5)
+    assert det._logger.warning.call_args_list == expected_warnings
 
 
 def test_unload_calls_all_listener_unsubscribes_and_stop(

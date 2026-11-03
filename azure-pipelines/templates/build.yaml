@@ -65,6 +65,8 @@ jobs:
           - template: cleanup.yaml
             parameters:
               mode: pre
+              ${{ if startsWith(architecture, 'amd64') }}:
+                minFreeGb: 40
 
           - script: docker run --rm --privileged tonistiigi/binfmt --install all
             displayName: Register QEMU for cross-builds
@@ -247,3 +249,5 @@ jobs:
           - template: cleanup.yaml
             parameters:
               mode: post
+              ${{ if startsWith(architecture, 'amd64') }}:
+                minFreeGb: 40

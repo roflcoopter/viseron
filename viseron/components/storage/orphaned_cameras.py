@@ -20,16 +20,6 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy import delete, func, select
 
 from viseron.components.storage.const import (
-    CONFIG_FACE_RECOGNITION,
-    CONFIG_IMAGE_CLASSIFICATION,
-    CONFIG_LICENSE_PLATE_RECOGNITION,
-    CONFIG_MOTION_DETECTOR,
-    CONFIG_OBJECT_DETECTOR,
-    CONFIG_PATH,
-    CONFIG_RECORDER,
-    CONFIG_SNAPSHOTS,
-    CONFIG_TIERS,
-    CONFIG_TIMELAPSE,
     TIER_CATEGORY_SNAPSHOTS,
     TIER_SUBCATEGORY_EVENT_CLIPS,
     TIER_SUBCATEGORY_SEGMENTS,
@@ -49,10 +39,13 @@ from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.viseron_types import SnapshotDomain
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from sqlalchemy.orm import Session
 
     from viseron import Viseron
     from viseron.components.storage import Storage
+    from viseron.components.storage.config import StorageConfig, Tier
 
 LOGGER = logging.getLogger(__name__)
 
@@ -74,14 +67,6 @@ SNAPSHOT_DOMAIN_DIRS = tuple(domain.value for domain in SnapshotDomain)
 CAMERA_TABLES: tuple[
     type[Recordings | Objects | PostProcessorResults | Files | Motion], ...
 ] = (Recordings, Objects, PostProcessorResults, Files, Motion)
-
-CONFIG_SNAPSHOT_DOMAINS = (
-    CONFIG_FACE_RECOGNITION,
-    CONFIG_IMAGE_CLASSIFICATION,
-    CONFIG_LICENSE_PLATE_RECOGNITION,
-    CONFIG_MOTION_DETECTOR,
-    CONFIG_OBJECT_DETECTOR,
-)
 
 
 class OrphanedCameraError(Exception):
@@ -113,27 +98,15 @@ class OrphanedCamera:
         }
 
 
-def get_configured_tier_paths(config: dict[str, Any]) -> set[str]:
+def get_configured_tier_paths(config: StorageConfig) -> set[str]:
     """Return every tier path in the storage configuration."""
-    paths: set[str] = set()
-
-    def _add_tiers(tiers: list[dict[str, Any]] | None) -> None:
-        for tier in tiers or []:
-            if path := tier.get(CONFIG_PATH):
-                paths.add(path)
-
-    _add_tiers((config.get(CONFIG_RECORDER) or {}).get(CONFIG_TIERS))
-    snapshots = config.get(CONFIG_SNAPSHOTS) or {}
-    _add_tiers(snapshots.get(CONFIG_TIERS))
-    for domain in CONFIG_SNAPSHOT_DOMAINS:
-        domain_config = snapshots.get(domain)
-        if isinstance(domain_config, dict):
-            _add_tiers(domain_config.get(CONFIG_TIERS))
-    timelapse = config.get(CONFIG_TIMELAPSE)
-    if isinstance(timelapse, dict):
-        _add_tiers(timelapse.get(CONFIG_TIERS))
-
-    return paths
+    tier_lists: list[Sequence[Tier]] = [
+        config.recorder.tiers,
+        *config.snapshots.tier_lists(),
+    ]
+    if config.timelapse:
+        tier_lists.append(config.timelapse.tiers)
+    return {tier.path for tiers in tier_lists for tier in tiers}
 
 
 def get_camera_directories(tier_paths: set[str], camera_identifier: str) -> list[str]:
@@ -208,7 +181,7 @@ def _count_database_rows(session: Session, camera_identifier: str) -> int:
     for table in CAMERA_TABLES:
         total += (
             session.execute(
-                select(func.count())  # pylint: disable=not-callable
+                select(func.count())
                 .select_from(table)
                 .where(table.camera_identifier == camera_identifier)
             ).scalar()

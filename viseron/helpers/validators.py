@@ -13,6 +13,9 @@ from viseron.helpers import slugify
 
 LOGGER = logging.getLogger(__name__)
 
+# 9999-12-31 00:00:00 UTC, the last day datetime can represent in every timezone
+MAX_TIMESTAMP = 253402214400
+
 
 class UNDEFINED:
     """Class to represent undefined value.
@@ -378,3 +381,14 @@ def request_argument_bool(value):
     if value == "false":
         return False
     return bool(value)
+
+
+def value_even(value: int) -> int:
+    """Check that the given value is even."""
+    if value % 2:
+        raise vol.Invalid("must be even")
+    return value
+
+
+# Range also rejects NaN, which compares false to both bounds
+TIMESTAMP = vol.All(vol.Coerce(float), vol.Range(min=0, max=MAX_TIMESTAMP))

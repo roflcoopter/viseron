@@ -136,6 +136,7 @@ const sidebars: SidebarsConfig = {
         { type: "doc", id: "documentation/configuration/snapshots" },
         { type: "doc", id: "documentation/configuration/pausing_notifications" },
         { type: "doc", id: "documentation/configuration/live_view" },
+        { type: "doc", id: "documentation/configuration/timelapse" },
         { type: "doc", id: "documentation/configuration/motion_detection" },
         {
           type: "doc",

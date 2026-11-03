@@ -7,7 +7,7 @@ export const downloadFile = async (
   message: types.DownloadFileResponse,
   toastId: Id,
   cameraName: string,
-) => {
+): Promise<boolean> => {
   toast.info(`${cameraName}: Downloading file...`, {
     toastId,
     autoClose: false,
@@ -50,11 +50,13 @@ export const downloadFile = async (
     // Cleanup
     link.remove();
     window.URL.revokeObjectURL(url);
+    return true;
   } catch (error) {
     toast.update(toastId, {
       type: "error",
       render: `${cameraName}: Download failed: ${error}`,
       autoClose: 5000,
     });
+    return false;
   }
 };

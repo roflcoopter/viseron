@@ -1,3 +1,4 @@
+import { type NetworkFixture } from "@msw/playwright";
 import { Page, expect } from "@playwright/test";
 import {
   test,
@@ -5,6 +6,8 @@ import {
   waitForPlayButtons,
   waitForSyntaxHighlighting,
 } from "e2e/playwright.setup";
+import { getDayjs } from "tests/mocks/clock";
+import { timelapseFramesHandler } from "tests/mocks/handlers";
 import { resetSetupStatusMock, setupStatusMock } from "tests/mocks/wsHandlers";
 import { MOCK_SETUP_STATUS_COMPONENTS } from "tests/utils/const";
 
@@ -296,5 +299,92 @@ test.describe("Screenshot logs page", () => {
       ["logs", "main.png"],
       SCREENSHOT_OPTIONS,
     );
+  });
+});
+
+test.describe("Screenshot timelapse pages", () => {
+  test("main view screenshot", async ({ page }: { page: Page }) => {
+    await page.goto("/#/timelapse", { waitUntil: "domcontentloaded" });
+    // Camera 3 does not have timelapse enabled
+    await expect(page.getByText(/Camera [0-9]/)).toHaveCount(2);
+    await expect(page.getByText(/^\d+ frames$/)).toHaveCount(2);
+    await waitForCameraSnapshots(page);
+    await expect(page).toHaveScreenshot(
+      ["timelapse", "main.png"],
+      SCREENSHOT_OPTIONS,
+    );
+  });
+
+  test.describe("camera page", () => {
+    test.beforeEach(async ({ page }: { page: Page }) => {
+      // Playwright's Chromium has no H.264 decoder, so show the poster frame
+      await page.addInitScript(() => {
+        Object.defineProperty(window, "MediaSource", { value: undefined });
+        Object.defineProperty(window, "ManagedMediaSource", {
+          value: undefined,
+        });
+      });
+      await page.goto("/#/timelapse/camera1", {
+        waitUntil: "domcontentloaded",
+      });
+      await expect(page.getByTestId("timelapse-player")).toBeVisible();
+      // The spinner is only shown while the video waits for data
+      await expect(page.getByLabel("Buffering")).toHaveCount(0);
+    });
+
+    test("player screenshot", async ({ page }: { page: Page }) => {
+      await expect(page).toHaveScreenshot(
+        ["timelapse", "camera.png"],
+        SCREENSHOT_OPTIONS,
+      );
+    });
+
+    test("gaps screenshot", async ({
+      page,
+      network,
+    }: {
+      page: Page;
+      network: NetworkFixture;
+    }) => {
+      // Simulate some gaps
+      const now = getDayjs();
+      network.use(
+        timelapseFramesHandler([
+          {
+            start: now.subtract(14, "hour").unix(),
+            end: now.subtract(9, "hour").unix(),
+          },
+          {
+            start: now.subtract(4, "hour").unix(),
+            end: now.subtract(3, "hour").unix(),
+          },
+        ]),
+      );
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await expect(page.getByLabel("Buffering")).toHaveCount(0);
+
+      // Add a green highlight border around each gap marker
+      const gapMarkers = page.locator(".MuiSlider-mark");
+      await expect(gapMarkers).toHaveCount(2);
+      await gapMarkers.evaluateAll((elements) =>
+        elements.forEach((el) => {
+          (el as HTMLElement).style.outline = "3px solid #00ff00";
+          (el as HTMLElement).style.outlineOffset = "3px";
+        }),
+      );
+
+      await expect(page.getByTestId("timelapse-player")).toHaveScreenshot(
+        ["timelapse", "gaps.png"],
+        { timeout: SCREENSHOT_OPTIONS.timeout },
+      );
+    });
+
+    test("render dialog screenshot", async ({ page }: { page: Page }) => {
+      await page.getByRole("button", { name: "Render Video" }).click();
+      await expect(page.getByRole("dialog")).toHaveScreenshot(
+        ["timelapse", "render-dialog.png"],
+        { timeout: SCREENSHOT_OPTIONS.timeout },
+      );
+    });
   });
 });

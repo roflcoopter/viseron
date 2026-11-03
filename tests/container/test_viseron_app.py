@@ -86,10 +86,22 @@ def test_reload_wrapper_triggers_reload_log_and_keeps_process_running(
     pre_completed_count = pre_logs.count("Config reload completed in")
     pre_no_changes_count = pre_logs.count("No configuration changes detected")
 
+    # Wait for a child process whose title also starts with "viseron"
+    deadline = time.monotonic() + 60.0
+    storage_pids: list[str] = []
+    while not storage_pids and time.monotonic() < deadline:
+        storage_pids = host.run("pgrep -f '^viseron_storage_subprocess'").stdout.split()
+        time.sleep(0.5)
+    assert storage_pids, "storage subprocess not running before reload"
+
     reload_cmd = host.run("viseron --reload")
     assert reload_cmd.rc == 0, (
         f"viseron --reload failed: rc={reload_cmd.rc}\n"
         f"stdout=\n{reload_cmd.stdout}\n"
+        f"stderr=\n{reload_cmd.stderr}"
+    )
+    assert reload_cmd.stderr.count("Sent SIGHUP") == 1, (
+        "expected SIGHUP to be sent to the main process only\n"
         f"stderr=\n{reload_cmd.stderr}"
     )
 

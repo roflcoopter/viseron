@@ -25,5 +25,6 @@ RUN \
   && mkdir -p /snapshots\
   && mkdir -p /thumbnails
 
+COPY scripts /src/scripts/
 COPY viseron /src/viseron/
 COPY tests /src/tests/

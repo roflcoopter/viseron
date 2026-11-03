@@ -367,7 +367,7 @@ class EventsAPIHandler(BaseAPIHandler):
             stmt = (
                 select(
                     func.date(Motion.start_time + self.utc_offset),
-                    func.count(),  # pylint: disable=not-callable
+                    func.count(),
                 )
                 .where(Motion.camera_identifier.in_(camera_identifiers))
                 .group_by(func.date(Motion.start_time + self.utc_offset))
@@ -377,7 +377,7 @@ class EventsAPIHandler(BaseAPIHandler):
             stmt = (
                 select(
                     func.date(Recordings.start_time + self.utc_offset),
-                    func.count(),  # pylint: disable=not-callable
+                    func.count(),
                 )
                 .where(Recordings.camera_identifier.in_(camera_identifiers))
                 .group_by(func.date(Recordings.start_time + self.utc_offset))
@@ -387,7 +387,7 @@ class EventsAPIHandler(BaseAPIHandler):
             stmt = (
                 select(
                     func.date(Objects.created_at + self.utc_offset),
-                    func.count(),  # pylint: disable=not-callable
+                    func.count(),
                 )
                 .where(Objects.camera_identifier.in_(camera_identifiers))
                 .group_by(func.date(Objects.created_at + self.utc_offset))
@@ -398,7 +398,7 @@ class EventsAPIHandler(BaseAPIHandler):
                 select(
                     func.date(PostProcessorResults.created_at + self.utc_offset),
                     PostProcessorResults.domain,
-                    func.count(),  # pylint: disable=not-callable
+                    func.count(),
                 )
                 .where(PostProcessorResults.camera_identifier.in_(camera_identifiers))
                 .group_by(

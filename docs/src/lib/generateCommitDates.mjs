@@ -99,7 +99,7 @@ async function main() {
   }
 
   fs.mkdirSync(path.dirname(OUTPUT), { recursive: true });
-  fs.writeFileSync(OUTPUT, JSON.stringify(result, null, 2));
+  fs.writeFileSync(OUTPUT, `${JSON.stringify(result, null, 2)}\n`);
 }
 
 main().catch(console.error);

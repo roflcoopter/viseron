@@ -20,6 +20,7 @@ PYTHON_IMPORTS = (
     "viseron.components.webserver",
     "viseron.components.storage",
     "tornado",
+    "pydantic",
     "voluptuous",
     "ruamel.yaml",
     "hailo_platform",

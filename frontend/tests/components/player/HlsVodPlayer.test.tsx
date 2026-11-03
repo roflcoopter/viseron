@@ -101,6 +101,8 @@ const mockCamera: types.Camera = {
   connected: true,
   live_stream_available: true,
   is_recording: false,
+  is_manual_recording: false,
+  timelapse: false,
   notifications_configured: true,
   notifications_paused: false,
   notifications_paused_until: null,

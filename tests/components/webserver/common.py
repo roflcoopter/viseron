@@ -16,6 +16,7 @@ from tornado.web import create_signed_value
 
 from viseron import Viseron, setup_viseron
 from viseron.components.webserver import Webserver, create_application
+from viseron.components.webserver.config import WebserverConfig
 from viseron.components.webserver.const import COMPONENT
 
 from tests.common import patch_storage_path
@@ -132,7 +133,7 @@ class TestAppBase(AsyncHTTPTestCase):
         AsyncHTTPTestCase does not support xsrf_cookies, so we disable it here.
         """
         return create_application(
-            self.vis, {"debug": False}, "dummy_secret", xsrf_cookies=False
+            self.vis, WebserverConfig(), "dummy_secret", xsrf_cookies=False
         )
 
 

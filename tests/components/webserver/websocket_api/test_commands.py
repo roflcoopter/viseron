@@ -3,19 +3,42 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock
+import datetime
+from concurrent.futures import Future
+from typing import TYPE_CHECKING, Any
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+import voluptuous as vol
+
+from viseron.components.storage.const import TIMELAPSE_RENDER_MANAGER
+from viseron.components.storage.timelapse_render import (
+    TimelapseNoFramesError,
+    TimelapseRenderBusyError,
+    TimelapseRenderCancelled,
+    TimelapseRenderError,
+    TimelapseRenderJob,
+)
 from viseron.components.webserver.auth import Role, User
+from viseron.components.webserver.websocket_api import commands
 from viseron.components.webserver.websocket_api.commands import (
     _camera_identifier_from_event,
     _event_allowed,
     _state_changed_allowed,
+    export_timespan,
     get_entities,
+    render_timelapse,
     subscribe_event,
     subscribe_states,
+    unsubscribe_event,
 )
 from viseron.events import Event, EventData
 from viseron.states import EventStateChangedData, State
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+COMMANDS = "viseron.components.webserver.websocket_api.commands"
 
 
 class _CameraEventData(EventData):
@@ -305,3 +328,361 @@ class TestGetEntities:
         entities = self._get_entities(_connection(_user(Role.ADMIN, ["cam_a"])))
 
         assert len(entities) == 3
+
+
+def test_export_timespan_filename() -> None:
+    """The exported file keeps a single dot before the extension."""
+    connection = _connection(_user())
+    connection.get_camera.return_value.identifier = "cam_a"
+    connection.get_camera.return_value.fragmenter.concatenate_fragments.return_value = (
+        "/tmp/abc.mp4"
+    )
+
+    async def _run_in_executor(func: Any, *args: Any) -> Any:
+        return func(*args)
+
+    connection.run_in_executor = _run_in_executor
+    connection.webserver.download_tokens = {}
+    start = 1723111156
+    with (
+        patch(
+            "viseron.components.webserver.websocket_api.commands."
+            "get_time_period_fragments",
+            return_value=[MagicMock()],
+        ),
+        patch("viseron.components.webserver.websocket_api.commands.shutil.move"),
+        patch("viseron.components.webserver.websocket_api.commands.create_directory"),
+    ):
+        asyncio.run(
+            export_timespan(
+                connection,
+                {
+                    "type": "export_timespan",
+                    "command_id": 1,
+                    "camera_identifier": "cam_a",
+                    "start": start,
+                    "end": start + 60,
+                },
+            )
+        )
+
+    (token,) = connection.webserver.download_tokens.values()
+    time_string = datetime.datetime.fromtimestamp(start).strftime("%Y-%m-%d-%H-%M-%S")
+    assert token.filename.endswith(f"/cam_a-{time_string}.mp4")
+
+
+async def _wait_for_render_tasks() -> None:
+    await asyncio.gather(*commands._RENDER_TASKS)
+
+
+class TestRenderTimelapse:
+    """Tests for the render_timelapse command."""
+
+    START = 1723111156
+
+    def _message(self, **overrides: Any) -> dict[str, Any]:
+        return {
+            "type": "render_timelapse",
+            "command_id": 1,
+            "camera_identifier": "cam_a",
+            "start": self.START,
+            "end": self.START + 3600,
+            "fps": 30,
+            "max_frames": 1800,
+            "max_width": None,
+            **overrides,
+        }
+
+    def _connection(self) -> tuple[MagicMock, Future[str], MagicMock]:
+        connection = _connection(_user())
+        connection.get_camera.return_value.identifier = "cam_a"
+        connection.get_camera.return_value.timelapse_folder = "/timelapse/cam_a"
+        connection.webserver.download_tokens = {}
+
+        async def _run_in_executor(func: Any, *args: Any) -> Any:
+            return func(*args)
+
+        connection.run_in_executor = _run_in_executor
+        future: Future[str] = Future()
+        cancel_event = MagicMock()
+        render_manager = MagicMock()
+        render_manager.submit.return_value = TimelapseRenderJob(future, cancel_event)
+        connection.vis.data = {TIMELAPSE_RENDER_MANAGER: render_manager}
+        return connection, future, cancel_event
+
+    def _sent(self, connection: MagicMock) -> list[dict[str, Any]]:
+        return [call.args[0] for call in connection.async_send_message.call_args_list]
+
+    def test_render_done(self) -> None:
+        """The handler returns before the render finishes, then sends the token."""
+        connection, future, _ = self._connection()
+
+        async def _test() -> None:
+            await render_timelapse(connection, self._message())
+            # The command must not block the connection while rendering
+            assert self._sent(connection) == [
+                {"command_id": 1, "type": "result", "success": True, "result": None}
+            ]
+            assert 1 in connection.subscriptions
+
+            future.set_result("/tmp/viseron/timelapse-abc.mp4")
+            await _wait_for_render_tasks()
+
+        with (
+            patch(f"{COMMANDS}.shutil.move") as move,
+            patch(f"{COMMANDS}.create_directory"),
+        ):
+            asyncio.run(_test())
+
+        (token,) = connection.webserver.download_tokens.values()
+        start_string, end_string = (
+            datetime.datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d-%H-%M-%S")
+            for timestamp in (self.START, self.START + 3600)
+        )
+        assert token.filename.endswith(
+            f"/cam_a-timelapse-{start_string}-{end_string}-{token.token[:8]}.mp4"
+        )
+        assert token.delete_after_download
+        move.assert_called_once_with("/tmp/viseron/timelapse-abc.mp4", token.filename)
+        assert self._sent(connection)[1:] == [
+            {
+                "command_id": 1,
+                "type": "subscription_result",
+                "success": True,
+                "result": {
+                    "status": "done",
+                    "filename": token.filename,
+                    "token": token.token,
+                },
+            },
+            {"command_id": 1, "type": "cancel_subscription"},
+        ]
+        assert 1 not in connection.subscriptions
+
+    def test_render_status_forwarded(self) -> None:
+        """Status updates from the render thread are sent thread-safely."""
+        connection, _, _ = self._connection()
+
+        asyncio.run(render_timelapse(connection, self._message()))
+
+        submit = connection.vis.data[TIMELAPSE_RENDER_MANAGER].submit
+        on_status = submit.call_args.args[2]
+        on_status({"status": "queued"})
+        connection.send_message.assert_called_once_with(
+            {
+                "command_id": 1,
+                "type": "subscription_result",
+                "success": True,
+                "result": {"status": "queued"},
+            }
+        )
+
+    @pytest.mark.parametrize(
+        "exception, code, error_message",
+        [
+            pytest.param(
+                TimelapseNoFramesError("No frames"),
+                "not_found",
+                "No frames",
+                id="no_frames",
+            ),
+            pytest.param(
+                TimelapseRenderError("Render timed out"),
+                "uknown_error",
+                "Render timed out",
+                id="render_error",
+            ),
+            pytest.param(
+                RuntimeError("/secret/path"),
+                "uknown_error",
+                "Unknown error",
+                id="unexpected_error_hidden",
+            ),
+        ],
+    )
+    def test_render_error(
+        self, exception: Exception, code: str, error_message: str
+    ) -> None:
+        """A failed render sends a subscription error and ends the subscription."""
+        connection, future, _ = self._connection()
+
+        async def _test() -> None:
+            await render_timelapse(connection, self._message())
+            future.set_exception(exception)
+            await _wait_for_render_tasks()
+
+        asyncio.run(_test())
+
+        assert self._sent(connection)[1:] == [
+            {
+                "command_id": 1,
+                "type": "subscription_result",
+                "success": False,
+                "error": {"code": code, "message": error_message},
+            },
+            {"command_id": 1, "type": "cancel_subscription"},
+        ]
+        assert 1 not in connection.subscriptions
+
+    def test_render_busy(self) -> None:
+        """A render rejected by a full queue ends the subscription."""
+        connection, _, _ = self._connection()
+        submit = connection.vis.data[TIMELAPSE_RENDER_MANAGER].submit
+        submit.side_effect = TimelapseRenderBusyError
+
+        asyncio.run(render_timelapse(connection, self._message()))
+
+        assert [
+            (message["type"], message.get("success"))
+            for message in self._sent(connection)
+        ] == [
+            ("result", True),
+            ("subscription_result", False),
+            ("cancel_subscription", None),
+        ]
+        assert 1 not in connection.subscriptions
+
+    @pytest.mark.parametrize(
+        "before_cancel, after_cancel",
+        [
+            pytest.param(lambda _future: None, lambda _future: None, id="queued"),
+            pytest.param(
+                lambda future: future.set_running_or_notify_cancel(),
+                lambda future: future.set_exception(TimelapseRenderCancelled()),
+                id="rendering",
+            ),
+        ],
+    )
+    def test_unsubscribe_cancels(
+        self,
+        before_cancel: Callable[[Future[str]], Any],
+        after_cancel: Callable[[Future[str]], Any],
+    ) -> None:
+        """unsubscribe_event cancels the render and nothing more is sent."""
+        connection, future, cancel_event = self._connection()
+
+        async def _test() -> None:
+            await render_timelapse(connection, self._message())
+            before_cancel(future)
+            await unsubscribe_event(
+                connection,
+                {"type": "unsubscribe_event", "command_id": 2, "subscription": 1},
+            )
+            after_cancel(future)
+            await _wait_for_render_tasks()
+
+        asyncio.run(_test())
+
+        cancel_event.set.assert_called_once()
+        assert [message["type"] for message in self._sent(connection)] == [
+            "result",
+            "result",
+        ]
+
+    @pytest.mark.parametrize("cancel_during_move", [False, True])
+    def test_cancelled_after_render_finished(self, cancel_during_move: bool) -> None:
+        """A render cancelled while finishing removes the video."""
+        connection, future, _ = self._connection()
+
+        def _move(_src: str, _dst: str) -> None:
+            if cancel_during_move:
+                connection.subscriptions.pop(1)
+
+        async def _test() -> None:
+            await render_timelapse(connection, self._message())
+            if not cancel_during_move:
+                connection.subscriptions.pop(1)
+            future.set_result("/tmp/viseron/timelapse-abc.mp4")
+            await _wait_for_render_tasks()
+
+        with (
+            patch(f"{COMMANDS}.shutil.move", side_effect=_move) as move,
+            patch(f"{COMMANDS}.create_directory"),
+            patch(f"{COMMANDS}.os.remove") as remove,
+        ):
+            asyncio.run(_test())
+
+        remove.assert_called_once_with(move.call_args.args[1])
+        assert not connection.webserver.download_tokens
+        assert len(self._sent(connection)) == 1
+
+    def test_move_to_downloads_failed(self) -> None:
+        """A failed move sends an error and removes both paths."""
+        connection, future, _ = self._connection()
+
+        async def _test() -> None:
+            await render_timelapse(connection, self._message())
+            future.set_result("/tmp/viseron/timelapse-abc.mp4")
+            await _wait_for_render_tasks()
+
+        with (
+            patch(f"{COMMANDS}.shutil.move", side_effect=OSError("disk full")) as move,
+            patch(f"{COMMANDS}.create_directory"),
+            patch(f"{COMMANDS}.os.remove") as remove,
+        ):
+            asyncio.run(_test())
+
+        assert [call.args[0] for call in remove.call_args_list] == list(
+            move.call_args.args
+        )
+        assert not connection.webserver.download_tokens
+        assert self._sent(connection)[1:] == [
+            {
+                "command_id": 1,
+                "type": "subscription_result",
+                "success": False,
+                "error": {"code": "uknown_error", "message": "Unknown error"},
+            },
+            {"command_id": 1, "type": "cancel_subscription"},
+        ]
+        assert 1 not in connection.subscriptions
+
+    def test_error_after_unsubscribe(self) -> None:
+        """A render that fails after it was unsubscribed sends nothing more."""
+        connection, future, _ = self._connection()
+
+        async def _test() -> None:
+            await render_timelapse(connection, self._message())
+            connection.subscriptions.pop(1)
+            future.set_exception(TimelapseRenderError("Render timed out"))
+            await _wait_for_render_tasks()
+
+        asyncio.run(_test())
+
+        assert len(self._sent(connection)) == 1
+
+    @pytest.mark.parametrize("key", ["start", "end"])
+    @pytest.mark.parametrize("value", ["nan", "inf", "-inf", 1e300, -1])
+    def test_schema_rejects_invalid_timestamps(self, key: str, value: Any) -> None:
+        """Timestamps that datetime cannot represent are rejected by the schema."""
+        with pytest.raises(vol.Invalid):
+            render_timelapse.schema(self._message(**{key: value}))
+
+    @pytest.mark.parametrize(
+        "camera, overrides, code",
+        [
+            pytest.param(None, {}, "not_found", id="camera_not_accessible"),
+            pytest.param(
+                MagicMock(timelapse_folder=None), {}, "not_found", id="timelapse_off"
+            ),
+            pytest.param(
+                MagicMock(timelapse_folder="/timelapse/cam_a"),
+                {"end": START},
+                "invalid_format",
+                id="end_not_after_start",
+            ),
+        ],
+    )
+    def test_rejected(
+        self, camera: MagicMock | None, overrides: dict[str, Any], code: str
+    ) -> None:
+        """Invalid requests are rejected before a render is submitted."""
+        connection, _, _ = self._connection()
+        connection.get_camera.return_value = camera
+
+        asyncio.run(render_timelapse(connection, self._message(**overrides)))
+
+        (sent,) = self._sent(connection)
+        assert sent["success"] is False
+        assert sent["error"]["code"] == code
+        connection.vis.data[TIMELAPSE_RENDER_MANAGER].submit.assert_not_called()

@@ -387,6 +387,7 @@ class Camera(AbstractCamera):
         frame_reader_config = FrameReaderConfig(
             camera_identifier=self.identifier,
             decoder_command=self.stream.build_command(),
+            dedicated_rawvideo_fd=self.stream.use_rawvideo_fd,
             segment_command=(
                 self.stream.build_segment_command()
                 if self._config.get(CONFIG_SUBSTREAM, None)

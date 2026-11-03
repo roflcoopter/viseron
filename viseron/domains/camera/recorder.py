@@ -392,10 +392,16 @@ class AbstractRecorder(ABC, RecorderBase):
         self.is_recording = False
 
         if self._config[CONFIG_RECORDER][CONFIG_CREATE_EVENT_CLIP]:
+            if self._vis.shutdown_event.is_set():
+                self._logger.warning(
+                    "Skipping event clip creation since Viseron is shutting down"
+                )
+                return
             concat_thread = RestartableThread(
                 name=f"viseron.camera.{self._camera.identifier}.concatenate_fragments",
                 target=self._concatenate_fragments,
                 args=(recording,),
+                daemon=True,
                 register=False,
             )
             concat_thread.start()

@@ -1,116 +1,52 @@
 import { HttpResponse, http } from "msw";
 import { getDayjs } from "tests/mocks/clock";
+import {
+  cameraEventsResponse,
+  eventsDatesOfInterestResponse,
+} from "tests/mocks/helpers/events";
+import {
+  type VideoLoader,
+  recordingPlaylistResponse,
+  timePeriodPlaylistResponse,
+} from "tests/mocks/helpers/hls";
+import { mockLogs } from "tests/mocks/helpers/logs";
+import {
+  type TimelapseGap,
+  timelapseDatesOfInterestResponse,
+  timelapseFramesResponse,
+  timelapseSummaryResponse,
+} from "tests/mocks/helpers/timelapse";
 
 import type {
   PtzNodesResponse,
   PtzPresetsResponse,
 } from "lib/api/actions/onvif/types";
-import type { LogEntry, LogsResponse } from "lib/api/logger";
+import type { LogsResponse } from "lib/api/logger";
 import * as types from "lib/types";
 
 export const API_BASE_URL = "/api/v1";
 
-const MOCK_LOG_LINES: {
-  level: LogEntry["level"];
-  name: string;
-  message: string;
-}[] = [
-  {
-    level: "info",
-    name: "viseron.components",
-    message: "Setting up component ffmpeg",
-  },
-  {
-    level: "debug",
-    name: "viseron.components.ffmpeg.camera.camera1",
-    message:
-      "FFmpeg command: ffmpeg -hide_banner -loglevel error -rtsp_transport tcp " +
-      "-i rtsp://***:***@192.168.1.10:554/Streaming/Channels/101",
-  },
-  {
-    level: "info",
-    name: "viseron.components.ffmpeg.camera.camera1",
-    message: "Camera 1 connected, resolution 1920x1080 @ 20 FPS",
-  },
-  {
-    level: "info",
-    name: "viseron.components.darknet",
-    message: "Using CUDA backend for object detection",
-  },
-  {
-    level: "warning",
-    name: "viseron.components.ffmpeg.camera.camera2",
-    message: "Timeout waiting for frame, restarting camera",
-  },
-  {
-    level: "info",
-    name: "viseron.domains.motion_detector.camera2",
-    message: "Motion detected, max area 0.14",
-  },
-  {
-    level: "debug",
-    name: "viseron.components.darknet.object_detector.camera2",
-    message: "Objects detected: person 0.91, car 0.63",
-  },
-  {
-    level: "info",
-    name: "viseron.domains.camera.recorder.camera2",
-    message: "Starting recorder for camera2, trigger type object",
-  },
-  {
-    level: "error",
-    name: "viseron.components.ffmpeg.camera.camera3",
-    message: "Error starting camera: Connection refused",
-  },
-  {
-    level: "critical",
-    name: "viseron.components",
-    message: "Failed to setup component edgetpu, entering safe mode",
-  },
-  {
-    level: "debug",
-    name: "viseron.components.storage.tier_handler",
-    message:
-      "Moving /segments/camera2/1717430400.m4s to /segments_cold/camera2",
-  },
-  {
-    level: "info",
-    name: "viseron.components.storage.tier_handler",
-    message: "Tier /segments is 82% full, running cleanup",
-  },
-  {
-    level: "info",
-    name: "viseron.domains.camera.recorder.camera2",
-    message: "Stopping recorder for camera2, recording id 1043",
-  },
-  {
-    level: "info",
-    name: "viseron.components.webserver",
-    message: "Starting webserver on port 8888",
-  },
-];
-
-// Build a log feed by repeating the sample lines, newest last, one second apart
-const mockLogs = (): LogEntry[] => {
-  const start = getDayjs().subtract(MOCK_LOG_LINES.length * 4, "second");
-  return Array.from({ length: MOCK_LOG_LINES.length * 4 }, (_, index) => {
-    const line = MOCK_LOG_LINES[index % MOCK_LOG_LINES.length];
-    const timestamp = start.add(index, "second");
-    return {
-      id: `${timestamp.valueOf()}_${line.level}_${line.name}_${index}`,
-      timestamp: timestamp.format("YYYY-MM-DD HH:mm:ss.SSS"),
-      timestamp_unix_ms: timestamp.valueOf(),
-      level: line.level,
-      name: line.name,
-      message: line.message,
-      raw: `${timestamp.format("YYYY-MM-DD HH:mm:ss.SSS")} [${line.level?.toUpperCase()}] [${line.name}] - ${line.message}`,
-    };
-  });
-};
-
 export type SnapshotLoader = (cameraIdentifier: string) => Promise<ArrayBuffer>;
 
-export const createHandlers = (loadSnapshot: SnapshotLoader) => [
+export const timelapseFramesHandler = (gaps: TimelapseGap[] = []) =>
+  http.get(
+    `${API_BASE_URL}/timelapse/:camera_identifier`,
+    ({ params, request }) => {
+      const searchParams = new URL(request.url).searchParams;
+      return timelapseFramesResponse(
+        String(params.camera_identifier),
+        Number(searchParams.get("start")),
+        Number(searchParams.get("end")),
+        Number(searchParams.get("max_frames") ?? 1800),
+        gaps,
+      );
+    },
+  );
+
+export const createHandlers = (
+  loadSnapshot: SnapshotLoader,
+  loadVideo: VideoLoader,
+) => [
   http.get(`${API_BASE_URL}/auth/enabled`, () =>
     HttpResponse.json(
       { enabled: true, onboarding_complete: true },
@@ -220,6 +156,8 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
         live_stream_available: true,
         connected: true,
         is_recording: false,
+        is_manual_recording: false,
+        timelapse: true,
         notifications_configured: true,
         notifications_paused: false,
         notifications_paused_until: null,
@@ -245,6 +183,8 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
         live_stream_available: true,
         connected: true,
         is_recording: true,
+        is_manual_recording: false,
+        timelapse: true,
         notifications_configured: true,
         notifications_paused: false,
         notifications_paused_until: null,
@@ -271,6 +211,8 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
         live_stream_available: true,
         connected: true,
         is_recording: false,
+        is_manual_recording: false,
+        timelapse: false,
         notifications_configured: true,
         notifications_paused: false,
         notifications_paused_until: null,
@@ -332,6 +274,8 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
       live_stream_available: true,
       connected: true,
       is_recording: false,
+      is_manual_recording: false,
+      timelapse: true,
       notifications_configured: true,
       notifications_paused: false,
       notifications_paused_until: null,
@@ -360,6 +304,8 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
       live_stream_available: true,
       connected: true,
       is_recording: true,
+      is_manual_recording: false,
+      timelapse: true,
       notifications_configured: true,
       notifications_paused: false,
       notifications_paused_until: null,
@@ -389,6 +335,8 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
       live_stream_available: true,
       connected: true,
       is_recording: false,
+      is_manual_recording: false,
+      timelapse: false,
       notifications_configured: true,
       notifications_paused: false,
       notifications_paused_until: null,
@@ -495,6 +443,51 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
   }),
   http.get(`${API_BASE_URL}/recordings/camera3`, () =>
     HttpResponse.json({}, { status: 200 }),
+  ),
+
+  http.get(`${API_BASE_URL}/events/:camera_identifier`, ({ params, request }) =>
+    cameraEventsResponse(
+      String(params.camera_identifier),
+      new URL(request.url).searchParams,
+    ),
+  ),
+  http.post(`${API_BASE_URL}/events/dates_of_interest`, async ({ request }) =>
+    eventsDatesOfInterestResponse(
+      ((await request.json()) as { camera_identifiers: string[] })
+        .camera_identifiers,
+    ),
+  ),
+
+  http.get(
+    `${API_BASE_URL}/hls/:camera_identifier/index.m3u8`,
+    ({ params, request }) =>
+      timePeriodPlaylistResponse(
+        loadVideo,
+        String(params.camera_identifier),
+        Number(new URL(request.url).searchParams.get("start_timestamp")),
+      ),
+  ),
+  http.get(
+    `${API_BASE_URL}/hls/:camera_identifier/:recording_id/index.m3u8`,
+    ({ params }) =>
+      recordingPlaylistResponse(loadVideo, String(params.camera_identifier)),
+  ),
+
+  // Recording thumbnails and event snapshots reuse the camera snapshot
+  http.get("/files/:tier/:category/:camera/:file", async ({ params }) =>
+    HttpResponse.arrayBuffer(await loadSnapshot(String(params.camera)), {
+      status: 200,
+      headers: { "Content-Type": "image/jpeg" },
+    }),
+  ),
+  http.get("/files/segments/:camera/:file", async ({ params }) =>
+    HttpResponse.arrayBuffer(
+      await loadVideo.load(`${String(params.camera)}/${String(params.file)}`),
+      {
+        status: 200,
+        headers: { "Content-Type": "video/mp4" },
+      },
+    ),
   ),
 
   // Profile
@@ -794,6 +787,29 @@ export const createHandlers = (loadSnapshot: SnapshotLoader) => [
   http.all(`${API_BASE_URL}/actions/onvif/ptz/:camera_identifier/:action`, () =>
     HttpResponse.json({ success: true } as types.APISuccessResponse, {
       status: 200,
+    }),
+  ),
+
+  // Timelapse
+  http.get(`${API_BASE_URL}/timelapse`, () => timelapseSummaryResponse()),
+  timelapseFramesHandler(),
+  http.get(
+    `${API_BASE_URL}/timelapse/:camera_identifier/dates_of_interest`,
+    () => timelapseDatesOfInterestResponse(),
+  ),
+  http.get("/file/:camera_identifier/:file_key", async ({ params }) => {
+    const buffer = await loadSnapshot(String(params.camera_identifier));
+    return HttpResponse.arrayBuffer(buffer, {
+      status: 200,
+      headers: { "Content-Type": "image/jpeg" },
+    });
+  }),
+  // Downloads of exports and rendered timelapses, nothing is actually rendered
+  http.get(`${API_BASE_URL}/download`, () =>
+    // Not empty, the browser only reports download progress for a body
+    HttpResponse.arrayBuffer(new ArrayBuffer(1024), {
+      status: 200,
+      headers: { "Content-Type": "video/mp4" },
     }),
   ),
 ];

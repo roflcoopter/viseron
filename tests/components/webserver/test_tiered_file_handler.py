@@ -1,6 +1,5 @@
 """Test the TieredFileHandler class."""
 
-# pylint: disable=protected-access
 import os
 import shutil
 from typing import TYPE_CHECKING
@@ -9,7 +8,8 @@ from unittest.mock import Mock
 import tornado.web
 
 from viseron.components.storage import RequestedFilesCount
-from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT, CONFIG_PATH
+from viseron.components.storage.config import Tier
+from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.webserver.tiered_file_handler import TieredFileHandler
 
 from tests.components.webserver.common import TestAppBaseNoAuth
@@ -65,8 +65,8 @@ class TestTieredFileHandler(TestAppBaseNoAuth):
             ],
         )
 
-        tier_handler1 = Mock(tier={CONFIG_PATH: f"{tier1}/"})
-        tier_handler2 = Mock(tier={CONFIG_PATH: f"{tier2}/"})
+        tier_handler1 = Mock(tier=Tier(path=tier1))
+        tier_handler2 = Mock(tier=Tier(path=tier2))
         storage._camera_tier_handlers["test_camera"] = {}
         storage._camera_tier_handlers["test_camera"]["recorder"] = []
         storage._camera_tier_handlers["test_camera"]["recorder"].append(

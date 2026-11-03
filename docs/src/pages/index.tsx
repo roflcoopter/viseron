@@ -6,11 +6,11 @@ import {
   Chip,
   Demo,
   FaceActivated,
-  WatsonHealth3DMprToggle,
-  PartitionAuto,
-  VisualRecognition,
   Movement,
+  PartitionAuto,
   Video,
+  VisualRecognition,
+  WatsonHealth3DMprToggle,
 } from "@carbon/icons-react";
 import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
@@ -59,7 +59,10 @@ function HomepageHeader() {
                   </div>
                 </div>
               </Link>
-              <Link to="/components-explorer/components/onvif" className={styles.featureItem}>
+              <Link
+                to="/components-explorer/components/onvif"
+                className={styles.featureItem}
+              >
                 <PartitionAuto size={32} className={styles.featureIcon} />
                 <div>
                   <div className={styles.featureTitle}>ONVIF Compatible</div>
@@ -72,7 +75,10 @@ function HomepageHeader() {
                 to="/components-explorer?tags=object_detector"
                 className={styles.featureItem}
               >
-                <WatsonHealth3DMprToggle size={32} className={styles.featureIcon} />
+                <WatsonHealth3DMprToggle
+                  size={32}
+                  className={styles.featureIcon}
+                />
                 <div>
                   <div className={styles.featureTitle}>Object Detection</div>
                   <div className={styles.featureDesc}>

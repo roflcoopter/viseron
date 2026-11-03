@@ -534,6 +534,11 @@ class AbstractObjectDetector(AbstractDomain):
         """Filter all zones."""
         for zone in self.zones:
             zone.filter_zone(shared_frame, objects)
+            self._logger.debug(
+                "Objects in zone %s: %s",
+                zone.name,
+                [obj.formatted for obj in zone.objects_in_zone],
+            )
 
     @abstractmethod
     def preprocess(self, frame):
@@ -659,4 +664,6 @@ class AbstractObjectDetector(AbstractDomain):
         """Stop object detector."""
         self._kill_received = True
         self._object_detection_thread.stop()
-        self._object_detection_thread.join()
+        self._object_detection_thread.join(timeout=5)
+        if self._object_detection_thread.is_alive():
+            self._logger.warning("Object detection thread did not stop in time")

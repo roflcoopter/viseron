@@ -23,16 +23,7 @@
         "default": false
       },
       {
-        "type": "select",
-        "options": [
-          {
-            "type": "none",
-            "value": "null"
-          },
-          {
-            "type": "string"
-          }
-        ],
+        "type": "string",
         "name": "subpath",
         "description": "Subpath where the webserver is served from when behind a reverse proxy (e.g. '/viseron').",
         "optional": true,
@@ -74,7 +65,7 @@
                 "name": "days",
                 "description": "Days to expire session.",
                 "optional": true,
-                "default": null
+                "default": 0
               },
               {
                 "type": "integer",
@@ -82,7 +73,7 @@
                 "name": "hours",
                 "description": "Hours to expire session.",
                 "optional": true,
-                "default": null
+                "default": 0
               },
               {
                 "type": "integer",
@@ -90,7 +81,7 @@
                 "name": "minutes",
                 "description": "Minutes to expire session.",
                 "optional": true,
-                "default": null
+                "default": 0
               }
             ],
             "name": "session_expiry",
@@ -118,16 +109,13 @@
                     "name": "window_seconds",
                     "description": "Length of the sliding window in seconds.",
                     "optional": true,
-                    "default": 60
+                    "default": 60.0
                   }
                 ],
                 "name": "login",
                 "description": "Rate limit for the login endpoint (POST /api/v1/auth/login).",
                 "optional": true,
-                "default": {
-                  "max_attempts": 10,
-                  "window_seconds": 60
-                }
+                "default": null
               },
               {
                 "type": "map",
@@ -146,16 +134,13 @@
                     "name": "window_seconds",
                     "description": "Length of the sliding window in seconds.",
                     "optional": true,
-                    "default": 60
+                    "default": 60.0
                   }
                 ],
                 "name": "token",
                 "description": "Rate limit for the token endpoint (POST /api/v1/auth/token), used to refresh access tokens.",
                 "optional": true,
-                "default": {
-                  "max_attempts": 30,
-                  "window_seconds": 60
-                }
+                "default": null
               },
               {
                 "type": "map",
@@ -174,16 +159,13 @@
                     "name": "window_seconds",
                     "description": "Length of the sliding window in seconds.",
                     "optional": true,
-                    "default": 60
+                    "default": 60.0
                   }
                 ],
                 "name": "onboarding",
                 "description": "Rate limit for the initial onboarding endpoint (POST /api/v1/onboarding).",
                 "optional": true,
-                "default": {
-                  "max_attempts": 5,
-                  "window_seconds": 60
-                }
+                "default": null
               }
             ],
             "name": "rate_limits",
@@ -200,7 +182,7 @@
     ],
     "name": "webserver",
     "description": "Webserver configuration.",
-    "required": true,
+    "optional": true,
     "default": null
   }
 ]

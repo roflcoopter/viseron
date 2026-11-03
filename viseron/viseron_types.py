@@ -12,8 +12,7 @@ if TYPE_CHECKING:
     from sklearn.neighbors import KNeighborsClassifier
 
     from viseron.components import Component
-    from viseron.components.compreface.face_recognition import \
-        CompreFaceService
+    from viseron.components.compreface.face_recognition import CompreFaceService
     from viseron.components.darknet import BaseDarknet
     from viseron.components.data_stream import DataStream
     from viseron.components.discord import DiscordNotifier
@@ -27,12 +26,13 @@ if TYPE_CHECKING:
     from viseron.components.nvr.nvr import NVR
     from viseron.components.onvif import ONVIF
     from viseron.components.storage import Storage
+    from viseron.components.storage.timelapse_render import TimelapseRenderManager
+    from viseron.components.storage.timelapse_segments import TimelapseSegmentEncoder
     from viseron.components.telegram.telegram_types import TelegramViseronData
     from viseron.components.webhook import Webhook
     from viseron.components.webserver import Webserver
     from viseron.components.webserver.download_token import DownloadToken
-    from viseron.components.webserver.public_image_token import \
-        PublicImageToken
+    from viseron.components.webserver.public_image_token import PublicImageToken
     from viseron.components.webserver.websocket_api import WebSocketHandler
 
 
@@ -53,6 +53,8 @@ class ViseronData(TypedDict, total=False):
     data_stream: DataStream
     logger: LoggerViseronData
     storage: Storage
+    timelapse_render_manager: TimelapseRenderManager
+    timelapse_segment_encoder: TimelapseSegmentEncoder
     webserver: Webserver
     websocket_commands: dict[
         str, tuple[Callable[[WebSocketHandler, dict], Awaitable[None]], vol.Schema]

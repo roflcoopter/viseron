@@ -73,7 +73,7 @@ class ObjectDetector(AbstractObjectDetector):
         )
         return np.expand_dims(frame, axis=0)
 
-    def return_objects(self, frame: np.ndarray) -> list[DetectedObject]:
+    def return_objects(self, frame: np.ndarray) -> list[DetectedObject] | None:
         """Perform object detection."""
         return self._edgetpu.invoke(
             frame,

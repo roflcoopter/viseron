@@ -10,6 +10,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 import voluptuous as vol
+from pydantic import RootModel
 
 from viseron.domain_registry import DomainEntry, DomainState
 from viseron.domains import (
@@ -27,6 +28,8 @@ from viseron.domains import (
     unload_domain_identifier,
 )
 from viseron.exceptions import DomainNotReady
+from viseron.helpers.config_model import ConfigModel
+from viseron.helpers.config_types import CameraIdentifier
 
 from tests.common import MockComponent, MockDomainModule
 
@@ -34,6 +37,16 @@ if TYPE_CHECKING:
     from viseron.viseron_types import SupportedDomains
 
     from tests.conftest import MockViseron
+
+
+class ModelCamera(ConfigModel):
+    """Config model used as part of a CONFIG_SCHEMA in the tests."""
+
+    port: int = 554
+
+
+class ModelCameras(RootModel[dict[CameraIdentifier, ModelCamera]]):
+    """Root model used as CONFIG_SCHEMA in the tests."""
 
 
 class TestGetUnloadOrder:
@@ -1013,6 +1026,65 @@ class TestSetupSingleDomain:
 
             assert result is False
             assert "Unknown error calling test_comp.camera CONFIG_SCHEMA" in caplog.text
+
+    def test_setup_domain_config_model(self, vis: MockViseron) -> None:
+        """Test domain setup with a Pydantic model as CONFIG_SCHEMA."""
+        mock_domain = MockDomainModule(config_schema=ModelCameras)
+
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="viseron.components.test_comp",
+            domain="camera",
+            identifier="cam1",
+            config={"cam1": {}},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with (
+            patch(
+                "viseron.components.importlib.import_module", return_value=mock_domain
+            ),
+            patch.object(mock_domain, "setup", wraps=mock_domain.setup) as setup,
+        ):
+            result: bool = _setup_single_domain(vis, entry)
+
+        assert result is True
+        assert entry.state == DomainState.LOADED
+        setup.assert_called_once_with(
+            vis, ModelCameras({"cam1": ModelCamera(port=554)}), "cam1"
+        )
+
+    def test_setup_domain_config_model_invalid(
+        self,
+        vis: MockViseron,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Test domain setup with a Pydantic model that rejects the config."""
+        mock_domain = MockDomainModule(config_schema=ModelCameras)
+
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="viseron.components.test_comp",
+            domain="camera",
+            identifier="cam1",
+            config={"cam1": {"port": "abc"}},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_domain
+        ):
+            result: bool = _setup_single_domain(vis, entry)
+
+        assert result is False
+        assert entry.state == DomainState.FAILED
+        assert (
+            "Error validating config for domain camera and component test_comp: "
+            "cam1.port: Input should be a valid integer, unable to parse string as "
+            "an integer"
+        ) in caplog.text
 
     def test_setup_domain_not_ready_retry_success(
         self,

@@ -47,6 +47,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   # OpenCL
   ocl-icd-libopencl1 \
   clinfo \
+  # Required for PyTorch which is pulled in by Ultralytics
+  libquadmath0 \
   # FFmpeg
   libnuma1 && \
   # OpenVINO

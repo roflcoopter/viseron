@@ -8,14 +8,14 @@ import {
 } from "@mui/x-date-pickers/models";
 import { Dayjs } from "dayjs";
 
-import { useFilteredCameras } from "components/camera/useCameraStore";
-import { useEventsDatesOfInterest } from "lib/api/events";
 import { DATE_FORMAT } from "lib/helpers/dates";
-import * as types from "lib/types";
 
-function HasEvent(
+// Number of items per date, keyed by YYYY-MM-DD
+export type HighlightedDays = Record<string, number>;
+
+function HighlightedDay(
   props: PickerDayProps & {
-    highlightedDays?: types.EventsDatesOfInterest["dates_of_interest"];
+    highlightedDays?: HighlightedDays;
   },
 ) {
   const { highlightedDays = {}, day, outsideCurrentMonth, ...other } = props;
@@ -27,8 +27,8 @@ function HasEvent(
       key={day.toString()}
       overlap="circular"
       badgeContent={
-        isSelected && highlightedDays[dateString].events > 0
-          ? highlightedDays[dateString].events
+        isSelected && highlightedDays[dateString] > 0
+          ? highlightedDays[dateString]
           : undefined
       }
       max={99}
@@ -67,6 +67,7 @@ type DatePickerDialogProps = {
   open: boolean;
   setOpen: (open: boolean) => void;
   date: Dayjs | null;
+  highlightedDays?: HighlightedDays;
   onChange?: (
     value: Dayjs | null,
     context: PickerChangeHandlerContext<DateValidationError>,
@@ -77,16 +78,9 @@ export function DatePickerDialog({
   open,
   setOpen,
   date,
+  highlightedDays,
   onChange,
 }: DatePickerDialogProps) {
-  const filteredCameras = useFilteredCameras();
-  const eventsDateOfInterest = useEventsDatesOfInterest({
-    camera_identifiers: Object.keys(filteredCameras),
-    configOptions: {
-      enabled: open,
-    },
-  });
-
   const handleClose = () => {
     setOpen(false);
   };
@@ -99,11 +93,11 @@ export function DatePickerDialog({
         onClose={handleClose}
         value={date || undefined}
         slots={{
-          day: HasEvent,
+          day: HighlightedDay,
         }}
         slotProps={{
           day: {
-            highlightedDays: eventsDateOfInterest.data?.dates_of_interest,
+            highlightedDays,
           } as any,
           actionBar: {
             actions: ["today", "cancel"],

@@ -2,6 +2,8 @@
 !/.coveragerc
 !/.devcontainer/
 !/.devcontainer/*
+!scripts/
+!scripts/*
 !tests/
 !tests/*
 !viseron/

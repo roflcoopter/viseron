@@ -38,8 +38,8 @@
             "default": null
           },
           {
-            "lower": true,
             "type": "select",
+            "lower": true,
             "options": [
               {
                 "type": "constant",
@@ -82,22 +82,20 @@
             "name": "headers",
             "description": "Headers to include in the webhook request.",
             "optional": true,
-            "default": null
+            "default": {}
           },
           {
-            "type": "jinja2_template",
-            "value": "jinja2_template",
+            "type": "string",
             "name": "username",
             "description": "Username for basic authentication.",
-            "inclusive": true,
+            "optional": true,
             "default": null
           },
           {
-            "type": "jinja2_template",
-            "value": "jinja2_template",
+            "type": "string",
             "name": "password",
             "description": "Password for basic authentication.",
-            "inclusive": true,
+            "optional": true,
             "default": null
           },
           {

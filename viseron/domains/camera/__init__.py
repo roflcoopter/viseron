@@ -29,7 +29,7 @@ from viseron.components.storage.const import (
     TIER_SUBCATEGORY_SEGMENTS,
     TIER_SUBCATEGORY_THUMBNAILS,
 )
-from viseron.components.storage.models import Files
+from viseron.components.storage.models import Files, TriggerTypes
 from viseron.components.webserver.const import COMPONENT as WEBSERVER_COMPONENT
 from viseron.const import TEMP_DIR
 from viseron.domain_registry import DomainEntry, DomainState
@@ -92,7 +92,6 @@ if TYPE_CHECKING:
 
     from viseron import Viseron
     from viseron.components.nvr.nvr import FrameIntervalCalculator
-    from viseron.components.storage.models import TriggerTypes
     from viseron.domains.object_detector.detected_object import DetectedObject
 
     from .recorder import AbstractRecorder
@@ -265,6 +264,7 @@ class AbstractCamera(AbstractDomain):
             "connected": self.connected,
             "live_stream_available": self.live_stream_available,
             "is_recording": self.is_recording,
+            "is_manual_recording": self.is_manual_recording,
             "ptz_support": self.ptz_support,
             "notifications_configured": notifications_configured(
                 self._vis, self.identifier
@@ -275,6 +275,7 @@ class AbstractCamera(AbstractDomain):
                 if self.notifications_paused_until
                 else None
             ),
+            "timelapse": self.timelapse_folder is not None,
         }
 
     @property
@@ -463,6 +464,15 @@ class AbstractCamera(AbstractDomain):
     @abstractmethod
     def is_recording(self) -> bool:
         """Return recording status."""
+
+    @property
+    def is_manual_recording(self) -> bool:
+        """Return if the active recording is a manual recording."""
+        return (
+            self.is_recording
+            and self.recorder.active_recording is not None
+            and self.recorder.active_recording.trigger_type == TriggerTypes.MANUAL
+        )
 
     @property
     def is_on(self) -> bool:

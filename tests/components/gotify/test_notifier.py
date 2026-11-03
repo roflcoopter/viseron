@@ -11,6 +11,7 @@ from viseron.components.gotify import CONFIG_SCHEMA, GotifyEventNotifier
 from viseron.components.gotify.const import COMPONENT
 from viseron.domains.camera.recorder import EventRecorderData
 from viseron.events import Event
+from viseron.helpers.config_validation import validate_config
 
 CAMERA_ID = "test_camera"
 
@@ -30,15 +31,16 @@ def make_event(label: str = "person") -> Event[EventRecorderData]:
 @pytest.fixture(name="notifier")
 def fixture_notifier() -> Iterator[GotifyEventNotifier]:
     """Return a GotifyEventNotifier without its background thread."""
-    config = CONFIG_SCHEMA(
+    config = validate_config(
+        CONFIG_SCHEMA,
         {
             COMPONENT: {
                 "gotify_url": "http://gotify.local",
                 "gotify_token": "token",
                 "cameras": {CAMERA_ID: None},
             }
-        }
-    )[COMPONENT]
+        },
+    ).gotify
     with patch("viseron.components.gotify.RestartableThread"):
         notifier = GotifyEventNotifier(MagicMock(), config)
     yield notifier

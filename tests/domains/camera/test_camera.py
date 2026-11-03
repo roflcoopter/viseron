@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 from apscheduler.jobstores.base import JobLookupError
 
+from viseron.components.storage.models import TriggerTypes
 from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.const import DEFAULT_OUTPUT_FPS
 from viseron.domains.camera.entity.sensor import CameraNotificationsPausedSensor
@@ -63,6 +64,35 @@ class TestCalculateOutputFps:
     ):
         """Multiple scanners -> output fps equals the highest scan fps."""
         assert _calculate_output_fps(scan_fps) == expected
+
+
+@pytest.mark.parametrize(
+    ("is_recording", "trigger_type", "expected"),
+    [
+        pytest.param(False, None, False, id="idle"),
+        pytest.param(True, TriggerTypes.MANUAL, True, id="manual"),
+        pytest.param(True, TriggerTypes.OBJECT, False, id="object_event"),
+        pytest.param(True, TriggerTypes.MOTION, False, id="motion_event"),
+    ],
+)
+def test_is_manual_recording(
+    is_recording: bool, trigger_type: TriggerTypes | None, expected: bool
+) -> None:
+    """Only a manually triggered recording counts as a manual recording.
+
+    The frontend reads the value from as_dict, so check it is exposed there too.
+    """
+    active_recording = (
+        SimpleNamespace(trigger_type=trigger_type) if trigger_type else None
+    )
+    stub = MagicMock(
+        is_recording=is_recording,
+        recorder=SimpleNamespace(active_recording=active_recording),
+    )
+    assert AbstractCamera.is_manual_recording.fget(stub) is expected  # type: ignore[attr-defined]
+
+    stub.is_manual_recording = expected
+    assert AbstractCamera.as_dict(stub)["is_manual_recording"] is expected
 
 
 @pytest.mark.parametrize(
@@ -217,6 +247,25 @@ class TestWriteSnapshot:
         assert first.startswith(f"{SNAPSHOTS_FOLDER}/")
         assert first.endswith(".jpg")
         assert first != second
+
+
+@pytest.mark.parametrize(
+    ("timelapse_folder", "expected"),
+    [
+        pytest.param("/timelapse/test_camera", True, id="enabled"),
+        pytest.param(None, False, id="disabled"),
+    ],
+)
+def test_as_dict_exposes_timelapse(
+    timelapse_folder: str | None, expected: bool
+) -> None:
+    """The frontend uses the flag to decide whether to show the timelapse page."""
+    camera = MagicMock()
+    camera.resolution = RESOLUTION
+    camera.mainstream_resolution = RESOLUTION
+    camera.timelapse_folder = timelapse_folder
+
+    assert AbstractCamera.as_dict(camera)["timelapse"] is expected
 
 
 NOW = datetime.datetime(2026, 1, 1, 12, 0, tzinfo=datetime.timezone.utc)

@@ -67,6 +67,9 @@ ARG S6_OVERLAY_ARCH
 ARG S6_OVERLAY_VERSION
 ARG EXTRA_APT_PACKAGES
 ARG OPENBLAS_APT_PACKAGE="libopenblas0-pthread"
+ARG UBUNTU_VERSION
+ARG EDGETPU_RELEASE="16.0TF2.19.1-1"
+ARG EDGETPU_VERSION="16.0tf2.19.1-1"
 
 ENV \
   VISERON_CONFIG_DIR=/config \
@@ -150,12 +153,29 @@ RUN \
   && curl -s https://bootstrap.pypa.io/pip/3.9/get-pip.py | python3.9 - --ignore-installed ; \
   fi \
   \
-  # Install Coral Edge TPU
-  && echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" | tee /etc/apt/sources.list.d/coral-edgetpu.list \
-  && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - \
+  # Install Coral Edge TPU runtime from feranick/libedgetpu, since Google's
+  # apt repo is gone. Jetson Nano is still on Ubuntu 18.04, which the
+  # bullseye build supports (glibc 2.17).
+  && case "${UBUNTU_VERSION}" in \
+  noble) EDGETPU_DIST="ubuntu24.04" ;; \
+  bionic) EDGETPU_DIST="bullseye" ;; \
+  *) echo "No libedgetpu build for Ubuntu ${UBUNTU_VERSION}" >&2; exit 1 ;; \
+  esac \
+  && EDGETPU_DEB="libedgetpu1-max_${EDGETPU_VERSION}.${EDGETPU_DIST}_$(dpkg --print-architecture).deb" \
+  && case "${EDGETPU_DEB}" in \
+  *.ubuntu24.04_amd64.deb) EDGETPU_SHA256="27b294c05db9d9a57d141c50d06763a34e0111cfb7fb441c20c8ed75f885714a" ;; \
+  *.ubuntu24.04_arm64.deb) EDGETPU_SHA256="99f768daa68796f3d52ad162463e3263be1c6fad0d9f4ed337a332185d7f460f" ;; \
+  *.ubuntu24.04_armhf.deb) EDGETPU_SHA256="52965d47531e54a83c9ef000e440b0d91e6a7200101bd168379c3d75a1b53a66" ;; \
+  *.bullseye_arm64.deb) EDGETPU_SHA256="8fd59510d16f39b550a01be996081451793a8e4e5dec545d32c9441680ace035" ;; \
+  *) echo "No checksum for ${EDGETPU_DEB}" >&2; exit 1 ;; \
+  esac \
+  && curl -fsSL -o "/tmp/${EDGETPU_DEB}" \
+  "https://github.com/feranick/libedgetpu/releases/download/${EDGETPU_RELEASE}/${EDGETPU_DEB}" \
+  && echo "${EDGETPU_SHA256}  /tmp/${EDGETPU_DEB}" | sha256sum -c - \
   && echo "libedgetpu1-max libedgetpu/accepted-eula select true" | debconf-set-selections \
   && apt-get -qq update && apt-get -qq install -y --no-install-recommends \
-  libedgetpu1-max \
+  "/tmp/${EDGETPU_DEB}" \
+  && rm "/tmp/${EDGETPU_DEB}" \
   && python3.9 -m pip install --ignore-installed /wheels-3.9/*.whl \
   && rm -r /wheels-3.9 \
   \

@@ -193,7 +193,7 @@ class Worker:
             oldest_ctime = result[1]
             now = utcnow()
 
-            if item.max_bytes > 0 and total_size >= item.max_bytes:
+            if 0 < item.max_bytes <= total_size:
                 return True
             if (
                 item.max_age.total_seconds() > 0
