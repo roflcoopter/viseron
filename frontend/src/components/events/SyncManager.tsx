@@ -1,5 +1,5 @@
 import { Dayjs } from "dayjs";
-import Hls from "hls.js";
+import Hls, { Events, HlsListeners } from "hls.js";
 import { useCallback, useEffect } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -270,9 +270,10 @@ function SyncManager({ children }: SyncManagerProps) {
   useControlledInterval(syncPlayers, SYNC_INTERVAL, true);
 
   useEffect(() => {
+    const errorListeners: [Hls, HlsListeners[Events.ERROR]][] = [];
     hlsRefs.forEach((player) => {
       if (player.current) {
-        player.current.on(Hls.Events.ERROR, (_event, data) => {
+        const onError: HlsListeners[Events.ERROR] = (_event, data) => {
           // Dont pause if this is the only playing player
           // console.warn("SyncManager: Error event", data);
           if (
@@ -305,15 +306,17 @@ function SyncManager({ children }: SyncManagerProps) {
           if (player.current!.media) {
             player.current!.media.pause();
           }
-        });
+        };
+        player.current.on(Hls.Events.ERROR, onError);
+        errorListeners.push([player.current, onError]);
       }
     });
 
     return () => {
-      hlsRefs.forEach((player) => {
-        if (player.current) {
-          player.current.off(Hls.Events.ERROR);
-        }
+      errorListeners.forEach(([hls, onError]) => {
+        // Without the listener, off() also removes the ERROR listeners of
+        // hls.js itself and of the player's error recovery
+        hls.off(Hls.Events.ERROR, onError);
       });
     };
   }, [hlsRefs]);
