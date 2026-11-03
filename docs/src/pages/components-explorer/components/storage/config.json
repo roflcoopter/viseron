@@ -40,6 +40,7 @@
               [
                 {
                   "type": "string",
+                  "lengthMin": 1,
                   "name": "path",
                   "description": "Path to store files in. Cannot be <code>/tmp</code> or <code>/tmp/viseron</code>.",
                   "required": true,
@@ -477,6 +478,7 @@
                 },
                 {
                   "type": "string",
+                  "lengthMin": 1,
                   "name": "path",
                   "description": "Path to store files in. Cannot be <code>/tmp</code> or <code>/tmp/viseron</code>.",
                   "required": true,
@@ -676,6 +678,7 @@
                     },
                     {
                       "type": "string",
+                      "lengthMin": 1,
                       "name": "path",
                       "description": "Path to store files in. Cannot be <code>/tmp</code> or <code>/tmp/viseron</code>.",
                       "required": true,
@@ -874,6 +877,7 @@
                     },
                     {
                       "type": "string",
+                      "lengthMin": 1,
                       "name": "path",
                       "description": "Path to store files in. Cannot be <code>/tmp</code> or <code>/tmp/viseron</code>.",
                       "required": true,
@@ -1072,6 +1076,7 @@
                     },
                     {
                       "type": "string",
+                      "lengthMin": 1,
                       "name": "path",
                       "description": "Path to store files in. Cannot be <code>/tmp</code> or <code>/tmp/viseron</code>.",
                       "required": true,
@@ -1270,6 +1275,7 @@
                     },
                     {
                       "type": "string",
+                      "lengthMin": 1,
                       "name": "path",
                       "description": "Path to store files in. Cannot be <code>/tmp</code> or <code>/tmp/viseron</code>.",
                       "required": true,
@@ -1468,6 +1474,7 @@
                     },
                     {
                       "type": "string",
+                      "lengthMin": 1,
                       "name": "path",
                       "description": "Path to store files in. Cannot be <code>/tmp</code> or <code>/tmp/viseron</code>.",
                       "required": true,
@@ -1672,6 +1679,7 @@
                 },
                 {
                   "type": "string",
+                  "lengthMin": 1,
                   "name": "path",
                   "description": "Path to store files in. Cannot be <code>/tmp</code> or <code>/tmp/viseron</code>.",
                   "required": true,
@@ -1795,7 +1803,7 @@
     ],
     "name": "storage",
     "description": "Storage configuration.",
-    "required": true,
+    "optional": true,
     "default": {}
   }
 ]

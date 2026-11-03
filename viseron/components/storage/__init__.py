@@ -2,27 +2,32 @@
 
 from __future__ import annotations
 
-import copy
 import logging
 import os
 import pathlib
 import time
 from typing import TYPE_CHECKING, Any, Literal, TypedDict, overload
 
-import voluptuous as vol
 from alembic import command, script
 from alembic.config import Config
 from alembic.migration import MigrationContext
+from pydantic import TypeAdapter
 from sqlalchemy import select, text, update
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, scoped_session, sessionmaker
 
 from viseron.components.storage.config import (
-    STORAGE_SCHEMA,
-    TIER_SCHEMA_RECORDER,
-    TIER_SCHEMA_SNAPSHOTS,
-    TIER_SCHEMA_TIMELAPSE,
-    validate_tiers,
+    SNAPSHOT_DOMAINS,
+    DomainTiers,
+    RecorderTier,
+    RecorderTiers,
+    SnapshotsTier,
+    SnapshotsTiers,
+    StorageConfig,
+    StorageRoot,
+    Tier,
+    TimelapseTier,
+    TimelapseTiers,
 )
 from viseron.components.storage.const import (
     COMPONENT,
@@ -31,14 +36,8 @@ from viseron.components.storage.const import (
     CONFIG_PATH,
     CONFIG_RECORDER,
     CONFIG_SNAPSHOTS,
-    CONFIG_TIER_CHECK_BATCH_SIZE,
-    CONFIG_TIER_CHECK_CPU_LIMIT,
-    CONFIG_TIER_CHECK_SLEEP_BETWEEN_BATCHES,
-    CONFIG_TIER_CHECK_WORKERS,
     CONFIG_TIERS,
     CONFIG_TIMELAPSE,
-    DEFAULT_COMPONENT,
-    DESC_COMPONENT,
     ENGINE,
     TIER_CATEGORY_RECORDER,
     TIER_CATEGORY_SNAPSHOTS,
@@ -84,15 +83,13 @@ from viseron.components.storage.util import (
     get_timelapse_path,
 )
 from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_STOPPING
-from viseron.domains.camera.const import CONFIG_STORAGE
-from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.domains.camera.const import CONFIG_STORAGE, DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import ComponentNotReady
 from viseron.helpers import utcnow
 from viseron.helpers.logs import StreamToLogger
-from viseron.helpers.validators import UNDEFINED
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
     from viseron import Event, Viseron
     from viseron.components.storage.storage_subprocess import (
@@ -107,17 +104,11 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-CONFIG_SCHEMA = vol.Schema(
-    vol.All(
-        {
-            vol.Required(
-                COMPONENT, default=DEFAULT_COMPONENT, description=DESC_COMPONENT
-            ): STORAGE_SCHEMA
-        },
-        validate_tiers,
-    ),
-    extra=vol.ALLOW_EXTRA,
-)
+CONFIG_SCHEMA = StorageRoot
+
+_RECORDER_TIERS: TypeAdapter[list[RecorderTier]] = TypeAdapter(RecorderTiers)
+_SNAPSHOTS_TIERS: TypeAdapter[list[SnapshotsTier]] = TypeAdapter(SnapshotsTiers)
+_TIMELAPSE_TIERS: TypeAdapter[list[TimelapseTier]] = TypeAdapter(TimelapseTiers)
 
 
 class TierSubcategory(TypedDict):
@@ -218,13 +209,13 @@ def _check_database_readiness(
     return False
 
 
-def setup(vis: Viseron, config: dict[str, Any]) -> bool:
+def setup(vis: Viseron, config: StorageRoot) -> bool:
     """Set up storage component."""
     # Check database readiness before initializing storage
     if not _check_database_readiness(ENGINE):
         raise ComponentNotReady("Database is not ready for connections")
 
-    vis.data[COMPONENT] = Storage(vis, config[COMPONENT])
+    vis.data[COMPONENT] = Storage(vis, config.storage)
     vis.data[COMPONENT].initialize()
     return True
 
@@ -259,16 +250,10 @@ class Storage:
     size.
     """
 
-    def __init__(self, vis: Viseron, config: dict[str, Any]) -> None:
+    def __init__(self, vis: Viseron, config: StorageConfig) -> None:
         self._vis = vis
         self._config = config
-        self._recordings_tiers = config[CONFIG_RECORDER][CONFIG_TIERS]
-        self._snapshots_tiers = config[CONFIG_SNAPSHOTS][CONFIG_TIERS]
-        self._timelapse_tiers = (
-            config[CONFIG_TIMELAPSE][CONFIG_TIERS]
-            if config.get(CONFIG_TIMELAPSE)
-            else []
-        )
+        self._timelapse_tiers = config.timelapse.tiers if config.timelapse else []
         self._camera_tier_handlers: dict[
             str,
             dict[
@@ -297,7 +282,7 @@ class Storage:
         self.cleanup_manager.start()
 
         self.tier_check_worker = TierCheckWorker(
-            vis, config[CONFIG_TIER_CHECK_CPU_LIMIT], config[CONFIG_TIER_CHECK_WORKERS]
+            vis, config.tier_check_cpu_limit, config.tier_check_workers
         )
 
         self._timelapse_segment_encoder = TimelapseSegmentEncoder(
@@ -310,7 +295,7 @@ class Storage:
         vis.data[TIMELAPSE_RENDER_MANAGER] = self._timelapse_render_manager
 
     @property
-    def config(self) -> dict[str, Any]:
+    def config(self) -> StorageConfig:
         """Return the storage configuration."""
         return self._config
 
@@ -322,12 +307,12 @@ class Storage:
     @property
     def file_batch_size(self) -> int:
         """Return the number of files to process in a single batch."""
-        return self._config[CONFIG_TIER_CHECK_BATCH_SIZE]
+        return self._config.tier_check_batch_size
 
     @property
     def sleep_between_batches(self) -> float:
         """Return the number of seconds to sleep between batches."""
-        return self._config[CONFIG_TIER_CHECK_SLEEP_BETWEEN_BATCHES]
+        return self._config.tier_check_sleep_between_batches
 
     def initialize(self) -> None:
         """Initialize storage component."""
@@ -641,7 +626,7 @@ class Storage:
         """Search for file by swapping its tier prefix for each succeeding tier."""
         prev_tier_handler = None
         for tier_handler in self._camera_tier_handlers[camera_identifier][category]:
-            if tier_handler[subcategory].tier[CONFIG_PATH] in path:
+            if tier_handler[subcategory].tier.path in path:
                 prev_tier_handler = tier_handler
                 continue
 
@@ -649,13 +634,13 @@ class Storage:
                 continue
 
             new_path = path.replace(
-                prev_tier_handler[subcategory].tier[CONFIG_PATH],
-                tier_handler[subcategory].tier[CONFIG_PATH],
+                prev_tier_handler[subcategory].tier.path,
+                tier_handler[subcategory].tier.path,
                 1,
             )
             if os.path.exists(new_path):
                 LOGGER.debug(
-                    f"Found file in tier: {tier_handler[subcategory].tier[CONFIG_PATH]}"
+                    f"Found file in tier: {tier_handler[subcategory].tier.path}"
                 )
                 return new_path
         return None
@@ -685,18 +670,11 @@ class Storage:
         tier_config = _get_tier_config(self._config, camera)
         for category in TIER_CATEGORIES:
             # Skip timelapse if not configured
-            if category == TIER_CATEGORY_TIMELAPSE and not tier_config.get(
-                CONFIG_TIMELAPSE
-            ):
+            if category == TIER_CATEGORY_TIMELAPSE and not tier_config.timelapse:
                 continue
             self._camera_tier_handlers[camera.identifier].setdefault(category, [])
             for subcategory in TIER_CATEGORIES[category]:  # type: ignore[literal-required] # noqa: E501
-                if tier_config[category].get(subcategory["subcategory"], None):
-                    tiers = tier_config[category][subcategory["subcategory"]][
-                        CONFIG_TIERS
-                    ]
-                else:
-                    tiers = tier_config[category][CONFIG_TIERS]
+                tiers = _get_tiers(tier_config, category, subcategory["subcategory"])
 
                 for index, tier in enumerate(tiers):
                     try:
@@ -760,7 +738,20 @@ class Storage:
             self.engine.dispose()
 
 
-def _get_tier_config(config: dict[str, Any], camera: AbstractCamera) -> dict[str, Any]:
+def _get_tiers(
+    tier_config: StorageConfig, category: str, subcategory: str
+) -> Sequence[Tier]:
+    """Return the tiers of a subcategory."""
+    if category == TIER_CATEGORY_RECORDER:
+        return tier_config.recorder.tiers
+    if category == TIER_CATEGORY_SNAPSHOTS:
+        return tier_config.snapshots.domain_tiers(subcategory)
+    if category == TIER_CATEGORY_TIMELAPSE and tier_config.timelapse:
+        return tier_config.timelapse.tiers
+    raise ValueError(f"No tiers configured for category {category}")
+
+
+def _get_tier_config(config: StorageConfig, camera: AbstractCamera) -> StorageConfig:
     """Construct tier config for camera.
 
     There are multiple ways to configure tiers for a camera, and this function
@@ -768,103 +759,71 @@ def _get_tier_config(config: dict[str, Any], camera: AbstractCamera) -> dict[str
     camera > recorder > continuous/events is looked at first.
     camera > storage > recorder > tiers is looked at second.
     storage > recorder > tiers is looked at last.
+
+    The camera config is still a dict validated by Voluptuous, so the tiers it sets
+    are validated as models here. Keys that the camera does not set are UNDEFINED,
+    which is falsy.
     """
     if not hasattr(camera, "config"):
         return config
-    tier_config = copy.deepcopy(config)
+    camera_storage = camera.config[CONFIG_STORAGE] or {}
 
     # Override recorder tiers with camera config
-    _recorder_tier: dict[str, Any] = {}
-    continuous = camera.config[CONFIG_RECORDER].get(CONFIG_CONTINUOUS, None)
-    if continuous and continuous != UNDEFINED:
-        _recorder_tier[CONFIG_PATH] = "/"
-        _recorder_tier[CONFIG_CONTINUOUS] = continuous
-        tier_config[CONFIG_RECORDER][CONFIG_TIERS] = [_recorder_tier]
+    recorder = config.recorder
+    recorder_tier: dict[str, Any] = {}
+    if continuous := camera.config[CONFIG_RECORDER].get(CONFIG_CONTINUOUS):
+        recorder_tier[CONFIG_CONTINUOUS] = continuous
+    if events := camera.config[CONFIG_RECORDER].get(CONFIG_EVENTS):
+        recorder_tier[CONFIG_EVENTS] = events
 
-    events = camera.config[CONFIG_RECORDER].get(CONFIG_EVENTS, None)
-    if events and events != UNDEFINED:
-        _recorder_tier[CONFIG_PATH] = "/"
-        _recorder_tier[CONFIG_EVENTS] = events
-        tier_config[CONFIG_RECORDER][CONFIG_TIERS] = [_recorder_tier]
+    recorder_tiers: list[dict[str, Any]] | None = None
+    if recorder_tier:
+        recorder_tiers = [{CONFIG_PATH: "/", **recorder_tier}]
+    elif camera_recorder := camera_storage.get(CONFIG_RECORDER):
+        recorder_tiers = camera_recorder[CONFIG_TIERS]
 
-    if (
-        not _recorder_tier
-        and camera.config[CONFIG_STORAGE]
-        and camera.config[CONFIG_STORAGE][CONFIG_RECORDER] != UNDEFINED
-    ):
-        _recorder_tier = camera.config[CONFIG_STORAGE][CONFIG_RECORDER][CONFIG_TIERS]
-        tier_config[CONFIG_RECORDER][CONFIG_TIERS] = _recorder_tier
-
-    if _recorder_tier:
+    if recorder_tiers:
         LOGGER.debug(
             f"Camera {camera.name} has custom recorder tiers, "
             "overwriting storage recorder tiers"
         )
-        # Validate the tier schema to fill in defaults
-        tier_config[CONFIG_RECORDER][CONFIG_TIERS] = vol.Schema(
-            vol.All(
-                [TIER_SCHEMA_RECORDER],
-                vol.Length(min=1),
-            )
-        )(tier_config[CONFIG_RECORDER][CONFIG_TIERS])
+        recorder = recorder.model_copy(
+            update={"tiers": _RECORDER_TIERS.validate_python(recorder_tiers)}
+        )
 
-    _snapshot_tier: dict[str, Any] = {}
-    if (
-        camera.config[CONFIG_STORAGE]
-        and camera.config[CONFIG_STORAGE][CONFIG_SNAPSHOTS] != UNDEFINED
-    ):
-        for subcategory in camera.config[CONFIG_STORAGE][CONFIG_SNAPSHOTS].keys():
-            _snapshot_tier = camera.config[CONFIG_STORAGE][CONFIG_SNAPSHOTS][
-                subcategory
-            ]
-            tier_config[CONFIG_SNAPSHOTS][subcategory] = _snapshot_tier
-
-    if _snapshot_tier:
+    # The snapshots config of the camera replaces the whole snapshots config,
+    # including the tiers of each domain
+    snapshots = config.snapshots
+    if camera_snapshots := camera_storage.get(CONFIG_SNAPSHOTS):
         LOGGER.debug(
             f"Camera {camera.name} has custom snapshot tiers, "
             "overwriting storage snapshot tiers"
         )
-        # Validate the tier schema to fill in defaults
-        domains = list(camera.config[CONFIG_STORAGE][CONFIG_SNAPSHOTS].keys())
-        domains.remove(CONFIG_TIERS)
-        for domain in domains:
-            if tier_config[CONFIG_SNAPSHOTS][domain] == UNDEFINED:
-                continue
-            tier_config[CONFIG_SNAPSHOTS][domain][CONFIG_TIERS] = vol.Schema(
-                vol.All(
-                    [TIER_SCHEMA_SNAPSHOTS],
-                    vol.Length(min=1),
-                )
-            )(tier_config[CONFIG_SNAPSHOTS][domain][CONFIG_TIERS])
-
-        tier_config[CONFIG_SNAPSHOTS][CONFIG_TIERS] = vol.Schema(
-            vol.All(
-                [TIER_SCHEMA_SNAPSHOTS],
-                vol.Length(min=1),
+        snapshots_update: dict[str, Any] = {
+            "tiers": _SNAPSHOTS_TIERS.validate_python(camera_snapshots[CONFIG_TIERS])
+        }
+        for domain in SNAPSHOT_DOMAINS:
+            domain_config = camera_snapshots.get(domain)
+            snapshots_update[domain] = (
+                DomainTiers.model_validate(domain_config) if domain_config else None
             )
-        )(tier_config[CONFIG_SNAPSHOTS][CONFIG_TIERS])
+        snapshots = snapshots.model_copy(update=snapshots_update)
 
     # Handle timelapse tiers (only if timelapse is configured)
-    if tier_config.get(CONFIG_TIMELAPSE):
-        _timelapse_tier: dict[str, Any] = {}
-        camera_timelapse = (camera.config[CONFIG_STORAGE] or {}).get(
-            CONFIG_TIMELAPSE, UNDEFINED
+    timelapse = config.timelapse
+    if timelapse and (camera_timelapse := camera_storage.get(CONFIG_TIMELAPSE)):
+        LOGGER.debug(
+            f"Camera {camera.name} has custom timelapse tiers, "
+            "overwriting storage timelapse tiers"
         )
-        if camera_timelapse not in (None, UNDEFINED):
-            _timelapse_tier = camera_timelapse[CONFIG_TIERS]
-            tier_config[CONFIG_TIMELAPSE][CONFIG_TIERS] = _timelapse_tier
-
-        if _timelapse_tier:
-            LOGGER.debug(
-                f"Camera {camera.name} has custom timelapse tiers, "
-                "overwriting storage timelapse tiers"
-            )
-            # Validate the tier schema to fill in defaults
-            tier_config[CONFIG_TIMELAPSE][CONFIG_TIERS] = vol.Schema(
-                vol.All(
-                    [TIER_SCHEMA_TIMELAPSE],
-                    vol.Length(min=1),
+        timelapse = timelapse.model_copy(
+            update={
+                "tiers": _TIMELAPSE_TIERS.validate_python(
+                    camera_timelapse[CONFIG_TIERS]
                 )
-            )(tier_config[CONFIG_TIMELAPSE][CONFIG_TIERS])
+            }
+        )
 
-    return tier_config
+    return config.model_copy(
+        update={"recorder": recorder, "snapshots": snapshots, "timelapse": timelapse}
+    )

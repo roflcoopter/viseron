@@ -9,7 +9,7 @@ import time
 from datetime import timedelta
 from queue import Queue
 from threading import Timer
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from sqlalchemy import Delete, delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
@@ -26,22 +26,6 @@ from watchdog.observers.polling import PollingObserverVFS
 
 from viseron.components.storage.const import (
     COMPONENT,
-    CONFIG_CHECK_INTERVAL,
-    CONFIG_CONTINUOUS,
-    CONFIG_DAYS,
-    CONFIG_DRAIN,
-    CONFIG_EVENTS,
-    CONFIG_HOURS,
-    CONFIG_INTERVAL,
-    CONFIG_MAX_AGE,
-    CONFIG_MAX_SIZE,
-    CONFIG_MIN_AGE,
-    CONFIG_MIN_SIZE,
-    CONFIG_MINUTES,
-    CONFIG_MOVE_ON_SHUTDOWN,
-    CONFIG_PATH,
-    CONFIG_POLL,
-    CONFIG_SECONDS,
     EVENT_CHECK_TIER,
     EVENT_FILE_CREATED,
     EVENT_FILE_DELETED,
@@ -76,8 +60,6 @@ from viseron.components.storage.storage_subprocess import (
 from viseron.components.storage.util import (
     EventFileCreated,
     EventFileDeleted,
-    calculate_age,
-    calculate_bytes,
     get_event_clips_path,
     get_segments_path,
     get_thumbnails_path,
@@ -109,6 +91,12 @@ if TYPE_CHECKING:
 
     from viseron import Viseron
     from viseron.components.storage import Storage
+    from viseron.components.storage.config import (
+        RecorderTier,
+        SnapshotsTier,
+        Tier,
+        TimelapseTier,
+    )
     from viseron.components.webserver import Webserver
     from viseron.domains.camera import AbstractCamera
 
@@ -132,8 +120,8 @@ class TierHandler(FileSystemEventHandler):
         tier_id: int,
         category: str,
         subcategory: str,
-        tier: dict[str, Any],
-        next_tier: dict[str, Any] | None,
+        tier: Tier,
+        next_tier: Tier | None,
     ) -> None:
         self._logger = logging.getLogger(
             f"{__name__}.{camera.identifier}.tier_{tier_id}.{category}.{subcategory}"
@@ -175,19 +163,14 @@ class TierHandler(FileSystemEventHandler):
         )
         self._event_thread.start()
 
-        self._throttle_period = timedelta(
-            days=tier[CONFIG_CHECK_INTERVAL].get(CONFIG_DAYS, 0),
-            hours=tier[CONFIG_CHECK_INTERVAL].get(CONFIG_HOURS, 0),
-            minutes=tier[CONFIG_CHECK_INTERVAL].get(CONFIG_MINUTES, 0),
-            seconds=tier[CONFIG_CHECK_INTERVAL].get(CONFIG_SECONDS, 0),
-        )
+        self._throttle_period = tier.check_interval.to_timedelta()
         self._time_of_last_call = utcnow() - self._throttle_period
 
         self._logger.debug("Tier %s monitoring path: %s", tier_id, self._path)
         os.makedirs(self._path, exist_ok=True)
         self._observer = (
             PollingObserverVFS(stat=os.stat, listdir=os.scandir, polling_interval=1)
-            if tier[CONFIG_POLL]
+            if tier.poll
             else Observer()
         )
         self._observer.schedule(
@@ -198,7 +181,7 @@ class TierHandler(FileSystemEventHandler):
         self._observer.start()
 
     @property
-    def tier(self) -> dict[str, Any]:
+    def tier(self) -> Tier:
         """Tier configuration."""
         return self._tier
 
@@ -228,41 +211,17 @@ class TierHandler(FileSystemEventHandler):
     def initialize(self) -> None:
         """Tier handler specific initialization."""
         self._path = os.path.join(
-            self._tier[CONFIG_PATH],
+            self._tier.path,
             self._category,
             self._subcategory,
             self._camera.identifier,
         )
 
-        self._max_bytes = calculate_bytes(self._tier[CONFIG_MAX_SIZE])
-        self._min_bytes = calculate_bytes(self._tier[CONFIG_MIN_SIZE])
-        self._max_age = calculate_age(self._tier[CONFIG_MAX_AGE])
-        self._min_age = calculate_age(self._tier[CONFIG_MIN_AGE])
-
-        if self._next_tier is None and not self._max_age and not self._max_bytes:
-            self._logger.warning(
-                "Last tier '%s' has no max_age or max_size configured; "
-                "files on this tier will accumulate indefinitely.",
-                self._tier[CONFIG_PATH],
-            )
-
     def _create_dataitem(
         self,
     ) -> DataItem:
         """Create a DataItem for the check tier command."""
-        return DataItem(
-            cmd="check_tier",
-            camera_identifier=self._camera.identifier,
-            tier_id=self._tier_id,
-            category=self._category,
-            subcategories=[self._subcategory],
-            throttle_period=self._throttle_period,
-            max_bytes=self._max_bytes,
-            min_age=self._min_age,
-            max_age=self._max_age,
-            min_bytes=self._min_bytes,
-            drain=self._tier[CONFIG_DRAIN],
-        )
+        raise NotImplementedError
 
     def _check_tier_event_handler(self, _event: Event) -> None:
         """Handle check tier event."""
@@ -412,7 +371,7 @@ class TierHandler(FileSystemEventHandler):
                 insert(Files)
                 .values(
                     tier_id=self._tier_id,
-                    tier_path=self._tier[CONFIG_PATH],
+                    tier_path=self._tier.path,
                     camera_identifier=self._camera.identifier,
                     category=self._category,
                     subcategory=self._subcategory,
@@ -518,7 +477,7 @@ class TierHandler(FileSystemEventHandler):
     def _shutdown(self) -> None:
         """Shutdown the observer and event handler."""
         self._logger.debug("Initiating observer shutdown")
-        if self._tier[CONFIG_MOVE_ON_SHUTDOWN]:
+        if self._tier.move_on_shutdown:
             self._logger.debug("Forcing move of files")
             force_move_files(
                 self._vis,
@@ -544,25 +503,59 @@ class TierHandler(FileSystemEventHandler):
         self._observer.join()
 
 
+class RetentionTierHandler(TierHandler):
+    """Handle a tier whose max/min age and size decide when files move."""
+
+    _tier: SnapshotsTier
+
+    def initialize(self) -> None:
+        """Initialize the retention rules of the tier."""
+        super().initialize()
+        self._max_bytes = self._tier.max_size.to_bytes()
+        self._min_bytes = self._tier.min_size.to_bytes()
+        self._max_age = self._tier.max_age.to_timedelta()
+        self._min_age = self._tier.min_age.to_timedelta()
+
+        if self._next_tier is None and not self._max_age and not self._max_bytes:
+            self._logger.warning(
+                "Last tier '%s' has no max_age or max_size configured; "
+                "files on this tier will accumulate indefinitely.",
+                self._tier.path,
+            )
+
+    def _create_dataitem(
+        self,
+    ) -> DataItem:
+        """Create a DataItem for the check tier command."""
+        return DataItem(
+            cmd="check_tier",
+            camera_identifier=self._camera.identifier,
+            tier_id=self._tier_id,
+            category=self._category,
+            subcategories=[self._subcategory],
+            throttle_period=self._throttle_period,
+            max_bytes=self._max_bytes,
+            min_age=self._min_age,
+            max_age=self._max_age,
+            min_bytes=self._min_bytes,
+            drain=self._tier.drain,
+        )
+
+
 class SegmentsTierHandler(TierHandler):
     """Handle the recorder tiers."""
+
+    _tier: RecorderTier
 
     def initialize(self) -> None:
         """Initialize recorder tier."""
         self._path = get_segments_path(self._tier, self._camera)
 
-        self._continuous_max_bytes = calculate_bytes(
-            self._tier[CONFIG_CONTINUOUS][CONFIG_MAX_SIZE]
-        )
-        self._continuous_min_bytes = calculate_bytes(
-            self._tier[CONFIG_CONTINUOUS][CONFIG_MIN_SIZE]
-        )
-        self._continuous_max_age = calculate_age(
-            self._tier[CONFIG_CONTINUOUS][CONFIG_MAX_AGE]
-        )
-        self._continuous_min_age = calculate_age(
-            self._tier[CONFIG_CONTINUOUS][CONFIG_MIN_AGE]
-        )
+        continuous = self._tier.continuous
+        self._continuous_max_bytes = continuous.max_size.to_bytes()
+        self._continuous_min_bytes = continuous.min_size.to_bytes()
+        self._continuous_max_age = continuous.max_age.to_timedelta()
+        self._continuous_min_age = continuous.min_age.to_timedelta()
         self._continuous_params = [
             self._continuous_max_bytes,
             self._continuous_min_age,
@@ -570,13 +563,10 @@ class SegmentsTierHandler(TierHandler):
             self._continuous_max_age,
         ]
 
-        self._events_max_bytes = calculate_bytes(
-            self._tier[CONFIG_EVENTS][CONFIG_MAX_SIZE]
-        )
-        self._events_min_bytes = calculate_bytes(
-            self._tier[CONFIG_EVENTS][CONFIG_MIN_SIZE]
-        )
-        self._events_min_age = calculate_age(self._tier[CONFIG_EVENTS][CONFIG_MIN_AGE])
+        events = self._tier.events
+        self._events_max_bytes = events.max_size.to_bytes()
+        self._events_min_bytes = events.min_size.to_bytes()
+        self._events_min_age = events.min_age.to_timedelta()
 
         if self.first_tier and self._camera.config.get(CONFIG_RECORDER, {}).get(
             CONFIG_RETAIN, None
@@ -593,9 +583,7 @@ class SegmentsTierHandler(TierHandler):
                 days=self._camera.config[CONFIG_RECORDER][CONFIG_RETAIN]
             )
         else:
-            self._events_max_age = calculate_age(
-                self._tier[CONFIG_EVENTS][CONFIG_MAX_AGE]
-            )
+            self._events_max_age = events.max_age.to_timedelta()
         self._events_params = [
             self._events_max_bytes,
             self._events_max_age,
@@ -670,7 +658,7 @@ class SegmentsTierHandler(TierHandler):
             ),
             max_age=self._continuous_max_age,
             min_bytes=self._continuous_min_bytes,
-            drain=self._tier[CONFIG_DRAIN],
+            drain=self._tier.drain,
             events_enabled=self._events_enabled,
             events_max_bytes=self._events_max_bytes,
             events_min_age=self._events_min_age,
@@ -895,7 +883,7 @@ SNAPSHOT_REFERENCE_MODELS: dict[str, type[Motion | Objects | PostProcessorResult
 }
 
 
-class SnapshotTierHandler(TierHandler):
+class SnapshotTierHandler(RetentionTierHandler):
     """Handle the snapshot tiers."""
 
     def initialize(self) -> None:
@@ -967,6 +955,8 @@ class SnapshotTierHandler(TierHandler):
 class ThumbnailTierHandler(TierHandler):
     """Handle thumbnails."""
 
+    _tier: RecorderTier
+
     def initialize(self) -> None:
         """Initialize thumbnail tier."""
         self._path = get_thumbnails_path(self._tier, self._camera)
@@ -995,9 +985,7 @@ class ThumbnailTierHandler(TierHandler):
             )
         super()._on_created(event)
 
-    def move_thumbnail(
-        self, recording_id: int, next_tier: dict[str, Any] | None
-    ) -> None:
+    def move_thumbnail(self, recording_id: int, next_tier: Tier | None) -> None:
         """Move thumbnail to next tier."""
         with self._storage.get_session() as session:
             sel = select(Recordings).where(Recordings.id == recording_id)
@@ -1022,7 +1010,7 @@ class ThumbnailTierHandler(TierHandler):
                 self._tier,
                 next_tier,
                 recording.thumbnail_path,
-                self._tier[CONFIG_PATH],
+                self._tier.path,
                 self._logger,
             )
             session.commit()
@@ -1030,6 +1018,8 @@ class ThumbnailTierHandler(TierHandler):
 
 class EventClipTierHandler(TierHandler):
     """Handle event clips created by create_event_clip."""
+
+    _tier: RecorderTier
 
     def initialize(self) -> None:
         """Initialize event clips tier."""
@@ -1069,9 +1059,7 @@ class EventClipTierHandler(TierHandler):
             self._update_clip_path(event)
         super()._on_created(event)
 
-    def move_event_clip(
-        self, recording_id: int, next_tier: dict[str, Any] | None
-    ) -> None:
+    def move_event_clip(self, recording_id: int, next_tier: Tier | None) -> None:
         """Move event clip to next tier."""
         with self._storage.get_session() as session:
             sel = (
@@ -1094,7 +1082,7 @@ class EventClipTierHandler(TierHandler):
                 self._tier,
                 next_tier,
                 recording.clip_path,
-                self._tier[CONFIG_PATH],
+                self._tier.path,
                 self._logger,
             )
             session.commit()
@@ -1129,8 +1117,8 @@ def handle_file(
     curr_tier_id: int,
     curr_tier_category: str,
     curr_tier_subcategory: str,
-    curr_tier: dict[str, Any],
-    next_tier: dict[str, Any] | None,
+    curr_tier: Tier,
+    next_tier: Tier | None,
     path: str,
     tier_path: str,
     logger: logging.Logger,
@@ -1149,7 +1137,7 @@ def handle_file(
             path,
         )
     else:
-        new_path = path.replace(tier_path, next_tier[CONFIG_PATH], 1)
+        new_path = path.replace(tier_path, next_tier.path, 1)
         if new_path == path:
             logger.warning(
                 "Failed to move file %s to next tier, new path is the same as old. "
@@ -1169,12 +1157,12 @@ def handle_file(
                 curr_tier_subcategory,
                 path,
                 new_path,
-                next_tier[CONFIG_PATH],
+                next_tier.path,
                 logger,
             )
 
     # Delete the file from the database if:
-    # - tier_path is not the same as curr_tier[CONFIG_PATH]. This is an
+    # - tier_path is not the same as curr_tier.path. This is an
     #   indication that the tier configuration has changed and since the old
     #   path is not monitored, the delete signal will not be received by
     #   Viseron.
@@ -1183,13 +1171,13 @@ def handle_file(
     #   would re-process it and slowly leak SQLAlchemy connection objects in
     #   the storage subprocess. Drop the row; OrphanedFilesCleanup will sweep
     #   the on-disk file if it still exists.
-    if stuck_row or tier_path != curr_tier[CONFIG_PATH]:
+    if stuck_row or tier_path != curr_tier.path:
         logger.debug(
             "Deleting file %s from database since tier paths are different. "
             "file tier_path: %s, current tier_path: %s, stuck_row: %s",
             path,
             tier_path,
-            curr_tier[CONFIG_PATH],
+            curr_tier.path,
             stuck_row,
         )
         with get_session() as session:
@@ -1325,8 +1313,8 @@ def force_move_files(
     subcategory: str,
     tier_id: int,
     camera_identifier: str,
-    curr_tier: dict[str, Any],
-    next_tier: dict[str, Any] | None,
+    curr_tier: Tier,
+    next_tier: Tier | None,
     logger: logging.Logger,
 ) -> None:
     """Get and move/delete all files in tier."""
@@ -1392,15 +1380,17 @@ def add_file_handler(
     )
 
 
-class TimelapseTierHandler(TierHandler):
+class TimelapseTierHandler(RetentionTierHandler):
     """Handle timelapse files."""
+
+    _tier: TimelapseTier
 
     def initialize(self) -> None:
         """Initialize timelapse tier."""
         super().initialize()
 
         self._path = get_timelapse_path(self._tier, self._camera)
-        self._interval = calculate_age(self._tier.get(CONFIG_INTERVAL, {}))
+        self._interval = self._tier.interval.to_timedelta()
         self.add_file_handler(self._path, rf"{self._path}/(.*.jpg$)")
 
     def _on_created(self, event: FileCreatedEvent) -> None:

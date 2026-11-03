@@ -1,9 +1,7 @@
 """Test storage component."""
 
-# pylint: disable=protected-access
 from __future__ import annotations
 
-import copy
 import datetime
 import os
 import tempfile
@@ -12,41 +10,30 @@ from typing import TYPE_CHECKING, Any, NamedTuple
 from unittest.mock import ANY, Mock, call, patch
 
 import pytest
-import voluptuous as vol
 from sqlalchemy import insert
 
-from tests.common import MockCamera
-from tests.conftest import MockViseron
 from viseron.components.storage import CONFIG_SCHEMA, Storage, _get_tier_config
-from viseron.components.storage.config import TIER_SCHEMA_TIMELAPSE
+from viseron.components.storage.config import StorageConfig, Tier, TimelapseTier
 from viseron.components.storage.const import (
     COMPONENT,
     CONFIG_CHECK_INTERVAL,
     CONFIG_CONTINUOUS,
     CONFIG_DAYS,
-    CONFIG_DRAIN,
     CONFIG_EVENTS,
     CONFIG_FACE_RECOGNITION,
-    CONFIG_GB,
-    CONFIG_HOURS,
     CONFIG_IMAGE_CLASSIFICATION,
     CONFIG_INTERVAL,
     CONFIG_MAX_AGE,
     CONFIG_MAX_SIZE,
     CONFIG_MB,
-    CONFIG_MIN_AGE,
-    CONFIG_MIN_SIZE,
     CONFIG_MINUTES,
-    CONFIG_MOVE_ON_SHUTDOWN,
     CONFIG_OBJECT_DETECTOR,
     CONFIG_PATH,
-    CONFIG_POLL,
     CONFIG_RECORDER,
     CONFIG_SECONDS,
     CONFIG_SNAPSHOTS,
     CONFIG_TIERS,
     CONFIG_TIMELAPSE,
-    DEFAULT_RECORDER_TIERS,
     DEFAULT_SNAPSHOTS_TIERS,
     TIER_CATEGORY_RECORDER,
     TIER_CATEGORY_SNAPSHOTS,
@@ -61,22 +48,32 @@ from viseron.components.storage.const import (
 )
 from viseron.components.storage.models import Files
 from viseron.domains.camera.const import CONFIG_STORAGE
+from viseron.helpers.config_validation import validate_config
 from viseron.helpers.validators import UNDEFINED
 
+from tests.common import MockCamera
+
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     from sqlalchemy.orm import Session, sessionmaker
 
-TIER_CONFIG = {
-    CONFIG_RECORDER: {CONFIG_TIERS: DEFAULT_RECORDER_TIERS},
-    CONFIG_SNAPSHOTS: {CONFIG_TIERS: DEFAULT_SNAPSHOTS_TIERS},
-}
+    from tests.conftest import MockViseron
+
+
+def _storage_config(config: dict[str, Any]) -> StorageConfig:
+    """Validate a storage config without checking that the tier paths exist."""
+    with patch("viseron.components.storage.config._check_path_exists"):
+        return StorageConfig.model_validate(config)
+
+
+DEFAULT_CONFIG = _storage_config({})
 
 
 @pytest.mark.parametrize(
-    "config, camera_config, expected",
+    "camera_config, expected",
     [
         (  # Test default config
-            TIER_CONFIG,
             {
                 CONFIG_RECORDER: {
                     CONFIG_CONTINUOUS: {},
@@ -84,10 +81,9 @@ TIER_CONFIG = {
                 },
                 CONFIG_STORAGE: None,
             },
-            TIER_CONFIG,
+            {},
         ),
         (  # Test overriding using continuous
-            TIER_CONFIG,
             {
                 CONFIG_RECORDER: {
                     CONFIG_CONTINUOUS: {CONFIG_MAX_AGE: {CONFIG_DAYS: 123}},
@@ -99,52 +95,15 @@ TIER_CONFIG = {
                 CONFIG_RECORDER: {
                     CONFIG_TIERS: [
                         {
-                            CONFIG_CHECK_INTERVAL: {
-                                CONFIG_DAYS: 0,
-                                CONFIG_HOURS: 0,
-                                CONFIG_MINUTES: 1,
-                                CONFIG_SECONDS: 0,
-                            },
-                            CONFIG_CONTINUOUS: {
-                                CONFIG_MAX_AGE: {
-                                    CONFIG_DAYS: 123,
-                                    CONFIG_HOURS: None,
-                                    CONFIG_MINUTES: None,
-                                },
-                                CONFIG_MAX_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
-                                CONFIG_MIN_AGE: {
-                                    CONFIG_DAYS: None,
-                                    CONFIG_HOURS: None,
-                                    CONFIG_MINUTES: None,
-                                },
-                                CONFIG_MIN_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
-                            },
-                            CONFIG_EVENTS: {
-                                CONFIG_MAX_AGE: {
-                                    CONFIG_DAYS: None,
-                                    CONFIG_HOURS: None,
-                                    CONFIG_MINUTES: None,
-                                },
-                                CONFIG_MAX_SIZE: {CONFIG_GB: None, CONFIG_MB: 1024.0},
-                                CONFIG_MIN_AGE: {
-                                    CONFIG_DAYS: None,
-                                    CONFIG_HOURS: None,
-                                    CONFIG_MINUTES: None,
-                                },
-                                CONFIG_MIN_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
-                            },
-                            CONFIG_MOVE_ON_SHUTDOWN: False,
-                            CONFIG_DRAIN: False,
                             CONFIG_PATH: "/",
-                            CONFIG_POLL: False,
+                            CONFIG_CONTINUOUS: {CONFIG_MAX_AGE: {CONFIG_DAYS: 123}},
+                            CONFIG_EVENTS: {CONFIG_MAX_SIZE: {CONFIG_MB: 1024}},
                         }
                     ]
                 },
-                CONFIG_SNAPSHOTS: TIER_CONFIG[CONFIG_SNAPSHOTS],
             },
         ),
         (  # Test overriding using tiers
-            TIER_CONFIG,
             {
                 CONFIG_RECORDER: {
                     CONFIG_CONTINUOUS: {},
@@ -163,59 +122,23 @@ TIER_CONFIG = {
                             },
                         ]
                     },
-                    CONFIG_SNAPSHOTS: UNDEFINED,
+                    CONFIG_SNAPSHOTS: UNDEFINED(),
                 },
             },
             {
                 CONFIG_RECORDER: {
                     CONFIG_TIERS: [
                         {
-                            CONFIG_CHECK_INTERVAL: {
-                                CONFIG_DAYS: 0,
-                                CONFIG_HOURS: 0,
-                                CONFIG_MINUTES: 0,
-                                CONFIG_SECONDS: 5,
-                            },
-                            CONFIG_CONTINUOUS: {
-                                CONFIG_MAX_AGE: {
-                                    CONFIG_DAYS: 123,
-                                    CONFIG_HOURS: None,
-                                    CONFIG_MINUTES: None,
-                                },
-                                CONFIG_MAX_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
-                                CONFIG_MIN_AGE: {
-                                    CONFIG_DAYS: None,
-                                    CONFIG_HOURS: None,
-                                    CONFIG_MINUTES: None,
-                                },
-                                CONFIG_MIN_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
-                            },
-                            CONFIG_EVENTS: {
-                                CONFIG_MAX_AGE: {
-                                    CONFIG_DAYS: 456,
-                                    CONFIG_HOURS: None,
-                                    CONFIG_MINUTES: None,
-                                },
-                                CONFIG_MAX_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
-                                CONFIG_MIN_AGE: {
-                                    CONFIG_DAYS: None,
-                                    CONFIG_HOURS: None,
-                                    CONFIG_MINUTES: None,
-                                },
-                                CONFIG_MIN_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
-                            },
-                            CONFIG_MOVE_ON_SHUTDOWN: False,
-                            CONFIG_DRAIN: False,
                             CONFIG_PATH: "/test/",
-                            CONFIG_POLL: False,
+                            CONFIG_CONTINUOUS: {CONFIG_MAX_AGE: {CONFIG_DAYS: 123}},
+                            CONFIG_EVENTS: {CONFIG_MAX_AGE: {CONFIG_DAYS: 456}},
+                            CONFIG_CHECK_INTERVAL: {CONFIG_SECONDS: 5},
                         }
                     ]
                 },
-                CONFIG_SNAPSHOTS: TIER_CONFIG[CONFIG_SNAPSHOTS],
             },
         ),
         (  # Test overriding snapshots
-            TIER_CONFIG,
             {
                 CONFIG_RECORDER: {
                     CONFIG_CONTINUOUS: {},
@@ -233,43 +156,22 @@ TIER_CONFIG = {
                             },
                         ]
                     },
-                    CONFIG_RECORDER: UNDEFINED,
+                    CONFIG_RECORDER: UNDEFINED(),
                 },
             },
             {
                 CONFIG_SNAPSHOTS: {
                     CONFIG_TIERS: [
                         {
-                            CONFIG_CHECK_INTERVAL: {
-                                CONFIG_DAYS: 0,
-                                CONFIG_HOURS: 0,
-                                CONFIG_MINUTES: 0,
-                                CONFIG_SECONDS: 5,
-                            },
-                            CONFIG_MAX_AGE: {
-                                CONFIG_DAYS: 123,
-                                CONFIG_HOURS: None,
-                                CONFIG_MINUTES: None,
-                            },
-                            CONFIG_MAX_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
-                            CONFIG_MIN_AGE: {
-                                CONFIG_DAYS: None,
-                                CONFIG_HOURS: None,
-                                CONFIG_MINUTES: None,
-                            },
-                            CONFIG_MIN_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
-                            CONFIG_MOVE_ON_SHUTDOWN: False,
-                            CONFIG_DRAIN: False,
                             CONFIG_PATH: "/test/",
-                            CONFIG_POLL: False,
+                            CONFIG_MAX_AGE: {CONFIG_DAYS: 123},
+                            CONFIG_CHECK_INTERVAL: {CONFIG_SECONDS: 5},
                         }
                     ]
                 },
-                CONFIG_RECORDER: TIER_CONFIG[CONFIG_RECORDER],
             },
         ),
         (  # Test overriding snapshots domain
-            TIER_CONFIG,
             {
                 CONFIG_RECORDER: {
                     CONFIG_CONTINUOUS: {},
@@ -294,120 +196,108 @@ TIER_CONFIG = {
                                 },
                             ]
                         },
-                        CONFIG_OBJECT_DETECTOR: UNDEFINED,
+                        CONFIG_OBJECT_DETECTOR: UNDEFINED(),
                     },
-                    CONFIG_RECORDER: UNDEFINED,
+                    CONFIG_RECORDER: UNDEFINED(),
                 },
             },
             {
                 CONFIG_SNAPSHOTS: {
                     CONFIG_TIERS: [
                         {
-                            CONFIG_CHECK_INTERVAL: {
-                                CONFIG_DAYS: 0,
-                                CONFIG_HOURS: 0,
-                                CONFIG_MINUTES: 0,
-                                CONFIG_SECONDS: 5,
-                            },
-                            CONFIG_MAX_AGE: {
-                                CONFIG_DAYS: 123,
-                                CONFIG_HOURS: None,
-                                CONFIG_MINUTES: None,
-                            },
-                            CONFIG_MAX_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
-                            CONFIG_MIN_AGE: {
-                                CONFIG_DAYS: None,
-                                CONFIG_HOURS: None,
-                                CONFIG_MINUTES: None,
-                            },
-                            CONFIG_MIN_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
-                            CONFIG_MOVE_ON_SHUTDOWN: False,
-                            CONFIG_DRAIN: False,
                             CONFIG_PATH: "/test/",
-                            CONFIG_POLL: False,
+                            CONFIG_MAX_AGE: {CONFIG_DAYS: 123},
+                            CONFIG_CHECK_INTERVAL: {CONFIG_SECONDS: 5},
                         }
                     ],
                     CONFIG_FACE_RECOGNITION: {
                         CONFIG_TIERS: [
                             {
                                 CONFIG_PATH: "/face/",
-                                CONFIG_CHECK_INTERVAL: {
-                                    CONFIG_DAYS: 0,
-                                    CONFIG_HOURS: 0,
-                                    CONFIG_MINUTES: 1,
-                                    CONFIG_SECONDS: 0,
-                                },
-                                CONFIG_MAX_AGE: {
-                                    CONFIG_DAYS: 456,
-                                    CONFIG_HOURS: None,
-                                    CONFIG_MINUTES: None,
-                                },
-                                CONFIG_MAX_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
-                                CONFIG_MIN_AGE: {
-                                    CONFIG_DAYS: None,
-                                    CONFIG_HOURS: None,
-                                    CONFIG_MINUTES: None,
-                                },
-                                CONFIG_MIN_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
-                                CONFIG_MOVE_ON_SHUTDOWN: False,
-                                CONFIG_DRAIN: False,
-                                CONFIG_POLL: False,
+                                CONFIG_MAX_AGE: {CONFIG_DAYS: 456},
                             }
                         ]
                     },
-                    CONFIG_OBJECT_DETECTOR: UNDEFINED,
                 },
-                CONFIG_RECORDER: TIER_CONFIG[CONFIG_RECORDER],
             },
         ),
     ],
 )
-def test_get_tier_config(config, camera_config, expected) -> None:
+def test_get_tier_config(
+    camera_config: dict[str, Any], expected: dict[str, Any]
+) -> None:
     """Test get_tier_config."""
     mocked_camera = MockCamera(config=camera_config)
-    assert _get_tier_config(config, mocked_camera) == expected
+    assert _get_tier_config(DEFAULT_CONFIG, mocked_camera) == _storage_config(expected)
 
 
-TIMELAPSE_TIER = TIER_SCHEMA_TIMELAPSE(
-    {CONFIG_PATH: "/timelapse/", CONFIG_INTERVAL: {CONFIG_MINUTES: 1}}
-)
+def test_get_tier_config_snapshots_replace_domains() -> None:
+    """Snapshot tiers set by a camera replace the tiers of every domain."""
+    config = _storage_config(
+        {
+            CONFIG_SNAPSHOTS: {
+                CONFIG_OBJECT_DETECTOR: {CONFIG_TIERS: [{CONFIG_PATH: "/"}]}
+            }
+        }
+    )
+    mocked_camera = MockCamera(
+        config={
+            CONFIG_RECORDER: {CONFIG_CONTINUOUS: UNDEFINED(), CONFIG_EVENTS: None},
+            CONFIG_STORAGE: {
+                CONFIG_RECORDER: UNDEFINED(),
+                CONFIG_SNAPSHOTS: {
+                    CONFIG_TIERS: [{CONFIG_PATH: "/camera"}],
+                    CONFIG_OBJECT_DETECTOR: UNDEFINED(),
+                },
+            },
+        }
+    )
+    tier_config = _get_tier_config(config, mocked_camera)
+    assert tier_config.snapshots.object_detector is None
+    assert tier_config.snapshots.domain_tiers(CONFIG_OBJECT_DETECTOR)[0].path == (
+        "/camera/"
+    )
+    assert tier_config.recorder == config.recorder
+
+
+TIMELAPSE_TIER = {CONFIG_PATH: "/timelapse/", CONFIG_INTERVAL: {CONFIG_MINUTES: 1}}
 CAMERA_TIMELAPSE_TIER = {CONFIG_PATH: "/camera/", CONFIG_INTERVAL: {CONFIG_MINUTES: 5}}
 
 
 @pytest.mark.parametrize(
-    ("camera_storage", "expected_tiers"),
+    ("camera_storage", "expected_tier"),
     [
-        pytest.param(None, [TIMELAPSE_TIER], id="no_camera_storage"),
+        pytest.param(None, TIMELAPSE_TIER, id="no_camera_storage"),
         pytest.param(
-            {CONFIG_RECORDER: UNDEFINED, CONFIG_SNAPSHOTS: UNDEFINED},
-            [TIMELAPSE_TIER],
+            {CONFIG_RECORDER: UNDEFINED(), CONFIG_SNAPSHOTS: UNDEFINED()},
+            TIMELAPSE_TIER,
             id="camera_storage_without_timelapse_key",
         ),
         pytest.param(
             {
-                CONFIG_RECORDER: UNDEFINED,
-                CONFIG_SNAPSHOTS: UNDEFINED,
-                CONFIG_TIMELAPSE: UNDEFINED,
+                CONFIG_RECORDER: UNDEFINED(),
+                CONFIG_SNAPSHOTS: UNDEFINED(),
+                CONFIG_TIMELAPSE: UNDEFINED(),
             },
-            [TIMELAPSE_TIER],
+            TIMELAPSE_TIER,
             id="camera_storage_timelapse_undefined",
         ),
         pytest.param(
             {
-                CONFIG_RECORDER: UNDEFINED,
-                CONFIG_SNAPSHOTS: UNDEFINED,
+                CONFIG_RECORDER: UNDEFINED(),
+                CONFIG_SNAPSHOTS: UNDEFINED(),
                 CONFIG_TIMELAPSE: {CONFIG_TIERS: [CAMERA_TIMELAPSE_TIER]},
             },
-            [TIER_SCHEMA_TIMELAPSE(CAMERA_TIMELAPSE_TIER)],
+            CAMERA_TIMELAPSE_TIER,
             id="camera_timelapse_override",
         ),
     ],
 )
 def test_get_tier_config_timelapse(
-    camera_storage: dict[str, Any] | None, expected_tiers: list[dict[str, Any]]
+    camera_storage: dict[str, Any] | None, expected_tier: dict[str, Any]
 ) -> None:
     """Test that cameras can override the timelapse tiers."""
-    config = {**TIER_CONFIG, CONFIG_TIMELAPSE: {CONFIG_TIERS: [TIMELAPSE_TIER]}}
+    config = _storage_config({CONFIG_TIMELAPSE: {CONFIG_TIERS: [TIMELAPSE_TIER]}})
     mocked_camera = MockCamera(
         config={
             CONFIG_RECORDER: {CONFIG_CONTINUOUS: {}, CONFIG_EVENTS: {}},
@@ -415,19 +305,35 @@ def test_get_tier_config_timelapse(
         }
     )
     tier_config = _get_tier_config(config, mocked_camera)
-    assert tier_config[CONFIG_TIMELAPSE][CONFIG_TIERS] == expected_tiers
+    assert tier_config.timelapse is not None
+    assert tier_config.timelapse.tiers == [TimelapseTier.model_validate(expected_tier)]
+
+
+def test_get_tier_config_timelapse_not_configured() -> None:
+    """A camera cannot enable timelapse when the storage config does not."""
+    mocked_camera = MockCamera(
+        config={
+            CONFIG_RECORDER: {CONFIG_CONTINUOUS: {}, CONFIG_EVENTS: {}},
+            CONFIG_STORAGE: {CONFIG_TIMELAPSE: {CONFIG_TIERS: [CAMERA_TIMELAPSE_TIER]}},
+        }
+    )
+    assert _get_tier_config(DEFAULT_CONFIG, mocked_camera).timelapse is None
 
 
 @pytest.fixture(name="storage", scope="function")
-def fixture_storage(vis: MockViseron) -> vol.Generator[Storage, Any, None]:
+def fixture_storage(vis: MockViseron) -> Generator[Storage, Any, None]:
     """Create a Storage instance."""
-    _config = copy.deepcopy(TIER_CONFIG)
-    _config[CONFIG_SNAPSHOTS][CONFIG_TIERS].append(
-        {
-            CONFIG_PATH: "/test",
-            CONFIG_MAX_AGE: {CONFIG_DAYS: 123},
+    _config = {
+        CONFIG_SNAPSHOTS: {
+            CONFIG_TIERS: [
+                *DEFAULT_SNAPSHOTS_TIERS,
+                {
+                    CONFIG_PATH: "/test",
+                    CONFIG_MAX_AGE: {CONFIG_DAYS: 123},
+                },
+            ]
         }
-    )
+    }
 
     # Create mock classes for tier handlers
     mock_face_recognition_handler = Mock(name="SnapshotTierHandler")
@@ -501,8 +407,8 @@ def fixture_storage(vis: MockViseron) -> vol.Generator[Storage, Any, None]:
         patch("viseron.components.storage.config._check_path_exists"),
         patch("viseron.components.storage.TIER_CATEGORIES", patched_categories),
     ):
-        config = CONFIG_SCHEMA({COMPONENT: _config})[COMPONENT]
-        _storage = Storage(vis, config)
+        config = validate_config(CONFIG_SCHEMA, {COMPONENT: _config})
+        _storage = Storage(vis, config.storage)
         _storage._storage_mocks = storage_mocks  # type: ignore[attr-defined]
         yield _storage
 
@@ -604,8 +510,8 @@ class TestStorage:
             tempfile.TemporaryDirectory() as tier1,
             tempfile.TemporaryDirectory() as tier2,
         ):
-            tier_handler1 = Mock(tier={CONFIG_PATH: f"{tier1}/"})
-            tier_handler2 = Mock(tier={CONFIG_PATH: f"{tier2}/"})
+            tier_handler1 = Mock(tier=Tier(path=tier1))
+            tier_handler2 = Mock(tier=Tier(path=tier2))
             storage._camera_tier_handlers["test_camera"] = {}
             storage._camera_tier_handlers["test_camera"]["test_category"] = []
             storage._camera_tier_handlers["test_camera"]["test_category"].append(
@@ -721,28 +627,30 @@ class TestStorage:
         """Test create_tier_handlers with custom tier config."""
         camera = MockCamera()
 
-        custom_config = {
-            CONFIG_RECORDER: {
-                CONFIG_TIERS: [
-                    {
-                        CONFIG_PATH: "/test1/",
-                    },
-                    {
-                        CONFIG_PATH: "/test2/",
-                    },
-                ]
-            },
-            CONFIG_SNAPSHOTS: {
-                CONFIG_TIERS: [
-                    {
-                        CONFIG_PATH: "/snap1/",
-                    },
-                    {
-                        CONFIG_PATH: "/snap2/",
-                    },
-                ]
-            },
-        }
+        custom_config = _storage_config(
+            {
+                CONFIG_RECORDER: {
+                    CONFIG_TIERS: [
+                        {
+                            CONFIG_PATH: "/test1/",
+                        },
+                        {
+                            CONFIG_PATH: "/test2/",
+                        },
+                    ]
+                },
+                CONFIG_SNAPSHOTS: {
+                    CONFIG_TIERS: [
+                        {
+                            CONFIG_PATH: "/snap1/",
+                        },
+                        {
+                            CONFIG_PATH: "/snap2/",
+                        },
+                    ]
+                },
+            }
+        )
 
         with patch(
             "viseron.components.storage._get_tier_config",
@@ -776,8 +684,8 @@ class TestStorage:
                             0,
                             TIER_CATEGORY_RECORDER,
                             subcategory,
-                            custom_config[CONFIG_RECORDER][CONFIG_TIERS][0],
-                            custom_config[CONFIG_RECORDER][CONFIG_TIERS][1],
+                            custom_config.recorder.tiers[0],
+                            custom_config.recorder.tiers[1],
                         ),
                         call(
                             storage._vis,
@@ -785,7 +693,7 @@ class TestStorage:
                             1,
                             TIER_CATEGORY_RECORDER,
                             subcategory,
-                            custom_config[CONFIG_RECORDER][CONFIG_TIERS][1],
+                            custom_config.recorder.tiers[1],
                             None,
                         ),
                     ]
@@ -804,8 +712,8 @@ class TestStorage:
                             0,
                             TIER_CATEGORY_SNAPSHOTS,
                             subcategory,
-                            custom_config[CONFIG_SNAPSHOTS][CONFIG_TIERS][0],
-                            custom_config[CONFIG_SNAPSHOTS][CONFIG_TIERS][1],
+                            custom_config.snapshots.tiers[0],
+                            custom_config.snapshots.tiers[1],
                         ),
                         call(
                             storage._vis,
@@ -813,7 +721,7 @@ class TestStorage:
                             1,
                             TIER_CATEGORY_SNAPSHOTS,
                             subcategory,
-                            custom_config[CONFIG_SNAPSHOTS][CONFIG_TIERS][1],
+                            custom_config.snapshots.tiers[1],
                             None,
                         ),
                     ]
@@ -823,39 +731,40 @@ class TestStorage:
         """Test create_tier_handlers with domain override."""
         camera = MockCamera()
 
-        custom_config: dict[str, Any] = {
-            CONFIG_RECORDER: {CONFIG_TIERS: []},
-            CONFIG_SNAPSHOTS: {
-                CONFIG_TIERS: [
-                    {
-                        CONFIG_PATH: "/snap1/",
-                    },
-                    {
-                        CONFIG_PATH: "/snap2/",
-                    },
-                ],
-                CONFIG_FACE_RECOGNITION: {
+        custom_config = _storage_config(
+            {
+                CONFIG_SNAPSHOTS: {
                     CONFIG_TIERS: [
                         {
-                            CONFIG_PATH: "/face1/",
+                            CONFIG_PATH: "/snap1/",
                         },
                         {
-                            CONFIG_PATH: "/face2/",
+                            CONFIG_PATH: "/snap2/",
                         },
-                    ]
+                    ],
+                    CONFIG_FACE_RECOGNITION: {
+                        CONFIG_TIERS: [
+                            {
+                                CONFIG_PATH: "/face1/",
+                            },
+                            {
+                                CONFIG_PATH: "/face2/",
+                            },
+                        ]
+                    },
+                    CONFIG_IMAGE_CLASSIFICATION: {
+                        CONFIG_TIERS: [
+                            {
+                                CONFIG_PATH: "/classification1/",
+                            },
+                            {
+                                CONFIG_PATH: "/classification2/",
+                            },
+                        ]
+                    },
                 },
-                CONFIG_IMAGE_CLASSIFICATION: {
-                    CONFIG_TIERS: [
-                        {
-                            CONFIG_PATH: "/classification1/",
-                        },
-                        {
-                            CONFIG_PATH: "/classification2/",
-                        },
-                    ]
-                },
-            },
-        }
+            }
+        )
 
         with patch(
             "viseron.components.storage._get_tier_config",
@@ -873,8 +782,8 @@ class TestStorage:
                         0,
                         TIER_CATEGORY_SNAPSHOTS,
                         TIER_SUBCATEGORY_OBJECT_DETECTOR,
-                        custom_config[CONFIG_SNAPSHOTS][CONFIG_TIERS][0],
-                        custom_config[CONFIG_SNAPSHOTS][CONFIG_TIERS][1],
+                        custom_config.snapshots.tiers[0],
+                        custom_config.snapshots.tiers[1],
                     ),
                     call(
                         storage._vis,
@@ -882,7 +791,7 @@ class TestStorage:
                         1,
                         TIER_CATEGORY_SNAPSHOTS,
                         TIER_SUBCATEGORY_OBJECT_DETECTOR,
-                        custom_config[CONFIG_SNAPSHOTS][CONFIG_TIERS][1],
+                        custom_config.snapshots.tiers[1],
                         None,
                     ),
                 ]
@@ -898,12 +807,12 @@ class TestStorage:
                         0,
                         TIER_CATEGORY_SNAPSHOTS,
                         TIER_SUBCATEGORY_FACE_RECOGNITION,
-                        custom_config[CONFIG_SNAPSHOTS][CONFIG_FACE_RECOGNITION][
-                            CONFIG_TIERS
-                        ][0],
-                        custom_config[CONFIG_SNAPSHOTS][CONFIG_FACE_RECOGNITION][
-                            CONFIG_TIERS
-                        ][1],
+                        custom_config.snapshots.domain_tiers(CONFIG_FACE_RECOGNITION)[
+                            0
+                        ],
+                        custom_config.snapshots.domain_tiers(CONFIG_FACE_RECOGNITION)[
+                            1
+                        ],
                     ),
                     call(
                         storage._vis,
@@ -911,9 +820,9 @@ class TestStorage:
                         1,
                         TIER_CATEGORY_SNAPSHOTS,
                         TIER_SUBCATEGORY_FACE_RECOGNITION,
-                        custom_config[CONFIG_SNAPSHOTS][CONFIG_FACE_RECOGNITION][
-                            CONFIG_TIERS
-                        ][1],
+                        custom_config.snapshots.domain_tiers(CONFIG_FACE_RECOGNITION)[
+                            1
+                        ],
                         None,
                     ),
                 ]
@@ -929,12 +838,12 @@ class TestStorage:
                         0,
                         TIER_CATEGORY_SNAPSHOTS,
                         TIER_SUBCATEGORY_IMAGE_CLASSIFICATION,
-                        custom_config[CONFIG_SNAPSHOTS][CONFIG_IMAGE_CLASSIFICATION][
-                            CONFIG_TIERS
-                        ][0],
-                        custom_config[CONFIG_SNAPSHOTS][CONFIG_IMAGE_CLASSIFICATION][
-                            CONFIG_TIERS
-                        ][1],
+                        custom_config.snapshots.domain_tiers(
+                            CONFIG_IMAGE_CLASSIFICATION
+                        )[0],
+                        custom_config.snapshots.domain_tiers(
+                            CONFIG_IMAGE_CLASSIFICATION
+                        )[1],
                     ),
                     call(
                         storage._vis,
@@ -942,9 +851,9 @@ class TestStorage:
                         1,
                         TIER_CATEGORY_SNAPSHOTS,
                         TIER_SUBCATEGORY_IMAGE_CLASSIFICATION,
-                        custom_config[CONFIG_SNAPSHOTS][CONFIG_IMAGE_CLASSIFICATION][
-                            CONFIG_TIERS
-                        ][1],
+                        custom_config.snapshots.domain_tiers(
+                            CONFIG_IMAGE_CLASSIFICATION
+                        )[1],
                         None,
                     ),
                 ]
