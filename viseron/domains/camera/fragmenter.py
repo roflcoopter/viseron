@@ -320,6 +320,7 @@ def generate_playlist(
     media_sequence: int = 0,
     target_duration: int | None = None,
     *,
+    discontinuity_sequence: int = 0,
     end: bool = False,
     file_directive: bool = False,
     can_skip_until: float | None = None,
@@ -343,8 +344,8 @@ def generate_playlist(
     playlist.append(f"#EXT-X-VERSION:{9 if skipped else 6}")
 
     playlist.append(f"#EXT-X-MEDIA-SEQUENCE:{media_sequence}")
-    if media_sequence:
-        playlist.append(f"#EXT-X-DISCONTINUITY-SEQUENCE:{media_sequence}")
+    if discontinuity_sequence:
+        playlist.append(f"#EXT-X-DISCONTINUITY-SEQUENCE:{discontinuity_sequence}")
 
     if target_duration:
         pass

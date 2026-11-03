@@ -7,6 +7,7 @@ import logging
 import os
 from dataclasses import dataclass
 from http import HTTPStatus
+from itertools import pairwise
 from math import ceil
 from typing import TYPE_CHECKING
 
@@ -24,6 +25,7 @@ from viseron.const import CAMERA_SEGMENT_DURATION, HLS_SKIP_BOUNDARY_TARGET_DURA
 from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.fragmenter import (
     Fragment,
+    gap_in_fragments,
     generate_playlist,
     get_available_timespans,
 )
@@ -56,6 +58,15 @@ def count_files_removed(
     return index + 1
 
 
+def count_discontinuities(fragments: list[Fragment]) -> int:
+    """Count the discontinuities between consecutive Fragments."""
+    return sum(
+        1
+        for previous, fragment in pairwise(fragments)
+        if gap_in_fragments(previous, fragment)
+    )
+
+
 def count_matching_fragments(
     previous_list: list[Fragment], current_list: list[Fragment]
 ) -> int:
@@ -75,6 +86,7 @@ class HlsClient:
     client_id: str
     fragments: list[Fragment]
     media_sequence: int
+    discontinuity_sequence: int
     target_duration: int
 
 
@@ -289,7 +301,7 @@ def update_hls_client(
     hls_client_id: str,
     fragments: list[Fragment],
 ) -> tuple[HlsClient, int]:
-    """Keep track of HLS client media sequence.
+    """Keep track of HLS client media and discontinuity sequence.
 
     Only call this for playlists that are returned to the client, since the fragments
     are stored as the client's previous playlist.
@@ -299,6 +311,11 @@ def update_hls_client(
     if hls_client:
         removed = count_files_removed(hls_client.fragments, fragments)
         received = count_matching_fragments(hls_client.fragments[removed:], fragments)
+        # The new first fragment loses its discontinuity too, since a playlist never
+        # starts with one
+        hls_client.discontinuity_sequence += count_discontinuities(
+            hls_client.fragments[:removed] + fragments[:1]
+        )
         hls_client.fragments = fragments
         hls_client.media_sequence += removed
         return hls_client, received
@@ -307,6 +324,7 @@ def update_hls_client(
         client_id=hls_client_id,
         fragments=fragments,
         media_sequence=0,
+        discontinuity_sequence=0,
         target_duration=get_target_duration(fragments),
     )
     HlsAPIHandler.hls_client_ids[hls_client_id] = hls_client
@@ -339,7 +357,7 @@ def _render_client_playlist(
     skip_requested: bool,
     end: bool,
 ) -> str:
-    """Render the playlist with the media sequence and delta updates of a client."""
+    """Render the playlist with the sequence numbers and delta updates of a client."""
     if hls_client_id is None:
         return generate_playlist(fragments, init_file, end=end, file_directive=False)
 
@@ -349,6 +367,7 @@ def _render_client_playlist(
         init_file,
         media_sequence=hls_client.media_sequence,
         target_duration=hls_client.target_duration,
+        discontinuity_sequence=hls_client.discontinuity_sequence,
         end=end,
         file_directive=False,
         can_skip_until=hls_client.target_duration * HLS_SKIP_BOUNDARY_TARGET_DURATIONS,

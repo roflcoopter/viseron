@@ -488,6 +488,40 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
         assert playlist.count("#EXT-X-SKIP") == 0
         assert playlist.count("#EXT-X-MEDIA-SEQUENCE:4") == 1
 
+    def test_get_hls_playlist_time_period_discontinuity_removed(self):
+        """Test that removing a discontinuity advances the discontinuity sequence."""
+        url = (
+            f"/api/v1/hls/test/index.m3u8?start_timestamp={int(self._now.timestamp())}"
+        )
+        hls_client_id = str(uuid.uuid4())
+        with self._get_db_session() as session:
+            # Leaves a gap between the segments at 5 and 15 seconds
+            session.execute(
+                delete(Files)
+                .where(Files.camera_identifier == "test")
+                .where(Files.orig_ctime == self._now + datetime.timedelta(seconds=10))
+            )
+            session.commit()
+
+        first = self._fetch_playlist(url, self._simulated_now, hls_client_id)
+        with self._get_db_session() as session:
+            session.execute(
+                delete(Files)
+                .where(Files.camera_identifier == "test")
+                .where(Files.orig_ctime < self._now + datetime.timedelta(seconds=15))
+            )
+            session.commit()
+        second = self._fetch_playlist(url, self._simulated_now, hls_client_id)
+
+        assert first.code == 200
+        assert first.body.decode().splitlines().count("#EXT-X-DISCONTINUITY") == 1
+        assert second.code == 200
+        second_lines = second.body.decode().splitlines()
+        assert second_lines.count("#EXT-X-DISCONTINUITY") == 0
+        assert "#EXT-X-MEDIA-SEQUENCE:2" in second_lines
+        # The segment at 15 seconds keeps the discontinuity sequence number it had
+        assert "#EXT-X-DISCONTINUITY-SEQUENCE:1" in second_lines
+
     def test_get_hls_playlist_time_period_skip_without_client_id(self):
         """Test that skipping is ignored when the client is not tracked."""
         url = self._time_period_url(
@@ -595,6 +629,63 @@ def test_update_hls_client(
     assert received == expected_received
     assert hls_client.media_sequence == expected_media_sequence
     assert HlsAPIHandler.hls_client_ids[hls_client_id] is hls_client
+
+
+def _timed_fragments(offsets: list[int]) -> list[Fragment]:
+    """Create 5 second fragments, named after their start offset in seconds."""
+    return [
+        Fragment(
+            f"{offset}.m4s",
+            f"/test/{offset}.m4s",
+            5,
+            datetime.datetime(2024, 1, 1) + datetime.timedelta(seconds=offset),
+        )
+        for offset in offsets
+    ]
+
+
+@pytest.mark.parametrize(
+    ("previous_playlists", "current", "expected_discontinuity_sequence"),
+    [
+        pytest.param([], [0, 30, 35], 0, id="new_client"),
+        pytest.param([[0, 30, 35]], [0, 30, 35, 40], 0, id="fragments_appended"),
+        pytest.param(
+            [[0, 5, 30]], [5, 30, 35], 0, id="head_removed_without_discontinuity"
+        ),
+        pytest.param(
+            [[0, 30, 35]],
+            [30, 35, 40],
+            1,
+            id="discontinuity_before_new_first_fragment_removed",
+        ),
+        pytest.param(
+            [[0, 30, 60, 65]], [60, 65], 2, id="discontinuities_in_removed_fragments"
+        ),
+        pytest.param([[0, 30, 35]], [60, 65], 2, id="no_overlap_after_gap"),
+        pytest.param([[0, 30, 35]], [40, 45], 1, id="no_overlap_without_gap"),
+        pytest.param([[0, 30, 35]], [], 1, id="all_fragments_removed"),
+        pytest.param([[0, 5, 30, 35]], [0, 30, 35], 0, id="middle_removed"),
+        pytest.param(
+            [[0, 30, 35], [30, 35, 60]],
+            [60, 65],
+            2,
+            id="discontinuity_sequence_accumulates",
+        ),
+    ],
+)
+def test_update_hls_client_discontinuity_sequence(
+    previous_playlists: list[list[int]],
+    current: list[int],
+    expected_discontinuity_sequence: int,
+) -> None:
+    """Test that the discontinuity sequence counts the removed discontinuities."""
+    hls_client_id = str(uuid.uuid4())
+    for previous in previous_playlists:
+        update_hls_client(hls_client_id, _timed_fragments(previous))
+
+    hls_client, _ = update_hls_client(hls_client_id, _timed_fragments(current))
+
+    assert hls_client.discontinuity_sequence == expected_discontinuity_sequence
 
 
 def test_count_files_removed_no_files_removed():

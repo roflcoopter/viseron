@@ -274,6 +274,37 @@ def test_generate_playlist_delta_update(
 
 
 @pytest.mark.parametrize(
+    ("media_sequence", "discontinuity_sequence", "expected"),
+    [
+        pytest.param(0, 0, ["#EXT-X-MEDIA-SEQUENCE:0"], id="first_playlist"),
+        pytest.param(
+            3, 0, ["#EXT-X-MEDIA-SEQUENCE:3"], id="no_discontinuities_removed"
+        ),
+        pytest.param(
+            3,
+            1,
+            ["#EXT-X-MEDIA-SEQUENCE:3", "#EXT-X-DISCONTINUITY-SEQUENCE:1"],
+            id="discontinuities_removed",
+        ),
+    ],
+)
+def test_generate_playlist_sequence_numbers(
+    media_sequence: int, discontinuity_sequence: int, expected: list[str]
+) -> None:
+    """Test that the media and discontinuity sequences are written independently."""
+    fragments = [Fragment("1.m4s", "/test/1.m4s", 5.0, PLAYLIST_BASE_TIME)]
+
+    playlist = generate_playlist(
+        fragments,
+        "/test/init.mp4",
+        media_sequence=media_sequence,
+        discontinuity_sequence=discontinuity_sequence,
+    )
+
+    assert [line for line in playlist.splitlines() if "-SEQUENCE:" in line] == expected
+
+
+@pytest.mark.parametrize(
     ("durations", "skip_boundary", "expected"),
     [
         pytest.param([5.0] * 15, 30, 9, id="skips_segments_outside_boundary"),
