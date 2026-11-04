@@ -93,8 +93,9 @@ const usePlayerCardCallbacks = (
 
   const handleJumpBackward = useCallback(() => {
     hlsRefs.forEach((player) => {
-      if (player) {
-        player.current!.media!.currentTime -= 10;
+      const media = player.current?.media;
+      if (media) {
+        media.currentTime -= 10;
       }
     });
     showControlsTemporarily();
@@ -102,8 +103,9 @@ const usePlayerCardCallbacks = (
 
   const handleJumpForward = useCallback(() => {
     hlsRefs.forEach((player) => {
-      if (player) {
-        player.current!.media!.currentTime += 10;
+      const media = player.current?.media;
+      if (media) {
+        media.currentTime += 10;
       }
     });
     showControlsTemporarily();
@@ -111,11 +113,11 @@ const usePlayerCardCallbacks = (
 
   const handleLiveClick = useCallback(() => {
     hlsRefs.forEach((player) => {
-      if (player) {
-        const currentTime = player.current!.media!.duration - LIVE_EDGE_DELAY;
+      const media = player.current?.media;
+      if (media) {
+        const currentTime = media.duration - LIVE_EDGE_DELAY;
         if (!Number.isNaN(currentTime)) {
-          player.current!.media!.currentTime =
-            player.current!.media!.duration - LIVE_EDGE_DELAY;
+          media.currentTime = currentTime;
         }
       }
     });
@@ -127,8 +129,9 @@ const usePlayerCardCallbacks = (
       showControlsTemporarily();
       setPlaybackSpeed(speed);
       hlsRefs.forEach((player) => {
-        if (player) {
-          player.current!.media!.playbackRate = speed;
+        const media = player.current?.media;
+        if (media) {
+          media.playbackRate = speed;
         }
       });
     },
@@ -138,9 +141,10 @@ const usePlayerCardCallbacks = (
   const handleVolumeChange = useCallback(
     (event: Event, newVolume: number | number[]) => {
       hlsRefs.forEach((player) => {
-        if (player) {
-          player.current!.media!.muted = false;
-          player.current!.media!.volume = (newVolume as number) / 100;
+        const media = player.current?.media;
+        if (media) {
+          media.muted = false;
+          media.volume = (newVolume as number) / 100;
         }
       });
       if ((newVolume as number) === 0) {
@@ -155,8 +159,9 @@ const usePlayerCardCallbacks = (
 
   const handleMuteToggle = useCallback(() => {
     hlsRefs.forEach((player) => {
-      if (player) {
-        player.current!.media!.muted = !isMuted;
+      const media = player.current?.media;
+      if (media) {
+        media.muted = !isMuted;
       }
     });
     setIsMuted(!isMuted);
