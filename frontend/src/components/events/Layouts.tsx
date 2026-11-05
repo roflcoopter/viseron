@@ -9,7 +9,14 @@ import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { Dayjs } from "dayjs";
-import { SyntheticEvent, memo, useCallback, useEffect, useRef } from "react";
+import {
+  SyntheticEvent,
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from "react";
 
 import { useFilteredCameras } from "components/camera/useCameraStore";
 import { FilterMenu } from "components/events/FilterMenu";
@@ -77,7 +84,11 @@ const useSetTableHeight = (
   ]);
 
   useResizeObserver(playerCardGridItemRef, _setTableHeight);
-  _setTableHeight();
+  // Set table size before the first paint to ensure correct layout of
+  // virtualized list
+  useLayoutEffect(() => {
+    _setTableHeight();
+  }, [_setTableHeight]);
 };
 
 const useSetPlayerCardHeight = (
