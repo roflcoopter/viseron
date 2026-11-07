@@ -1,5 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { type JSX, memo, useEffect } from "react";
+import { type JSX, memo, useEffect, useReducer } from "react";
 
 import { Row } from "components/events/timeline/Row";
 import {
@@ -30,6 +30,16 @@ export const VirtualList = memo(
       getScrollElement: () => parentRef!.current,
       estimateSize: () => TICK_HEIGHT,
       overscan: 10,
+    });
+
+    // In some cases, the parentRef is not attached during the first render,
+    // causing the virtualizer to not find the scroll element.
+    // The reducer forces a re-render to retry finding the scroll element.
+    const [, retryScrollElement] = useReducer((count: number) => count + 1, 0);
+    useEffect(() => {
+      if (!rowVirtualizer.scrollElement && parentRef.current) {
+        retryScrollElement();
+      }
     });
 
     // Sync isScrolling with rowVirtualizer.isScrolling to avoid prop drilling
