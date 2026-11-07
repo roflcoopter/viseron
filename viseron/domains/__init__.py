@@ -9,6 +9,7 @@ import time
 from abc import ABCMeta, abstractmethod
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from functools import partial
 from inspect import signature
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -30,6 +31,7 @@ SETUP_WITH_TRIES_PARAM_COUNT = 4
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.components import Component
+    from viseron.domain_registry import DomainRegistry
     from viseron.viseron_types import SupportedDomains
 
 
@@ -394,8 +396,44 @@ def _schedule_domain_setup(
     _submit_domain_setup(vis, executor, entry)
 
 
+def _is_waiting_on_retry(
+    registry: DomainRegistry,
+    entry: DomainEntry,
+    visited: set[tuple[str, str]],
+) -> bool:
+    """Return True if the domain is retrying or blocked on a retrying dependency."""
+    key = (entry.domain, entry.identifier)
+    if key in visited:
+        return False
+    visited.add(key)
+
+    if entry.state == DomainState.RETRYING:
+        return True
+    if entry.state not in (DomainState.PENDING, DomainState.LOADING):
+        return False
+
+    for dependency in [*entry.require_domains, *entry.optional_domains]:
+        dependency_entry = registry.get(dependency.domain, dependency.identifier)
+        if dependency_entry and _is_waiting_on_retry(
+            registry, dependency_entry, visited
+        ):
+            return True
+    return False
+
+
+def _log_setup_exception(future: Future) -> None:
+    """Log exceptions that escaped _setup_single_domain."""
+    if not future.cancelled() and (exception := future.exception()):
+        LOGGER.error("Domain setup raised exception", exc_info=exception)
+
+
 def setup_domains(vis: Viseron) -> None:
-    """Set up all pending domains."""
+    """Set up all pending domains.
+
+    Returns once every domain has finished its setup or is retrying. Retrying
+    domains, and the dependents waiting for them, continue in the background so
+    that a domain which is never ready does not block startup or reloads.
+    """
     registry = vis.domain_registry
 
     entries_missing_deps = registry.validate_dependencies()
@@ -413,26 +451,38 @@ def setup_domains(vis: Viseron) -> None:
 
     LOGGER.debug(f"Setting up {len(pending)} pending domains")
 
-    with ThreadPoolExecutor(max_workers=100, thread_name_prefix="setup_domains") as ex:
-        # Schedule all pending domains
+    futures: list[tuple[DomainEntry, Future]] = []
+
+    def _on_setup_done(_future: Future) -> None:
+        registry.notify_state_changed()
+
+    def _all_settled() -> bool:
+        return all(
+            future.done() or _is_waiting_on_retry(registry, entry, set())
+            for entry, future in futures
+        )
+
+    # Not used as a context manager since exiting it would join retrying domains
+    executor = ThreadPoolExecutor(max_workers=100, thread_name_prefix="setup_domains")
+    try:
         for entry in pending:
-            _schedule_domain_setup(vis, ex, entry)
+            _schedule_domain_setup(vis, executor, entry)
 
-        # Wait for all to complete
-        futures = [
-            registry.get_future(e.domain, e.identifier)
-            for e in pending
-            if registry.get_future(e.domain, e.identifier)
-        ]
-        for future in as_completed(futures):  # type: ignore[arg-type]
-            try:
-                future.result()
-            except Exception:  # pylint: disable=broad-except
-                LOGGER.exception("Domain setup raised exception")
+        for entry in pending:
+            future = registry.get_future(entry.domain, entry.identifier)
+            if future:
+                futures.append((entry, future))
+                future.add_done_callback(_log_setup_exception)
+                future.add_done_callback(_on_setup_done)
 
-    # Clear futures and handle failed domains
-    for entry in pending:
-        registry.clear_future(entry.domain, entry.identifier)
+        registry.wait_until(_all_settled)
+    finally:
+        executor.shutdown(wait=False)
+
+    for entry, future in futures:
+        future.add_done_callback(
+            partial(registry.clear_future, entry.domain, entry.identifier)
+        )
 
 
 def _handle_failed_domain(
