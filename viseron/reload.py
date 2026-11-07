@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from concurrent.futures import wait
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -499,12 +500,17 @@ def reload_config(vis: Viseron) -> ReloadResult:
     start = time.time()
     LOGGER.info("Config reload requested")
 
-    # Cancel all retrying domains so any in-progress reload
-    # can finish and release the lock.
-    cancelled_retries = vis.domain_registry.cancel_all_retries()
     with vis.reload_lock:
         # Wait until initial setup is complete before allowing reload
         vis.initialized_event.wait()
+        # Retrying domains keep running in the background after setup, so they
+        # have to be stopped before the registry is modified.
+        cancelled_retries = vis.domain_registry.cancel_all_retries()
+        if running_futures := vis.domain_registry.get_running_futures():
+            LOGGER.debug(
+                f"Waiting for {len(running_futures)} cancelled domain setups to stop"
+            )
+            wait(running_futures)
         result = _reload_config(vis, cancelled_retries)
 
     if not result.success:

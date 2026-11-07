@@ -19,6 +19,7 @@ from viseron.events import EventData, EventEmptyData
 from viseron.exceptions import DomainNotRegisteredError
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from concurrent.futures import Future
 
     from viseron import Viseron
@@ -114,6 +115,7 @@ class DomainRegistry:
     def __init__(self, vis: Viseron) -> None:
         self._vis = vis
         self._lock = threading.Lock()
+        self._state_changed = threading.Condition()
         self._domains: dict[str, dict[str, DomainEntry]] = {}
 
     def register(
@@ -191,6 +193,8 @@ class DomainRegistry:
                 f"for component {entry.component_name} "
                 f"from {old_state.value} -> {state.value}",
             )
+
+        self.notify_state_changed()
 
         # Dispatch event outside lock
         self._dispatch_status_event(entry, state, error)
@@ -453,12 +457,32 @@ class DomainRegistry:
                     entry.cancel_event.set()
         return cancelled
 
-    def clear_future(self, domain: str, identifier: str) -> None:
+    def clear_future(self, domain: str, identifier: str, future: Future) -> None:
         """Clear the setup future after completion."""
         with self._lock:
             entry = self._get_entry(domain, identifier)
-            if entry:
+            if entry and entry.setup_future is future:
                 entry.setup_future = None
+
+    def get_running_futures(self) -> list[Future]:
+        """Get the setup futures of all domains that are still being set up."""
+        with self._lock:
+            return [
+                entry.setup_future
+                for domain_entries in self._domains.values()
+                for entry in domain_entries.values()
+                if entry.setup_future and not entry.setup_future.done()
+            ]
+
+    def notify_state_changed(self) -> None:
+        """Wake up threads blocked in wait_until."""
+        with self._state_changed:
+            self._state_changed.notify_all()
+
+    def wait_until(self, predicate: Callable[[], bool]) -> None:
+        """Block until predicate is true, re-evaluating it on every state change."""
+        with self._state_changed:
+            self._state_changed.wait_for(predicate)
 
     def _get_entry(self, domain: str, identifier: str) -> DomainEntry | None:
         """Get entry."""
