@@ -21,11 +21,11 @@ path.py==12.5.0
 pillow==13.0.0
 psutil==7.2.2
 psycopg2-binary==2.9.13
-pydantic==2.14.1
+pydantic==2.14.2
 pyjwt==2.15.1
 python-debouncer==0.1.5
 python-slugify==9.1.3
-pytz==2026.5
+pytz==2026.6
 PyGObject==3.42.2 # Newer versions does not compile for the Jetson Nano
 PyYAML==6.0.3
 ruamel.yaml==0.19.1
@@ -33,7 +33,7 @@ requests==2.34.2
 requests-toolbelt==1.0.0
 scikit-learn==1.9.1
 scipy==1.17.1
-supervision==0.31.1
+supervision==0.31.3
 tornado==6.6
 tzlocal==5.4.5
 typing-extensions==4.16.0
@@ -41,9 +41,9 @@ urllib3==2.8.0
 voluptuous==0.16.0
 setproctitle==1.3.8
 sqlalchemy==2.1.6
-watchdog==6.0.0
+watchdog==7.0.0
 python-telegram-bot==22.8
 onvif-python==0.4.7
-ultralytics==8.4.185; platform_machine == "x86_64" or platform_machine == "aarch64"
-torch==2.14.1; platform_machine == "x86_64" or platform_machine == "aarch64" # Pulled in by ultralytics
-torchvision==0.29.1; platform_machine == "x86_64" or platform_machine == "aarch64"
+ultralytics==8.4.194; platform_machine == "x86_64" or platform_machine == "aarch64"
+torch==2.15.0; platform_machine == "x86_64" or platform_machine == "aarch64" # Pulled in by ultralytics
+torchvision==0.29.2; platform_machine == "x86_64" or platform_machine == "aarch64"
