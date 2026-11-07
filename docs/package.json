@@ -36,7 +36,7 @@
     "@mermaid-js/layout-elk": "^0.1.9",
     "@tippyjs/react": "^4.2.6",
     "clsx": "^2.1.1",
-    "glob": "^14.0.2",
+    "glob": "^14.0.3",
     "js-yaml": "^5.5.0",
     "lodash-es": "^4.18.1",
     "path": "^0.12.7",
@@ -53,11 +53,11 @@
     "@docusaurus/types": "^3.9.2",
     "@mdx-js/language-service": "^0.7.3",
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/webpack-env": "^1.18.8",
-    "@typescript-eslint/eslint-plugin": "^8.72.0",
-    "@typescript-eslint/parser": "^8.72.0",
+    "@typescript-eslint/eslint-plugin": "^8.72.1",
+    "@typescript-eslint/parser": "^8.72.1",
     "eslint": "^9.39.5",
     "eslint-config-airbnb-extended": "^3.3.0",
     "eslint-config-prettier": "^10.1.8",
@@ -66,7 +66,7 @@
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-lit": "^2.3.1",
-    "eslint-plugin-mdx": "^3.8.2",
+    "eslint-plugin-mdx": "^3.8.3",
     "eslint-plugin-prettier": "^5.5.7",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
@@ -74,7 +74,7 @@
     "eslint-plugin-wc": "^3.1.0",
     "prettier": "^3.9.10",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.72.0"
+    "typescript-eslint": "^8.72.1"
   },
   "engines": {
     "node": ">=18.0"
