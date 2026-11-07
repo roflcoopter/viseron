@@ -7,6 +7,11 @@ from typing import TYPE_CHECKING, Any
 
 import requests
 
+from viseron.helpers.notifications import (
+    notifications_paused,
+    register_notification_cameras,
+    unregister_notification_cameras,
+)
 from viseron.helpers.template import render_template, render_template_condition
 
 from .config import HookConfig, WebhookRoot
@@ -23,9 +28,31 @@ LOGGER = logging.getLogger(__name__)
 CONFIG_SCHEMA = WebhookRoot
 
 
+def _event_camera_identifier(event: Any) -> str | None:
+    """Return the camera identifier of an event, None if it has no camera."""
+    if isinstance(event, dict):
+        camera_identifier = event.get("camera_identifier")
+        camera = event.get("camera")
+    else:
+        camera_identifier = getattr(event, "camera_identifier", None)
+        camera = getattr(event, "camera", None)
+    if camera_identifier is None and camera is not None:
+        camera_identifier = getattr(camera, "identifier", None)
+    return camera_identifier if isinstance(camera_identifier, str) else None
+
+
 def setup(vis: Viseron, config: WebhookRoot) -> bool:
     """Set up the webhook component."""
     vis.data[COMPONENT] = Webhook(vis, config.webhook)
+    # Camera events are named <camera_identifier>/<event>
+    register_notification_cameras(
+        vis,
+        COMPONENT,
+        (
+            hook_conf.trigger.event.split("/")[0]
+            for hook_conf in config.webhook.values()
+        ),
+    )
     return True
 
 
@@ -34,6 +61,7 @@ def unload(vis: Viseron) -> bool:
     if COMPONENT in vis.data:
         vis.data[COMPONENT].unload()
         del vis.data[COMPONENT]
+    unregister_notification_cameras(vis, COMPONENT)
     return True
 
 
@@ -70,6 +98,9 @@ class Webhook:
     def _handle_event(
         self, hook_conf: HookConfig, event: dict[str, Any], hook_name: str
     ) -> None:
+        if notifications_paused(self.vis, _event_camera_identifier(event)):
+            return
+
         condition_template = hook_conf.trigger.condition
         if condition_template:
             result, rendered_condition = render_template_condition(

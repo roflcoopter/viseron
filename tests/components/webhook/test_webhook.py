@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 import logging
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from viseron.components.webhook import CONFIG_SCHEMA, setup, unload
+from viseron.components.webhook import (
+    CONFIG_SCHEMA,
+    _event_camera_identifier,
+    setup,
+    unload,
+)
 from viseron.components.webhook.const import COMPONENT
 from viseron.events import Event
 from viseron.helpers.config_validation import validate_config
@@ -207,3 +213,40 @@ def test_request_error_is_logged(
     request_mock.side_effect = OSError("boom")
     trigger()
     assert "Error sending webhook 'test_hook'" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "event_data",
+    [
+        pytest.param({"camera_identifier": "cam"}, id="dict"),
+        pytest.param(SimpleNamespace(camera_identifier="cam"), id="attribute"),
+        pytest.param(
+            SimpleNamespace(camera=SimpleNamespace(identifier="cam")),
+            id="camera_object",
+        ),
+        pytest.param({"camera": SimpleNamespace(identifier="cam")}, id="dict_camera"),
+        pytest.param({"name": "john"}, id="no_camera"),
+    ],
+)
+def test_event_camera_identifier(event_data: Any) -> None:
+    """The camera of an event is found in its data, None if it has no camera."""
+    expected = None if event_data == {"name": "john"} else "cam"
+    assert _event_camera_identifier(event_data) == expected
+
+
+@pytest.mark.parametrize(
+    ("paused", "sent"),
+    [
+        pytest.param(True, False, id="paused"),
+        pytest.param(False, True, id="not_paused"),
+    ],
+)
+def test_paused_camera_is_skipped(
+    trigger: Trigger, vis: MockViseron, paused: bool, sent: bool
+) -> None:
+    """The event of a paused camera does not call the webhook."""
+    with patch(
+        "viseron.components.webhook.notifications_paused", return_value=paused
+    ) as notifications_paused:
+        assert trigger({"camera_identifier": "cam"}).called is sent
+    notifications_paused.assert_called_once_with(vis, "cam")

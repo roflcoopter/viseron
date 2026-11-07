@@ -164,3 +164,34 @@ export const useDeleteOrphanedCamera = () => {
     },
   });
 };
+
+async function camerasNotifications(body: types.NotificationsPauseVariables) {
+  const response = await viseronAPI.post<types.APISuccessResponse>(
+    "/cameras/notifications",
+    body,
+  );
+  return response.data;
+}
+
+export const useCamerasNotifications = () => {
+  const toast = useToast();
+  return useMutation<
+    types.APISuccessResponse,
+    types.APIErrorResponse,
+    types.NotificationsPauseVariables
+  >({
+    mutationFn: camerasNotifications,
+    onSuccess: async (_data, variables, _context) => {
+      toast.success(
+        `Notifications ${variables.action === "pause" ? "paused" : "resumed"} for all cameras`,
+      );
+    },
+    onError: async (error, variables, _context) => {
+      toast.error(
+        error.response && error.response.data.error
+          ? `Error ${variables.action === "pause" ? "pausing" : "resuming"} notifications: ${error.response.data.error}`
+          : `An error occurred: ${error.message}`,
+      );
+    },
+  });
+};

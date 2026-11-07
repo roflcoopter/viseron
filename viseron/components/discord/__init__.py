@@ -13,6 +13,11 @@ import requests
 
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import EVENT_RECORDER_COMPLETE, EVENT_RECORDER_START
+from viseron.helpers.notifications import (
+    notifications_paused,
+    register_notification_cameras,
+    unregister_notification_cameras,
+)
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .config import DiscordCameraConfig, DiscordConfig, DiscordRoot
@@ -34,6 +39,7 @@ CONFIG_SCHEMA = DiscordRoot
 def setup(vis: Viseron, config: DiscordRoot) -> bool:
     """Set up the Discord component."""
     vis.data[COMPONENT] = DiscordNotifier(vis, config.discord)
+    register_notification_cameras(vis, COMPONENT, config.discord.cameras)
 
     return True
 
@@ -44,6 +50,7 @@ def unload(vis: Viseron) -> None:
     if notifier:
         notifier.stop()
         del vis.data[COMPONENT]
+    unregister_notification_cameras(vis, COMPONENT)
 
 
 class DiscordNotifier:
@@ -139,6 +146,8 @@ class DiscordNotifier:
         """Handle recorder start event."""
         camera = event_data.data.camera
         recording = event_data.data.recording
+        if notifications_paused(self._vis, camera.identifier):
+            return
 
         matches, label = self._matches_detection_label(
             camera.identifier, recording.objects
@@ -175,6 +184,8 @@ class DiscordNotifier:
 
     def _recorder_complete_event(self, event_data: Event[EventRecorderData]) -> None:
         """Handle recorder complete event."""
+        if notifications_paused(self._vis, event_data.data.camera.identifier):
+            return
         asyncio.run_coroutine_threadsafe(
             self._async_recorder_complete_event(event_data), self._loop
         )

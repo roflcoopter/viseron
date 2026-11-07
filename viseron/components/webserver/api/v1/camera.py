@@ -27,6 +27,10 @@ from viseron.domains.camera.const import (
     CONFIG_USERNAME,
 )
 from viseron.domains.camera.recorder import ManualRecording
+from viseron.helpers.notifications import (
+    NOTIFICATIONS_SCHEMA,
+    set_notifications_paused,
+)
 from viseron.helpers.validators import request_argument_bool
 
 if TYPE_CHECKING:
@@ -98,6 +102,15 @@ class CameraAPIHandler(BaseAPIHandler):
                     },
                 )
             ),
+        },
+        {
+            "requires_role": [Role.ADMIN],
+            "path_pattern": (
+                r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)/notifications"
+            ),
+            "supported_methods": ["POST"],
+            "method": "post_notifications",
+            "json_body_schema": NOTIFICATIONS_SCHEMA,
         },
     ]
 
@@ -355,3 +368,16 @@ class CameraAPIHandler(BaseAPIHandler):
             reason="Invalid action specified",
         )
         return None
+
+    async def post_notifications(self, camera_identifier: str) -> None:
+        """Pause or resume notifications for a camera."""
+        camera = self._get_camera(camera_identifier, failed=False)
+        if not camera:
+            self.response_error(
+                HTTPStatus.NOT_FOUND,
+                reason=f"Camera {camera_identifier} not found",
+            )
+            return
+
+        await self.run_in_executor(set_notifications_paused, camera, self.json_body)
+        await self.response_success()

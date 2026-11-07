@@ -103,6 +103,9 @@ const mockCamera: types.Camera = {
   is_recording: false,
   is_manual_recording: false,
   timelapse: false,
+  notifications_configured: true,
+  notifications_paused: false,
+  notifications_paused_until: null,
 };
 
 const mockRecording: types.Recording = {

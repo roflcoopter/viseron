@@ -476,3 +476,32 @@ def test_access_to_ptz_commands(
         update.message.reply_text.assert_awaited_once_with(
             text="Access denied for user 5."
         )
+
+
+def test_paused_camera_is_not_notified(set_up: SetUp) -> None:
+    """No notification is scheduled for a paused camera."""
+    notifier = set_up()
+    with (
+        patch(
+            "viseron.components.telegram.notifications_paused", return_value=True
+        ) as paused,
+        patch(
+            "viseron.components.telegram.asyncio.run_coroutine_threadsafe"
+        ) as run_coroutine,
+    ):
+        notifier._recorder_complete_event(make_event([]))
+
+    paused.assert_called_once_with(notifier._vis, CAMERA)
+    run_coroutine.assert_not_called()
+
+
+def test_unpaused_camera_is_notified(set_up: SetUp) -> None:
+    """A camera that is not paused still schedules its notification."""
+    notifier = set_up()
+    with patch(
+        "viseron.components.telegram.asyncio.run_coroutine_threadsafe"
+    ) as run_coroutine:
+        notifier._recorder_complete_event(make_event([]))
+
+    run_coroutine.assert_called_once()
+    run_coroutine.call_args.args[0].close()

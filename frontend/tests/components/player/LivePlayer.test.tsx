@@ -34,6 +34,9 @@ const camera: types.Camera = {
   is_recording: false,
   is_manual_recording: false,
   timelapse: false,
+  notifications_configured: false,
+  notifications_paused: false,
+  notifications_paused_until: null,
 };
 
 describe("LivePlayer fullscreen", () => {

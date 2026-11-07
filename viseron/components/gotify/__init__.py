@@ -26,6 +26,11 @@ from viseron.helpers import escape_string, utcnow
 from viseron.helpers.logs import (
     SensitiveInformationFilterTracker,
 )
+from viseron.helpers.notifications import (
+    notifications_paused,
+    register_notification_cameras,
+    unregister_notification_cameras,
+)
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .config import GotifyConfig, GotifyRoot
@@ -43,6 +48,7 @@ CONFIG_SCHEMA = GotifyRoot
 def setup(vis: Viseron, config: GotifyRoot) -> bool:
     """Set up the Gotify component."""
     vis.data[COMPONENT] = GotifyEventNotifier(vis, config.gotify)
+    register_notification_cameras(vis, COMPONENT, config.gotify.cameras)
 
     return True
 
@@ -53,6 +59,7 @@ def unload(vis: Viseron) -> None:
     if notifier:
         notifier.stop()
         del vis.data[COMPONENT]
+    unregister_notification_cameras(vis, COMPONENT)
 
 
 class GotifyEventNotifier:
@@ -96,6 +103,8 @@ class GotifyEventNotifier:
         camera = event_data.data.camera
         recording = event_data.data.recording
         camera_identifier = camera.identifier
+        if notifications_paused(self._vis, camera_identifier):
+            return
 
         # Keys that are not set for the camera fall back to the global config
         camera_config = self._config.cameras[camera_identifier]

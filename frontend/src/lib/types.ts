@@ -213,7 +213,13 @@ export interface Camera {
   is_manual_recording: boolean;
   ptz_support?: string | null;
   timelapse: boolean;
+  notifications_configured: boolean;
+  notifications_paused: boolean;
+  notifications_paused_until: string | null;
 }
+
+export type NotificationsPauseVariables =
+  { action: "pause"; duration?: number; until?: string } | { action: "resume" };
 
 export interface Cameras {
   [identifier: string]: Camera;

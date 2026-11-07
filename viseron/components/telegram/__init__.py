@@ -34,6 +34,11 @@ from viseron.domains.camera.recorder import EventRecorderData, ManualRecording
 from viseron.exceptions import ComponentNotReady, DomainNotRegisteredError
 from viseron.helpers import escape_string
 from viseron.helpers.logs import SensitiveInformationFilterTracker
+from viseron.helpers.notifications import (
+    notifications_paused,
+    register_notification_cameras,
+    unregister_notification_cameras,
+)
 from viseron.viseron_types import Domain
 from viseron.watchdog.thread_watchdog import RestartableThread
 
@@ -76,6 +81,7 @@ def setup(vis: Viseron, config: TelegramRoot) -> bool:
     if telegram_ptz:
         telegram_ptz.start()
     telegram_notifier.start()
+    register_notification_cameras(vis, COMPONENT, component_config.cameras)
 
     return True
 
@@ -92,6 +98,7 @@ def unload(vis: Viseron) -> None:
         ptz.stop()
 
     vis.data.pop(COMPONENT, None)
+    unregister_notification_cameras(vis, COMPONENT)
 
 
 def rescale_image_cv2(image_path, max_size):
@@ -173,6 +180,8 @@ class TelegramEventNotifier:
         return self._active_camera_identifier
 
     def _recorder_complete_event(self, event_data: Event[EventRecorderData]) -> None:
+        if notifications_paused(self._vis, event_data.data.camera.identifier):
+            return
         asyncio.run_coroutine_threadsafe(
             self._send_notifications(event_data), self._loop
         )

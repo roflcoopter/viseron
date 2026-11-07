@@ -58,6 +58,10 @@ export function useCamera<T extends boolean = false>(
       entityId: `toggle.${camera_identifier}_manual_recording`,
       queryKey: ["cameras"],
     },
+    {
+      entityId: `sensor.${camera_identifier}_notifications_paused_until`,
+      queryKey: ["camera", camera_identifier],
+    },
   ]);
 
   return useQuery({
@@ -137,6 +141,44 @@ export const useCameraStartStop = () => {
       toast.error(
         error.response && error.response.data.error
           ? `Error ${variables.action === "start" ? "starting" : "stopping"} camera: ${error.response.data.error}`
+          : `An error occurred: ${error.message}`,
+      );
+    },
+  });
+};
+
+type CameraNotificationsVariables = types.NotificationsPauseVariables & {
+  camera: types.Camera;
+};
+
+async function cameraNotifications({
+  camera,
+  ...body
+}: CameraNotificationsVariables) {
+  const response = await viseronAPI.post<types.APISuccessResponse>(
+    `/camera/${camera.identifier}/notifications`,
+    body,
+  );
+  return response.data;
+}
+
+export const useCameraNotifications = () => {
+  const toast = useToast();
+  return useMutation<
+    types.APISuccessResponse,
+    types.APIErrorResponse,
+    CameraNotificationsVariables
+  >({
+    mutationFn: cameraNotifications,
+    onSuccess: async (_data, variables, _context) => {
+      toast.success(
+        `Notifications ${variables.action === "pause" ? "paused" : "resumed"} for camera ${variables.camera.name}`,
+      );
+    },
+    onError: async (error, variables, _context) => {
+      toast.error(
+        error.response && error.response.data.error
+          ? `Error ${variables.action === "pause" ? "pausing" : "resuming"} notifications: ${error.response.data.error}`
           : `An error occurred: ${error.message}`,
       );
     },

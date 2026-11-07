@@ -176,7 +176,10 @@ function SuccessCameraCard({
         ]}
       >
         {compact ? (
-          <CameraNameOverlay camera_identifier={camera.identifier} />
+          <CameraNameOverlay
+            camera_identifier={camera.identifier}
+            notificationsPause={buttons}
+          />
         ) : (
           <CardContent>
             <Typography variant="h5" align="center">
