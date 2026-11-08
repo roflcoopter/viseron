@@ -48,7 +48,7 @@ WORKDIR /frontend
 COPY frontend/package.json ./
 COPY frontend/package-lock.json ./
 
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 
 COPY frontend/ ./
 COPY --from=go2rtc /go2rtc/video-rtc.js /frontend/src/components/player/liveplayer/video-rtc.js
