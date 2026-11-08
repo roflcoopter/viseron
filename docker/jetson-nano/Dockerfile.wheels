@@ -65,9 +65,10 @@ ADD requirements.txt requirements.txt
 RUN sed -i "s/OPENCV_VERSION = \"TBD\"/OPENCV_VERSION = \"$OPENCV_VERSION\"/" /opencv-python-headless/setup.py
 RUN echo "opencv-python-headless==$OPENCV_VERSION" >> /requirements.txt
 
-ADD requirements.txt requirements.txt
 ADD requirements_conflicts.txt requirements_conflicts.txt
 ADD requirements-3.9.txt requirements-3.9.txt
+# PyPI aarch64 torch wheels after 2.5.1 need glibc >= 2.28, but L4T r32 ships 2.27
+RUN sed -i '/^torch/d' /requirements.txt
 RUN \
   mkdir -p /wheels \
   \
