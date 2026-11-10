@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated
 
-import voluptuous as vol
+from pydantic import Field
 
 from viseron.domains import OptionalDomain, RequireDomain, setup_domain
-from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
+from viseron.helpers.config_model import ComponentRoot, ConfigModel
+from viseron.helpers.config_types import CameraIdentifier, NoneToDict
 from viseron.viseron_types import Domain
 
 from .const import CAMERA, COMPONENT, DESC_COMPONENT, DOMAIN
@@ -18,14 +19,19 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
-CONFIG_SCHEMA = vol.Schema(
-    {
-        vol.Required(COMPONENT, description=DESC_COMPONENT): {
-            CameraIdentifier(): vol.All(CoerceNoneToDict(), {}),
-        }
-    },
-    extra=vol.ALLOW_EXTRA,
-)
+class NVRConfig(ConfigModel):
+    """Per-camera NVR configuration."""
+
+
+class NVRRoot(ComponentRoot):
+    """Config with the NVR component at the root."""
+
+    nvr: dict[CameraIdentifier, Annotated[NVRConfig, NoneToDict]] = Field(
+        min_length=1, description=DESC_COMPONENT
+    )
+
+
+CONFIG_SCHEMA = NVRRoot
 
 
 def optional_domains(identifier: str) -> list[OptionalDomain]:
@@ -41,17 +47,20 @@ def optional_domains(identifier: str) -> list[OptionalDomain]:
 
 def setup_domains(
     vis: Viseron,
-    config: dict[str, Any],
+    config: NVRRoot,
 ) -> None:
     """Set up nvr domains."""
-    config = config[COMPONENT]
+    nvr_config = {
+        camera_identifier: camera_config.model_dump()
+        for camera_identifier, camera_config in config.nvr.items()
+    }
 
-    for camera_identifier in config.keys():
+    for camera_identifier in nvr_config:
         setup_domain(
             vis,
             COMPONENT,
             DOMAIN,
-            config,
+            nvr_config,
             identifier=camera_identifier,
             require_domains=[
                 RequireDomain(
