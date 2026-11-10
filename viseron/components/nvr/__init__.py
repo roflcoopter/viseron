@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
+
 class NVRConfig(ConfigModel):
     """Per-camera NVR configuration."""
 
