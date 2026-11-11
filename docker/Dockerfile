@@ -6,20 +6,32 @@ ARG WHEELS_VERSION
 ARG GPAC_IMAGE
 ARG UBUNTU_VERSION
 ARG NODE_VERSION
+# Fall back to an empty Hailo image for architectures without a build
+ARG HAILO_IMAGE=hailo-empty
+FROM scratch AS hailo-empty
+WORKDIR /usr/local
+WORKDIR /wheels
+
 FROM roflcoopter/${ARCH}-opencv:${OPENCV_VERSION}-${UBUNTU_VERSION} AS opencv
 FROM roflcoopter/${ARCH}-ffmpeg:${FFMPEG_VERSION}-${UBUNTU_VERSION} AS ffmpeg
 FROM roflcoopter/${ARCH}-wheels:${WHEELS_VERSION}-${UBUNTU_VERSION} AS wheels
 FROM ${GPAC_IMAGE} AS gpac
+FROM ${HAILO_IMAGE} AS hailo
 
 # Install go2rtc
 FROM roflcoopter/${ARCH}-base:${BASE_VERSION}-${UBUNTU_VERSION} AS go2rtc-base
 ARG ARCH
 ARG GO2RTC_VERSION
+ARG UBUNTU_VERSION
 
 WORKDIR /usr/local/bin
 
+# docker-clean would delete the downloaded .debs from the cache mount
 RUN \
-  apt-get update && apt-get install -y --no-install-recommends \
+  --mount=type=cache,id=apt-cache-${ARCH}-${UBUNTU_VERSION},target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,id=apt-lists-${ARCH}-${UBUNTU_VERSION},target=/var/lib/apt/lists,sharing=locked \
+  rm -f /etc/apt/apt.conf.d/docker-clean \
+  && apt-get update && apt-get install -y --no-install-recommends \
   wget
 
 RUN if [ "$ARCH" = "amd64-cuda" ]; then PLATFORM="amd64"; \
@@ -48,7 +60,7 @@ WORKDIR /frontend
 COPY frontend/package.json ./
 COPY frontend/package-lock.json ./
 
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 
 COPY frontend/ ./
 COPY --from=go2rtc /go2rtc/video-rtc.js /frontend/src/components/player/liveplayer/video-rtc.js
@@ -60,9 +72,7 @@ FROM roflcoopter/${ARCH}-base:${BASE_VERSION}-${UBUNTU_VERSION}
 
 WORKDIR /src
 
-COPY --from=wheels /wheels /wheels
-COPY --from=wheels /wheels-3.9 /wheels-3.9
-
+ARG ARCH
 ARG S6_OVERLAY_ARCH
 ARG S6_OVERLAY_VERSION
 ARG EXTRA_APT_PACKAGES
@@ -87,8 +97,13 @@ ENV \
 
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_OVERLAY_ARCH}-installer /tmp/s6-overlay-installer
 
+# docker-clean is moved aside so the downloaded .debs stay in the cache mount,
+# and restored afterwards so runtime apt usage in the image is unchanged.
 RUN \
-  apt-get update && apt-get install -y --no-install-recommends \
+  --mount=type=cache,id=apt-cache-${ARCH}-${UBUNTU_VERSION},target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,id=apt-lists-${ARCH}-${UBUNTU_VERSION},target=/var/lib/apt/lists,sharing=locked \
+  { mv /etc/apt/apt.conf.d/docker-clean /tmp/docker-clean 2>/dev/null || true; } \
+  && apt-get update && apt-get install -y --no-install-recommends \
   software-properties-common \
   curl \
   cpulimit \
@@ -128,20 +143,6 @@ RUN \
   gstreamer1.0-gl \
   gstreamer1.0-pulseaudio \
   python3-gst-1.0 \
-  && rm -rf /var/lib/apt/lists/* \
-  \
-  && python3 -m pip install --no-deps --ignore-installed /wheels/*.whl \
-  # onnxruntime-gpu bundles a TensorRT execution provider linked against
-  # TensorRT 10, which the CUDA base image does not ship. Only the CUDA/CPU
-  # providers are ever requested, so drop the unloadable stub.
-  && rm -f /usr/local/lib/python3.*/*-packages/onnxruntime/capi/libonnxruntime_providers_tensorrt.so \
-  # Register PyTorch runtime libs (installed via ultralytics) with the system
-  # linker so that ldd and ld.so can resolve libtorch.so / libc10.so etc.
-  && python3 -c \
-  "import torch, os; open('/etc/ld.so.conf.d/torch.conf','w').write(os.path.join(os.path.dirname(torch.__file__),'lib')+'\n')" \
-  2>/dev/null || true \
-  && ldconfig \
-  && rm -r /wheels \
   \
   # Install Python 3.9 if it doesn't exist
   && if [ ! -f /usr/local/bin/python3.9 ]; then \
@@ -176,8 +177,6 @@ RUN \
   && apt-get -qq update && apt-get -qq install -y --no-install-recommends \
   "/tmp/${EDGETPU_DEB}" \
   && rm "/tmp/${EDGETPU_DEB}" \
-  && python3.9 -m pip install --ignore-installed /wheels-3.9/*.whl \
-  && rm -r /wheels-3.9 \
   \
   # Python 3.9 wheels (e.g. Pillow for armhf) may have been compiled against
   # Ubuntu 22.04 which shipped libtiff.so.5 and libwebp.so.6.  Ubuntu 24.04
@@ -196,13 +195,38 @@ RUN \
   \
   && chmod +x /tmp/s6-overlay-installer && /tmp/s6-overlay-installer / \
   && apt-get autoremove -y \
-  && apt-get clean -y \
-  && rm -rf /var/lib/apt/lists/* \
-  && rm -rf /wheels \
+  && { mv /tmp/docker-clean /etc/apt/apt.conf.d/docker-clean 2>/dev/null || true; } \
   && rm -r /tmp/s6-overlay-installer \
   && useradd --uid 911 --user-group --create-home abc \
   && if id -u ubuntu >/dev/null 2>&1; then deluser --remove-home ubuntu; fi \
   && mkdir -p /home/abc/bin
+
+# hailortcli and libhailort.so
+# Has to be copied before the ldconfig step below
+COPY --from=hailo /usr/local /usr/local/
+
+# Bind mount is used so the wheels dont become an image layer
+RUN \
+  --mount=type=bind,from=wheels,source=/wheels,target=/tmp/wheels \
+  --mount=type=bind,from=wheels,source=/wheels-3.9,target=/tmp/wheels-3.9 \
+  --mount=type=bind,from=hailo,source=/wheels,target=/tmp/hailo-wheels \
+  python3 -m pip install --no-cache-dir --no-deps --ignore-installed /tmp/wheels/*.whl \
+  # Installed separately so pip only adds the hailort dependencies that are not
+  # already installed above
+  && if [ -n "$(ls -A /tmp/hailo-wheels)" ]; then \
+  python3 -m pip install --no-cache-dir --no-index --find-links=/tmp/hailo-wheels hailort; \
+  fi \
+  # onnxruntime-gpu bundles a TensorRT execution provider linked against
+  # TensorRT 10, which the CUDA base image does not ship. Only the CUDA/CPU
+  # providers are ever requested, so drop the unloadable stub.
+  && rm -f /usr/local/lib/python3.*/*-packages/onnxruntime/capi/libonnxruntime_providers_tensorrt.so \
+  # Register PyTorch runtime libs (installed via ultralytics) with the system
+  # linker so that ldd and ld.so can resolve libtorch.so / libc10.so etc.
+  && { python3 -c \
+  "import torch, os; open('/etc/ld.so.conf.d/torch.conf','w').write(os.path.join(os.path.dirname(torch.__file__),'lib')+'\n')" \
+  2>/dev/null || true; } \
+  && ldconfig \
+  && python3.9 -m pip install --no-cache-dir --ignore-installed /tmp/wheels-3.9/*.whl
 
 ENTRYPOINT ["/init"]
 

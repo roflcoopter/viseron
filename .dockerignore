@@ -22,5 +22,9 @@
 !frontend/
 frontend/node_modules
 frontend/build
+frontend/dist
+frontend/coverage
+frontend/test-results
+frontend/playwright-report
 
 **.pyc
