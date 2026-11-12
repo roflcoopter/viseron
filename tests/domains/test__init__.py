@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor, wait
 from logging import DEBUG
 from typing import TYPE_CHECKING, Any, Literal
 from unittest.mock import Mock, patch
@@ -1419,3 +1419,52 @@ class TestSetupDomains:
             future = vis.domain_registry.get_future("camera", "cam1")
             assert future is None
             assert entry.state == DomainState.LOADED
+
+    def test_setup_domains_does_not_block_on_retrying_domains(
+        self, vis: MockViseron
+    ) -> None:
+        """Test setup_domains returns while a domain and its dependent wait on retry."""
+        mock_domain = MockDomainModule(setup_exception=DomainNotReady("Not ready"))
+
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="nvr",
+            identifier="cam1",
+            config={},
+            require_domains=[RequireDomain("camera", "cam1")],
+        )
+        camera = vis.domain_registry.get("camera", "cam1")
+        nvr = vis.domain_registry.get("nvr", "cam1")
+        assert camera is not None
+        assert nvr is not None
+
+        with (
+            patch(
+                "viseron.components.importlib.import_module", return_value=mock_domain
+            ),
+            ThreadPoolExecutor(max_workers=1) as executor,
+        ):
+            future = executor.submit(setup_domains, vis)
+            try:
+                future.result(timeout=5)
+                camera_state_after_setup = camera.state
+                nvr_state_after_setup = nvr.state
+            finally:
+                # Stops the background retry, and unblocks a hung setup_domains.
+                vis.domain_registry.cancel_all_retries()
+                wait(vis.domain_registry.get_running_futures())
+
+        assert camera_state_after_setup == DomainState.RETRYING
+        # The dependent may not have been picked up by a worker thread yet
+        assert nvr_state_after_setup in (DomainState.PENDING, DomainState.LOADING)
+        # Cancelling the retry fails the dependent waiting for it
+        assert camera.state == DomainState.FAILED
+        assert nvr.state == DomainState.FAILED
