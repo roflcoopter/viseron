@@ -28,6 +28,8 @@ from viseron.config import (
 from viseron.const import DEFAULT_COMPONENTS, FAILED, LOADED, LOADING
 from viseron.domain_registry import DomainState
 from viseron.domains import (
+    pause_domain_retries,
+    resume_domain_retries,
     setup_domains,
     unload_domain,
     unload_domain_chain,
@@ -499,13 +501,16 @@ def reload_config(vis: Viseron) -> ReloadResult:
     start = time.time()
     LOGGER.info("Config reload requested")
 
-    # Cancel all retrying domains so any in-progress reload
-    # can finish and release the lock.
-    cancelled_retries = vis.domain_registry.cancel_all_retries()
     with vis.reload_lock:
         # Wait until initial setup is complete before allowing reload
         vis.initialized_event.wait()
-        result = _reload_config(vis, cancelled_retries)
+        # Retry timers must not fire while the registry is being modified
+        pause_domain_retries(vis)
+        try:
+            cancelled_retries = vis.domain_registry.get_by_state(DomainState.RETRYING)
+            result = _reload_config(vis, cancelled_retries)
+        finally:
+            resume_domain_retries(vis)
 
     if not result.success:
         LOGGER.error(f"Config reload failed with errors: {result.errors}")

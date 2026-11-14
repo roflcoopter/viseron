@@ -50,7 +50,7 @@ from viseron.const import (
     VISERON_SIGNAL_STOPPING,
 )
 from viseron.domain_registry import DomainRegistry
-from viseron.domains import setup_domains
+from viseron.domains import pause_domain_retries, setup_domains
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.event_writer import EventWriter
 from viseron.events import Event, EventData
@@ -500,7 +500,7 @@ class Viseron:
         start = timer()
         LOGGER.info("Initiating shutdown")
         self.shutdown_event.set()
-        self.domain_registry.cancel_all_retries()
+        pause_domain_retries(self)
         if not self.initialized_event.is_set():
             LOGGER.debug("Waiting for Viseron to be initialized before shutdown")
             self.initialized_event.wait()

@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from concurrent.futures import Future, ThreadPoolExecutor
+import threading
+from concurrent.futures import Future, ThreadPoolExecutor, wait
 from logging import DEBUG
 from typing import TYPE_CHECKING, Any, Literal
 from unittest.mock import Mock, patch
@@ -22,6 +23,8 @@ from viseron.domains import (
     _submit_domain_setup,
     _wait_for_dependencies,
     get_unload_order,
+    pause_domain_retries,
+    resume_domain_retries,
     setup_domains,
     unload_domain,
     unload_domain_chain,
@@ -909,6 +912,105 @@ class TestWaitForDependencies:
         result: bool = _wait_for_dependencies(vis, entry)
         assert result is True
 
+    @pytest.mark.parametrize(
+        ("require_domains", "optional_domains", "state", "expected"),
+        [
+            pytest.param(
+                [RequireDomain("camera", "cam1")],
+                [],
+                DomainState.FAILED,
+                False,
+                id="required_failed",
+            ),
+            pytest.param(
+                [],
+                [OptionalDomain("camera", "cam1")],
+                DomainState.FAILED,
+                True,
+                id="optional_failed",
+            ),
+            pytest.param(
+                [RequireDomain("camera", "cam1")],
+                [],
+                DomainState.RETRYING,
+                None,
+                id="required_retrying",
+            ),
+            pytest.param(
+                [],
+                [OptionalDomain("camera", "cam1")],
+                DomainState.RETRYING,
+                None,
+                id="optional_retrying",
+            ),
+            pytest.param(
+                [RequireDomain("camera", "cam1")],
+                [],
+                DomainState.PENDING,
+                None,
+                id="required_deferred",
+            ),
+        ],
+    )
+    def test_dependency_without_future_uses_state(
+        self,
+        vis: MockViseron,
+        require_domains: list[RequireDomain],
+        optional_domains: list[OptionalDomain],
+        state: DomainState,
+        expected: bool | None,
+    ) -> None:
+        """Test a dependency outside the current setup batch is judged by state.
+
+        A failed required dependency must not be treated as satisfied just because
+        it has no future, a failed optional one is ignored, and a retrying one
+        defers the dependent.
+        """
+        vis.domain_registry.register(
+            component_name="dep_comp",
+            component_path="dep.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        vis.domain_registry.set_state("camera", "cam1", state)
+
+        entry = DomainEntry(
+            component_name="test",
+            component_path="test.path",
+            domain="nvr",
+            identifier="cam1",
+            config={},
+            require_domains=require_domains,
+            optional_domains=optional_domains,
+        )
+
+        assert _wait_for_dependencies(vis, entry) is expected
+
+    def test_dependency_future_retrying_defers(self, vis: MockViseron) -> None:
+        """Test a dependency whose setup went into retry defers the dependent."""
+        vis.domain_registry.register(
+            component_name="dep_comp",
+            component_path="dep.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        future: Future[bool | None] = Future()
+        future.set_result(None)
+        vis.domain_registry.set_future("camera", "cam1", future)
+
+        entry = DomainEntry(
+            component_name="test",
+            component_path="test.path",
+            domain="nvr",
+            identifier="cam1",
+            config={},
+            require_domains=[RequireDomain("camera", "cam1")],
+        )
+
+        assert _wait_for_dependencies(vis, entry) is None
+
 
 class TestSetupSingleDomain:
     """Test _setup_single_domain function."""
@@ -1086,13 +1188,12 @@ class TestSetupSingleDomain:
             "an integer"
         ) in caplog.text
 
-    def test_setup_domain_not_ready_retry_success(
+    def test_setup_domain_not_ready_retries_in_background(
         self,
         vis: MockViseron,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """Test DomainNotReady triggers retry and eventually succeeds."""
-        # First call raises DomainNotReady, second succeeds
+        """Test DomainNotReady returns immediately and retries on a timer."""
         mock_domain = MockDomainModule(
             setup_side_effects=[
                 (None, DomainNotReady("Not ready")),
@@ -1116,12 +1217,15 @@ class TestSetupSingleDomain:
                 "viseron.components.importlib.import_module", return_value=mock_domain
             ),
         ):
-            result: bool = _setup_single_domain(vis, entry)
+            result = _setup_single_domain(vis, entry)
+            assert result is None
+            assert entry.retry_timer is not None
+            entry.retry_timer.join(timeout=5)
 
-            assert result is True
-            assert mock_domain.setup_call_count == 2
-            assert "is not ready" in caplog.text
-            assert "Retrying in" in caplog.text
+        assert entry.state == DomainState.LOADED
+        assert mock_domain.setup_call_count == 2
+        assert "is not ready" in caplog.text
+        assert "Retrying in" in caplog.text
 
     def test_setup_domain_not_ready_shutdown_aborts(
         self,
@@ -1419,3 +1523,254 @@ class TestSetupDomains:
             future = vis.domain_registry.get_future("camera", "cam1")
             assert future is None
             assert entry.state == DomainState.LOADED
+
+    @staticmethod
+    def _register_camera_and_nvr(vis: MockViseron) -> tuple[DomainEntry, DomainEntry]:
+        """Register a camera and an nvr that requires it."""
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="nvr",
+            identifier="cam1",
+            config={},
+            require_domains=[RequireDomain("camera", "cam1")],
+        )
+        camera = vis.domain_registry.get("camera", "cam1")
+        nvr = vis.domain_registry.get("nvr", "cam1")
+        assert camera is not None
+        assert nvr is not None
+        return camera, nvr
+
+    def test_setup_domains_defers_dependents_of_retrying_domain(
+        self, vis: MockViseron
+    ) -> None:
+        """Test setup_domains returns while a domain retries, deferring dependents."""
+        mock_domain = MockDomainModule(setup_exception=DomainNotReady("Not ready"))
+        camera, nvr = self._register_camera_and_nvr(vis)
+
+        with (
+            patch("viseron.domains.DOMAIN_RETRY_INTERVAL", 3600),
+            patch(
+                "viseron.components.importlib.import_module", return_value=mock_domain
+            ),
+            ThreadPoolExecutor(max_workers=1) as executor,
+        ):
+            future = executor.submit(setup_domains, vis)
+            try:
+                future.result(timeout=5)
+            finally:
+                pause_domain_retries(vis)
+
+        assert camera.state == DomainState.RETRYING
+        assert nvr.state == DomainState.PENDING
+        assert mock_domain.setup_call_count == 1
+
+    @pytest.mark.parametrize(
+        ("retry_result", "expected_state"),
+        [
+            pytest.param(True, DomainState.LOADED, id="retry_loads"),
+            pytest.param(False, DomainState.FAILED, id="retry_fails"),
+        ],
+    )
+    def test_retry_resolves_deferred_dependents(
+        self, vis: MockViseron, retry_result: bool, expected_state: DomainState
+    ) -> None:
+        """Test deferred dependents follow the result of their dependency's retry."""
+        mock_domain = MockDomainModule(
+            setup_side_effects=[
+                (None, DomainNotReady("Not ready")),
+                (retry_result, None),
+                (True, None),
+            ]
+        )
+        camera, nvr = self._register_camera_and_nvr(vis)
+
+        with (
+            patch("viseron.domains.DOMAIN_RETRY_INTERVAL", 0),
+            patch(
+                "viseron.components.importlib.import_module", return_value=mock_domain
+            ),
+        ):
+            setup_domains(vis)
+            assert camera.retry_timer is not None
+            camera.retry_timer.join(timeout=5)
+
+        assert camera.state == expected_state
+        assert nvr.state == expected_state
+
+    def test_retry_resolves_chain_of_deferred_dependents(
+        self, vis: MockViseron
+    ) -> None:
+        """Test a dependent of a deferred dependent is set up once the root loads.
+
+        post_processor optionally depends on nvr, which requires the retrying
+        camera, so both are deferred and must be set up in dependency order.
+        """
+        mock_domain = MockDomainModule(
+            setup_side_effects=[
+                (None, DomainNotReady("Not ready")),
+                (True, None),
+            ]
+        )
+        camera, nvr = self._register_camera_and_nvr(vis)
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="post_processor",
+            identifier="cam1",
+            config={},
+            optional_domains=[OptionalDomain("nvr", "cam1")],
+        )
+        post_processor = vis.domain_registry.get("post_processor", "cam1")
+        assert post_processor is not None
+
+        with (
+            patch("viseron.domains.DOMAIN_RETRY_INTERVAL", 3600),
+            patch(
+                "viseron.components.importlib.import_module", return_value=mock_domain
+            ),
+        ):
+            setup_domains(vis)
+        nvr_state_while_retrying = nvr.state
+        post_processor_state_while_retrying = post_processor.state
+        pause_domain_retries(vis)
+
+        with (
+            patch("viseron.domains.DOMAIN_RETRY_INTERVAL", 0),
+            patch(
+                "viseron.components.importlib.import_module", return_value=mock_domain
+            ),
+        ):
+            resume_domain_retries(vis)
+            assert camera.retry_timer is not None
+            camera.retry_timer.join(timeout=5)
+
+        assert nvr_state_while_retrying == DomainState.PENDING
+        assert post_processor_state_while_retrying == DomainState.PENDING
+        assert camera.state == DomainState.LOADED
+        assert nvr.state == DomainState.LOADED
+        assert post_processor.state == DomainState.LOADED
+
+
+class TestDomainRetries:
+    """Test pausing and resuming domain retries."""
+
+    def test_pause_cancels_and_resume_reschedules(self, vis: MockViseron) -> None:
+        """Test a paused retry does not fire, and fires again once resumed."""
+        mock_domain = MockDomainModule(
+            setup_side_effects=[
+                (None, DomainNotReady("Not ready")),
+                (True, None),
+            ]
+        )
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with (
+            patch("viseron.domains.DOMAIN_RETRY_INTERVAL", 3600),
+            patch(
+                "viseron.components.importlib.import_module", return_value=mock_domain
+            ),
+        ):
+            _setup_single_domain(vis, entry)
+        pause_domain_retries(vis)
+        state_while_paused = entry.state
+
+        with (
+            patch("viseron.domains.DOMAIN_RETRY_INTERVAL", 0),
+            patch(
+                "viseron.components.importlib.import_module", return_value=mock_domain
+            ),
+        ):
+            resume_domain_retries(vis)
+            assert entry.retry_timer is not None
+            entry.retry_timer.join(timeout=5)
+
+        assert state_while_paused == DomainState.RETRYING
+        assert entry.state == DomainState.LOADED
+        assert mock_domain.setup_call_count == 2
+
+    def test_retry_is_not_scheduled_while_paused(self, vis: MockViseron) -> None:
+        """Test a domain that goes into retry while paused gets no timer."""
+        mock_domain = MockDomainModule(setup_exception=DomainNotReady("Not ready"))
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        pause_domain_retries(vis)
+        with patch(
+            "viseron.components.importlib.import_module", return_value=mock_domain
+        ):
+            _setup_single_domain(vis, entry)
+
+        assert entry.state == DomainState.RETRYING
+        assert entry.retry_timer is None
+
+    def test_pause_waits_for_running_attempt(self, vis: MockViseron) -> None:
+        """Test pausing waits for a retry attempt that is already running.
+
+        Shutdown relies on this so a retry can't set up a domain after shutdown
+        has started stopping threads.
+        """
+        attempt_started = threading.Event()
+        release_attempt = threading.Event()
+        calls: list[int] = []
+
+        def setup(_vis: MockViseron, _config: dict, _identifier: str) -> bool:
+            calls.append(1)
+            if len(calls) == 1:
+                raise DomainNotReady("Not ready")
+            attempt_started.set()
+            release_attempt.wait(timeout=5)
+            return True
+
+        domain_module = Mock(spec=["setup"], setup=setup)
+        vis.domain_registry.register(
+            component_name="test_comp",
+            component_path="test.path",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        entry = vis.domain_registry.get("camera", "cam1")
+        assert entry is not None
+
+        with (
+            patch("viseron.domains.DOMAIN_RETRY_INTERVAL", 0),
+            patch(
+                "viseron.components.importlib.import_module",
+                return_value=domain_module,
+            ),
+            ThreadPoolExecutor(max_workers=1) as executor,
+        ):
+            _setup_single_domain(vis, entry)
+            assert attempt_started.wait(timeout=5)
+
+            pause_future = executor.submit(pause_domain_retries, vis)
+            wait([pause_future], timeout=0.2)
+            paused_before_attempt_finished = pause_future.done()
+            release_attempt.set()
+            pause_future.result(timeout=5)
+
+        assert paused_before_attempt_finished is False
+        assert entry.state == DomainState.LOADED

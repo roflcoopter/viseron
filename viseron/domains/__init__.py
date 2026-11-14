@@ -35,7 +35,9 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
-DOMAIN_SETUP_LOCK = threading.Lock()
+DOMAIN_REGISTRY_LOCK = threading.Lock()
+# Serializes setup_domains runs, which retry timers also start
+SETUP_DOMAINS_LOCK = threading.Lock()
 
 
 @dataclass
@@ -108,8 +110,12 @@ def setup_domain(
 def _wait_for_dependencies(
     vis: Viseron,
     entry: DomainEntry,
-) -> bool:
-    """Wait for all dependencies to complete setup."""
+) -> bool | None:
+    """Wait for all dependencies to complete setup.
+
+    Returns True if all dependencies loaded, False if any failed and None if any
+    is retrying, in which case setup is deferred until the dependency loads.
+    """
     registry = vis.domain_registry
 
     def _slow_warning(futures: list[Future]) -> None:
@@ -120,62 +126,71 @@ def _wait_for_dependencies(
                 "still waiting for dependencies",
             )
 
-    # Collect futures for required domains
+    dependencies: list[RequireDomain] = [
+        *entry.require_domains,
+        *(
+            optional
+            for optional in entry.optional_domains
+            if registry.is_configured(optional.domain, optional.identifier)
+        ),
+    ]
+
     futures: list[Future] = []
-    for required in entry.require_domains:
-        # Skip if already loaded
-        if registry.is_loaded(required.domain, required.identifier):
+    states: list[DomainState | None] = []
+    for dependency in dependencies:
+        dependency_entry = registry.get(dependency.domain, dependency.identifier)
+        if dependency_entry is None:
+            states.append(None)
+        elif dependency_entry.state == DomainState.LOADED:
             continue
-        future = registry.get_future(required.domain, required.identifier)
-        if future:
-            futures.append(future)
-
-    # Collect futures for optional domains
-    for optional in entry.optional_domains:
-        if not registry.is_configured(optional.domain, optional.identifier):
+        elif dependency_entry.setup_future:
+            futures.append(dependency_entry.setup_future)
+        elif dependency_entry.state == DomainState.FAILED and isinstance(
+            dependency, OptionalDomain
+        ):
+            # An optional dependency that failed in an earlier setup is ignored
             continue
-        if registry.is_loaded(optional.domain, optional.identifier):
-            continue
-        future = registry.get_future(optional.domain, optional.identifier)
-        if future:
-            futures.append(future)
+        else:
+            states.append(dependency_entry.state)
 
-    if not futures:
-        return True
+    results: list[bool | None] = []
+    if futures:
+        LOGGER.debug(
+            f"Domain {entry.domain} with identifier {entry.identifier} "
+            f"waiting for {len(futures)} dependencies",
+        )
+        slow_warning_job = vis.background_scheduler.add_job(
+            _slow_warning,
+            "interval",
+            seconds=SLOW_DEPENDENCY_WARNING,
+            args=[futures],
+        )
+        results = [future.result() for future in as_completed(futures)]
+        try:
+            slow_warning_job.remove()
+        except Exception:  # pylint: disable=broad-except # noqa: BLE001, S110
+            pass
 
-    LOGGER.debug(
-        f"Domain {entry.domain} with identifier {entry.identifier} "
-        f"waiting for {len(futures)} dependencies",
-    )
-
-    # Set up slow warning
-    slow_warning_job = vis.background_scheduler.add_job(
-        _slow_warning,
-        "interval",
-        seconds=SLOW_DEPENDENCY_WARNING,
-        args=[futures],
-    )
-
-    # Wait for all dependencies
-    failed = [future for future in as_completed(futures) if future.result() is not True]
-
-    try:
-        slow_warning_job.remove()
-    except Exception:  # pylint: disable=broad-except # noqa: BLE001, S110
-        pass
-
-    if failed:
+    if False in results or any(state in (None, DomainState.FAILED) for state in states):
         LOGGER.error(
             f"Unable to setup dependencies for domain {entry.domain} "
             f"with identifier {entry.identifier} "
             f"for component {entry.component_name}"
         )
         return False
+    if None in results or states:
+        return None
     return True
 
 
-def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bool:
-    """Set up a single domain."""
+def _setup_single_domain(
+    vis: Viseron, entry: DomainEntry, tries: int = 1
+) -> bool | None:
+    """Set up a single domain.
+
+    Returns True if loaded, False if failed and None if the domain is retrying in
+    the background or deferred until a retrying dependency loads.
+    """
     registry = vis.domain_registry
     component_path = entry.component_path
 
@@ -199,8 +214,16 @@ def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bo
     if entry.state != DomainState.RETRYING:
         registry.set_state(entry.domain, entry.identifier, DomainState.LOADING)
 
-    # Wait for dependencies
-    if not _wait_for_dependencies(vis, entry):
+    dependencies_ready = _wait_for_dependencies(vis, entry)
+    if dependencies_ready is None:
+        LOGGER.info(
+            f"Deferring setup of domain {entry.domain} "
+            f"with identifier {entry.identifier} "
+            "until its retrying dependencies are loaded"
+        )
+        registry.set_state(entry.domain, entry.identifier, DomainState.PENDING)
+        return None
+    if not dependencies_ready:
         _handle_failed_domain(
             vis, entry, DomainState.FAILED, error="Dependencies failed"
         )
@@ -281,7 +304,7 @@ def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bo
         _handle_failed_domain(vis, entry, DomainState.RETRYING, error=str(error))
         slow_setup_warning.cancel()
 
-        wait_time = min(tries * DOMAIN_RETRY_INTERVAL, DOMAIN_RETRY_INTERVAL_MAX)
+        wait_time = _schedule_domain_retry(vis, entry, tries)
         LOGGER.error(
             f"Domain {entry.domain} "
             f"with identifier {entry.identifier} "
@@ -289,23 +312,7 @@ def _setup_single_domain(vis: Viseron, entry: DomainEntry, tries: int = 1) -> bo
             f"Retrying in {wait_time} seconds. "
             f"Error: {error!s}"
         )
-
-        # Block until wait_time elapses or the domain is cancelled/shutdown.
-        # cancel_event.wait() returns True if the event was set (cancelled),
-        # False if it timed out (meaning we should retry).
-        cancelled = entry.cancel_event.wait(timeout=wait_time)
-        if cancelled or vis.shutdown_event.is_set():
-            LOGGER.warning(warning_text)
-            _handle_failed_domain(vis, entry, DomainState.FAILED, error=str(error))
-            return False
-
-        # Running with ThreadPoolExecutor and awaiting the future does not
-        # cause a max recursion error if we retry for a long time
-        with ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix="Component.setup_domain"
-        ) as executor:
-            future = executor.submit(_setup_single_domain, vis, entry, tries + 1)
-            return future.result()
+        return None
     except Exception as error:  # pylint: disable=broad-except
         LOGGER.exception(
             f"Uncaught exception setting up domain {entry.domain} for"
@@ -358,7 +365,7 @@ def _submit_domain_setup(
     """Submit a domain for setup in the executor."""
     registry = vis.domain_registry
 
-    with DOMAIN_SETUP_LOCK:
+    with DOMAIN_REGISTRY_LOCK:
         # Skip if already has a future
         if registry.get_future(entry.domain, entry.identifier):
             return
@@ -375,7 +382,7 @@ def _schedule_domain_setup(
     """Schedule a domain and its dependencies for setup."""
     registry = vis.domain_registry
 
-    with DOMAIN_SETUP_LOCK:
+    with DOMAIN_REGISTRY_LOCK:
         if registry.get_future(entry.domain, entry.identifier):
             return
 
@@ -394,45 +401,90 @@ def _schedule_domain_setup(
     _submit_domain_setup(vis, executor, entry)
 
 
+def _schedule_domain_retry(vis: Viseron, entry: DomainEntry, tries: int) -> int:
+    """Retry setup of a domain in the background after a backoff.
+
+    Returns the backoff in seconds. While retries are paused nothing is scheduled,
+    and resume_domain_retries picks the domain up instead.
+    """
+    wait_time = min(tries * DOMAIN_RETRY_INTERVAL, DOMAIN_RETRY_INTERVAL_MAX)
+    retry_timer = NamedTimer(
+        wait_time,
+        _retry_domain_setup,
+        args=(vis, entry, tries + 1),
+        name=f"{entry.domain}_{entry.identifier}_retry_timer",
+        daemon=True,
+    )
+    vis.domain_registry.start_retry_timer(entry, retry_timer)
+    return wait_time
+
+
+def _retry_domain_setup(vis: Viseron, entry: DomainEntry, tries: int) -> None:
+    """Retry setup of a domain, then resolve the dependents deferred on it."""
+    result = _setup_single_domain(vis, entry, tries)
+    if result is not None and not vis.shutdown_event.is_set():
+        setup_domains(vis)
+
+
+def pause_domain_retries(vis: Viseron) -> None:
+    """Stop scheduled domain retries and wait for running attempts to finish."""
+    for retry_timer in vis.domain_registry.pause_retries():
+        retry_timer.join()
+
+
+def resume_domain_retries(vis: Viseron) -> None:
+    """Reschedule retries for domains still retrying after a pause."""
+    for entry in vis.domain_registry.resume_retries():
+        wait_time = _schedule_domain_retry(vis, entry, tries=1)
+        LOGGER.debug(
+            f"Resuming retries for domain {entry.domain} "
+            f"with identifier {entry.identifier} in {wait_time} seconds"
+        )
+
+
 def setup_domains(vis: Viseron) -> None:
-    """Set up all pending domains."""
+    """Set up all pending domains.
+
+    Domains that are not ready retry on a timer, and their dependents stay pending
+    until they load, so this never blocks on a retrying domain.
+    """
     registry = vis.domain_registry
 
-    entries_missing_deps = registry.validate_dependencies()
-    for entry in entries_missing_deps:
-        LOGGER.error(
-            f"Domain {entry.domain} "
-            f"with identifier {entry.identifier} "
-            f"has missing dependencies: {entry.error}",
-        )
-        _handle_failed_domain(vis, entry, DomainState.FAILED, error=entry.error)
+    with SETUP_DOMAINS_LOCK:
+        entries_missing_deps = registry.validate_dependencies()
+        for entry in entries_missing_deps:
+            LOGGER.error(
+                f"Domain {entry.domain} "
+                f"with identifier {entry.identifier} "
+                f"has missing dependencies: {entry.error}",
+            )
+            _handle_failed_domain(vis, entry, DomainState.FAILED, error=entry.error)
 
-    pending = registry.get_pending()
-    if not pending:
-        return
+        pending = registry.get_pending()
+        if not pending:
+            return
 
-    LOGGER.debug(f"Setting up {len(pending)} pending domains")
+        LOGGER.debug(f"Setting up {len(pending)} pending domains")
 
-    with ThreadPoolExecutor(max_workers=100, thread_name_prefix="setup_domains") as ex:
-        # Schedule all pending domains
+        with ThreadPoolExecutor(
+            max_workers=100, thread_name_prefix="setup_domains"
+        ) as executor:
+            for entry in pending:
+                _schedule_domain_setup(vis, executor, entry)
+
+            futures = [
+                future
+                for entry in pending
+                if (future := registry.get_future(entry.domain, entry.identifier))
+            ]
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                except Exception:  # pylint: disable=broad-except
+                    LOGGER.exception("Domain setup raised exception")
+
         for entry in pending:
-            _schedule_domain_setup(vis, ex, entry)
-
-        # Wait for all to complete
-        futures = [
-            registry.get_future(e.domain, e.identifier)
-            for e in pending
-            if registry.get_future(e.domain, e.identifier)
-        ]
-        for future in as_completed(futures):  # type: ignore[arg-type]
-            try:
-                future.result()
-            except Exception:  # pylint: disable=broad-except
-                LOGGER.exception("Domain setup raised exception")
-
-    # Clear futures and handle failed domains
-    for entry in pending:
-        registry.clear_future(entry.domain, entry.identifier)
+            registry.clear_future(entry.domain, entry.identifier)
 
 
 def _handle_failed_domain(

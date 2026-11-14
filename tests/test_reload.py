@@ -1517,10 +1517,10 @@ class TestReloadConfigPublic:
     def test_cancels_retries_and_delegates(
         self, mock_inner: MagicMock, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """Test that retries are cancelled, lock is acquired, and result returned."""
+        """Test that retries are paused around the reload and the result returned."""
         vis = MagicMock()
         cancelled = [_make_domain_entry()]
-        vis.domain_registry.cancel_all_retries.return_value = cancelled
+        vis.domain_registry.get_by_state.return_value = cancelled
         diff = ConfigDiff(
             component_changes={
                 "new_comp": ComponentChange(
@@ -1537,7 +1537,8 @@ class TestReloadConfigPublic:
             result = reload_config(vis)
 
         assert result is expected
-        vis.domain_registry.cancel_all_retries.assert_called_once()
+        vis.domain_registry.pause_retries.assert_called_once()
+        vis.domain_registry.resume_retries.assert_called_once()
         vis.initialized_event.wait.assert_called_once()
         mock_inner.assert_called_once_with(vis, cancelled)
         assert "Config reload completed in" in caplog.text
@@ -1556,7 +1557,8 @@ class TestReloadConfigPublic:
             result = reload_config(vis)
 
         assert result is expected
-        vis.domain_registry.cancel_all_retries.assert_called_once()
+        vis.domain_registry.pause_retries.assert_called_once()
+        vis.domain_registry.resume_retries.assert_called_once()
         vis.initialized_event.wait.assert_called_once()
         assert "No configuration changes detected" in caplog.text
 
@@ -1573,6 +1575,7 @@ class TestReloadConfigPublic:
             result = reload_config(vis)
 
         assert result is expected
-        vis.domain_registry.cancel_all_retries.assert_called_once()
+        vis.domain_registry.pause_retries.assert_called_once()
+        vis.domain_registry.resume_retries.assert_called_once()
         vis.initialized_event.wait.assert_called_once()
         assert "Config reload failed with errors" in caplog.text

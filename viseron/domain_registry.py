@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.domains import AbstractDomain, OptionalDomain, RequireDomain
     from viseron.domains.camera import FailedCamera
+    from viseron.helpers.named_timer import NamedTimer
     from viseron.viseron_types import SupportedDomains
 
 LOGGER = logging.getLogger(__name__)
@@ -56,6 +57,7 @@ class DomainEntry:
     error_instance: FailedCamera | None = None
     setup_future: Future | None = None
     cancel_event: threading.Event = field(default_factory=threading.Event)
+    retry_timer: NamedTimer | None = None
 
     def as_dict(self) -> dict[str, Any]:
         """Return as dict for serialization."""
@@ -114,6 +116,7 @@ class DomainRegistry:
     def __init__(self, vis: Viseron) -> None:
         self._vis = vis
         self._lock = threading.Lock()
+        self._retries_paused = False
         self._domains: dict[str, dict[str, DomainEntry]] = {}
 
     def register(
@@ -430,28 +433,55 @@ class DomainRegistry:
         return failed
 
     def cancel_retry(self, domain: str, identifier: str) -> None:
-        """Cancel any ongoing retry for a domain.
-
-        Sets the domain's cancel_event, which wakes up
-        any blocking wait in _setup_single_domain immediately.
-        """
+        """Cancel any scheduled retry for a domain."""
         with self._lock:
             entry = self._get_entry(domain, identifier)
             if entry:
                 entry.cancel_event.set()
+                if entry.retry_timer:
+                    entry.retry_timer.cancel()
 
-    def cancel_all_retries(
-        self,
-    ) -> list[DomainEntry]:
-        """Cancel all domains that may be in a retry loop."""
-        cancelled: list[DomainEntry] = []
+    def start_retry_timer(self, entry: DomainEntry, retry_timer: NamedTimer) -> bool:
+        """Start a retry timer unless retries are paused or the domain is cancelled."""
         with self._lock:
-            for domain_entries in self._domains.values():
-                for entry in domain_entries.values():
-                    if entry.state == DomainState.RETRYING:
-                        cancelled.append(entry)
-                    entry.cancel_event.set()
-        return cancelled
+            if (
+                self._retries_paused
+                or entry.cancel_event.is_set()
+                or self._get_entry(entry.domain, entry.identifier) is not entry
+            ):
+                return False
+            entry.retry_timer = retry_timer
+            retry_timer.start()
+            return True
+
+    def pause_retries(self) -> list[NamedTimer]:
+        """Pause retries and cancel scheduled ones.
+
+        Returns the retry timers, which the caller should join to wait for attempts that
+        were already running.
+        """
+        with self._lock:
+            self._retries_paused = True
+            retry_timers = [
+                entry.retry_timer
+                for domain_entries in self._domains.values()
+                for entry in domain_entries.values()
+                if entry.retry_timer
+            ]
+        for retry_timer in retry_timers:
+            retry_timer.cancel()
+        return retry_timers
+
+    def resume_retries(self) -> list[DomainEntry]:
+        """Resume retries and return the domains that need to be rescheduled."""
+        with self._lock:
+            self._retries_paused = False
+            return [
+                entry
+                for domain_entries in self._domains.values()
+                for entry in domain_entries.values()
+                if entry.state == DomainState.RETRYING
+            ]
 
     def clear_future(self, domain: str, identifier: str) -> None:
         """Clear the setup future after completion."""
