@@ -36,6 +36,7 @@ from viseron.helpers.schemas import (
     COORDINATES_SCHEMA,
     FLOAT_MIN_ZERO,
     FLOAT_MIN_ZERO_MAX_ONE,
+    FLOAT_POSITIVE,
 )
 from viseron.helpers.validators import CameraIdentifier, Deprecated
 from viseron.viseron_types import SnapshotDomain
@@ -228,7 +229,7 @@ CAMERA_SCHEMA = vol.Schema(
     {
         vol.Optional(
             CONFIG_FPS, default=DEFAULT_FPS, description=DESC_FPS
-        ): FLOAT_MIN_ZERO,
+        ): FLOAT_POSITIVE,
         vol.Optional(
             CONFIG_SCAN_ON_MOTION_ONLY,
             default=DEFAULT_SCAN_ON_MOTION_ONLY,

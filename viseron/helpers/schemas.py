@@ -25,3 +25,8 @@ FLOAT_MIN_ZERO_MAX_ONE = vol.Schema(
 )
 
 FLOAT_MIN_ZERO = vol.Schema(vol.All(vol.Coerce(float), vol.Range(min=0.0)))
+
+# Strictly positive float, 0 is not a valid value (e.g. fps would divide by zero)
+FLOAT_POSITIVE = vol.Schema(
+    vol.All(vol.Coerce(float), vol.Range(min=0, min_included=False))
+)
