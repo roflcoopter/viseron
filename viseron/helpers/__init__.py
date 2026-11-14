@@ -783,14 +783,16 @@ def zoom_boundingbox(
 def get_free_port(port=1024, max_port=65535) -> int:
     """Find a free port."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    while port <= max_port:
-        try:
-            sock.bind(("", port))
-            sock.close()
-            return port
-        except OSError:
-            port += 1
-    raise OSError("no free ports")
+    try:
+        while port <= max_port:
+            try:
+                sock.bind(("", port))
+                return port
+            except OSError:
+                port += 1
+        raise OSError("no free ports")
+    finally:
+        sock.close()
 
 
 def escape_string(string: str) -> str:
