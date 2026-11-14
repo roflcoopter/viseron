@@ -855,7 +855,7 @@ def get_image_files_in_folder(folder) -> list[str]:
     return [
         os.path.join(folder, f)
         for f in os.listdir(folder)
-        if re.match(r".*\.(jpg|jpeg|png)", f, flags=re.I)
+        if re.match(r".*\.(jpg|jpeg|png)$", f, flags=re.I)
     ]
 
 
