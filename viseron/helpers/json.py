@@ -15,7 +15,9 @@ class JSONEncoder(json.JSONEncoder):
     def default(self, o: Any) -> Any:
         """Convert objects."""
         if isinstance(o, datetime.datetime):
-            return o.replace(tzinfo=datetime.timezone.utc).isoformat()
+            if o.tzinfo is None:
+                return o.replace(tzinfo=datetime.timezone.utc).isoformat()
+            return o.astimezone(datetime.timezone.utc).isoformat()
         if hasattr(o, "as_dict"):
             return o.as_dict()
         if dataclasses.is_dataclass(o):
