@@ -378,7 +378,7 @@ def request_argument_bool(value):
     """
     if value == "true":
         return True
-    if value == "false":
+    if value in ("false", "0"):
         return False
     return bool(value)
 
