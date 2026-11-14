@@ -10,6 +10,7 @@ from viseron.helpers.validators import (
     Slug,
     StringKey,
     Timezone,
+    request_argument_bool,
 )
 
 
@@ -173,3 +174,26 @@ class TestMaybe:
         validator = Maybe(int)
         with pytest.raises(vol.Invalid):
             validator("not_an_int")
+
+
+class TestRequestArgumentBool:
+    """Tests for request_argument_bool."""
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            ("true", True),
+            ("false", False),
+            ("1", True),
+            ("0", False),
+            ("", False),
+            (1, True),
+            (0, False),
+            (True, True),
+            (False, False),
+            ("foo", True),
+        ],
+    )
+    def test_converts_value(self, value, expected: bool):
+        """Test documented conversions, including the string '0'."""
+        assert request_argument_bool(value) is expected
