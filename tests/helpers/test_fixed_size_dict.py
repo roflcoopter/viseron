@@ -46,3 +46,19 @@ class TestFixedSizeDict:
         assert len(test) == 100
         for i in range(100):
             assert test[i] == i
+
+    def test_setitem_updates_move_item_to_end(self):
+        """Test that updating an existing key counts as an access.
+
+        Re-assigning a key used to leave its position untouched, so an
+        actively updated entry could be evicted while stale ones survived.
+        """
+        test: FixedSizeDict[str, int] = FixedSizeDict(maxlen=2)
+        test["a"] = 1
+        test["b"] = 2
+        test["a"] = 10
+        test["c"] = 3
+        assert len(test) == 2
+        assert "b" not in test
+        assert test["a"] == 10
+        assert test["c"] == 3
