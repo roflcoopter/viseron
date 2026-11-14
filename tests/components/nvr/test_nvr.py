@@ -308,6 +308,47 @@ class TestNVRInit:
         assert warnings, "Expected warning about require_motion without motion detector"
 
 
+class TestNVRObjectEventScanError:
+    """process_object_event tests for the scan/scan_error gate."""
+
+    def test_stale_objects_do_not_trigger_recording_after_scan_error(self, vis):
+        """Objects must be ignored while the last scan errored.
+
+        The gate used to skip only when the scanner was idle AND error-free,
+        so after a scan error (scanner marked failed, results stale) processing
+        continued and stale detections could start recordings.
+        """
+        object_detector = MockObjectDetector(fps=5, scan_on_motion_only=False)
+        nvr, camera = make_nvr(vis, object_detector=object_detector)
+        configure_camera_for_recording_tests(camera, FakeTime())
+
+        scanner = nvr._frame_scanners[OBJECT_DETECTOR]
+        scanner.scan = False
+        scanner.scan_error = True
+        object_detector.objects_in_fov = [
+            SimpleNamespace(trigger_event_recording=True, label="person")
+        ]
+
+        nvr.process_object_event()
+        assert nvr._start_recorder is False
+
+    def test_objects_trigger_recording_when_scan_is_healthy(self, vis):
+        """Objects trigger recording when scanning and error-free (control)."""
+        object_detector = MockObjectDetector(fps=5, scan_on_motion_only=False)
+        nvr, camera = make_nvr(vis, object_detector=object_detector)
+        configure_camera_for_recording_tests(camera, FakeTime())
+
+        scanner = nvr._frame_scanners[OBJECT_DETECTOR]
+        scanner.scan = True
+        scanner.scan_error = False
+        object_detector.objects_in_fov = [
+            SimpleNamespace(trigger_event_recording=True, label="person")
+        ]
+
+        nvr.process_object_event()
+        assert nvr._start_recorder is True
+
+
 class TestNVRRunMotionOnly:
     """_run tests (motion only)."""
 
