@@ -28,8 +28,12 @@ class FixedSizeDict(OrderedDict, MutableMapping[_KT, _VT]):
         """Set an item in the dictionary.
 
         Deleting the oldest item if the dictionary exceeds the maximum size.
+        Updating an existing key moves it to the end like any other access.
         """
+        already_present = key in self
         super().__setitem__(key, value)
+        if already_present:
+            self.move_to_end(key)
         if self._maxlen > 0:
             if len(self) > self._maxlen:
                 self.pop(next(iter(self)))
