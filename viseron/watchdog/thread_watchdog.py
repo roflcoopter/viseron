@@ -235,6 +235,7 @@ class ThreadWatchDog(WatchDog):
                     LOGGER.error(
                         "Failed to stop thread. Make sure poll_target ends the thread"
                     )
+                    continue
             elif registered_thread.is_alive():
                 continue
 
