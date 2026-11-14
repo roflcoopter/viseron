@@ -367,3 +367,32 @@ class TestGetLocalTimezone:
             helpers.get_local_timezone()
             helpers.get_local_timezone()
         mock_get_localzone.assert_called_once()
+
+
+class TestGetFreePort:
+    """Tests for get_free_port."""
+
+    def test_returns_first_free_port(self):
+        """Test that a bindable port is returned."""
+        assert helpers.get_free_port(port=65530, max_port=65535) in range(65530, 65536)
+
+    def test_closes_socket_when_no_port_is_free(self):
+        """Test that the socket is closed when the whole range is exhausted.
+
+        The socket used to stay open on the failure path, leaking a file
+        descriptor every time no port was free.
+        """
+        sock = MagicMock()
+        sock.bind.side_effect = OSError
+        with patch("socket.socket", return_value=sock):
+            with pytest.raises(OSError, match="no free ports"):
+                helpers.get_free_port(port=65535, max_port=65535)
+        sock.close.assert_called_once()
+
+    def test_socket_not_bound_after_return(self):
+        """Test that the socket is closed before returning the found port."""
+        sock = MagicMock()
+        sock.bind.return_value = None
+        with patch("socket.socket", return_value=sock):
+            helpers.get_free_port(port=65535, max_port=65535)
+        sock.close.assert_called_once()
