@@ -450,7 +450,7 @@ class DomainRegistry:
                 for entry in domain_entries.values():
                     if entry.state == DomainState.RETRYING:
                         cancelled.append(entry)
-                    entry.cancel_event.set()
+                        entry.cancel_event.set()
         return cancelled
 
     def clear_future(self, domain: str, identifier: str) -> None:
