@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import ANY, MagicMock, call, patch
 
 import pytest
 
@@ -1355,7 +1355,7 @@ class TestReloadConfig:
         vis = MagicMock()
         mock_load.side_effect = RuntimeError("parse error")
 
-        result = _reload_config(vis, [])
+        result = _reload_config(vis)
 
         assert result.success is False
         assert len(result.errors) == 1
@@ -1387,10 +1387,12 @@ class TestReloadConfig:
             )
         ]
 
-        result = _reload_config(vis, [])
+        result = _reload_config(vis)
 
         assert result.success is False
         assert "Config validation failed" in result.errors[0].message
+        # Retrying domains must keep retrying when the reload is aborted
+        vis.domain_registry.cancel_all_retries.assert_not_called()
         mock_removed.assert_not_called()
         mock_added.assert_not_called()
         mock_check_defaults.assert_called_once()
@@ -1427,8 +1429,9 @@ class TestReloadConfig:
         changes = ReloadChanges()
         mock_load.return_value = (new_config, diff, changes)
         cancelled = [_make_domain_entry()]
+        vis.domain_registry.cancel_all_retries.return_value = cancelled
 
-        result = _reload_config(vis, cancelled)
+        result = _reload_config(vis)
 
         assert result.success is True
         assert result.restart_required is False
@@ -1439,7 +1442,7 @@ class TestReloadConfig:
         mock_modified_comp.assert_called_once()
         mock_modified_dom.assert_called_once()
         mock_modified_id.assert_called_once()
-        mock_cancelled.assert_called_once()
+        mock_cancelled.assert_called_once_with(vis, cancelled, ANY)
         mock_apply.assert_called_once()
         mock_check_defaults.assert_called_once_with(diff)
         vis.set_config.assert_called_once_with(new_config)
@@ -1491,7 +1494,7 @@ class TestReloadConfig:
         mock_load.return_value = (new_config, diff, changes)
         mock_check_defaults.return_value = {"webserver"}
 
-        result = _reload_config(vis, [])
+        result = _reload_config(vis)
 
         assert result.success is True
         assert result.restart_required is True
@@ -1514,13 +1517,11 @@ class TestReloadConfigPublic:
     """Test reload_config function."""
 
     @patch("viseron.reload._reload_config")
-    def test_cancels_retries_and_delegates(
+    def test_waits_for_init_and_delegates(
         self, mock_inner: MagicMock, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """Test that retries are cancelled, lock is acquired, and result returned."""
+        """Test that initial setup is awaited and the result is returned."""
         vis = MagicMock()
-        cancelled = [_make_domain_entry()]
-        vis.domain_registry.cancel_all_retries.return_value = cancelled
         diff = ConfigDiff(
             component_changes={
                 "new_comp": ComponentChange(
@@ -1537,9 +1538,8 @@ class TestReloadConfigPublic:
             result = reload_config(vis)
 
         assert result is expected
-        vis.domain_registry.cancel_all_retries.assert_called_once()
         vis.initialized_event.wait.assert_called_once()
-        mock_inner.assert_called_once_with(vis, cancelled)
+        mock_inner.assert_called_once_with(vis)
         assert "Config reload completed in" in caplog.text
 
     @patch("viseron.reload._reload_config")
@@ -1556,7 +1556,6 @@ class TestReloadConfigPublic:
             result = reload_config(vis)
 
         assert result is expected
-        vis.domain_registry.cancel_all_retries.assert_called_once()
         vis.initialized_event.wait.assert_called_once()
         assert "No configuration changes detected" in caplog.text
 
@@ -1573,6 +1572,5 @@ class TestReloadConfigPublic:
             result = reload_config(vis)
 
         assert result is expected
-        vis.domain_registry.cancel_all_retries.assert_called_once()
         vis.initialized_event.wait.assert_called_once()
         assert "Config reload failed with errors" in caplog.text
