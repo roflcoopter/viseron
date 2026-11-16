@@ -706,10 +706,9 @@ class NVR(AbstractNVR):
 
         # Only process objects if we are actively scanning for objects and the last
         # scan did not return an error
-        if (
-            self._object_detector
-            and not self._frame_scanners[OBJECT_DETECTOR].scan
-            and not self._frame_scanners[OBJECT_DETECTOR].scan_error
+        if self._object_detector and (
+            not self._frame_scanners[OBJECT_DETECTOR].scan
+            or self._frame_scanners[OBJECT_DETECTOR].scan_error
         ):
             return
 
