@@ -12,11 +12,14 @@ ENV VISERON_TESTS=true
 COPY .coveragerc /src/
 COPY manager.py /src/manager.py
 COPY rootfs/ /
+COPY requirements.txt requirements.txt
 COPY requirements_test.txt requirements_test.txt
 RUN \
   --mount=type=bind,from=wheels,source=/wheels,target=/tmp/wheels \
   python3 -m pip install --no-cache-dir --no-deps --ignore-installed /tmp/wheels/*.whl \
-  && python3 -m pip install --no-cache-dir --ignore-installed -r requirements_test.txt \
+  && sed -E 's/\[[^]]*\]//' requirements.txt > /tmp/constraints.txt \
+  && python3 -m pip install --no-cache-dir --ignore-installed -r requirements_test.txt -c /tmp/constraints.txt \
+  && rm /tmp/constraints.txt \
   && rm -r /etc/services.d/viseron \
   && mkdir -p /config \
   && mkdir -p /event_clips \
