@@ -212,6 +212,36 @@ class TestLoadConfig:
             "component3": {"setting": "value"},
         }
 
+    def test_load_config_falsy_values_are_not_coerced(self):
+        """Test that only None is converted to an empty dict.
+
+        Other falsy values must pass through untouched so they reach schema
+        validation and fail loudly, instead of silently enabling a component
+        with an empty/default config.
+        """
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".yaml", delete=False
+        ) as temp_file:
+            temp_file.write("webserver: false\n")
+            temp_file.write("logger: 0\n")
+            temp_file.write('mqtt: ""\n')
+            temp_file.write("keep:\n")
+            temp_file.write("  value: 0\n")
+            name = temp_file.name
+
+        # The file must be closed before unlinking, Windows cannot unlink open files
+        with patch("viseron.config.CONFIG_PATH", name):
+            config = load_config(create_default=False)
+
+        Path(name).unlink()
+
+        assert config == {
+            "webserver": False,
+            "logger": 0,
+            "mqtt": "",
+            "keep": {"value": 0},
+        }
+
     def test_load_config_complex_types(self):
         """Test loading config with various YAML types."""
         with tempfile.NamedTemporaryFile(
