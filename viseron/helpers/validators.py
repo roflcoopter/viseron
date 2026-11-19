@@ -149,7 +149,7 @@ def slug(value: Any) -> str:
         raise vol.Invalid("Slug should not be None")
     str_value = str(value)
     slg = slugify(str_value)
-    if str_value == slg:
+    if str_value and str_value == slg:
         return str_value
     msg = f"invalid slug {value} (try {slg})"
     LOGGER.error(msg)
