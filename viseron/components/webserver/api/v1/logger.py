@@ -6,7 +6,6 @@ import datetime
 import logging
 import os
 import re
-import time as _time
 from typing import Any
 
 import voluptuous as vol
@@ -38,22 +37,6 @@ LOG_PATTERN = re.compile(
 )
 
 
-def _server_local_tz() -> datetime.tzinfo:
-    """Return the server's local timezone."""
-    if _time.daylight:
-        return datetime.timezone(
-            datetime.timedelta(seconds=-_time.altzone),
-            name=_time.tzname[1],
-        )
-    return datetime.timezone(
-        datetime.timedelta(seconds=-_time.timezone),
-        name=_time.tzname[0],
-    )
-
-
-_SERVER_LOCAL_TZ = _server_local_tz()
-
-
 def _parse_log_line(line: str, line_index: int) -> dict[str, Any]:
     """Parse a single log line into structured data."""
     match = LOG_PATTERN.match(line)
@@ -62,10 +45,13 @@ def _parse_log_line(line: str, line_index: int) -> dict[str, Any]:
         level = match.group("level").strip().lower()
         name = match.group("name")
         try:
+            # Log lines are written in the server's local time. astimezone()
+            # on the naive datetime uses the UTC offset in effect on that date,
+            # so daylight saving time is applied per line.
             dt = datetime.datetime.strptime(
                 timestamp_str,
                 LOG_DATE_FORMAT,
-            ).replace(tzinfo=_SERVER_LOCAL_TZ)
+            ).astimezone()
             timestamp_unix_ms = int(dt.timestamp() * 1000)
         except (ValueError, OverflowError):
             timestamp_unix_ms = None
