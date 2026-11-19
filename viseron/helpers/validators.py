@@ -73,6 +73,10 @@ def deprecated(key: str, replacement: str | None = None) -> Callable[[dict], dic
                 if replacement not in config:
                     config[replacement] = value
                     return config
+                print(  # noqa: T201
+                    f"Config option {replacement} is already set, "
+                    f"the deprecated {key} value is ignored"
+                )
                 return config
             raise vol.Invalid(
                 f"Config option {key} is deprecated. "
