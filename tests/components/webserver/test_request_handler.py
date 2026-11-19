@@ -101,3 +101,31 @@ class TestGetSubpath:
         result = handler.get_subpath()
 
         assert result == "/ingress"
+
+
+class TestClearAllCookies:
+    """Tests for clear_all_cookies."""
+
+    def test_forwards_kwargs_as_keywords(self, handler: ViseronRequestHandler) -> None:
+        """Keyword arguments must be forwarded as keywords to clear_cookie.
+
+        The cookie attributes (path, domain, ...) are required to clear a
+        cookie that was set with them. Splashing the kwargs dict with *
+        passes the dict keys as positional arguments instead.
+        """
+        handler.request.cookies = {"session": "value", "_xsrf": "token"}
+        handler.clear_cookie = MagicMock()
+
+        handler.clear_all_cookies(path="/", httponly=True)
+
+        handler.clear_cookie.assert_any_call("session", path="/", httponly=True)
+
+    def test_keeps_xsrf_cookie(self, handler: ViseronRequestHandler) -> None:
+        """The XSRF cookie must survive a clear-all."""
+        handler.request.cookies = {"session": "value", "_xsrf": "token"}
+        handler.clear_cookie = MagicMock()
+
+        handler.clear_all_cookies()
+
+        for cookie_call in handler.clear_cookie.mock_calls:
+            assert "_xsrf" not in str(cookie_call)
