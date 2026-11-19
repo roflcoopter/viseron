@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from abc import abstractmethod
 from dataclasses import dataclass
+import threading
 from threading import Timer
 from typing import TYPE_CHECKING, Any
 
@@ -255,7 +256,16 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         self._faces[UNKNOWN_FACE] = face_dict
 
     def expire_face(self, face: str) -> None:
-        """Expire no longer found face."""
+        """Expire no longer found face.
+
+        The timer may fire after the face was detected again, so only expire
+        the face if the stored entry still belongs to the calling timer.
+        """
+        stored = self._faces.get(face)
+        if stored is None or stored.timer is not threading.current_thread():
+            self._logger.debug(f"Not expiring face {face}, detected again")
+            return
+
         self._logger.debug(f"Expiring face {face}")
         self._vis.dispatch_event(
             EVENT_FACE_EXPIRED.format(
@@ -263,7 +273,7 @@ class AbstractFaceRecognition(AbstractPostProcessor):
             ),
             EventFaceDetected(
                 camera_identifier=self._camera.identifier,
-                face=self._faces[face],
+                face=stored,
             ),
         )
         del self._faces[face]
