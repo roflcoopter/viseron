@@ -114,7 +114,7 @@ class RestartableThread(threading.Thread):
         self._restartable_target = target
         self._restartable_name = name
         self._restartable_args = args
-        self._restartable_kwargs = None
+        self._restartable_kwargs = kwargs
         self._restartable_daemon = daemon
         self._stop_target = stop_target
         self._poll_method = poll_method
