@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Annotated, Any, cast
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import Field
 
@@ -51,12 +51,12 @@ def setup_domains(
     config: NVRRoot,
 ) -> None:
     """Set up nvr domains."""
-    for camera_identifier, camera_config in config.nvr.items():
+    for camera_identifier in config.nvr:
         setup_domain(
             vis,
             COMPONENT,
             DOMAIN,
-            cast(dict[str, Any], camera_config),
+            config.nvr[camera_identifier],
             identifier=camera_identifier,
             require_domains=[
                 RequireDomain(
