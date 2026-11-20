@@ -1,4 +1,3 @@
-
 """Tests for the NVR component configuration."""
 
 from __future__ import annotations
