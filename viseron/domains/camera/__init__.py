@@ -11,7 +11,7 @@ from datetime import datetime
 from dataclasses import dataclass
 from functools import lru_cache
 from threading import Event, Timer
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 from uuid import uuid4
 
 import cv2
@@ -737,7 +737,9 @@ class FailedCamera:
 
         self._vis = vis
         self._entry = entry
-        self._config: dict[str, Any] = entry.config[entry.identifier]
+        self._config: dict[str, Any] = cast(dict[str, Any], entry.config)[
+            entry.identifier
+        ]
 
         self._storage = vis.data[STORAGE_COMPONENT]
         self._webserver = vis.data[WEBSERVER_COMPONENT]
