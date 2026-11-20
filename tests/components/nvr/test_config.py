@@ -1,3 +1,4 @@
+
 """Tests for the NVR component configuration."""
 
 from __future__ import annotations
@@ -6,7 +7,12 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from viseron.components.nvr import CONFIG_SCHEMA, optional_domains, setup_domains
+from viseron.components.nvr import (
+    CONFIG_SCHEMA,
+    NVRConfig,
+    optional_domains,
+    setup_domains,
+)
 from viseron.components.nvr.const import CAMERA, COMPONENT, DOMAIN
 from viseron.helpers.config_validation import ConfigValidationError, validate_config
 
@@ -50,8 +56,8 @@ def test_null_camera_config_is_normalized() -> None:
     assert validated.nvr["front"].model_dump() == {}
 
 
-def test_setup_domains_passes_dictionary_config() -> None:
-    """Downstream NVR setup receives the same dictionary boundary as before."""
+def test_setup_domains_passes_pydantic_config() -> None:
+    """Downstream NVR setup receives each camera's Pydantic config."""
     vis = Mock()
     config = validate_config(CONFIG_SCHEMA, {"nvr": {"front": None, "back": {}}})
 
@@ -59,11 +65,15 @@ def test_setup_domains_passes_dictionary_config() -> None:
         setup_domains(vis, config)
 
     assert setup_domain.call_count == 2
+
     for call, identifier in zip(
         setup_domain.call_args_list, ("front", "back"), strict=True
     ):
         args, kwargs = call
-        assert args == (vis, COMPONENT, DOMAIN, {"front": {}, "back": {}})
+
+        assert args[:3] == (vis, COMPONENT, DOMAIN)
+        assert isinstance(args[3], NVRConfig)
+        assert args[3] is config.nvr[identifier]
         assert kwargs["identifier"] == identifier
         assert kwargs["require_domains"][0].domain == CAMERA
         assert kwargs["require_domains"][0].identifier == identifier
