@@ -41,7 +41,7 @@ def test_config_is_accepted(config: dict) -> None:
         pytest.param({"nvr": None}, id="null_nvr"),
         pytest.param({"nvr": []}, id="list_nvr"),
         pytest.param({"nvr": {"Camera 1": {}}}, id="invalid_camera_identifier"),
-        pytest.param({"nvr": {"front": {"unexpected": True}}}, id="unknown_option"),
+        pytest.param({"nvr": {"front": {"unexpected": True}}, id="unknown_option"),
     ],
 )
 def test_config_is_rejected(config: dict) -> None:
