@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated, Any, TYPE_CHECKING, cast
 
 from pydantic import Field
 
@@ -57,7 +57,7 @@ def setup_domains(
             vis,
             COMPONENT,
             DOMAIN,
-            camera_config,
+            cast(dict[str, Any], camera_config),
             identifier=camera_identifier,
             require_domains=[
                 RequireDomain(
