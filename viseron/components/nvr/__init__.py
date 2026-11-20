@@ -1,3 +1,4 @@
+
 """NVR component."""
 
 from __future__ import annotations
@@ -51,17 +52,12 @@ def setup_domains(
     config: NVRRoot,
 ) -> None:
     """Set up nvr domains."""
-    nvr_config = {
-        camera_identifier: camera_config.model_dump()
-        for camera_identifier, camera_config in config.nvr.items()
-    }
-
-    for camera_identifier in nvr_config:
+    for camera_identifier, camera_config in config.nvr.items():
         setup_domain(
             vis,
             COMPONENT,
             DOMAIN,
-            nvr_config,
+            camera_config,
             identifier=camera_identifier,
             require_domains=[
                 RequireDomain(
