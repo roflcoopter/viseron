@@ -82,6 +82,7 @@ class FaceRecognition(AbstractFaceRecognition):
             )
         except ds.DeepstackException as error:
             self._logger.error("Error calling deepstack: %s", error)
+            return
 
         for detection in detections:
             if detection["userid"] != "unknown":
