@@ -101,8 +101,8 @@ class FaceRecognition(AbstractFaceRecognition):
                     (
                         detection["x_min"] + x1,
                         detection["y_min"] + y1,
-                        detection["x_max"] + x2,
-                        detection["y_max"] + y2,
+                        detection["x_max"] + x1,
+                        detection["y_max"] + y1,
                     ),
                     post_processor_frame.shared_frame,
                     confidence=detection["confidence"],
@@ -112,8 +112,8 @@ class FaceRecognition(AbstractFaceRecognition):
                     (
                         detection["x_min"] + x1,
                         detection["y_min"] + y1,
-                        detection["x_max"] + x2,
-                        detection["y_max"] + y2,
+                        detection["x_max"] + x1,
+                        detection["y_max"] + y1,
                     ),
                     post_processor_frame.shared_frame,
                     confidence=detection["confidence"],
