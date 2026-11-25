@@ -46,7 +46,7 @@
                   },
                   {
                     "type": "float",
-                    "valueMin": 0.0,
+                    "valueMin": 0,
                     "name": "fps",
                     "description": "The FPS at which the motion detector runs.<br>Higher values will result in more scanning, which uses more resources.",
                     "optional": true,
