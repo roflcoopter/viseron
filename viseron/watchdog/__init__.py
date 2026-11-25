@@ -54,7 +54,4 @@ class WatchDog(ABC):
     def stop(self):
         """Stop the watchdog."""
         LOGGER.debug("Stopping watchdog")
-        # Clear the class-level registry, the same one register() appends to.
-        # Assigning to self.registered_items would only create an instance
-        # attribute and leave stale items in the shared registry.
         type(self).registered_items = []
