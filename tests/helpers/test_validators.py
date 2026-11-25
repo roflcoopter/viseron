@@ -209,12 +209,7 @@ class TestSlugFunction:
         assert slug("front_door") == "front_door"
 
     def test_rejects_empty_string(self):
-        """An empty string is not a valid slug.
-
-        slugify('') returns '', which matched the input, so an empty camera
-        identifier used to pass validation and produce entities and storage
-        paths built on an empty identifier.
-        """
+        """An empty string is not a valid slug."""
         with pytest.raises(vol.Invalid):
             slug("")
 
