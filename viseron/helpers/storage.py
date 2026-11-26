@@ -85,20 +85,32 @@ class Storage:
         try:
             with open(self.path, encoding="utf-8") as file:
                 data = json.load(file)
-                if data["version"] != self.version:
-                    LOGGER.warning(
-                        "Storage version mismatch for %s. Expected %s, got %s",
-                        self.key,
-                        self.version,
-                        data["version"],
-                    )
-                return data.get("data", {})
         except FileNotFoundError:
             LOGGER.debug("Storage file not found: %s", self.path)
+            return {}
         except OSError as error:
             LOGGER.error("Error reading from file %s: %s", self.path, error)
             raise StorageReadError from error
-        return {}
+        except json.JSONDecodeError as error:
+            LOGGER.error("Error decoding JSON in file %s: %s", self.path, error)
+            raise StorageReadError from error
+
+        if not isinstance(data, dict):
+            msg = (
+                f"Storage file {self.path} does not contain a JSON object: "
+                f"{type(data).__name__}"
+            )
+            LOGGER.error(msg)
+            raise StorageReadError(msg)
+
+        if data.get("version") != self.version:
+            LOGGER.warning(
+                "Storage version mismatch for %s. Expected %s, got %s",
+                self.key,
+                self.version,
+                data.get("version"),
+            )
+        return data.get("data", {})
 
     def load(self) -> dict:
         """Load data."""
