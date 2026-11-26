@@ -54,4 +54,4 @@ class WatchDog(ABC):
     def stop(self):
         """Stop the watchdog."""
         LOGGER.debug("Stopping watchdog")
-        self.registered_items = []
+        type(self).registered_items = []
