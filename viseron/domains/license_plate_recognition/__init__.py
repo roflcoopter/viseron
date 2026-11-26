@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from dataclasses import dataclass
+import threading
 from threading import Timer
 from typing import TYPE_CHECKING, Any
 
@@ -300,7 +301,16 @@ class AbstractLicensePlateRecognition(AbstractPostProcessor):
         )
 
     def _expire_plate(self, plate: str) -> None:
-        """Expire no longer found plate."""
+        """Expire no longer found plate.
+
+        The timer may fire after the plate was detected again, so only expire
+        the plate if the stored result still belongs to the calling timer.
+        """
+        stored = self._plates.get(plate)
+        if stored is None or stored.timer is not threading.current_thread():
+            self._logger.debug(f"Not expiring plate {plate}, detected again")
+            return
+
         self._logger.debug(f"Expiring plate {plate}")
         self._vis.dispatch_event(
             EVENT_PLATE_EXPIRED.format(
@@ -308,7 +318,7 @@ class AbstractLicensePlateRecognition(AbstractPostProcessor):
             ),
             EventPlateDetected(
                 camera_identifier=self._camera.identifier,
-                plate=self._plates[plate],
+                plate=stored,
             ),
         )
         del self._plates[plate]
