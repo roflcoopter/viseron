@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from concurrent.futures import wait
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Generic
@@ -443,14 +444,21 @@ class DomainRegistry:
     def cancel_all_retries(
         self,
     ) -> list[DomainEntry]:
-        """Cancel all domains that may be in a retry loop."""
+        """Cancel all domains that may be in a retry loop.
+
+        Blocks until the cancelled setups have exited.
+        """
         cancelled: list[DomainEntry] = []
+        futures: list[Future] = []
         with self._lock:
             for domain_entries in self._domains.values():
                 for entry in domain_entries.values():
                     if entry.state == DomainState.RETRYING:
                         cancelled.append(entry)
                     entry.cancel_event.set()
+                    if entry.setup_future:
+                        futures.append(entry.setup_future)
+        wait(futures)
         return cancelled
 
     def clear_future(self, domain: str, identifier: str) -> None:

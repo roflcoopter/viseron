@@ -7,7 +7,13 @@ import logging
 import threading
 import time
 from abc import ABCMeta, abstractmethod
-from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from concurrent.futures import (
+    FIRST_COMPLETED,
+    Future,
+    ThreadPoolExecutor,
+    as_completed,
+    wait,
+)
 from dataclasses import dataclass
 from inspect import signature
 from typing import TYPE_CHECKING, Any, Literal
@@ -394,8 +400,25 @@ def _schedule_domain_setup(
     _submit_domain_setup(vis, executor, entry)
 
 
+def _blocked_by_retry(vis: Viseron, entry: DomainEntry) -> bool:
+    """Return True if the domain is retrying or waiting on a retrying dependency."""
+    if entry.state == DomainState.RETRYING:
+        return True
+    for dependency in [*entry.require_domains, *entry.optional_domains]:
+        dependency_entry = vis.domain_registry.get(
+            dependency.domain, dependency.identifier
+        )
+        if dependency_entry and _blocked_by_retry(vis, dependency_entry):
+            return True
+    return False
+
+
 def setup_domains(vis: Viseron) -> None:
-    """Set up all pending domains."""
+    """Set up all pending domains.
+
+    Returns without waiting for domains that are retrying, or for their dependents.
+    Those keep running in the background until they load or are cancelled.
+    """
     registry = vis.domain_registry
 
     entries_missing_deps = registry.validate_dependencies()
@@ -413,26 +436,30 @@ def setup_domains(vis: Viseron) -> None:
 
     LOGGER.debug(f"Setting up {len(pending)} pending domains")
 
-    with ThreadPoolExecutor(max_workers=100, thread_name_prefix="setup_domains") as ex:
-        # Schedule all pending domains
-        for entry in pending:
-            _schedule_domain_setup(vis, ex, entry)
+    executor = ThreadPoolExecutor(max_workers=100, thread_name_prefix="setup_domains")
+    for entry in pending:
+        _schedule_domain_setup(vis, executor, entry)
+    executor.shutdown(wait=False)
 
-        # Wait for all to complete
-        futures = [
-            registry.get_future(e.domain, e.identifier)
-            for e in pending
-            if registry.get_future(e.domain, e.identifier)
-        ]
-        for future in as_completed(futures):  # type: ignore[arg-type]
+    futures = {
+        future: entry
+        for entry in pending
+        if (future := registry.get_future(entry.domain, entry.identifier))
+    }
+    not_done = set(futures)
+    # Retrying domains and their dependents finish in the background
+    while not all(_blocked_by_retry(vis, futures[future]) for future in not_done):
+        done, not_done = wait(not_done, timeout=1, return_when=FIRST_COMPLETED)
+        for future in done:
             try:
                 future.result()
             except Exception:  # pylint: disable=broad-except
                 LOGGER.exception("Domain setup raised exception")
 
-    # Clear futures and handle failed domains
-    for entry in pending:
-        registry.clear_future(entry.domain, entry.identifier)
+    # Unfinished futures are kept for cancel_all_retries to wait on
+    for future, entry in futures.items():
+        if future.done():
+            registry.clear_future(entry.domain, entry.identifier)
 
 
 def _handle_failed_domain(

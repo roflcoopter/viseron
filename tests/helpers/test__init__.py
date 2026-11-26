@@ -2,6 +2,7 @@
 
 from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -367,3 +368,34 @@ class TestGetLocalTimezone:
             helpers.get_local_timezone()
             helpers.get_local_timezone()
         mock_get_localzone.assert_called_once()
+
+
+class TestGetImageFilesInFolder:
+    """Tests for get_image_files_in_folder."""
+
+    def test_returns_image_files(self, tmp_path):
+        """Test that jpg, jpeg and png files are returned."""
+        for name in ("image.jpg", "photo.JPEG", "pic.PNG"):
+            (tmp_path / name).touch()
+
+        result = helpers.get_image_files_in_folder(str(tmp_path))
+        assert sorted(Path(file).name for file in result) == [
+            "image.jpg",
+            "photo.JPEG",
+            "pic.PNG",
+        ]
+
+    @pytest.mark.parametrize(
+        "name", ["notes.jpg.bak", "image.jpeg2000", "data.png.json"]
+    )
+    def test_ignores_files_with_trailing_extensions(self, tmp_path, name: str):
+        """Test that files only starting with an image extension are ignored.
+
+        The match used to be unanchored, so notes.jpg.bak and image.jpeg2000
+        were returned as images and fed to the image loaders.
+        """
+        (tmp_path / name).touch()
+        (tmp_path / "real.jpg").touch()
+
+        result = helpers.get_image_files_in_folder(str(tmp_path))
+        assert [Path(file).name for file in result] == ["real.jpg"]
