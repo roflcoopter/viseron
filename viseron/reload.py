@@ -438,10 +438,7 @@ def _clear_validation_errors(vis: Viseron) -> None:
                 comp.validation_error = None
 
 
-def _reload_config(
-    vis: Viseron,
-    cancelled_retries: list[DomainEntry],
-) -> ReloadResult:
+def _reload_config(vis: Viseron) -> ReloadResult:
     """Reload configuration from config.yaml and apply changes."""
     result = ReloadResult(success=True)
     _clear_validation_errors(vis)
@@ -481,6 +478,8 @@ def _reload_config(
     diff.remove_default_components()
     changes.remove_default_components()
 
+    # Retries run in the background and must exit before the registry is modified
+    cancelled_retries = vis.domain_registry.cancel_all_retries()
     _handle_removed_components(vis, diff, plan)
     _handle_added_components(diff, plan)
     _handle_modified_components(vis, changes, plan)
@@ -499,13 +498,10 @@ def reload_config(vis: Viseron) -> ReloadResult:
     start = time.time()
     LOGGER.info("Config reload requested")
 
-    # Cancel all retrying domains so any in-progress reload
-    # can finish and release the lock.
-    cancelled_retries = vis.domain_registry.cancel_all_retries()
     with vis.reload_lock:
         # Wait until initial setup is complete before allowing reload
         vis.initialized_event.wait()
-        result = _reload_config(vis, cancelled_retries)
+        result = _reload_config(vis)
 
     if not result.success:
         LOGGER.error(f"Config reload failed with errors: {result.errors}")

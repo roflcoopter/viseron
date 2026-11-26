@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from concurrent.futures import Future, ThreadPoolExecutor
 from logging import DEBUG
 from typing import TYPE_CHECKING, Any, Literal
@@ -34,6 +35,8 @@ from viseron.helpers.config_types import CameraIdentifier
 from tests.common import MockComponent, MockDomainModule
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from viseron.viseron_types import SupportedDomains
 
     from tests.conftest import MockViseron
@@ -1360,6 +1363,19 @@ class TestDomainScheduling:
             cam_future.result()
 
 
+def _cancel_retries(vis: MockViseron, _camera_module: MockDomainModule) -> None:
+    """Cancel all retries, which also waits for the setups to exit."""
+    vis.domain_registry.cancel_all_retries()
+
+
+def _camera_becomes_ready(vis: MockViseron, camera_module: MockDomainModule) -> None:
+    """Let the next camera retry succeed and wait for its dependent to finish."""
+    camera_module.setup_exception = None
+    nvr_future = vis.domain_registry.get_future("nvr", "cam1")
+    assert nvr_future is not None
+    nvr_future.result(timeout=5)
+
+
 class TestSetupDomains:
     """Test setup_domains function."""
 
@@ -1419,3 +1435,64 @@ class TestSetupDomains:
             future = vis.domain_registry.get_future("camera", "cam1")
             assert future is None
             assert entry.state == DomainState.LOADED
+
+    @pytest.mark.parametrize(
+        ("finish", "expected_state"),
+        [
+            pytest.param(_cancel_retries, DomainState.FAILED, id="cancelled"),
+            pytest.param(_camera_becomes_ready, DomainState.LOADED, id="becomes_ready"),
+        ],
+    )
+    def test_setup_domains_does_not_wait_for_retrying_domains(
+        self,
+        vis: MockViseron,
+        finish: Callable[[MockViseron, MockDomainModule], None],
+        expected_state: DomainState,
+    ) -> None:
+        """Test setup_domains returns while a domain and its dependent are retrying."""
+        camera_module = MockDomainModule(setup_exception=DomainNotReady("Not ready"))
+        modules = {"camera": camera_module, "nvr": MockDomainModule()}
+        vis.domain_registry.register(
+            component_name="cam_comp",
+            component_path="viseron.components.cam_comp",
+            domain="camera",
+            identifier="cam1",
+            config={},
+        )
+        vis.domain_registry.register(
+            component_name="nvr_comp",
+            component_path="viseron.components.nvr_comp",
+            domain="nvr",
+            identifier="cam1",
+            config={},
+            require_domains=[RequireDomain("camera", "cam1")],
+        )
+        camera = vis.domain_registry.get("camera", "cam1")
+        nvr = vis.domain_registry.get("nvr", "cam1")
+        assert camera is not None
+        assert nvr is not None
+
+        with (
+            patch("viseron.domains.DOMAIN_RETRY_INTERVAL", 0.1),
+            patch(
+                "viseron.components.importlib.import_module",
+                side_effect=lambda path: modules[path.rpartition(".")[2]],
+            ),
+        ):
+            # Run in a thread so that a blocking setup_domains fails the test
+            # instead of hanging it
+            setup_thread = threading.Thread(
+                target=setup_domains, args=(vis,), daemon=True
+            )
+            setup_thread.start()
+            setup_thread.join(timeout=5)
+            returned = not setup_thread.is_alive()
+            states_on_return = (camera.state, nvr.state)
+            futures = (camera.setup_future, nvr.setup_future)
+
+            finish(vis, camera_module)
+
+        assert returned is True
+        assert states_on_return == (DomainState.RETRYING, DomainState.LOADING)
+        assert all(future is not None and future.done() for future in futures)
+        assert (camera.state, nvr.state) == (expected_state, expected_state)

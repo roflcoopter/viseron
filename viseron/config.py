@@ -91,9 +91,11 @@ def load_config(create_default=True):
     if yaml_config is None:
         yaml_config = {}
 
-    # Convert values to dictionaries if they are None
+    # Convert None values to dictionaries so empty sections count as configured.
+    # Other falsy values are left untouched so they reach schema validation and
+    # fail loudly instead of silently enabling a component with default config.
     for key, value in yaml_config.items():
-        yaml_config[key] = value or {}
+        yaml_config[key] = {} if value is None else value
     return yaml_config
 
 

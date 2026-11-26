@@ -36,6 +36,8 @@ export default defineConfig(({ mode }) => {
         import.meta.dirname,
       ),
       checker({
+        // Dev-server overlay only; CI runs tsc and eslint via `npm run lint`.
+        enableBuild: false,
         typescript: true,
         eslint: {
           lintCommand: 'eslint \"src/**/**.{js,jsx,ts,tsx,json}\"',
