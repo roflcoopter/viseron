@@ -9,26 +9,18 @@ def remove_shm_from_resource_tracker() -> None:
     More details at: https://bugs.python.org/issue38119
     """
 
-    # pylint: disable=protected-access,too-many-function-args,undefined-variable
+    # pylint: disable=protected-access
     def fix_register(name, rtype):
         if rtype == "shared_memory":
             return
-        return resource_tracker._resource_tracker.register(  # type: ignore[call-arg]
-            self,  # type: ignore[name-defined] # noqa: F821
-            name,
-            rtype,
-        )
+        return resource_tracker._resource_tracker.register(name, rtype)
 
     resource_tracker.register = fix_register
 
     def fix_unregister(name, rtype):
         if rtype == "shared_memory":
             return
-        return resource_tracker._resource_tracker.unregister(  # type: ignore[call-arg]
-            self,  # type: ignore[name-defined] # noqa: F821
-            name,
-            rtype,
-        )
+        return resource_tracker._resource_tracker.unregister(name, rtype)
 
     resource_tracker.unregister = fix_unregister
 
