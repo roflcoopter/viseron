@@ -10,6 +10,7 @@ from viseron.helpers.validators import (
     Slug,
     StringKey,
     Timezone,
+    deprecated,
     request_argument_bool,
 )
 
@@ -197,3 +198,29 @@ class TestRequestArgumentBool:
     def test_converts_value(self, value, expected: bool):
         """Test documented conversions, including the string '0'."""
         assert request_argument_bool(value) is expected
+
+
+class TestDeprecated:
+    """Tests for the deprecated validator."""
+
+    def test_replaces_missing_replacement_key(self, capsys):
+        """The deprecated value is moved to the replacement key."""
+        validator = deprecated("old_key", "new_key")
+        config = validator({"old_key": "value"})
+        assert config == {"new_key": "value"}
+
+    def test_warns_when_replacement_key_already_set(self, capsys):
+        """A deprecated value that would overwrite an explicit one must warn.
+
+        When the replacement key is already present the deprecated value is
+        dropped, silently - the user gets no signal that their `old_key`
+        setting had no effect.
+        """
+        validator = deprecated("old_key", "new_key")
+        config = validator({"old_key": "deprecated_value", "new_key": "explicit"})
+        assert config == {"new_key": "explicit"}
+
+        output = capsys.readouterr().out
+        assert "old_key" in output
+        assert "new_key" in output
+        assert "ignored" in output.lower() or "not applied" in output.lower()
