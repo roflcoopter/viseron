@@ -187,10 +187,10 @@ BAD_URL = 404
 class DeepstackFace(ds.DeepstackFace):
     """Custom DeepstackFace to add list and delete function."""
 
-    # pylint: disable=dangerous-default-value
     @staticmethod
-    def post_request(url, api_key=None, timeout=None, data: dict = {}):
+    def post_request(url, api_key=None, timeout=None, data: dict | None = None):
         """Send post req to DeepStack."""
+        data = dict(data) if data else {}
         data["api_key"] = api_key
         try:
             response = requests.post(url, data=data, timeout=timeout)
