@@ -160,8 +160,8 @@ class FaceRecognition(AbstractFaceRecognition):
                     (
                         result["box"]["x_min"] + x1,
                         result["box"]["y_min"] + y1,
-                        result["box"]["x_max"] + x2,
-                        result["box"]["y_max"] + y2,
+                        result["box"]["x_max"] + x1,
+                        result["box"]["y_max"] + y1,
                     ),
                     post_processor_frame.shared_frame,
                     confidence=subject["similarity"],
@@ -172,8 +172,8 @@ class FaceRecognition(AbstractFaceRecognition):
                     (
                         result["box"]["x_min"] + x1,
                         result["box"]["y_min"] + y1,
-                        result["box"]["x_max"] + x2,
-                        result["box"]["y_max"] + y2,
+                        result["box"]["x_max"] + x1,
+                        result["box"]["y_max"] + y1,
                     ),
                     post_processor_frame.shared_frame,
                     confidence=subject["similarity"],
