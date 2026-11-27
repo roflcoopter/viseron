@@ -217,7 +217,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         for name in self.request.cookies:
             if name == "_xsrf":
                 continue
-            self.clear_cookie(name, *kwargs)
+            self.clear_cookie(name, **kwargs)
 
     def validate_access_token(
         self, access_token: str, *, check_refresh_token: bool = True
