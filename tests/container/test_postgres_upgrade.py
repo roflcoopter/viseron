@@ -36,12 +36,14 @@ pytestmark = pytest.mark.timeout(1200)
 PGDATA = "/config/postgresql"
 
 # Runs after 40-set-env-vars (which exports PG_VERSION/PGDATA) and before
-# 80-postgres. A separate ``postgres`` login role is created alongside the ``abc``
-# bootstrap superuser because the oid-10 rename dance in ``upgrade_db`` connects
-# as ``postgres`` before it renames ``abc``.
+# 80-postgres. The bootstrap superuser is ``abc`` in both seeds, matching the
+# pre-cd4111fa layout; they differ only in whether a ``postgres`` login role is
+# also created.
 _SEED_SCRIPT_PATH = "/etc/cont-init.d/79-seed-old-cluster"
 _SEED_DONE_MARKER = "[seed] old cluster ready"
-_SEED_SCRIPT = rb"""#!/usr/bin/with-contenv bash
+_LEGACY_SEED_DONE_MARKER = "[seed] legacy cluster ready"
+
+_SEED_HEAD = rb"""#!/usr/bin/with-contenv bash
 set -ex
 
 source /helpers/logger.sh
@@ -69,35 +71,70 @@ install -d -o postgres -g abc /var/run/postgresql
 s6-setuidgid postgres ${BIN}/initdb -D "$PGDATA" -U abc
 s6-setuidgid postgres ${BIN}/pg_ctl -D "$PGDATA" -l "$PGDATA/logfile" -w -t 60 start
 s6-setuidgid postgres ${BIN}/createdb -U abc -O abc viseron
-s6-setuidgid postgres ${BIN}/psql -U abc -d viseron \
-  -c 'CREATE ROLE "postgres" WITH SUPERUSER LOGIN;'
-s6-setuidgid postgres ${BIN}/pg_ctl -D "$PGDATA" -w -t 60 stop
-chown -R abc:abc "$PGDATA"
-
-log_info "[seed] old cluster ready (PG_VERSION=$(cat "$PGDATA/PG_VERSION"))"
 """
 
+_SEED_TAIL = rb"""s6-setuidgid postgres ${BIN}/pg_ctl -D "$PGDATA" -w -t 60 stop
+chown -R abc:abc "$PGDATA"
+"""
 
-def _verify_seed_ran(logs: str) -> None:
+# Adds a ``postgres`` role alongside the ``abc`` bootstrap superuser, which is
+# what the rename block sees on current clusters.
+_POSTGRES_ROLE_SEED = rb"""s6-setuidgid postgres ${BIN}/psql -U abc -d viseron \
+  -c 'CREATE ROLE "postgres" WITH SUPERUSER LOGIN;'
+"""
+
+# Leaves oid 10 as ``abc`` and creates no ``postgres`` role, matching the layout
+# reported in #1498. A marker table checks that user data survives the upgrade.
+_LEGACY_ROLE_SEED = rb"""s6-setuidgid postgres ${BIN}/psql -U abc -d viseron \
+  -c 'CREATE TABLE upgrade_marker(id int);'
+s6-setuidgid postgres ${BIN}/psql -U abc -d viseron \
+  -c 'INSERT INTO upgrade_marker VALUES (42);'
+"""
+
+_SEED_SCRIPT = (
+    _SEED_HEAD
+    + _POSTGRES_ROLE_SEED
+    + _SEED_TAIL
+    + rb"""log_info "[seed] old cluster ready (PG_VERSION=$(cat "$PGDATA/PG_VERSION"))"
+"""
+)
+
+# Reproduces the layout described in #1498: ``initdb`` ran as ``abc`` under the
+# pre-cd4111fa init scripts, so no ``postgres`` role exists at all. ``upgrade_db``
+# has to find a role that can connect before it can rename oid 10.
+_LEGACY_SEED_SCRIPT = (
+    _SEED_HEAD
+    + _LEGACY_ROLE_SEED
+    + _SEED_TAIL
+    + rb"""log_info "[seed] legacy cluster ready \
+(PG_VERSION=$(cat "$PGDATA/PG_VERSION"))"
+"""
+)
+
+
+def _verify_seed_ran(logs: str, marker: str = _SEED_DONE_MARKER) -> None:
     """Raise if the injected ``cont-init.d`` seed script did not finish."""
-    if _SEED_DONE_MARKER not in logs:
+    if marker not in logs:
         raise RuntimeError(
             f"{_SEED_SCRIPT_PATH} did not complete, so 80-postgres never saw an "
             f"old cluster. Last 8KB of logs:\n{logs[-8192:]}"
         )
 
 
-@pytest.fixture(scope="session")
-def pg_upgrade_container(
+def _boot_upgrade_container(
+    *,
     docker_client: docker.DockerClient,
     image: str,
     docker_platform: str,
     boot_timeout: float,
     artifact_dir: Path,
     request: pytest.FixtureRequest,
+    seed_script: bytes,
+    seed_marker: str,
+    label: str,
 ) -> Iterator[Any]:
     """Boot a container whose ``$PGDATA`` is an old-version cluster."""
-    container_name = helpers.unique_container_name("viseron-smoke-pg-upgrade")
+    container_name = helpers.unique_container_name(f"viseron-smoke-pg-{label}")
 
     run_kwargs: dict[str, Any] = {
         "image": image,
@@ -114,7 +151,7 @@ def pg_upgrade_container(
         run_kwargs["platform"] = docker_platform
 
     print(  # noqa: T201
-        f"\n[smoke] starting pg-upgrade container {container_name} from {image}"
+        f"\n[smoke] starting {label} pg-upgrade container {container_name} from {image}"
     )
     try:
         container = docker_client.containers.create(**run_kwargs)
@@ -126,7 +163,7 @@ def pg_upgrade_container(
 
     helpers.put_abs(container, "/config/config.yaml", _MINIMAL_CONFIG.read_bytes())
     helpers.create_directories(container, *REQUIRED_STORAGE_DIRS)
-    helpers.put_abs(container, _SEED_SCRIPT_PATH, _SEED_SCRIPT, mode=0o755)
+    helpers.put_abs(container, _SEED_SCRIPT_PATH, seed_script, mode=0o755)
 
     try:
         container.start()
@@ -152,7 +189,7 @@ def pg_upgrade_container(
         logs = helpers.wait_for_log(
             container, READY_LOG_PATTERN, timeout=boot_timeout + 300
         )
-        _verify_seed_ran(logs)
+        _verify_seed_ran(logs, seed_marker)
     except BaseException:
         _dump_artifacts()
         try:
@@ -176,6 +213,56 @@ def pg_upgrade_container(
         container.stop(timeout=15)
     finally:
         container.remove(force=True)
+
+
+@pytest.fixture(scope="session")
+def pg_upgrade_container(
+    docker_client: docker.DockerClient,
+    image: str,
+    docker_platform: str,
+    boot_timeout: float,
+    artifact_dir: Path,
+    request: pytest.FixtureRequest,
+) -> Iterator[Any]:
+    """Boot a container whose ``$PGDATA`` is an old cluster with a postgres role."""
+    yield from _boot_upgrade_container(
+        docker_client=docker_client,
+        image=image,
+        docker_platform=docker_platform,
+        boot_timeout=boot_timeout,
+        artifact_dir=artifact_dir,
+        request=request,
+        seed_script=_SEED_SCRIPT,
+        seed_marker=_SEED_DONE_MARKER,
+        label="upgrade",
+    )
+
+
+@pytest.fixture(scope="session")
+def pg_legacy_upgrade_container(
+    docker_client: docker.DockerClient,
+    image: str,
+    docker_platform: str,
+    boot_timeout: float,
+    artifact_dir: Path,
+    request: pytest.FixtureRequest,
+) -> Iterator[Any]:
+    """Boot a container whose ``$PGDATA`` has no ``postgres`` role at all.
+
+    This is the layout reported in #1498: the pre-2024 init scripts ran
+    ``initdb`` as ``abc``, so oid 10 is ``abc`` and no ``postgres`` role exists.
+    """
+    yield from _boot_upgrade_container(
+        docker_client=docker_client,
+        image=image,
+        docker_platform=docker_platform,
+        boot_timeout=boot_timeout,
+        artifact_dir=artifact_dir,
+        request=request,
+        seed_script=_LEGACY_SEED_SCRIPT,
+        seed_marker=_LEGACY_SEED_DONE_MARKER,
+        label="legacy-upgrade",
+    )
 
 
 @pytest.fixture(scope="session")
@@ -318,3 +405,80 @@ def test_pg_isready_after_upgrade(pg_upgrade_host: testinfra.host.Host) -> None:
         f"pg_isready failed after upgrade: rc={cmd.rc}\n"
         f"stdout=\n{cmd.stdout}\nstderr=\n{cmd.stderr}"
     )
+
+
+@pytest.fixture(scope="session")
+def pg_legacy_upgrade_host(
+    pg_legacy_upgrade_container: Any,
+) -> testinfra.host.Host:
+    """Return a testinfra host bound to the legacy-layout container."""
+    return testinfra.get_host(f"docker://{pg_legacy_upgrade_container.name}")
+
+
+@pytest.fixture(scope="session")
+def pg_legacy_upgrade_boot_logs(pg_legacy_upgrade_container: Any) -> str:
+    """Return the captured boot logs of the legacy-layout container."""
+    return pg_legacy_upgrade_container.logs().decode("utf-8", errors="replace")
+
+
+def test_legacy_layout_booted_without_postgres_role(
+    pg_legacy_upgrade_boot_logs: str,
+) -> None:
+    """The seed must have produced a cluster with no ``postgres`` role.
+
+    Without this the test would silently fall back to the modern layout and stop
+    covering the upgrade path described in #1498.
+    """
+    assert "[seed] legacy cluster ready" in pg_legacy_upgrade_boot_logs
+
+
+def test_legacy_layout_upgrade_completed(
+    pg_legacy_upgrade_boot_logs: str,
+) -> None:
+    """``upgrade_db`` must finish even though no ``postgres`` role existed."""
+    for marker in (
+        "Changing superuser role name to postgres...",
+        "Renaming old superuser to postgres...",
+        "Upgrade complete.",
+    ):
+        assert marker in pg_legacy_upgrade_boot_logs, (
+            f"missing {marker!r}. Last 4KB:\n{pg_legacy_upgrade_boot_logs[-4096:]}"
+        )
+    assert "Aborting upgrade to preserve data." not in pg_legacy_upgrade_boot_logs
+    assert "pg_upgrade failed" not in pg_legacy_upgrade_boot_logs
+
+
+def test_legacy_layout_oid10_renamed_to_postgres(
+    pg_legacy_upgrade_host: testinfra.host.Host,
+) -> None:
+    """The ``abc`` bootstrap superuser must end up named ``postgres``."""
+    cmd = pg_legacy_upgrade_host.run(
+        "s6-setuidgid postgres psql -tAc %s -d postgres",
+        "SELECT rolname FROM pg_roles WHERE oid = 10;",
+    )
+    assert cmd.rc == 0, cmd.stderr
+    assert cmd.stdout.strip() == "postgres"
+
+
+def test_legacy_layout_cleaned_up_temporary_superuser(
+    pg_legacy_upgrade_host: testinfra.host.Host,
+) -> None:
+    """The temporary superuser used for the rename must not be left behind."""
+    cmd = pg_legacy_upgrade_host.run(
+        "s6-setuidgid postgres psql -tAc %s -d postgres",
+        "SELECT count(*) FROM pg_roles WHERE rolname = 'temp';",
+    )
+    assert cmd.rc == 0, cmd.stderr
+    assert cmd.stdout.strip() == "0"
+
+
+def test_legacy_layout_preserved_abc_role(
+    pg_legacy_upgrade_host: testinfra.host.Host,
+) -> None:
+    """``createuser abc`` must run after the rename, as the new superuser."""
+    cmd = pg_legacy_upgrade_host.run(
+        "s6-setuidgid postgres psql -tAc %s -d postgres",
+        "SELECT count(*) FROM pg_roles WHERE rolname = 'abc';",
+    )
+    assert cmd.rc == 0, cmd.stderr
+    assert cmd.stdout.strip() == "1"
