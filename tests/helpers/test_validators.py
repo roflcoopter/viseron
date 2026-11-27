@@ -11,6 +11,8 @@ from viseron.helpers.validators import (
     StringKey,
     Timezone,
     request_argument_bool,
+    slug,
+    valid_camera_identifier,
 )
 
 
@@ -197,3 +199,21 @@ class TestRequestArgumentBool:
     def test_converts_value(self, value, expected: bool):
         """Test documented conversions, including the string '0'."""
         assert request_argument_bool(value) is expected
+
+
+class TestSlugFunction:
+    """Tests for the slug function."""
+
+    def test_accepts_valid_slug(self):
+        """A properly formatted slug passes through."""
+        assert slug("front_door") == "front_door"
+
+    def test_rejects_empty_string(self):
+        """An empty string is not a valid slug."""
+        with pytest.raises(vol.Invalid):
+            slug("")
+
+    def test_valid_camera_identifier_rejects_empty(self):
+        """An empty camera identifier must be rejected."""
+        with pytest.raises(vol.Invalid):
+            valid_camera_identifier("")
