@@ -33,3 +33,20 @@ def test_watchdog_does_not_restart_thread_that_failed_to_stop():
     finally:
         stop_event.set()
         thread.join(timeout=10)
+
+
+def test_clone_carries_kwargs():
+    """A clone must receive the original thread's keyword arguments.
+
+    args were stored but kwargs were discarded (always None), so a restarted
+    thread silently ran its target without the kwargs the original got.
+    """
+    thread = RestartableThread(
+        target=lambda **kwargs: kwargs,
+        args=(1,),
+        kwargs={"x": 1},
+        register=False,
+    )
+    clone = thread.clone()
+    assert clone._restartable_args == (1,)
+    assert clone._restartable_kwargs == {"x": 1}
