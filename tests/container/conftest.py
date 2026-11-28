@@ -71,6 +71,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 # Booting a container dominates the runtime here, so the useful worker count is
 # the number of groups below, not the number of CPUs.
 CONTAINER_FIXTURE_GROUPS = (
+    ("pg_legacy_upgrade_container", "legacy_pg_upgrade"),
+    ("pg_legacy_upgrade_host", "legacy_pg_upgrade"),
+    ("pg_legacy_upgrade_boot_logs", "legacy_pg_upgrade"),
     ("pg_upgrade_container", "pg_upgrade"),
     ("viseron_container_data_mount", "data_mount"),
     ("viseron_container_data_mount_disable_chown", "data_mount"),

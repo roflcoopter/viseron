@@ -61,20 +61,72 @@ upgrade_db() {
   # In previous versions the database superuser was set to abc which breaks pg_upgrade
   log_info "Starting PostgreSQL..."
   s6-setuidgid postgres "/usr/lib/postgresql/$old_version/bin/pg_ctl" -D "$PGDATA" -l "$PGDATA/logfile" start
-  PG_SUPERUSER=$(s6-setuidgid postgres psql -q -d viseron -tc "SELECT rolname FROM pg_roles WHERE oid = 10;" | xargs)
-  if [ "$PG_SUPERUSER" != "postgres" ]; then
+
+  # The bootstrap superuser (oid 10) is not necessarily reachable as the
+  # postgres role. Clusters initialised before cd4111fa ran initdb as abc, so
+  # they may have no postgres role at all, or a postgres login role that is not
+  # a superuser. Every statement below needs a role that can both connect and
+  # create superusers, so look for one before touching oid 10.
+  pg_superuser_role=""
+  pg_superuser=""
+  for role in postgres abc; do
+    if ! s6-setuidgid postgres psql -q -d viseron -U "$role" -tAc "SELECT 1;" \
+      >/dev/null 2>&1; then
+      continue
+    fi
+    # The role connected; only a superuser can create and rename superusers.
+    if [ "$(s6-setuidgid postgres psql -q -d viseron -U "$role" -tAc \
+      "SELECT rolsuper FROM pg_roles WHERE rolname = current_user;" | xargs)" != "t" ]; then
+      continue
+    fi
+    pg_superuser_role=$role
+    break
+  done
+
+  if [ -n "$pg_superuser_role" ]; then
+    pg_superuser=$(s6-setuidgid postgres psql -q -d viseron -U "$pg_superuser_role" -tAc \
+      "SELECT rolname FROM pg_roles WHERE oid = 10;" | xargs)
+  fi
+
+  if [ -z "$pg_superuser_role" ] || [ -z "$pg_superuser" ]; then
+    # pg_upgrade connects as postgres and refuses to run without a superuser by
+    # that name, so stop here instead of failing later with a less clear error.
+    log_error "Could not connect to the database as a superuser to rename the role with oid 10 to postgres. Aborting upgrade to preserve data."
+    s6-setuidgid postgres "/usr/lib/postgresql/$old_version/bin/pg_ctl" -D "$PGDATA" -l "$PGDATA/logfile" stop
+    rm -rf "$new_db_path"
+    return 1
+  fi
+
+  if [ "$pg_superuser" != "postgres" ]; then
     log_info "Changing superuser role name to postgres..."
     log_info "Creating temporary superuser..."
-    s6-setuidgid postgres psql -d viseron -c 'CREATE ROLE "temp" WITH SUPERUSER CREATEDB CREATEROLE REPLICATION BYPASSRLS LOGIN;'
-    log_info "Dropping old postgres user..."
-    s6-setuidgid postgres psql -d viseron -U temp -c 'DROP ROLE "postgres";'
+    if ! s6-setuidgid postgres psql -d viseron -U "$pg_superuser_role" -v ON_ERROR_STOP=1 \
+      -c 'CREATE ROLE "temp" WITH SUPERUSER CREATEDB CREATEROLE REPLICATION BYPASSRLS LOGIN;'; then
+      log_error "Could not create the temporary superuser role. Aborting upgrade to preserve data."
+      s6-setuidgid postgres "/usr/lib/postgresql/$old_version/bin/pg_ctl" -D "$PGDATA" -l "$PGDATA/logfile" stop
+      rm -rf "$new_db_path"
+      return 1
+    fi
+    # The postgres role is absent on legacy clusters, so dropping it is optional.
+    if s6-setuidgid postgres psql -q -d viseron -U temp -tAc \
+      "SELECT 1 FROM pg_roles WHERE rolname = 'postgres';" | grep -q 1; then
+      log_info "Dropping old postgres user..."
+      s6-setuidgid postgres psql -d viseron -U temp -c 'DROP ROLE "postgres";'
+    fi
     log_info "Renaming old superuser to postgres..."
-    pg_ident=${PG_SUPERUSER//\"/\"\"}
-    s6-setuidgid postgres psql -d viseron -U temp -c "ALTER ROLE \"${pg_ident}\" RENAME TO postgres;"
+    pg_ident=${pg_superuser//\"/\"\"}
+    if ! s6-setuidgid postgres psql -d viseron -U temp -v ON_ERROR_STOP=1 \
+      -c "ALTER ROLE \"${pg_ident}\" RENAME TO postgres;"; then
+      log_error "Could not rename role \"${pg_ident}\" to postgres. Aborting upgrade to preserve data."
+      s6-setuidgid postgres psql -d viseron -U temp -c 'DROP ROLE "temp";'
+      s6-setuidgid postgres "/usr/lib/postgresql/$old_version/bin/pg_ctl" -D "$PGDATA" -l "$PGDATA/logfile" stop
+      rm -rf "$new_db_path"
+      return 1
+    fi
     log_info "Dropping temporary superuser..."
-    s6-setuidgid postgres psql -d viseron -c 'DROP ROLE "temp";'
+    s6-setuidgid postgres psql -d viseron -U postgres -c 'DROP ROLE "temp";'
     log_info "Create abc user"
-    s6-setuidgid postgres createuser abc
+    s6-setuidgid postgres createuser -U postgres abc
   fi
   log_info "Stopping PostgreSQL..."
   s6-setuidgid postgres "/usr/lib/postgresql/$old_version/bin/pg_ctl" -D "$PGDATA" -l "$PGDATA/logfile" stop
