@@ -421,7 +421,7 @@ class Component:
     def add_domain_to_setup(
         self,
         domain: SupportedDomains,
-        config: dict[str, Any],
+        config: dict[str, Any] | BaseModel,
         identifier: str,
         require_domains: list[RequireDomain] | None = None,
         optional_domains: list[OptionalDomain] | None = None,

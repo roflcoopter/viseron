@@ -22,6 +22,8 @@ from viseron.exceptions import DomainNotRegisteredError
 if TYPE_CHECKING:
     from concurrent.futures import Future
 
+    from pydantic import BaseModel
+
     from viseron import Viseron
     from viseron.domains import AbstractDomain, OptionalDomain, RequireDomain
     from viseron.domains.camera import FailedCamera
@@ -48,7 +50,7 @@ class DomainEntry:
     component_path: str
     domain: SupportedDomains
     identifier: str
-    config: dict[str, Any]
+    config: dict[str, Any] | BaseModel
     require_domains: list[RequireDomain] = field(default_factory=list)
     optional_domains: list[OptionalDomain] = field(default_factory=list)
     state: DomainState = DomainState.PENDING
@@ -123,7 +125,7 @@ class DomainRegistry:
         component_path: str,
         domain: SupportedDomains,
         identifier: str,
-        config: dict[str, Any],
+        config: dict[str, Any] | BaseModel,
         require_domains: list[RequireDomain] | None = None,
         optional_domains: list[OptionalDomain] | None = None,
     ) -> DomainEntry:

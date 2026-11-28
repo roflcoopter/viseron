@@ -34,6 +34,8 @@ from viseron.helpers.named_timer import NamedTimer
 SETUP_WITH_TRIES_PARAM_COUNT = 4
 
 if TYPE_CHECKING:
+    from pydantic import BaseModel
+
     from viseron import Viseron
     from viseron.components import Component
     from viseron.viseron_types import SupportedDomains
@@ -93,7 +95,7 @@ def setup_domain(
     vis: Viseron,
     component: str,
     domain: SupportedDomains,
-    config: dict[str, Any],
+    config: dict[str, Any] | BaseModel,
     identifier: str,
     require_domains: list[RequireDomain] | None = None,
     optional_domains: list[OptionalDomain] | None = None,
