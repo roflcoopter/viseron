@@ -70,7 +70,7 @@ class LicensePlateRecognitionBinarySensor(CameraBinarySensor):
         attributes["detected"] = self._detected
         if self._result:
             attributes["confidence"] = self._result.confidence
-        return {}
+        return attributes
 
     def plate_detected(self, event_data: Event[EventPlateDetected]) -> None:
         """Handle license plate detected event."""
